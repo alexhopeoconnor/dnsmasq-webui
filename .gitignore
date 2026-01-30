@@ -1,0 +1,45 @@
+# Build
+[Dd]ebug/
+[Rr]elease/
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+*.user
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+*.log
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.scc
+*.csproj.user
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# .NET
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/
+
+# Data (dev files - optional: track sample or ignore)
+# Data/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# User-specific
+appsettings.*.local.json
+*.local

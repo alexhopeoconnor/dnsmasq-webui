@@ -1,0 +1,78 @@
+@page "/"
+@rendermode InteractiveServer
+@inject HttpClient Http
+
+<PageTitle>Dnsmasq Web UI</PageTitle>
+
+<h1 class="mb-4">Dnsmasq Web UI</h1>
+
+<p class="lead text-muted mb-4">Manage DNS hosts and DHCP static assignments for dnsmasq.</p>
+
+@if (_status != null)
+{
+    <div class="alert alert-@(_status.dnsmasqStatus == "active" ? "success" : "secondary") mb-4 py-2">
+        <strong>Service:</strong> @(_status.dnsmasqStatus ?? "—")
+        @if (_status.reloadCommandConfigured)
+        {
+            <span class="ms-2 text-muted small">· Reload configured</span>
+        }
+    </div>
+}
+
+<div class="row g-4">
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <span class="bi bi-file-text me-2" aria-hidden="true"></span>Hosts
+                </h5>
+                <p class="card-text text-muted small">Edit the hosts file (/etc/hosts). Add or change static hostname-to-IP mappings.</p>
+                <a href="hosts" class="btn btn-primary btn-sm">Open Hosts</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <span class="bi bi-hdd-network me-2" aria-hidden="true"></span>DHCP
+                </h5>
+                <p class="card-text text-muted small">Manage static DHCP host entries (dhcp-host=). Assign fixed IPs by MAC or hostname.</p>
+                <a href="dhcp" class="btn btn-primary btn-sm">Open DHCP</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <span class="bi bi-list-check me-2" aria-hidden="true"></span>Leases
+                </h5>
+                <p class="card-text text-muted small">View active DHCP leases (read-only). Refreshes from the leases file on demand.</p>
+                <a href="leases" class="btn btn-primary btn-sm">Open Leases</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private HomeStatusDto? _status;
+
+    private class HomeStatusDto
+    {
+        public string? dnsmasqStatus { get; set; }
+        public bool reloadCommandConfigured { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _status = await Http.GetFromJsonAsync<HomeStatusDto>("api/status");
+        }
+        catch
+        {
+            // Status is optional on home; leave _status null
+        }
+    }
+}

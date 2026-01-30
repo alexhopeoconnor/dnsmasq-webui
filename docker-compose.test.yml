@@ -1,0 +1,43 @@
+# Run the app with real dnsmasq and a DHCP client so hosts/leases are real.
+# Build from repo root: docker compose -f docker-compose.test.yml up --build
+#
+# app builds from Dockerfile.dnsmasq (app + dnsmasq in one container; app is main process).
+# ReloadCommand/StatusCommand work because dnsmasq runs in the same container.
+#
+# Networks: testnet 172.28.0.0/16 so dnsmasq can hand out 172.28.0.10–50.
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dnsmasq
+    ports:
+      - "8080:8080"
+    environment:
+      DNSMASQ_CONF: /data/dnsmasq-test.conf
+      Dnsmasq__HostsPath: /data/hosts
+      Dnsmasq__ConfigPath: /data/dnsmasq.d/dhcp.conf
+      Dnsmasq__LeasesPath: /data/leases
+      Dnsmasq__ReloadCommand: "killall -HUP dnsmasq"
+      Dnsmasq__StatusCommand: "pgrep -x dnsmasq"
+    volumes:
+      - ./testdata:/data
+    networks:
+      testnet:
+        ipv4_address: 172.28.0.2
+    # no depends_on: app is the only service the client needs
+
+  dhcp-client:
+    image: alpine:3.20
+    command: ["sh", "-c", "sleep 5 && udhcpc -i eth0 -f -n"]
+    networks:
+      testnet: {}
+    depends_on:
+      - app
+
+networks:
+  testnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+          gateway: 172.28.0.1

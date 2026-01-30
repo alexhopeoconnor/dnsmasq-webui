@@ -1,0 +1,34 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{173DEAD0-B020-4AFA-AC74-2E9A00C564E8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DnsmasqWebUI", "src\DnsmasqWebUI\DnsmasqWebUI.csproj", "{AA9E793F-0A9E-4453-B010-0C559AAFAD5B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DnsmasqWebUI.Tests", "src\DnsmasqWebUI.Tests\DnsmasqWebUI.Tests.csproj", "{B1B2B3B4-B5B6-B7B8-B9BA-BBBCBDBEBFC0}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AA9E793F-0A9E-4453-B010-0C559AAFAD5B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AA9E793F-0A9E-4453-B010-0C559AAFAD5B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AA9E793F-0A9E-4453-B010-0C559AAFAD5B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AA9E793F-0A9E-4453-B010-0C559AAFAD5B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B1B2B3B4-B5B6-B7B8-B9BA-BBBCBDBEBFC0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B1B2B3B4-B5B6-B7B8-B9BA-BBBCBDBEBFC0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B1B2B3B4-B5B6-B7B8-B9BA-BBBCBDBEBFC0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B1B2B3B4-B5B6-B7B8-B9BA-BBBCBDBEBFC0}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{AA9E793F-0A9E-4453-B010-0C559AAFAD5B} = {173DEAD0-B020-4AFA-AC74-2E9A00C564E8}
+		{B1B2B3B4-B5B6-B7B8-B9BA-BBBCBDBEBFC0} = {173DEAD0-B020-4AFA-AC74-2E9A00C564E8}
+	EndGlobalSection
+EndGlobal

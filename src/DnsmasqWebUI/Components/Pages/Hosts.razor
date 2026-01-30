@@ -1,0 +1,124 @@
+@page "/hosts"
+@rendermode InteractiveServer
+@inject HttpClient Http
+
+<PageTitle>Hosts</PageTitle>
+
+<h1>Hosts file</h1>
+
+@if (_status == null)
+{
+    <p>Loading...</p>
+}
+else if (!_status.hostsPathExists)
+{
+    <p class="text-warning">Hosts file not found: @_status.hostsPath</p>
+}
+else
+{
+    @if (_status.dnsmasqStatus == "inactive" || _status.dnsmasqStatus == "unknown")
+    {
+        <div class="alert alert-warning">Dnsmasq service appears to be <strong>@_status.dnsmasqStatus</strong>. Save will update the file but reload may fail until the service is fixed.</div>
+    }
+    @if (_error != null)
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+    @if (_message != null)
+    {
+        <div class="alert alert-success">@_message</div>
+    }
+    <table class="table table-bordered">
+        <thead>
+            <tr><th>#</th><th>Address</th><th>Names</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var e in _entries.Where(x => !x.IsPassthrough))
+            {
+                <tr class="@(e.IsComment ? "table-secondary" : "")" @key="e.Id">
+                    <td>@e.LineNumber</td>
+                    <td>@e.Address</td>
+                    <td>@string.Join(", ", e.Names)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <p class="text-muted small">Path: @_status.hostsPath</p>
+    <button class="btn btn-primary mt-2" @onclick="Save" disabled="@_saving">Save</button>
+}
+
+@code {
+    private HostsStatusDto? _status;
+    private List<DnsmasqWebUI.Models.HostEntry> _entries = new();
+    private string? _error;
+    private string? _message;
+    private bool _saving;
+
+    private class HostsStatusDto
+    {
+        public string? hostsPath { get; set; }
+        public bool hostsPathExists { get; set; }
+        public string? dnsmasqStatus { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        _error = null;
+        _message = null;
+        try
+        {
+            _status = await Http.GetFromJsonAsync<HostsStatusDto>("api/status");
+            var entries = await Http.GetFromJsonAsync<List<DnsmasqWebUI.Models.HostEntry>>("api/hosts");
+            if (entries != null)
+                _entries = entries;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task Save()
+    {
+        _saving = true;
+        _error = null;
+        _message = null;
+        try
+        {
+            var response = await Http.PutAsJsonAsync("api/hosts", _entries);
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                _error = body;
+                return;
+            }
+            var result = await response.Content.ReadFromJsonAsync<SaveResultDto>();
+            if (result?.reload?.success == true)
+                _message = "Saved and dnsmasq reloaded.";
+            else if (result?.reload != null && !string.IsNullOrEmpty(result.reload.stdErr))
+                _error = "Saved but dnsmasq reload failed: " + result.reload.stdErr;
+            else
+                _message = "Saved.";
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private class SaveResultDto
+    {
+        public bool saved { get; set; }
+        public ReloadDto? reload { get; set; }
+    }
+    private class ReloadDto { public bool success { get; set; } public string? stdErr { get; set; } }
+}

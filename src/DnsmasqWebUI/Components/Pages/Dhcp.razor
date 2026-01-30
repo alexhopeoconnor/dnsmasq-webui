@@ -1,0 +1,194 @@
+@page "/dhcp"
+@rendermode InteractiveServer
+@inject HttpClient Http
+
+<PageTitle>DHCP hosts</PageTitle>
+
+<h1>DHCP static hosts</h1>
+
+@if (_status == null)
+{
+    <p>Loading...</p>
+}
+else if (!_status.configPathExists)
+{
+    <p class="text-warning">Config file not found: @_status.configPath</p>
+}
+else
+{
+    @if (_status.dnsmasqStatus == "inactive" || _status.dnsmasqStatus == "unknown")
+    {
+        <div class="alert alert-warning">Dnsmasq service appears to be <strong>@_status.dnsmasqStatus</strong>. Save will update the file but reload may fail until the service is fixed.</div>
+    }
+    @if (_error != null)
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+    @if (_message != null)
+    {
+        <div class="alert alert-success">@_message</div>
+    }
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>#</th><th>Valid</th><th>MAC</th><th>Name</th><th>Address</th><th>Lease</th><th>Ignore</th><th>Comment</th><th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var e in _entries.Where(x => !x.IsDeleted))
+            {
+                <tr class="@(e.IsComment ? "table-secondary" : "")" @key="e.Id">
+                    <td>@e.LineNumber</td>
+                    <td><input type="checkbox" checked="@(!e.IsComment)" @onchange="() => ToggleValid(e)" /></td>
+                    <td><input class="form-control form-control-sm" value="@string.Join(", ", e.MacAddresses)" @oninput="ev => SetMac(e, ev.Value?.ToString())" style="min-width:140px" /></td>
+                    <td><input class="form-control form-control-sm" @bind="e.Name" /></td>
+                    <td><input class="form-control form-control-sm" @bind="e.Address" style="min-width:100px" /></td>
+                    <td><input class="form-control form-control-sm" @bind="e.Lease" style="min-width:70px" /></td>
+                    <td><input type="checkbox" checked="@e.Ignore" @onchange="() => ToggleIgnore(e)" /></td>
+                    <td><input class="form-control form-control-sm" @bind="e.Comment" /></td>
+                    <td><button class="btn btn-sm btn-danger" @onclick="() => Delete(e)">Delete</button></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <button class="btn btn-secondary mt-2" @onclick="Add">Add host</button>
+    <button class="btn btn-primary mt-2" @onclick="Save" disabled="@_saving">Save</button>
+    @if (_status.reloadCommandConfigured)
+    {
+        <button class="btn btn-outline-primary mt-2" @onclick="Reload" disabled="@_saving">Reload dnsmasq</button>
+    }
+    <p class="text-muted small mt-2">Path: @_status.configPath</p>
+}
+
+@code {
+    private DhcpStatusDto? _status;
+    private List<DnsmasqWebUI.Models.DhcpHostEntry> _entries = new();
+    private string? _error;
+    private string? _message;
+    private bool _saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        _error = null;
+        _message = null;
+        try
+        {
+            _status = await Http.GetFromJsonAsync<DhcpStatusDto>("api/status");
+            var entries = await Http.GetFromJsonAsync<List<DnsmasqWebUI.Models.DhcpHostEntry>>("api/dhcp/hosts");
+            if (entries != null)
+                _entries = entries;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private void Add()
+    {
+        _entries.Add(new DnsmasqWebUI.Models.DhcpHostEntry { Id = "new:" + Guid.NewGuid().ToString("N"), LineNumber = 0, MacAddresses = new List<string>(), Extra = new List<string>() });
+        StateHasChanged();
+    }
+
+    private void Delete(DnsmasqWebUI.Models.DhcpHostEntry e)
+    {
+        e.IsDeleted = true;
+        StateHasChanged();
+    }
+
+    private void ToggleValid(DnsmasqWebUI.Models.DhcpHostEntry e)
+    {
+        e.IsComment = !e.IsComment;
+        StateHasChanged();
+    }
+
+    private void ToggleIgnore(DnsmasqWebUI.Models.DhcpHostEntry e)
+    {
+        e.Ignore = !e.Ignore;
+        StateHasChanged();
+    }
+
+    private void SetMac(DnsmasqWebUI.Models.DhcpHostEntry e, string? value)
+    {
+        e.MacAddresses = value?.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0).ToList() ?? new List<string>();
+        StateHasChanged();
+    }
+
+    private async Task Save()
+    {
+        _saving = true;
+        _error = null;
+        _message = null;
+        try
+        {
+            var response = await Http.PutAsJsonAsync("api/dhcp/hosts", _entries);
+            if (!response.IsSuccessStatusCode)
+            {
+                _error = await response.Content.ReadAsStringAsync();
+                return;
+            }
+            var result = await response.Content.ReadFromJsonAsync<SaveResultDto>();
+            if (result?.reload?.success == true)
+                _message = "Saved and dnsmasq reloaded.";
+            else if (result?.reload != null && !string.IsNullOrEmpty(result.reload.stdErr))
+                _error = "Saved but dnsmasq reload failed: " + result.reload.stdErr;
+            else
+                _message = "Saved.";
+            await Load();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private class SaveResultDto { public ReloadDto? reload { get; set; } }
+    private class DhcpStatusDto
+    {
+        public string? configPath { get; set; }
+        public bool configPathExists { get; set; }
+        public bool reloadCommandConfigured { get; set; }
+        public string? dnsmasqStatus { get; set; }
+    }
+
+    private async Task Reload()
+    {
+        _saving = true;
+        _error = null;
+        _message = null;
+        try
+        {
+            var result = await Http.PostAsync("api/reload", null);
+            result.EnsureSuccessStatusCode();
+            var reload = await result.Content.ReadFromJsonAsync<ReloadResultDto>();
+            if (reload?.success == true)
+                _message = "Dnsmasq reloaded.";
+            else
+                _error = "Reload failed: " + (reload?.stdErr ?? "unknown");
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private class ReloadResultDto
+    {
+        public bool success { get; set; }
+        public string? stdErr { get; set; }
+    }
+    private class ReloadDto { public bool success { get; set; } public string? stdErr { get; set; } }
+}
