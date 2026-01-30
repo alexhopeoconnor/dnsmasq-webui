@@ -1,6 +1,8 @@
 using System.Text.RegularExpressions;
 using DnsmasqWebUI.Models;
-using Sprache;
+using Superpower;
+using Superpower.Model;
+using Superpower.Parsers;
 
 namespace DnsmasqWebUI.Parsers;
 
@@ -13,31 +15,35 @@ public static class DhcpHostParser
 {
     private static readonly Regex HostnameRegex = new(@"^[a-zA-Z][-_a-zA-Z0-9]*$", RegexOptions.Compiled);
 
-    // Optional ## or # at start
-    private static readonly Parser<(bool isComment, bool isDeleted)> Prefix =
-        Parse.Char('#').Repeat(1, 2).Optional().Select(o =>
-        {
-            if (!o.IsDefined) return (false, false);
-            var s = string.Concat(o.Get());
-            return (true, s.Length == 2);
-        });
+    // Allow optional whitespace around a parser
+    private static TextParser<T> Token<T>(TextParser<T> parser) =>
+        Character.WhiteSpace.Many().IgnoreThen(parser).Then(x =>
+            Character.WhiteSpace.Many().IgnoreThen(Parse.Return(x)));
+
+    // Optional ## or # at start (Try so that single # backtracks and we can match one #)
+    private static readonly TextParser<(bool isComment, bool isDeleted)> Prefix =
+        Character.EqualTo('#').Repeat(2).Select(_ => (true, true)).Try()
+            .Or(Character.EqualTo('#').Select(_ => (true, false)))
+            .OptionalOrDefault((false, false));
 
     // Literal "dhcp-host=" (consumed, value discarded)
-    private static readonly Parser<IEnumerable<char>> DhcpHostTag =
-        Parse.String("dhcp-host=").Token();
+    private static readonly TextParser<Unit> DhcpHostTag =
+        Token(Span.EqualTo("dhcp-host=")).Value(Unit.Value);
 
     // One field: no comma, no # (stops at next comma or trailing comment)
-    private static readonly Parser<string> Field =
-        Parse.AnyChar.Where(c => c != ',' && c != '#').AtLeastOnce().Text().Token();
+    private static readonly TextParser<string> Field =
+        Character.Matching(c => c != ',' && c != '#', "field").AtLeastOnce().Text().Then(s =>
+            Character.WhiteSpace.Many().IgnoreThen(Parse.Return(s)));
 
-    // Comma-delimited fields (Sprache DelimitedBy), then optional trailing # comment
-    private static readonly Parser<(List<string> fields, string? comment)> FieldsAndComment =
-        from fields in Field.DelimitedBy(Parse.Char(',').Token()).Select(l => l.ToList())
-        from comment in Parse.Char('#').Token().Then(_ => Parse.AnyChar.Many().Text()).Optional()
-        select (fields, comment.IsDefined ? comment.Get().Trim() : null);
+    // Comma-delimited fields, then optional # comment
+    private static readonly TextParser<(List<string> fields, string? comment)> FieldsAndComment =
+        from fields in Field.AtLeastOnceDelimitedBy(Token(Character.EqualTo(',')))
+        from comment in Token(Character.EqualTo('#')).IgnoreThen(Character.AnyChar.Many().Text())
+            .Select(s => (string?)s).OptionalOrDefault(null)
+        select (fields.ToList(), string.IsNullOrEmpty(comment) ? null : comment.Trim());
 
     // Full line: optional ##/# prefix, "dhcp-host=", comma-separated fields, optional # comment
-    private static readonly Parser<(bool isComment, bool isDeleted, List<string> fields, string? comment)> LineParser =
+    private static readonly TextParser<(bool isComment, bool isDeleted, List<string> fields, string? comment)> LineParser =
         from prefix in Prefix
         from _ in DhcpHostTag
         from fc in FieldsAndComment
@@ -52,7 +58,7 @@ public static class DhcpHostParser
             return null;
 
         var result = LineParser.TryParse(remain);
-        if (!result.WasSuccessful)
+        if (!result.HasValue)
             return null;
 
         var (isComment, isDeleted, fields, comment) = result.Value;

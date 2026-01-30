@@ -6,24 +6,40 @@ namespace DnsmasqWebUI.Extensions;
 
 public static class ServiceCollectionExtensions
 {
+    delegate void RegisterService(IServiceCollection s, Type iface, Type impl);
+
+    static readonly (Type MarkerInterface, RegisterService Register)[] ApplicationRegistrations =
+    [
+        (typeof(IApplicationScopedService), (s, i, impl) => s.AddScoped(i, impl)),
+        (typeof(IApplicationSingleton), (s, i, impl) => s.AddSingleton(i, impl)),
+    ];
+
     /// <summary>
-    /// Scans the assembly for types implementing <see cref="IApplicationScopedService"/>
-    /// and registers each interface → implementation as scoped.
+    /// Scans the assembly for types implementing application marker interfaces
+    /// (<see cref="IApplicationScopedService"/>, <see cref="IApplicationSingleton"/>, etc.)
+    /// and registers each interface → implementation with the configured lifetime.
     /// Skips open generics; requires exactly one public implementation per interface.
     /// </summary>
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
-        var assembly = Assembly.GetExecutingAssembly();
-        var marker = typeof(IApplicationScopedService);
+        foreach (var (markerInterface, register) in ApplicationRegistrations)
+            ScanAndRegister(services, markerInterface, register);
+        return services;
+    }
 
-        // Only closed (non-generic) interfaces; open generics need typeof(IRepo&lt;&gt;, Repo&lt;&gt;) and are not handled here.
+    static void ScanAndRegister(
+        IServiceCollection services,
+        Type markerInterface,
+        RegisterService register)
+    {
+        var assembly = Assembly.GetExecutingAssembly();
+
         var serviceInterfaces = assembly.GetTypes()
-            .Where(t => t.IsInterface && t.IsPublic && t != marker && !t.IsGenericTypeDefinition && marker.IsAssignableFrom(t))
+            .Where(t => t.IsInterface && t.IsPublic && t != markerInterface && !t.IsGenericTypeDefinition && markerInterface.IsAssignableFrom(t))
             .ToList();
 
         foreach (var iface in serviceInterfaces)
         {
-            // Public, concrete, non-abstract, closed (no open generic classes).
             var implementations = assembly.GetTypes()
                 .Where(t => t.IsClass && t.IsPublic && !t.IsAbstract && !t.IsGenericTypeDefinition && iface.IsAssignableFrom(t))
                 .ToList();
@@ -35,9 +51,7 @@ public static class ServiceCollectionExtensions
                     $"Multiple implementations for {iface.FullName}: {string.Join(", ", implementations.Select(x => x.FullName))}. " +
                     "Register one explicitly or exclude the others from the scan.");
 
-            services.AddScoped(iface, implementations[0]);
+            register(services, iface, implementations[0]);
         }
-
-        return services;
     }
 }

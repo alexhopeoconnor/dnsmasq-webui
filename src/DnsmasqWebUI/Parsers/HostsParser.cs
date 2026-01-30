@@ -1,5 +1,7 @@
 using DnsmasqWebUI.Models;
-using Sprache;
+using Superpower;
+using Superpower.Model;
+using Superpower.Parsers;
 
 namespace DnsmasqWebUI.Parsers;
 
@@ -9,26 +11,32 @@ namespace DnsmasqWebUI.Parsers;
 /// </summary>
 public static class HostsParser
 {
+    // Allow optional whitespace around a parser (Superpower has no built-in Token for text parsers)
+    private static TextParser<T> Token<T>(TextParser<T> parser) =>
+        Character.WhiteSpace.Many().IgnoreThen(parser).Then(x =>
+            Character.WhiteSpace.Many().IgnoreThen(Parse.Return(x)));
+
     // Token: non-whitespace, non-# (stops at inline comment)
-    private static readonly Parser<string> Token =
-        Parse.AnyChar.Where(c => !char.IsWhiteSpace(c) && c != '#').AtLeastOnce().Text();
+    private static readonly TextParser<string> TokenField =
+        Character.Matching(c => !char.IsWhiteSpace(c) && c != '#', "token")
+            .AtLeastOnce().Text();
 
     // Optional leading # (comment line); when present, rest of line is comment text, not data
-    private static readonly Parser<bool> OptionalComment =
-        Parse.Char('#').Token().Optional().Select(o => o.IsDefined);
+    private static readonly TextParser<bool> OptionalComment =
+        Token(Character.EqualTo('#')).Select(_ => true).OptionalOrDefault(false);
 
     // Content: address (first token) then one or more names (tokens). Per hosts(5): IP then canonical name [aliases...].
-    private static readonly Parser<(string address, List<string> names)> Content =
-        from address in Token
-        from _ in Parse.WhiteSpace.AtLeastOnce()
-        from names in Token.AtLeastOnce()
+    private static readonly TextParser<(string address, List<string> names)> Content =
+        from address in TokenField
+        from _ in Span.WhiteSpace
+        from names in TokenField.AtLeastOnce()
         select (address, names.ToList());
 
     // Full line: if starts with #, treat entire line as comment (do not parse rest as address/names); else parse Content.
-    private static readonly Parser<(bool isComment, string address, List<string> names)> LineContent =
+    private static readonly TextParser<(bool isComment, string address, List<string> names)> LineContent =
         OptionalComment.Then(hasComment =>
             hasComment
-                ? Parse.AnyChar.Many().Text().Select(_ => (true, "", new List<string>()))
+                ? Character.AnyChar.Many().Text().Select(_ => (true, "", new List<string>()))
                 : Content.Select(c => (false, c.address, c.names)));
 
     public static HostEntry? ParseLine(string line, int lineNumber)
@@ -38,7 +46,7 @@ public static class HostsParser
             return new HostEntry { LineNumber = lineNumber, RawLine = line, IsPassthrough = true };
 
         var result = LineContent.TryParse(trimmed);
-        if (!result.WasSuccessful)
+        if (!result.HasValue)
             return new HostEntry { LineNumber = lineNumber, RawLine = line, IsPassthrough = true };
 
         var (isComment, address, names) = result.Value;

@@ -47,7 +47,7 @@ else
                 }
             </tbody>
         </table>
-        <p class="text-muted small">Path: @_status.leasesPath (read-only). Data is read from disk on each request; use Refresh to refetch.</p>
+        <p class="text-muted small">Path: @_status.leasesPath (read-only). Cached and refreshed when the file changes; use Refresh to refetch now.</p>
         <button class="btn btn-outline-primary btn-sm mt-1" @onclick="LoadLeases" disabled="@_loading">Refresh</button>
     }
 }

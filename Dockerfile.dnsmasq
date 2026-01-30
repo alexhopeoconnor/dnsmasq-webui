@@ -23,7 +23,7 @@ ENV ASPNETCORE_URLS=http://+:8080
 COPY --from=publish /app/publish .
 
 FROM app AS final
-RUN apt-get update && apt-get install -y --no-install-recommends dnsmasq \
+RUN apt-get update && apt-get install -y --no-install-recommends dnsmasq procps \
     && rm -rf /var/lib/apt/lists/*
 COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh

@@ -1,5 +1,7 @@
 using DnsmasqWebUI.Models;
-using Sprache;
+using Superpower;
+using Superpower.Model;
+using Superpower.Parsers;
 
 namespace DnsmasqWebUI.Parsers;
 
@@ -20,12 +22,18 @@ namespace DnsmasqWebUI.Parsers;
 /// </remarks>
 public static class LeasesParser
 {
-    // Non-whitespace token (MAC, IP, hostname, or * for unknown)
-    private static readonly Parser<string> Field =
-        Parse.AnyChar.Where(c => !char.IsWhiteSpace(c)).AtLeastOnce().Text().Token();
+    // Allow optional whitespace around a parser
+    private static TextParser<T> Token<T>(TextParser<T> parser) =>
+        Character.WhiteSpace.Many().IgnoreThen(parser).Then(x =>
+            Character.WhiteSpace.Many().IgnoreThen(Parse.Return(x)));
 
-    private static readonly Parser<LeaseEntry> LineParser =
-        (from epoch in Parse.Number.Token().Select(s => long.Parse(s))
+    // Non-whitespace token (MAC, IP, hostname, or * for unknown)
+    private static readonly TextParser<string> Field =
+        Character.Matching(c => !char.IsWhiteSpace(c), "field").AtLeastOnce().Text().Then(s =>
+            Character.WhiteSpace.Many().IgnoreThen(Parse.Return(s)));
+
+    private static readonly TextParser<LeaseEntry> LineParser =
+        (from epoch in Token(Numerics.IntegerInt64)
          from mac in Field
          from address in Field
          from name in Field
@@ -37,7 +45,7 @@ public static class LeasesParser
              Address = address,
              Name = name,
              ClientId = clientId
-         }).End();
+         }).AtEnd();
 
     public static LeaseEntry? ParseLine(string line)
     {
@@ -46,6 +54,6 @@ public static class LeasesParser
             return null;
 
         var result = LineParser.TryParse(trimmed);
-        return result.WasSuccessful ? result.Value : null;
+        return result.HasValue ? result.Value : null;
     }
 }

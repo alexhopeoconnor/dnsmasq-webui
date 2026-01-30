@@ -30,6 +30,9 @@ artifacts/
 # Data (dev files - optional: track sample or ignore)
 # Data/
 
+# Test harness: copy of testdata used as container mount (do not edit repo testdata)
+testdata-mount/
+
 # IDE
 .idea/
 .vscode/
