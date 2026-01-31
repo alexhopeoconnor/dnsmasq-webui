@@ -1,5 +1,7 @@
-# App + dnsmasq in one container (test harness). Stages mirror Dockerfile; final stage adds dnsmasq.
-# One build: no need to build or tag the standalone app image first.
+# App + dnsmasq in one container (test harness). Both run as root; file permissions work
+# because config dirs are in the container. For UI in container + dnsmasq on host, see
+# DnsmasqOptions XML doc (permissions and ReloadCommand/StatusCommand scope).
+# Stages mirror Dockerfile; final stage adds dnsmasq.
 
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
 WORKDIR /app
@@ -25,6 +27,6 @@ COPY --from=publish /app/publish .
 FROM app AS final
 RUN apt-get update && apt-get install -y --no-install-recommends dnsmasq procps \
     && rm -rf /var/lib/apt/lists/*
-COPY entrypoint.sh .
+COPY scripts/entrypoint.sh .
 RUN chmod +x entrypoint.sh
 ENTRYPOINT ["./entrypoint.sh"]

@@ -1,6 +1,12 @@
 #!/usr/bin/env sh
-# Prepare testdata-mount from testdata (or --source) and optionally run the Docker test harness.
-# testdata/leases is excluded so dnsmasq creates the real leases file in the container.
+# Prepare the testdata mount and optionally start the Docker test harness
+# (app + dnsmasq + DHCP client). See testdata/README.md and docker-compose.test.yml.
+#
+# What this script does:
+#   1. Clears the mount directory (unless --no-clear), then syncs source -> mount.
+#   2. Excludes 'leases' so dnsmasq creates/owns the real leases file in the container.
+#   3. Removes any *dnsmasq-webui*.conf so dnsmasq starts clean (app creates zz-dnsmasq-webui.conf at startup).
+#   4. Unless --prepare-only, runs: docker compose -f docker-compose.test.yml up -d [--build] [--force-recreate]
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -12,26 +18,61 @@ MOUNT_DIR=""
 PREPARE_ONLY=false
 NO_BUILD=false
 RECREATE=false
+NO_CLEAR=false
 
 usage() {
   echo "Usage: $0 [OPTIONS] [--]"
   echo ""
-  echo "Copy test data into the mount directory (default: testdata -> testdata-mount),"
-  echo "then run 'docker compose -f $COMPOSE_FILE up' unless --prepare-only is set."
+  echo "Prepare the testdata mount directory and optionally start the Docker test harness"
+  echo "(app with dnsmasq in one container, plus a DHCP client). The mount is synced from"
+  echo "testdata/ by default; 'leases' is excluded so dnsmasq creates the real leases file."
   echo ""
-  echo "Options:"
-  echo "  -h, --help          Show this help"
-  echo "  --source DIR        Source directory to copy from (default: testdata)"
+  echo "Steps:"
+  echo "  1. Clear mount dir (unless --no-clear), then sync source -> mount."
+  echo "  2. Remove any leftover *dnsmasq-webui*.conf so dnsmasq starts clean."
+  echo "  3. If not --prepare-only: docker compose -f $COMPOSE_FILE up -d [options]."
+  echo ""
+  echo "Path options:"
+  echo "  --source DIR        Source to copy from (default: testdata)"
   echo "  --mount DIR         Target mount directory (default: testdata-mount)"
-  echo "  --prepare-only      Only copy data; do not run docker compose"
-  echo "  --no-build          Run 'docker compose up' without --build (use existing images)"
-  echo "  --recreate          Pass --force-recreate to docker compose up"
+  echo "                      Compose uses TESTDATA_MOUNT; script exports it if you use --mount."
+  echo ""
+  echo "Mount behaviour:"
+  echo "  (default)           Clear mount dir completely, then sync. Use for a clean run."
+  echo "  --no-clear          Do not clear mount dir; only sync over existing contents."
+  echo "                      Use to preserve leases or debug files between runs."
+  echo ""
+  echo "Compose behaviour:"
+  echo "  --prepare-only      Only prepare the mount; do not run docker compose."
+  echo "                      Use to inspect or edit the mount before starting containers."
+  echo "  --no-build           Do not pass --build to docker compose (use existing images)."
+  echo "                      Use for a quick restart when only the mount changed."
+  echo "  --recreate           Pass --force-recreate to docker compose (recreate containers)."
+  echo "                      Use to ensure fresh container state and mounts."
+  echo ""
+  echo "Other:"
+  echo "  -h, --help          Show this help and exit."
   echo ""
   echo "Examples:"
-  echo "  $0                    # Prepare from testdata, then up --build"
-  echo "  $0 --no-build         # Prepare, then up without rebuilding"
-  echo "  $0 --prepare-only     # Only sync testdata -> testdata-mount"
+  echo "  $0"
+  echo "                      Full run: clear mount, sync testdata, build and start containers."
+  echo ""
+  echo "  $0 --no-build"
+  echo "                      Clear and sync, then start containers without rebuilding images."
+  echo ""
+  echo "  $0 --recreate"
+  echo "                      Clear and sync, then up --build --force-recreate (clean containers)."
+  echo ""
+  echo "  $0 --no-clear --no-build"
+  echo "                      Preserve mount contents, sync over it, start without rebuild."
+  echo ""
+  echo "  $0 --prepare-only"
+  echo "                      Only clear and sync testdata -> testdata-mount; no containers."
+  echo "                      Then run: docker compose -f $COMPOSE_FILE up -d [--build]"
+  echo ""
   echo "  $0 --source myfixtures --mount mymount --prepare-only"
+  echo "                      Sync myfixtures -> mymount only. Start with:"
+  echo "                      TESTDATA_MOUNT=./mymount docker compose -f $COMPOSE_FILE up -d"
 }
 
 while [ $# -gt 0 ]; do
@@ -50,6 +91,10 @@ while [ $# -gt 0 ]; do
       shift
       [ $# -gt 0 ] || { echo "Error: --mount requires DIR" >&2; exit 1; }
       MOUNT_DIR="$1"
+      shift
+      ;;
+    --no-clear)
+      NO_CLEAR=true
       shift
       ;;
     --prepare-only)
@@ -88,18 +133,25 @@ fi
 
 mkdir -p "$MOUNT_DIR"
 
+if [ "$NO_CLEAR" = false ]; then
+  echo "Clearing mount directory: $MOUNT_DIR"
+  find "$MOUNT_DIR" -mindepth 1 -delete 2>/dev/null || true
+fi
+
 if command -v rsync >/dev/null 2>&1; then
   rsync -a --exclude=leases "$SOURCE_DIR/" "$MOUNT_DIR/"
 else
-  find "$MOUNT_DIR" -mindepth 1 -delete 2>/dev/null || true
   cp -r "$SOURCE_DIR/." "$MOUNT_DIR/"
   rm -f "$MOUNT_DIR/leases"
 fi
 
+# Remove any leftover managed config from previous runs so dnsmasq starts clean (app will create zz-dnsmasq-webui.conf on startup).
+find "$MOUNT_DIR" -name '*dnsmasq-webui*.conf' -type f -delete 2>/dev/null || true
+
 echo "Mount directory ready: $MOUNT_DIR (source: $SOURCE_DIR, leases excluded)."
 
 if [ "$PREPARE_ONLY" = true ]; then
-  echo "Run manually: docker compose -f $COMPOSE_FILE up --build"
+  echo "To start the harness: TESTDATA_MOUNT=./$MOUNT_DIR docker compose -f $COMPOSE_FILE up -d --build"
   exit 0
 fi
 

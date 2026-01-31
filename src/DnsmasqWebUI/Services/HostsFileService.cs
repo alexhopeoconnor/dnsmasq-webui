@@ -30,7 +30,7 @@ public class HostsFileService : IHostsFileService
         var seenContentIds = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < lines.Length; i++)
         {
-            var entry = HostsParser.ParseLine(lines[i], i + 1);
+            var entry = HostsFileLineParser.ParseLine(lines[i], i + 1);
             if (entry == null) continue;
             if (entry.IsPassthrough || string.IsNullOrEmpty(entry.Address))
                 entry.Id = "line:" + entry.LineNumber;
@@ -51,7 +51,7 @@ public class HostsFileService : IHostsFileService
             Directory.CreateDirectory(dir);
 
         var tmpPath = _path + ".tmp";
-        var lines = entries.Select(HostsParser.ToLine).ToList();
+        var lines = entries.Select(HostsFileLineParser.ToLine).ToList();
         await File.WriteAllLinesAsync(tmpPath, lines, Encoding.UTF8, ct);
         File.Move(tmpPath, _path, overwrite: true);
         _logger.LogInformation("Wrote hosts file: {Path}", _path);

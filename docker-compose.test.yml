@@ -17,9 +17,9 @@ services:
       - NET_ADMIN
     environment:
       DNSMASQ_CONF: /data/dnsmasq-test.conf
+      Dnsmasq__MainConfigPath: /data/dnsmasq-test.conf
+      Dnsmasq__ManagedFileName: zz-dnsmasq-webui.conf
       Dnsmasq__HostsPath: /data/hosts
-      Dnsmasq__ConfigPath: /data/dnsmasq.d/dhcp.conf
-      Dnsmasq__LeasesPath: /data/leases
       Dnsmasq__ReloadCommand: "pkill -HUP -x dnsmasq"
       Dnsmasq__StatusCommand: "pgrep -x dnsmasq"
     volumes:

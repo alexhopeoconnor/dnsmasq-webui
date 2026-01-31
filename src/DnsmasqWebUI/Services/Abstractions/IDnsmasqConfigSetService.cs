@@ -1,0 +1,15 @@
+using DnsmasqWebUI.Models;
+
+namespace DnsmasqWebUI.Services.Abstractions;
+
+/// <summary>Discovers the dnsmasq config set (main + conf-file/conf-dir) and the managed file path.</summary>
+public interface IDnsmasqConfigSetService : IApplicationSingleton
+{
+    Task<DnsmasqConfigSet> GetConfigSetAsync(CancellationToken ct = default);
+
+    /// <summary>Leases path discovered from the config set (dhcp-leasefile= / dhcp-lease-file=; last wins). Null if not found.</summary>
+    string? GetLeasesPath();
+
+    /// <summary>Additional hosts paths discovered from the config set (addn-hosts=; cumulative, all in order). Empty if none.</summary>
+    IReadOnlyList<string> GetAddnHostsPaths();
+}

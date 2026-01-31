@@ -7,18 +7,13 @@ using Superpower.Parsers;
 namespace DnsmasqWebUI.Parsers;
 
 /// <summary>
-/// Parses dnsmasq <c>dhcp-host=</c> lines. Config file uses same format as long option without <c>--</c>.
+/// Parses a single <c>dhcp-host=</c> line from a dnsmasq .conf file. Same format as long option without <c>--</c>.
 /// Official format: --dhcp-host=[hwaddr][,id:client_id|*][,set:tag][,tag:tag][,ipaddr][,hostname][,lease_time][,ignore]
 /// Multiple hwaddr allowed (one IP for several MACs). See: https://thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html
 /// </summary>
-public static class DhcpHostParser
+public static class DnsmasqConfDhcpHostLineParser
 {
     private static readonly Regex HostnameRegex = new(@"^[a-zA-Z][-_a-zA-Z0-9]*$", RegexOptions.Compiled);
-
-    // Allow optional whitespace around a parser
-    private static TextParser<T> Token<T>(TextParser<T> parser) =>
-        Character.WhiteSpace.Many().IgnoreThen(parser).Then(x =>
-            Character.WhiteSpace.Many().IgnoreThen(Parse.Return(x)));
 
     // Optional ## or # at start (Try so that single # backtracks and we can match one #)
     private static readonly TextParser<(bool isComment, bool isDeleted)> Prefix =
@@ -28,7 +23,7 @@ public static class DhcpHostParser
 
     // Literal "dhcp-host=" (consumed, value discarded)
     private static readonly TextParser<Unit> DhcpHostTag =
-        Token(Span.EqualTo("dhcp-host=")).Value(Unit.Value);
+        ConfParserHelpers.Token(Span.EqualTo("dhcp-host=")).Value(Unit.Value);
 
     // One field: no comma, no # (stops at next comma or trailing comment)
     private static readonly TextParser<string> Field =
@@ -37,8 +32,8 @@ public static class DhcpHostParser
 
     // Comma-delimited fields, then optional # comment
     private static readonly TextParser<(List<string> fields, string? comment)> FieldsAndComment =
-        from fields in Field.AtLeastOnceDelimitedBy(Token(Character.EqualTo(',')))
-        from comment in Token(Character.EqualTo('#')).IgnoreThen(Character.AnyChar.Many().Text())
+        from fields in Field.AtLeastOnceDelimitedBy(ConfParserHelpers.Token(Character.EqualTo(',')))
+        from comment in ConfParserHelpers.Token(Character.EqualTo('#')).IgnoreThen(Character.AnyChar.Many().Text())
             .Select(s => (string?)s).OptionalOrDefault(null)
         select (fields.ToList(), string.IsNullOrEmpty(comment) ? null : comment.Trim());
 

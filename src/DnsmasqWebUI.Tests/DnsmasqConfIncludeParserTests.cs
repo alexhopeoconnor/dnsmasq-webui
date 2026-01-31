@@ -1,0 +1,255 @@
+using DnsmasqWebUI.Parsers;
+
+namespace DnsmasqWebUI.Tests;
+
+/// <summary>
+/// Tests for DnsmasqConfIncludeParser. Discovers conf-file= and conf-dir= from main dnsmasq config
+/// to build ordered list of included file paths and first conf-dir for managed file.
+/// </summary>
+public class DnsmasqConfIncludeParserTests
+{
+    [Fact]
+    public void GetIncludedPaths_MainFileMissing_ReturnsOnlyMainPath()
+    {
+        var main = Path.Combine(Path.GetTempPath(), "nonexistent-dnsmasq-" + Guid.NewGuid().ToString("N") + ".conf");
+        var paths = DnsmasqConfIncludeParser.GetIncludedPaths(main);
+        Assert.Single(paths);
+        Assert.Equal(Path.GetFullPath(main), paths[0]);
+    }
+
+    [Fact]
+    public void GetIncludedPaths_MainOnly_ReturnsSinglePath()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-main-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var main = Path.Combine(dir, "dnsmasq.conf");
+            File.WriteAllText(main, "domain=local\n");
+            var paths = DnsmasqConfIncludeParser.GetIncludedPaths(main);
+            Assert.Single(paths);
+            Assert.Equal(Path.GetFullPath(main), paths[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetIncludedPaths_OneConfFile_ReturnsMainThenConfFile()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-conffile-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var includePath = Path.Combine(dir, "extra.conf");
+            File.WriteAllText(includePath, "# extra\n");
+            var main = Path.Combine(dir, "dnsmasq.conf");
+            File.WriteAllText(main, "conf-file=extra.conf\n");
+            var paths = DnsmasqConfIncludeParser.GetIncludedPaths(main);
+            Assert.Equal(2, paths.Count);
+            Assert.Equal(Path.GetFullPath(main), paths[0]);
+            Assert.Equal(Path.GetFullPath(includePath), paths[1]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetIncludedPaths_OneConfDir_ReturnsMainThenDirFilesSorted()
+    {
+        var baseDir = Path.Combine(Path.GetTempPath(), "dnsmasq-confdir-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(baseDir);
+        var subDir = Path.Combine(baseDir, "d");
+        Directory.CreateDirectory(subDir);
+        try
+        {
+            File.WriteAllText(Path.Combine(subDir, "zz.conf"), "");
+            File.WriteAllText(Path.Combine(subDir, "aa.conf"), "");
+            var main = Path.Combine(baseDir, "dnsmasq.conf");
+            File.WriteAllText(main, "conf-dir=d\n");
+            var paths = DnsmasqConfIncludeParser.GetIncludedPaths(main);
+            Assert.Equal(3, paths.Count); // main + aa.conf + zz.conf (alphabetical)
+            Assert.Equal(Path.GetFullPath(main), paths[0]);
+            Assert.Equal(Path.GetFullPath(Path.Combine(subDir, "aa.conf")), paths[1]);
+            Assert.Equal(Path.GetFullPath(Path.Combine(subDir, "zz.conf")), paths[2]);
+        }
+        finally
+        {
+            Directory.Delete(baseDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFirstConfDir_NoConfDir_ReturnsNull()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-noconfdir-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var main = Path.Combine(dir, "dnsmasq.conf");
+            File.WriteAllText(main, "domain=local\nconf-file=other.conf\n");
+            var first = DnsmasqConfIncludeParser.GetFirstConfDir(main);
+            Assert.Null(first);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFirstConfDir_HasConfDir_ReturnsResolvedPath()
+    {
+        var baseDir = Path.Combine(Path.GetTempPath(), "dnsmasq-firstdir-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(baseDir);
+        var subDir = Path.Combine(baseDir, "dnsmasq.d");
+        Directory.CreateDirectory(subDir);
+        try
+        {
+            var main = Path.Combine(baseDir, "dnsmasq.conf");
+            File.WriteAllText(main, "conf-dir=dnsmasq.d\n");
+            var first = DnsmasqConfIncludeParser.GetFirstConfDir(main);
+            Assert.NotNull(first);
+            Assert.Equal(Path.GetFullPath(subDir), first);
+        }
+        finally
+        {
+            Directory.Delete(baseDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetIncludedPaths_CommentsAndBlanks_Ignored()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-comments-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var main = Path.Combine(dir, "dnsmasq.conf");
+            File.WriteAllText(main, "# comment\n\n  \nconf-file=extra.conf\n");
+            var extra = Path.Combine(dir, "extra.conf");
+            File.WriteAllText(extra, "");
+            var paths = DnsmasqConfIncludeParser.GetIncludedPaths(main);
+            Assert.Equal(2, paths.Count);
+            Assert.Equal(Path.GetFullPath(extra), paths[1]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetIncludedPaths_testdata_dnsmasq_conf_ReturnsMainOnlyWhenConfDirMissing()
+    {
+        var mainPath = TestDataHelper.GetPath("dnsmasq.conf");
+        if (!File.Exists(mainPath))
+            return; // testdata not copied
+        var paths = DnsmasqConfIncludeParser.GetIncludedPaths(mainPath);
+        Assert.Single(paths);
+        Assert.Equal(Path.GetFullPath(mainPath), paths[0]);
+    }
+
+    [Fact]
+    public void GetDhcpLeaseFilePathFromConfigFiles_FromTestdata_ReturnsLeasesPath()
+    {
+        var mainPath = TestDataHelper.GetPath("dnsmasq-test.conf");
+        if (!File.Exists(mainPath))
+            return;
+        var paths = new[] { mainPath };
+        var result = DnsmasqConfIncludeParser.GetDhcpLeaseFilePathFromConfigFiles(paths);
+        Assert.NotNull(result);
+        Assert.Equal(Path.GetFullPath("/data/leases"), result);
+    }
+
+    [Fact]
+    public void GetDhcpLeaseFilePathFromConfigFiles_LastWins()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-lease-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var first = Path.Combine(dir, "first.conf");
+            File.WriteAllText(first, "dhcp-leasefile=/var/first.leases\n");
+            var second = Path.Combine(dir, "second.conf");
+            File.WriteAllText(second, "dhcp-leasefile=/var/second.leases\n");
+            var result = DnsmasqConfIncludeParser.GetDhcpLeaseFilePathFromConfigFiles(new[] { first, second });
+            Assert.Equal(Path.GetFullPath("/var/second.leases"), result);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetDhcpLeaseFilePathFromConfigFiles_RelativePath_ResolvedAgainstConfigDir()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-lease-rel-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var conf = Path.Combine(dir, "dnsmasq.conf");
+            File.WriteAllText(conf, "dhcp-leasefile=subdir/leases\n");
+            var result = DnsmasqConfIncludeParser.GetDhcpLeaseFilePathFromConfigFiles(new[] { conf });
+            Assert.Equal(Path.GetFullPath(Path.Combine(dir, "subdir", "leases")), result);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetAddnHostsPathsFromConfigFiles_Empty_ReturnsEmpty()
+    {
+        var result = DnsmasqConfIncludeParser.GetAddnHostsPathsFromConfigFiles(Array.Empty<string>());
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void GetAddnHostsPathsFromConfigFiles_Cumulative_ReturnsAllInOrder()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-addn-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var first = Path.Combine(dir, "first.conf");
+            File.WriteAllText(first, "addn-hosts=/etc/hosts.d/first\n");
+            var second = Path.Combine(dir, "second.conf");
+            File.WriteAllText(second, "addn-hosts=/data/hosts\naddn-hosts=/data/extra.hosts\n");
+            var result = DnsmasqConfIncludeParser.GetAddnHostsPathsFromConfigFiles(new[] { first, second });
+            Assert.Equal(3, result.Count);
+            Assert.Equal(Path.GetFullPath("/etc/hosts.d/first"), result[0]);
+            Assert.Equal(Path.GetFullPath("/data/hosts"), result[1]);
+            Assert.Equal(Path.GetFullPath("/data/extra.hosts"), result[2]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetAddnHostsPathsFromConfigFiles_RelativePath_ResolvedAgainstConfigDir()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-addn-rel-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var conf = Path.Combine(dir, "dnsmasq.conf");
+            File.WriteAllText(conf, "addn-hosts=hosts.d/app.hosts\n");
+            var result = DnsmasqConfIncludeParser.GetAddnHostsPathsFromConfigFiles(new[] { conf });
+            Assert.Single(result);
+            Assert.Equal(Path.GetFullPath(Path.Combine(dir, "hosts.d", "app.hosts")), result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+}

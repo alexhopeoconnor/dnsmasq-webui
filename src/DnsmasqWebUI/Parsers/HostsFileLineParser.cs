@@ -6,16 +6,11 @@ using Superpower.Parsers;
 namespace DnsmasqWebUI.Parsers;
 
 /// <summary>
-/// Parses /etc/hosts-style lines. Format: IP_address canonical_hostname [aliases...]
+/// Parses a single line of an /etc/hosts-style file. Format: IP_address canonical_hostname [aliases...]
 /// Fields separated by blanks/tabs; text from '#' to EOL is comment (hosts(5), RFC 952).
 /// </summary>
-public static class HostsParser
+public static class HostsFileLineParser
 {
-    // Allow optional whitespace around a parser (Superpower has no built-in Token for text parsers)
-    private static TextParser<T> Token<T>(TextParser<T> parser) =>
-        Character.WhiteSpace.Many().IgnoreThen(parser).Then(x =>
-            Character.WhiteSpace.Many().IgnoreThen(Parse.Return(x)));
-
     // Token: non-whitespace, non-# (stops at inline comment)
     private static readonly TextParser<string> TokenField =
         Character.Matching(c => !char.IsWhiteSpace(c) && c != '#', "token")
@@ -23,7 +18,7 @@ public static class HostsParser
 
     // Optional leading # (comment line); when present, rest of line is comment text, not data
     private static readonly TextParser<bool> OptionalComment =
-        Token(Character.EqualTo('#')).Select(_ => true).OptionalOrDefault(false);
+        ConfParserHelpers.Token(Character.EqualTo('#')).Select(_ => true).OptionalOrDefault(false);
 
     // Content: address (first token) then one or more names (tokens). Per hosts(5): IP then canonical name [aliases...].
     private static readonly TextParser<(string address, List<string> names)> Content =

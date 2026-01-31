@@ -1,0 +1,24 @@
+# Reference: dnsmasq config example (format only).
+# Source: https://github.com/imp/dnsmasq/blob/master/dnsmasq.conf.example
+# Format: one option per line; same as long options without "--". See "man 8 dnsmasq".
+# Option categories we care about for parsing:
+#   Include:     conf-file=, conf-dir=
+#   Paths:       addn-hosts=, resolv-file=, dhcp-leasefile=, dhcp-hostsfile=
+#   Simple:     domain=, port=, user=, group=, interface=, listen-address=
+#   Flags:      domain-needed, bogus-priv, no-hosts, expand-hosts, strict-order
+#   DHCP:       dhcp-range=..., dhcp-host=..., dhcp-option=..., dhcp-leasefile=
+#   Server:     server=/domain/ip, local=/domain/
+#   Other:      address=, cache-size=, local-ttl=, log-queries, etc.
+
+#conf-file=/etc/dnsmasq.more.conf
+#conf-dir=/etc/dnsmasq.d
+
+#addn-hosts=/etc/banner_add_hosts
+#domain=thekelleys.org.uk
+#dhcp-range=192.168.0.50,192.168.0.150,12h
+#dhcp-host=11:22:33:44:55:66,fred,192.168.0.60,45m
+#dhcp-leasefile=/var/lib/misc/dnsmasq.leases
+
+#server=/localnet/192.168.0.1
+#local=/localnet/
+#address=/double-click.net/127.0.0.1

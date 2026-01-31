@@ -1,9 +1,7 @@
 using System.Text;
 using DnsmasqWebUI.Models;
-using DnsmasqWebUI.Options;
 using DnsmasqWebUI.Parsers;
 using DnsmasqWebUI.Services.Abstractions;
-using Microsoft.Extensions.Options;
 
 namespace DnsmasqWebUI.Services;
 
@@ -19,9 +17,9 @@ public sealed class LeasesCache : ILeasesCache, IDisposable
     private (bool Available, IReadOnlyList<LeaseEntry>? Entries)? _cache;
     private bool _dirty = true;
 
-    public LeasesCache(IOptions<DnsmasqOptions> options, ILogger<LeasesCache> logger)
+    public LeasesCache(IDnsmasqConfigSetService configSetService, ILogger<LeasesCache> logger)
     {
-        _path = options.Value.LeasesPath;
+        _path = configSetService.GetLeasesPath();
         _logger = logger;
         if (string.IsNullOrEmpty(_path))
         {
@@ -89,7 +87,7 @@ public sealed class LeasesCache : ILeasesCache, IDisposable
                 var entries = new List<LeaseEntry>();
                 foreach (var line in lines)
                 {
-                    var entry = LeasesParser.ParseLine(line);
+                    var entry = DnsmasqLeasesFileLineParser.ParseLine(line);
                     if (entry != null)
                         entries.Add(entry);
                 }

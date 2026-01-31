@@ -6,7 +6,7 @@ using Superpower.Parsers;
 namespace DnsmasqWebUI.Parsers;
 
 /// <summary>
-/// Parses dnsmasq DHCPv4 lease file lines.
+/// Parses a single line of the dnsmasq DHCPv4 lease file (e.g. /var/lib/misc/dnsmasq.leases).
 /// </summary>
 /// <remarks>
 /// Format (authoritative, from dnsmasq author Simon Kelley, dnsmasq-discuss 2006):
@@ -20,20 +20,15 @@ namespace DnsmasqWebUI.Parsers;
 /// such lines return null. IPv6 lease lines have a different field layout and are not supported here.
 /// See: https://lists.thekelleys.org.uk/pipermail/dnsmasq-discuss/2006q2/000734.html
 /// </remarks>
-public static class LeasesParser
+public static class DnsmasqLeasesFileLineParser
 {
-    // Allow optional whitespace around a parser
-    private static TextParser<T> Token<T>(TextParser<T> parser) =>
-        Character.WhiteSpace.Many().IgnoreThen(parser).Then(x =>
-            Character.WhiteSpace.Many().IgnoreThen(Parse.Return(x)));
-
     // Non-whitespace token (MAC, IP, hostname, or * for unknown)
     private static readonly TextParser<string> Field =
         Character.Matching(c => !char.IsWhiteSpace(c), "field").AtLeastOnce().Text().Then(s =>
             Character.WhiteSpace.Many().IgnoreThen(Parse.Return(s)));
 
     private static readonly TextParser<LeaseEntry> LineParser =
-        (from epoch in Token(Numerics.IntegerInt64)
+        (from epoch in ConfParserHelpers.Token(Numerics.IntegerInt64)
          from mac in Field
          from address in Field
          from name in Field

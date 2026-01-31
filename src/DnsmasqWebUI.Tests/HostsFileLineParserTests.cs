@@ -4,15 +4,15 @@ using DnsmasqWebUI.Parsers;
 namespace DnsmasqWebUI.Tests;
 
 /// <summary>
-/// Tests for HostsParser. Format: IP_address canonical_hostname [aliases...] (hosts(5), RFC 952).
+/// Tests for HostsFileLineParser. Format: IP_address canonical_hostname [aliases...] (hosts(5), RFC 952).
 /// Fields separated by blanks/tabs; '#' to EOL is comment.
 /// </summary>
-public class HostsParserTests
+public class HostsFileLineParserTests
 {
     [Fact]
     public void ParseLine_Blank_ReturnsPassthrough()
     {
-        var e = HostsParser.ParseLine("", 1);
+        var e = HostsFileLineParser.ParseLine("", 1);
         Assert.NotNull(e);
         Assert.True(e!.IsPassthrough);
         Assert.Equal(1, e.LineNumber);
@@ -22,7 +22,7 @@ public class HostsParserTests
     [Fact]
     public void ParseLine_WhitespaceOnly_ReturnsPassthrough()
     {
-        var e = HostsParser.ParseLine("   \t  ", 2);
+        var e = HostsFileLineParser.ParseLine("   \t  ", 2);
         Assert.NotNull(e);
         Assert.True(e!.IsPassthrough);
     }
@@ -30,7 +30,7 @@ public class HostsParserTests
     [Fact]
     public void ParseLine_CommentOnly_TreatsWholeLineAsComment()
     {
-        var e = HostsParser.ParseLine("# This is a comment", 1);
+        var e = HostsFileLineParser.ParseLine("# This is a comment", 1);
         Assert.NotNull(e);
         Assert.True(e!.IsComment);
         Assert.True(e.IsPassthrough);
@@ -42,7 +42,7 @@ public class HostsParserTests
     public void ParseLine_CommentWithDataLikeContent_DoesNotParseAsAddress()
     {
         // Per hosts(5): text from # to EOL is comment - so "# 127.0.0.1 localhost" is entirely comment
-        var e = HostsParser.ParseLine("# 127.0.0.1 localhost", 1);
+        var e = HostsFileLineParser.ParseLine("# 127.0.0.1 localhost", 1);
         Assert.NotNull(e);
         Assert.True(e!.IsComment);
         Assert.Equal("", e.Address);
@@ -52,7 +52,7 @@ public class HostsParserTests
     [Fact]
     public void ParseLine_IPv4Localhost_ParsesAddressAndName()
     {
-        var e = HostsParser.ParseLine("127.0.0.1 localhost", 1);
+        var e = HostsFileLineParser.ParseLine("127.0.0.1 localhost", 1);
         Assert.NotNull(e);
         Assert.False(e!.IsPassthrough);
         Assert.Equal("127.0.0.1", e.Address);
@@ -63,7 +63,7 @@ public class HostsParserTests
     [Fact]
     public void ParseLine_IPv4WithCanonicalAndAlias_ParsesAll()
     {
-        var e = HostsParser.ParseLine("127.0.1.1 thishost.example.org thishost", 1);
+        var e = HostsFileLineParser.ParseLine("127.0.1.1 thishost.example.org thishost", 1);
         Assert.NotNull(e);
         Assert.Equal("127.0.1.1", e.Address);
         Assert.True(e.Names.Count >= 1);
@@ -75,7 +75,7 @@ public class HostsParserTests
     [Fact]
     public void ParseLine_IPv4WithMultipleSpaces_ParsesCorrectly()
     {
-        var e = HostsParser.ParseLine("192.168.1.10    foo.example.org   foo", 1);
+        var e = HostsFileLineParser.ParseLine("192.168.1.10    foo.example.org   foo", 1);
         Assert.NotNull(e);
         Assert.Equal("192.168.1.10", e.Address);
         Assert.True(e.Names.Count >= 1);
@@ -85,7 +85,7 @@ public class HostsParserTests
     [Fact]
     public void ParseLine_IPv6_ParsesAddressAndNames()
     {
-        var e = HostsParser.ParseLine("::1 localhost ip6-localhost ip6-loopback", 1);
+        var e = HostsFileLineParser.ParseLine("::1 localhost ip6-localhost ip6-loopback", 1);
         Assert.NotNull(e);
         Assert.Equal("::1", e.Address);
         Assert.True(e.Names.Count >= 1);
@@ -95,7 +95,7 @@ public class HostsParserTests
     [Fact]
     public void ParseLine_IPv6Multicast_Parses()
     {
-        var e = HostsParser.ParseLine("ff02::1 ip6-allnodes", 1);
+        var e = HostsFileLineParser.ParseLine("ff02::1 ip6-allnodes", 1);
         Assert.NotNull(e);
         Assert.Equal("ff02::1", e.Address);
         Assert.Single(e.Names);
@@ -106,7 +106,7 @@ public class HostsParserTests
     public void ParseLine_InlineComment_StopsAtHash()
     {
         // Token stops at #; only address and names before # are parsed
-        var e = HostsParser.ParseLine("127.0.0.1 localhost # loopback", 1);
+        var e = HostsFileLineParser.ParseLine("127.0.0.1 localhost # loopback", 1);
         Assert.NotNull(e);
         Assert.Equal("127.0.0.1", e.Address);
         Assert.Single(e.Names);
@@ -116,7 +116,7 @@ public class HostsParserTests
     [Fact]
     public void ParseLine_LeadingWhitespace_TrimmedAndParsed()
     {
-        var e = HostsParser.ParseLine("  192.168.1.13 bar", 1);
+        var e = HostsFileLineParser.ParseLine("  192.168.1.13 bar", 1);
         Assert.NotNull(e);
         Assert.Equal("192.168.1.13", e.Address);
         Assert.Single(e.Names);
@@ -127,7 +127,7 @@ public class HostsParserTests
     public void ParseLine_UnparseableLine_ReturnsPassthrough()
     {
         // Line with no whitespace between tokens fails Content (address + space + names)
-        var e = HostsParser.ParseLine("garbage-with-no-space", 1);
+        var e = HostsFileLineParser.ParseLine("garbage-with-no-space", 1);
         Assert.NotNull(e);
         Assert.True(e!.IsPassthrough);
     }
@@ -136,7 +136,7 @@ public class HostsParserTests
     public void ParseLine_OnlyAddressNoNames_FailsContent_Passthrough()
     {
         // Content requires address + whitespace + at least one name
-        var e = HostsParser.ParseLine("192.168.1.1", 1);
+        var e = HostsFileLineParser.ParseLine("192.168.1.1", 1);
         Assert.NotNull(e);
         Assert.True(e!.IsPassthrough);
     }
@@ -145,20 +145,20 @@ public class HostsParserTests
     public void ToLine_Entry_Roundtrips()
     {
         var line = "127.0.0.1 localhost";
-        var e = HostsParser.ParseLine(line, 1);
+        var e = HostsFileLineParser.ParseLine(line, 1);
         Assert.NotNull(e);
-        var back = HostsParser.ToLine(e!);
+        var back = HostsFileLineParser.ToLine(e!);
         Assert.Equal(line, back);
     }
 
     [Fact]
     public void ToLine_CommentedEntry_PrefixPreserved()
     {
-        var e = HostsParser.ParseLine("# 127.0.0.1 localhost", 1);
+        var e = HostsFileLineParser.ParseLine("# 127.0.0.1 localhost", 1);
         Assert.NotNull(e);
         // When we parse "# ..." we get isComment=true, address="", names=[]. ToLine for passthrough returns RawLine.
         e = new HostEntry { LineNumber = 1, Address = "127.0.0.1", Names = ["localhost"], IsComment = true };
-        var back = HostsParser.ToLine(e);
+        var back = HostsFileLineParser.ToLine(e);
         Assert.Equal("# 127.0.0.1 localhost", back);
     }
 
@@ -166,7 +166,7 @@ public class HostsParserTests
     public void ToLine_Passthrough_ReturnsRawLine()
     {
         var e = new HostEntry { LineNumber = 1, RawLine = "  \t  ", IsPassthrough = true };
-        Assert.Equal("  \t  ", HostsParser.ToLine(e));
+        Assert.Equal("  \t  ", HostsFileLineParser.ToLine(e));
     }
 
     [Fact]
@@ -176,7 +176,7 @@ public class HostsParserTests
         Assert.True(lines.Length >= 2, "testdata/hosts should have at least 2 lines");
         var entries = new List<HostEntry?>();
         for (var i = 0; i < lines.Length; i++)
-            entries.Add(HostsParser.ParseLine(lines[i], i + 1));
+            entries.Add(HostsFileLineParser.ParseLine(lines[i], i + 1));
 
         var dataEntries = entries.Where(e => e != null && !e.IsPassthrough).ToList();
         Assert.Equal(2, dataEntries.Count);

@@ -22,7 +22,8 @@ builder.Services.AddScoped(sp =>
 // Same app hosts both:
 // - API: AddControllers() + MapControllers() → routes like /api/status, /api/hosts, /api/reload.
 // - Blazor: AddRazorComponents + AddInteractiveServerComponents + MapRazorComponents<App>() → pages like /, /hosts, /dhcp, /leases.
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 

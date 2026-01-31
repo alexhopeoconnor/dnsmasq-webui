@@ -10,9 +10,9 @@
 {
     <p>Loading...</p>
 }
-else if (!_status.configPathExists)
+else if (!_status.managedFilePathExists)
 {
-    <p class="text-warning">Config file not found: @_status.configPath</p>
+    <p class="text-warning">Managed config file not found: @_status.managedFilePath</p>
 }
 else
 {
@@ -57,7 +57,7 @@ else
     {
         <button class="btn btn-outline-primary mt-2" @onclick="Reload" disabled="@_saving">Reload dnsmasq</button>
     }
-    <p class="text-muted small mt-2">Path: @_status.configPath</p>
+    <p class="text-muted small mt-2">Managed file: @_status.managedFilePath</p>
 }
 
 @code {
@@ -154,8 +154,8 @@ else
     private class SaveResultDto { public ReloadDto? reload { get; set; } }
     private class DhcpStatusDto
     {
-        public string? configPath { get; set; }
-        public bool configPathExists { get; set; }
+        public string? managedFilePath { get; set; }
+        public bool managedFilePathExists { get; set; }
         public bool reloadCommandConfigured { get; set; }
         public string? dnsmasqStatus { get; set; }
     }

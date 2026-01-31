@@ -14,6 +14,8 @@ RUN dotnet build "DnsmasqWebUI.csproj" -c Release -o /app/build
 FROM build AS publish
 RUN dotnet publish "DnsmasqWebUI.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
+# Runs as root by default. For host dnsmasq + container UI: bind-mount host config dir
+# and ensure the mount is writable by the container user, or run this image as root.
 FROM base AS final
 WORKDIR /app
 ENV ASPNETCORE_URLS=http://+:8080
