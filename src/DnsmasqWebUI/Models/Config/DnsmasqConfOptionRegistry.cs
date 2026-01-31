@@ -1,4 +1,4 @@
-namespace DnsmasqWebUI.Models;
+namespace DnsmasqWebUI.Models.Config;
 
 /// <summary>
 /// Registry of dnsmasq .conf option names to their <see cref="DnsmasqOptionKind"/>.

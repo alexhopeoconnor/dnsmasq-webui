@@ -2,8 +2,10 @@
 # Prepare mount: ./scripts/prepare-test-mount.sh [--prepare-only | --no-build | --recreate | --source DIR | --mount DIR]
 # Or set TESTDATA_MOUNT to override the data volume (default: ./testdata-mount).
 #
-# app builds from Dockerfile (app + dnsmasq in one container; app is main process).
-# ReloadCommand/StatusCommand use pkill/pgrep (procps in image). cap_add NET_ADMIN for dnsmasq.
+# No systemd in container (dnsmasq runs as a process from entrypoint, like most dnsmasq images).
+# StatusShowCommand/LogsCommand use ps so the Service status / Recent logs sections show something
+# (process info). On a host with systemd you'd use systemctl status dnsmasq and journalctl instead.
+# cap_add NET_ADMIN for dnsmasq.
 #
 # Networks: testnet 172.28.0.0/16 so dnsmasq can hand out 172.28.0.10–50.
 services:
@@ -18,9 +20,12 @@ services:
       DNSMASQ_CONF: /data/dnsmasq-test.conf
       Dnsmasq__MainConfigPath: /data/dnsmasq-test.conf
       Dnsmasq__ManagedFileName: zz-dnsmasq-webui.conf
-      Dnsmasq__HostsPath: /data/hosts
+      Dnsmasq__SystemHostsPath: /data/hosts
       Dnsmasq__ReloadCommand: "pkill -HUP -x dnsmasq"
       Dnsmasq__StatusCommand: "pgrep -x dnsmasq"
+      # Simulated systemctl status + real logs (dnsmasq logs to /data/dnsmasq.log via log-facility in dnsmasq-test.conf)
+      Dnsmasq__StatusShowCommand: "/app/dnsmasq-status.sh"
+      Dnsmasq__LogsCommand: "tail -n 100 /data/dnsmasq.log 2>/dev/null || echo '(no log file yet)'"
     volumes:
       - ${TESTDATA_MOUNT:-./testdata-mount}:/data
     networks:

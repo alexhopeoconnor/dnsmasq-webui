@@ -252,4 +252,78 @@ public class DnsmasqConfIncludeParserTests
             Directory.Delete(dir, recursive: true);
         }
     }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_OptionPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-flag-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var conf = Path.Combine(dir, "dnsmasq.conf");
+            File.WriteAllText(conf, "expand-hosts\nno-resolv\n");
+            var result = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, "expand-hosts");
+            Assert.True(result);
+            Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, "no-resolv"));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_OptionAbsent_ReturnsFalse()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-flag-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var conf = Path.Combine(dir, "dnsmasq.conf");
+            File.WriteAllText(conf, "port=53\n");
+            var result = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, "no-hosts");
+            Assert.False(result);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_LastWins()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-last-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var f1 = Path.Combine(dir, "01.conf");
+        var f2 = Path.Combine(dir, "02.conf");
+        try
+        {
+            File.WriteAllText(f1, "cache-size=100\n");
+            File.WriteAllText(f2, "cache-size=200\n");
+            var (value, configDir) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { f1, f2 }, "cache-size");
+            Assert.Equal("200", value);
+            Assert.Equal(dir, configDir);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ResolvePath_Relative_ResolvesAgainstDir()
+    {
+        var dir = Path.GetTempPath();
+        var result = DnsmasqConfIncludeParser.ResolvePath("sub/pid.pid", dir);
+        Assert.Equal(Path.GetFullPath(Path.Combine(dir, "sub", "pid.pid")), result);
+    }
+
+    [Fact]
+    public void ResolvePath_Absolute_ReturnsAsIs()
+    {
+        var abs = Path.Combine(Path.GetTempPath(), "absolute.pid");
+        var result = DnsmasqConfIncludeParser.ResolvePath(abs, "/some/dir");
+        Assert.Equal(Path.GetFullPath(abs), result);
+    }
 }

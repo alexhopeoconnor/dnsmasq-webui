@@ -1,6 +1,8 @@
 @page "/hosts"
 @rendermode InteractiveServer
-@inject HttpClient Http
+@namespace DnsmasqWebUI.Components.Pages
+@inject IStatusClient StatusClient
+@inject IHostsClient HostsClient
 
 <PageTitle>Hosts</PageTitle>
 
@@ -10,15 +12,31 @@
 {
     <p>Loading...</p>
 }
-else if (!_status.hostsPathExists)
+else if (_status.NoHosts && !_pathInAddnHosts)
 {
-    <p class="text-warning">Hosts file not found: @_status.hostsPath</p>
+    <p class="text-muted">Hosts editing is disabled: <strong>no-hosts</strong> is set in dnsmasq config (dnsmasq only uses addn-hosts files) and the configured path is not in the effective addn-hosts list, so dnsmasq would not read the file.</p>
+    @if (_status.AddnHostsPaths?.Count > 0)
+    {
+        <p class="text-muted small">Effective addn-hosts paths: @string.Join(", ", _status.AddnHostsPaths)</p>
+    }
+}
+else if (string.IsNullOrEmpty(_status.SystemHostsPath))
+{
+    <p class="text-muted">No system hosts file configured. Set <strong>Dnsmasq:SystemHostsPath</strong> (e.g. /etc/hosts) to edit a hosts file from this app.</p>
+    @if (_status.AddnHostsPaths?.Count > 0)
+    {
+        <p class="text-muted small">Dnsmasq loads these addn-hosts files (read-only here): @string.Join(", ", _status.AddnHostsPaths)</p>
+    }
+}
+else if (!_status.SystemHostsPathExists)
+{
+    <p class="text-warning">System hosts file not found: @_status.SystemHostsPath</p>
 }
 else
 {
-    @if (_status.dnsmasqStatus == "inactive" || _status.dnsmasqStatus == "unknown")
+    @if (_status.DnsmasqStatus == "inactive" || _status.DnsmasqStatus == "unknown")
     {
-        <div class="alert alert-warning">Dnsmasq service appears to be <strong>@_status.dnsmasqStatus</strong>. Save will update the file but reload may fail until the service is fixed.</div>
+        <div class="alert alert-warning">Dnsmasq service appears to be <strong>@_status.DnsmasqStatus</strong>. Save will update the file but reload may fail until the service is fixed.</div>
     }
     @if (_error != null)
     {
@@ -43,23 +61,21 @@ else
             }
         </tbody>
     </table>
-    <p class="text-muted small">Path: @_status.hostsPath</p>
+    <p class="text-muted small">Path: @_status.SystemHostsPath</p>
     <button class="btn btn-primary mt-2" @onclick="Save" disabled="@_saving">Save</button>
 }
 
 @code {
-    private HostsStatusDto? _status;
-    private List<DnsmasqWebUI.Models.HostEntry> _entries = new();
+    private DnsmasqServiceStatus? _status;
+    private List<HostEntry> _entries = new();
     private string? _error;
     private string? _message;
     private bool _saving;
 
-    private class HostsStatusDto
-    {
-        public string? hostsPath { get; set; }
-        public bool hostsPathExists { get; set; }
-        public string? dnsmasqStatus { get; set; }
-    }
+    /// <summary>True when SystemHostsPath is in the effective addn-hosts list (editing allowed when no-hosts is set).</summary>
+    private bool _pathInAddnHosts => _status != null
+        && !string.IsNullOrEmpty(_status.SystemHostsPath)
+        && _status.AddnHostsPaths?.Any(p => string.Equals(p, Path.GetFullPath(_status.SystemHostsPath!.Trim()), StringComparison.Ordinal)) == true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -72,10 +88,9 @@ else
         _message = null;
         try
         {
-            _status = await Http.GetFromJsonAsync<HostsStatusDto>("api/status");
-            var entries = await Http.GetFromJsonAsync<List<DnsmasqWebUI.Models.HostEntry>>("api/hosts");
-            if (entries != null)
-                _entries = entries;
+            _status = await StatusClient.GetStatusAsync();
+            var entries = await HostsClient.GetHostsAsync();
+            _entries = entries?.ToList() ?? new List<HostEntry>();
         }
         catch (Exception ex)
         {
@@ -90,18 +105,11 @@ else
         _message = null;
         try
         {
-            var response = await Http.PutAsJsonAsync("api/hosts", _entries);
-            if (!response.IsSuccessStatusCode)
-            {
-                var body = await response.Content.ReadAsStringAsync();
-                _error = body;
-                return;
-            }
-            var result = await response.Content.ReadFromJsonAsync<SaveResultDto>();
-            if (result?.reload?.success == true)
+            var result = await HostsClient.SaveHostsAsync(_entries);
+            if (result.Reload.Success)
                 _message = "Saved and dnsmasq reloaded.";
-            else if (result?.reload != null && !string.IsNullOrEmpty(result.reload.stdErr))
-                _error = "Saved but dnsmasq reload failed: " + result.reload.stdErr;
+            else if (!string.IsNullOrEmpty(result.Reload.StdErr))
+                _error = "Saved but dnsmasq reload failed: " + result.Reload.StdErr;
             else
                 _message = "Saved.";
         }
@@ -114,11 +122,4 @@ else
             _saving = false;
         }
     }
-
-    private class SaveResultDto
-    {
-        public bool saved { get; set; }
-        public ReloadDto? reload { get; set; }
-    }
-    private class ReloadDto { public bool success { get; set; } public string? stdErr { get; set; } }
 }

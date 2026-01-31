@@ -10,6 +10,9 @@ public interface IDnsmasqConfigSetService : IApplicationSingleton
     /// <summary>Leases path discovered from the config set (dhcp-leasefile= / dhcp-lease-file=; last wins). Null if not found.</summary>
     string? GetLeasesPath();
 
+    /// <summary>Effective hosts-related config after reading all config files: no-hosts flag and addn-hosts= paths (cumulative).</summary>
+    EffectiveDnsmasqConfig GetEffectiveConfig();
+
     /// <summary>Additional hosts paths discovered from the config set (addn-hosts=; cumulative, all in order). Empty if none.</summary>
     IReadOnlyList<string> GetAddnHostsPaths();
 }

@@ -28,5 +28,6 @@ FROM app AS final
 RUN apt-get update && apt-get install -y --no-install-recommends dnsmasq procps \
     && rm -rf /var/lib/apt/lists/*
 COPY scripts/entrypoint.sh .
-RUN chmod +x entrypoint.sh
+COPY scripts/dnsmasq-status.sh .
+RUN chmod +x entrypoint.sh dnsmasq-status.sh
 ENTRYPOINT ["./entrypoint.sh"]

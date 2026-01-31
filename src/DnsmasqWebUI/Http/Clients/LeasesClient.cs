@@ -1,0 +1,15 @@
+using DnsmasqWebUI.Models;
+using System.Net.Http.Json;
+
+namespace DnsmasqWebUI.Http.Clients;
+
+public sealed class LeasesClient : ILeasesClient
+{
+    private readonly HttpClient _http;
+
+    public LeasesClient(HttpClient http) => _http = http;
+
+    public async Task<LeasesResult> GetLeasesAsync(CancellationToken ct = default) =>
+        await _http.GetFromJsonAsync<LeasesResult>("api/leases", ct)
+            ?? throw new InvalidOperationException("Unexpected null from api/leases.");
+}

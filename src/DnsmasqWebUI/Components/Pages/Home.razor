@@ -1,15 +1,18 @@
 @page "/"
 @rendermode InteractiveServer
-@inject HttpClient Http
+@namespace DnsmasqWebUI.Components.Pages
+@inject IStatusClient StatusClient
+@inject IConfigSetClient ConfigSetClient
+@inject IReloadClient ReloadClient
 @implements IDisposable
 
-<PageTitle>Overview</PageTitle>
+<PageTitle>Dnsmasq</PageTitle>
 
-<h1 class="mb-4">Overview</h1>
+<h1 class="mb-4">Dnsmasq</h1>
 
-<p class="lead text-muted mb-4">Dnsmasq configuration and service status at a glance.</p>
+<p class="lead text-muted mb-4">Configuration and service status at a glance.</p>
 
-@if (_status == null && _error == null)
+@if (_loading)
 {
     <p><em>Loading…</em></p>
 }
@@ -21,22 +24,22 @@ else if (_status != null)
 {
     <section class="mb-4">
         <h2 class="h5 mb-2">Service</h2>
-        <div class="alert alert-@(_status.dnsmasqStatus == "active" ? "success" : "secondary") py-2 mb-0">
+        <div class="alert alert-@(_status.DnsmasqStatus == "active" ? "success" : "secondary") py-2 mb-0">
             <strong>Dnsmasq:</strong> @GetStatusLabel(_status)
-            @if (_status.statusCommandExitCode.HasValue)
+            @if (_status.StatusCommandExitCode.HasValue)
             {
-                <span class="ms-1 text-muted small">(exit @_status.statusCommandExitCode.Value)</span>
+                <span class="ms-1 text-muted small">(exit @_status.StatusCommandExitCode.Value)</span>
             }
-            @if (!string.IsNullOrEmpty(_status.statusCommandStderr))
+            @if (!string.IsNullOrEmpty(_status.StatusCommandStderr))
             {
-                <span class="ms-1 text-muted small">— @_status.statusCommandStderr</span>
+                <span class="ms-1 text-muted small">— @_status.StatusCommandStderr</span>
             }
         </div>
-        @if (_status.dnsmasqStatus != "active" && (_status.statusCommandStdout != null || _status.statusCommandStderr != null))
+        @if (_status.DnsmasqStatus != "active" && (_status.StatusCommandStdout != null || _status.StatusCommandStderr != null))
         {
-            <pre class="small bg-dark text-light p-2 rounded mt-1 mb-0" style="max-height: 12rem; overflow: auto;">@(_status.statusCommandStdout != null ? _status.statusCommandStdout : "")@(_status.statusCommandStdout != null && _status.statusCommandStderr != null ? "\n" : "")@(_status.statusCommandStderr ?? "")</pre>
+            <pre class="small bg-dark text-light p-2 rounded mt-1 mb-0" style="max-height: 12rem; overflow: auto;">@(_status.StatusCommandStdout != null ? _status.StatusCommandStdout : "")@(_status.StatusCommandStdout != null && _status.StatusCommandStderr != null ? "\n" : "")@(_status.StatusCommandStderr ?? "")</pre>
         }
-        @if (_status.reloadCommandConfigured)
+        @if (_status.ReloadCommandConfigured)
         {
             <div class="d-flex align-items-center gap-2 flex-wrap">
                 <button class="btn btn-primary btn-sm" @onclick="ReloadDnsmasq" disabled="@_reloading">
@@ -56,31 +59,111 @@ else if (_status != null)
                 }
             </div>
         }
+
+        @* Full service status — output of StatusShowCommand; format depends on command (systemctl on host, ps/pgrep in containers) *@
+        @if (_status.StatusShowConfigured)
+        {
+            <p class="mb-1 mt-3"><strong>Service status</strong> <span class="text-muted small">(output of StatusShowCommand)</span></p>
+            @if (string.IsNullOrWhiteSpace(_status.StatusShowOutput))
+            {
+                <p class="text-muted small">No output. On a systemd host use <code>systemctl status dnsmasq --no-pager</code> for full status; in Docker or without systemd use <code>ps -C dnsmasq -o pid,user,args</code> or <code>pgrep -a dnsmasq</code> for minimal process info.</p>
+            }
+            else
+            {
+                <pre class="small bg-dark text-light p-2 rounded mb-0" style="max-height: 22rem; overflow: auto;">@_status.StatusShowOutput</pre>
+            }
+        }
+
+        @* Recent logs — live view, auto-refreshes *@
+        @if (_status.LogsConfigured)
+        {
+            <p class="mb-1 mt-3"><strong>Recent logs</strong> <span class="text-muted small">(live, refreshes every @(_refreshIntervalSeconds)s)</span></p>
+            @if (string.IsNullOrWhiteSpace(_status.LogsOutput))
+            {
+                <p class="text-muted small">No output.</p>
+            }
+            else
+            {
+                <pre class="small bg-dark text-light p-2 rounded mb-0" style="max-height: 24rem; overflow: auto;">@_status.LogsOutput</pre>
+            }
+        }
+
+        @if (_status.StatusShowConfigured || _status.LogsConfigured)
+        {
+            <div class="mt-2">
+                <button class="btn btn-outline-secondary btn-sm" @onclick="RefreshStatus" disabled="@_refreshing">Refresh status &amp; logs</button>
+            </div>
+        }
+    </section>
+
+    <section class="mb-4">
+        <h2 class="h5 mb-2">Effective config</h2>
+        <p class="text-muted small mb-2">What dnsmasq uses after reading all config files (main + conf-file + conf-dir). Only single-value / overridable options are shown here.</p>
+        <ul class="list-unstyled small">
+            <li><strong>no-hosts:</strong> @(_status.NoHosts ? "Yes (hosts files disabled)" : "No")</li>
+            <li>
+                <strong>addn-hosts:</strong>
+                @if (_status.AddnHostsPaths?.Count > 0)
+                {
+                    var deduped = _status.AddnHostsPaths.Distinct().ToList();
+                    @(deduped.Count == 1 ? deduped[0] : string.Join(", ", deduped))
+                }
+                else
+                {
+                    <span class="text-muted">(none)</span>
+                }
+            </li>
+            @if (_status.SystemHostsPath != null)
+            {
+                <li><strong>System hosts file (editable):</strong> @_status.SystemHostsPath @(_status.SystemHostsPathExists ? "✓" : "(missing)")</li>
+            }
+        </ul>
+        @if (_status.EffectiveConfig != null)
+        {
+            var ec = _status.EffectiveConfig;
+            <p class="mb-1 mt-2 text-muted small"><strong>Overridable options</strong> (last wins; future UI will allow editing via managed file):</p>
+            <ul class="list-unstyled small ms-2">
+                <li><strong>expand-hosts:</strong> @(ec.ExpandHosts ? "Yes" : "No")</li>
+                <li><strong>bogus-priv:</strong> @(ec.BogusPriv ? "Yes" : "No")</li>
+                <li><strong>strict-order:</strong> @(ec.StrictOrder ? "Yes" : "No")</li>
+                <li><strong>no-resolv:</strong> @(ec.NoResolv ? "Yes" : "No")</li>
+                <li><strong>domain-needed:</strong> @(ec.DomainNeeded ? "Yes" : "No")</li>
+                <li><strong>dhcp-authoritative:</strong> @(ec.DhcpAuthoritative ? "Yes" : "No")</li>
+                <li><strong>dhcp-leasefile:</strong> @(ec.DhcpLeaseFilePath ?? "(default)")</li>
+                @if (ec.CacheSize.HasValue) { <li><strong>cache-size:</strong> @ec.CacheSize.Value</li> }
+                @if (ec.Port.HasValue) { <li><strong>port:</strong> @ec.Port.Value</li> }
+                @if (ec.LocalTtl.HasValue) { <li><strong>local-ttl:</strong> @ec.LocalTtl.Value</li> }
+                @if (ec.PidFilePath != null) { <li><strong>pid-file:</strong> @ec.PidFilePath</li> }
+                @if (ec.User != null) { <li><strong>user:</strong> @ec.User</li> }
+                @if (ec.Group != null) { <li><strong>group:</strong> @ec.Group</li> }
+                @if (ec.DhcpLeaseMax.HasValue) { <li><strong>dhcp-lease-max:</strong> @ec.DhcpLeaseMax.Value</li> }
+            </ul>
+        }
     </section>
 
     <section class="mb-4">
         <h2 class="h5 mb-2">Config</h2>
         <ul class="list-unstyled small">
-            <li><strong>Main config:</strong> @(_status.mainConfigPath ?? "—") @(_status.mainConfigPathExists ? "✓" : "(missing)")</li>
-            <li><strong>Managed file:</strong> @(_status.managedFilePath ?? "—") @(_status.managedFilePathExists ? "✓" : "(not created yet)")</li>
+            <li><strong>Main config:</strong> @(_status.MainConfigPath ?? "—") @(_status.MainConfigPathExists ? "✓" : "(missing)")</li>
+            <li><strong>Managed file:</strong> @(_status.ManagedFilePath ?? "—") @(_status.ManagedFilePathExists ? "✓" : "(not created yet)")</li>
         </ul>
-        @if (_configSet != null && _configSet.files?.Count > 0)
+        @if (_configSet != null && _configSet.Files?.Count > 0)
         {
             <p class="mb-1 mt-2"><strong>Config set (load order):</strong></p>
             <ul class="list-unstyled small ms-2">
-                @foreach (var f in _configSet.files)
+                @foreach (var f in _configSet.Files)
                 {
                     <li>
-                        @if (f.isManaged)
+                        @if (f.IsManaged)
                         {
                             <span class="badge bg-primary me-1">managed</span>
                         }
                         else
                         {
-                            <span class="badge bg-secondary me-1">@((f.source ?? "").ToLowerInvariant())</span>
+                            <span class="badge bg-secondary me-1">@(f.Source.ToString().ToLowerInvariant())</span>
                         }
-                        @f.fileName
-                        <span class="text-muted">(@f.path)</span>
+                        @f.FileName
+                        <span class="text-muted">(@f.Path)</span>
                     </li>
                 }
             </ul>
@@ -90,12 +173,11 @@ else if (_status != null)
     <section class="mb-4">
         <h2 class="h5 mb-2">Paths</h2>
         <ul class="list-unstyled small">
-            <li><strong>Hosts file:</strong> @(_status.hostsPath ?? "—") @(_status.hostsPathExists ? "✓" : "(missing)")</li>
             <li>
-                <strong>Leases file:</strong> @(_status.leasesPath ?? "—")
-                @if (_status.leasesPathConfigured)
+                <strong>Leases file:</strong> @(_status.LeasesPath ?? "—")
+                @if (_status.LeasesPathConfigured)
                 {
-                    <span>@(_status.leasesPathExists ? "✓" : "(missing)")</span>
+                    <span>@(_status.LeasesPathExists ? "✓" : "(missing)")</span>
                 }
                 else
                 {
@@ -109,71 +191,51 @@ else if (_status != null)
         <h2 class="h5 mb-2">Quick links</h2>
         <div class="d-flex flex-wrap gap-2">
             <a href="hosts" class="btn btn-outline-primary btn-sm">Hosts</a>
-            <a href="dhcp" class="btn btn-outline-primary btn-sm">DHCP static hosts</a>
-            <a href="leases" class="btn btn-outline-primary btn-sm">Leases</a>
+            <a href="dhcp" class="btn btn-outline-primary btn-sm">DHCP</a>
         </div>
     </section>
 }
 
 @code {
-    private OverviewStatusDto? _status;
-    private OverviewConfigSetDto? _configSet;
+    private const int _refreshIntervalSeconds = 15;
+
+    private DnsmasqServiceStatus? _status;
+    private DnsmasqConfigSet? _configSet;
     private string? _error;
+    private bool _loading = true;
     private bool _reloading;
+    private bool _refreshing;
     private string? _reloadMessage;
     private string? _reloadDetail;
     private bool _reloadSuccess;
     private readonly CancellationTokenSource _cts = new();
-
-    private class OverviewConfigSetDto
-    {
-        public string? mainConfigPath { get; set; }
-        public string? managedFilePath { get; set; }
-        public List<OverviewConfigSetEntryDto>? files { get; set; }
-    }
-
-    private class OverviewConfigSetEntryDto
-    {
-        public string? path { get; set; }
-        public string? fileName { get; set; }
-        public string? source { get; set; }
-        public bool isManaged { get; set; }
-    }
-
-    private class OverviewStatusDto
-    {
-        public string? hostsPath { get; set; }
-        public string? mainConfigPath { get; set; }
-        public string? managedFilePath { get; set; }
-        public string? leasesPath { get; set; }
-        public bool hostsPathExists { get; set; }
-        public bool mainConfigPathExists { get; set; }
-        public bool managedFilePathExists { get; set; }
-        public bool leasesPathConfigured { get; set; }
-        public bool leasesPathExists { get; set; }
-        public bool reloadCommandConfigured { get; set; }
-        public bool statusCommandConfigured { get; set; }
-        public string? dnsmasqStatus { get; set; }
-        public int? statusCommandExitCode { get; set; }
-        public string? statusCommandStdout { get; set; }
-        public string? statusCommandStderr { get; set; }
-    }
+    private Timer? _refreshTimer;
 
     protected override async Task OnInitializedAsync()
     {
+        _loading = true;
         try
         {
+            await Task.Delay(1, _cts.Token);
             var token = _cts.Token;
-            _status = await Http.GetFromJsonAsync<OverviewStatusDto>("api/status", token);
+            _status = await StatusClient.GetStatusAsync(token);
             if (_status != null)
             {
                 try
                 {
-                    _configSet = await Http.GetFromJsonAsync<OverviewConfigSetDto>("api/config/set", token);
+                    _configSet = await ConfigSetClient.GetConfigSetAsync(token);
                 }
                 catch
                 {
                     // Config set is optional for overview
+                }
+                if (_status.StatusShowConfigured || _status.LogsConfigured)
+                {
+                    _refreshTimer = new Timer(
+                        _ => _ = InvokeAsync(OnRefreshTick),
+                        null,
+                        TimeSpan.FromSeconds(_refreshIntervalSeconds),
+                        TimeSpan.FromSeconds(_refreshIntervalSeconds));
                 }
             }
         }
@@ -185,49 +247,86 @@ else if (_status != null)
         {
             _error = ex.Message;
         }
+        finally
+        {
+            _loading = false;
+        }
     }
 
-    private static string GetStatusLabel(OverviewStatusDto s)
+    private async Task OnRefreshTick()
     {
-        return s.dnsmasqStatus switch
+        if (_cts.Token.IsCancellationRequested) return;
+        await RefreshStatus();
+        StateHasChanged();
+    }
+
+    private async Task RefreshStatus()
+    {
+        if (_status == null) return;
+        _refreshing = true;
+        try
+        {
+            var token = _cts.Token;
+            _status = await StatusClient.GetStatusAsync(token);
+            if (_status != null)
+            {
+                try
+                {
+                    _configSet = await ConfigSetClient.GetConfigSetAsync(token);
+                }
+                catch
+                {
+                    // Config set is optional
+                }
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception)
+        {
+            // Don't overwrite _error on background refresh
+        }
+        finally
+        {
+            _refreshing = false;
+        }
+    }
+
+    private static string GetStatusLabel(DnsmasqServiceStatus s)
+    {
+        return s.DnsmasqStatus switch
         {
             "active" => "Running",
             "inactive" => "Not running",
             "unknown" => "Unknown",
             "notConfigured" => "Status check not configured",
-            _ => s.dnsmasqStatus ?? "—"
+            _ => s.DnsmasqStatus ?? "—"
         };
     }
 
     private async Task ReloadDnsmasq()
     {
-        if (_status == null || !_status.reloadCommandConfigured || _reloading) return;
+        if (_status == null || !_status.ReloadCommandConfigured || _reloading) return;
         _reloading = true;
         _reloadMessage = null;
         _reloadDetail = null;
         try
         {
             var token = _cts.Token;
-            var result = await Http.PostAsync("api/reload", null, token);
-            var body = await result.Content.ReadAsStringAsync(token);
-            ReloadResultDto? reload = null;
-            try { reload = System.Text.Json.JsonSerializer.Deserialize<ReloadResultDto>(body); } catch { }
-            if (reload?.success == true)
+            var result = await ReloadClient.ReloadAsync(token);
+            if (result.Success)
             {
                 _reloadMessage = "Reloaded.";
                 _reloadSuccess = true;
             }
             else
             {
-                _reloadMessage = reload != null
-                    ? "Reload failed" + (reload.exitCode.HasValue ? " (exit " + reload.exitCode.Value + ")" : "") + "."
-                    : (result.IsSuccessStatusCode ? "Reload failed." : "Request failed: " + body);
-                _reloadDetail = BuildReloadDetail(reload);
+                _reloadMessage = "Reload failed" + (result.ExitCode != 0 ? " (exit " + result.ExitCode + ")" : "") + ".";
+                _reloadDetail = BuildReloadDetail(result);
                 _reloadSuccess = false;
             }
             try
             {
-                _status = await Http.GetFromJsonAsync<OverviewStatusDto>("api/status", token);
+                _status = await StatusClient.GetStatusAsync(token);
             }
             catch
             {
@@ -245,25 +344,18 @@ else if (_status != null)
         }
     }
 
-    private class ReloadResultDto
+    private static string? BuildReloadDetail(ReloadResult r)
     {
-        public bool success { get; set; }
-        public int? exitCode { get; set; }
-        public string? stdOut { get; set; }
-        public string? stdErr { get; set; }
-    }
-
-    private static string? BuildReloadDetail(ReloadResultDto? r)
-    {
-        if (r == null) return null;
         var parts = new List<string>();
-        if (!string.IsNullOrEmpty(r.stdOut)) parts.Add("stdout:\n" + r.stdOut);
-        if (!string.IsNullOrEmpty(r.stdErr)) parts.Add("stderr:\n" + r.stdErr);
+        if (!string.IsNullOrEmpty(r.StdOut)) parts.Add("stdout:\n" + r.StdOut);
+        if (!string.IsNullOrEmpty(r.StdErr)) parts.Add("stderr:\n" + r.StdErr);
         return parts.Count > 0 ? string.Join("\n\n", parts) : null;
     }
 
     public void Dispose()
     {
+        _refreshTimer?.Dispose();
+        _refreshTimer = null;
         _cts.Cancel();
         _cts.Dispose();
     }

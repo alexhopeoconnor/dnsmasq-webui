@@ -12,13 +12,14 @@ public static class ServiceCollectionExtensions
     static readonly (Type MarkerInterface, RegisterService Register)[] ApplicationRegistrations =
     [
         (typeof(IApplicationScopedService), (s, i, impl) => s.AddScoped(i, impl)),
+        (typeof(IApplicationScopedConcrete), (s, i, impl) => s.AddScoped(impl, impl)),
         (typeof(IApplicationSingleton), (s, i, impl) => s.AddSingleton(i, impl)),
         (typeof(IApplicationHostedService), (s, i, impl) => AddHostedServiceConcrete(s, impl)),
     ];
 
     /// <summary>
     /// Scans the assembly for types implementing application marker interfaces
-    /// (<see cref="IApplicationScopedService"/>, <see cref="IApplicationSingleton"/>, <see cref="IApplicationHostedService"/>, etc.)
+    /// (<see cref="IApplicationScopedService"/>, <see cref="IApplicationScopedConcrete"/>, <see cref="IApplicationSingleton"/>, <see cref="IApplicationHostedService"/>, etc.)
     /// and registers each with the configured lifetime. Hosted services are registered via <c>AddHostedService&lt;T&gt;</c>.
     /// Skips open generics; requires exactly one public implementation per interface (scoped/singleton).
     /// </summary>

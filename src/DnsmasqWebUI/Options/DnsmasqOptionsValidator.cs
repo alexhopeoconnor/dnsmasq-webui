@@ -28,18 +28,9 @@ public sealed class DnsmasqOptionsValidator : IValidateOptions<DnsmasqOptions>
             }
         }
 
-        if (string.IsNullOrWhiteSpace(options.HostsPath))
-        {
-            failures.Add("Dnsmasq:HostsPath is required. Set it in appsettings.json (e.g. \"HostsPath\": \"/etc/hosts\") or via the Dnsmasq__HostsPath environment variable.");
-        }
-        else
-        {
-            var hostsPath = Path.GetFullPath(options.HostsPath.Trim());
-            if (!File.Exists(hostsPath))
-            {
-                failures.Add($"Hosts file not found: {hostsPath}. Ensure Dnsmasq:HostsPath points to an existing hosts file (e.g. /etc/hosts). Override with Dnsmasq__HostsPath if using a different path.");
-            }
-        }
+        // SystemHostsPath is optional. When set, the app can edit that hosts file. Hosts UI is disabled when
+        // SystemHostsPath is unset, or when no-hosts is set and SystemHostsPath is not in the effective addn-hosts
+        // list (dnsmasq only uses addn-hosts when no-hosts is set, so the path must be in addn-hosts for editing to take effect).
 
         if (failures.Count == 0)
             return ValidateOptionsResult.Success;

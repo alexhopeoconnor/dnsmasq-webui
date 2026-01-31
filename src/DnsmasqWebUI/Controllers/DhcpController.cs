@@ -32,7 +32,7 @@ public class DhcpController : ControllerBase
     }
 
     [HttpPut("hosts")]
-    public async Task<ActionResult<object>> PutHosts([FromBody] List<DhcpHostEntry>? entries, CancellationToken ct)
+    public async Task<ActionResult<SaveWithReloadResult>> PutHosts([FromBody] List<DhcpHostEntry>? entries, CancellationToken ct)
     {
         if (entries == null)
             return BadRequest(new { error = "Body required" });
@@ -40,7 +40,7 @@ public class DhcpController : ControllerBase
         {
             await _configService.WriteDhcpHostsAsync(entries, ct);
             var reload = await _reloadService.ReloadAsync(ct);
-            return Ok(new { saved = true, reload = new { reload.Success, reload.ExitCode, reload.StdErr } });
+            return Ok(new SaveWithReloadResult(true, reload));
         }
         catch (Exception ex)
         {

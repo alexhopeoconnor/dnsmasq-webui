@@ -1,24 +1,34 @@
 @page "/dhcp"
+@page "/leases"
 @rendermode InteractiveServer
-@inject HttpClient Http
+@namespace DnsmasqWebUI.Components.Pages
+@inject IStatusClient StatusClient
+@inject IDhcpHostsClient DhcpHostsClient
+@inject ILeasesClient LeasesClient
+@inject IReloadClient ReloadClient
 
-<PageTitle>DHCP hosts</PageTitle>
+<PageTitle>DHCP</PageTitle>
 
-<h1>DHCP static hosts</h1>
+<h1 class="mb-4">DHCP</h1>
 
 @if (_status == null)
 {
     <p>Loading...</p>
 }
-else if (!_status.managedFilePathExists)
-{
-    <p class="text-warning">Managed config file not found: @_status.managedFilePath</p>
-}
 else
 {
-    @if (_status.dnsmasqStatus == "inactive" || _status.dnsmasqStatus == "unknown")
+    @* ---- Static hosts (dhcp-host= in managed file) ---- *@
+    <section class="mb-4">
+        <h2 class="h5 mb-2">Static hosts</h2>
+        @if (!_status.ManagedFilePathExists)
+        {
+            <p class="text-warning">Managed config file not found: @_status.ManagedFilePath</p>
+        }
+        else
+        {
+    @if (_status.DnsmasqStatus == "inactive" || _status.DnsmasqStatus == "unknown")
     {
-        <div class="alert alert-warning">Dnsmasq service appears to be <strong>@_status.dnsmasqStatus</strong>. Save will update the file but reload may fail until the service is fixed.</div>
+        <div class="alert alert-warning">Dnsmasq service appears to be <strong>@_status.DnsmasqStatus</strong>. Save will update the file but reload may fail until the service is fixed.</div>
     }
     @if (_error != null)
     {
@@ -53,16 +63,65 @@ else
     </table>
     <button class="btn btn-secondary mt-2" @onclick="Add">Add host</button>
     <button class="btn btn-primary mt-2" @onclick="Save" disabled="@_saving">Save</button>
-    @if (_status.reloadCommandConfigured)
+    @if (_status.ReloadCommandConfigured)
     {
         <button class="btn btn-outline-primary mt-2" @onclick="Reload" disabled="@_saving">Reload dnsmasq</button>
     }
-    <p class="text-muted small mt-2">Managed file: @_status.managedFilePath</p>
+    <p class="text-muted small mt-2">Managed file: @_status.ManagedFilePath</p>
+        }
+    </section>
+
+    @* ---- Leases (dhcp-leasefile, read-only) ---- *@
+    <section class="mb-4">
+        <h2 class="h5 mb-2">Leases</h2>
+        @if (!_status.LeasesPathConfigured)
+        {
+            <p class="text-muted">Leases not configured (no dhcp-leasefile in config).</p>
+        }
+        else if (!_status.LeasesPathExists)
+        {
+            <p class="text-warning">Leases file not found: @_status.LeasesPath. DHCP may be disabled or path may be wrong.</p>
+        }
+        else if (_leases == null)
+        {
+            <p class="text-warning">Could not read leases file.</p>
+        }
+        else if (_leases.Count == 0)
+        {
+            <p class="text-muted">No leases yet. Leases appear here when DHCP clients obtain an address; use Refresh to update.</p>
+            <p class="text-muted small">Path: @_status.LeasesPath</p>
+            <button class="btn btn-outline-primary btn-sm mt-1" @onclick="LoadLeases" disabled="@_leasesLoading">Refresh</button>
+        }
+        else
+        {
+            <table class="table table-bordered">
+                <thead>
+                    <tr><th>Expiry</th><th>MAC</th><th>Address</th><th>Name</th><th>Client ID</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var e in _leases)
+                    {
+                        <tr>
+                            <td>@e.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td>@e.Mac</td>
+                            <td>@e.Address</td>
+                            <td>@e.Name</td>
+                            <td>@e.ClientId</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <p class="text-muted small">Path: @_status.LeasesPath (read-only). Cached and refreshed when the file changes.</p>
+            <button class="btn btn-outline-primary btn-sm mt-1" @onclick="LoadLeases" disabled="@_leasesLoading">Refresh</button>
+        }
+    </section>
 }
 
 @code {
-    private DhcpStatusDto? _status;
-    private List<DnsmasqWebUI.Models.DhcpHostEntry> _entries = new();
+    private DnsmasqServiceStatus? _status;
+    private List<DhcpHostEntry> _entries = new();
+    private IReadOnlyList<LeaseEntry>? _leases;
+    private bool _leasesLoading;
     private string? _error;
     private string? _message;
     private bool _saving;
@@ -78,10 +137,10 @@ else
         _message = null;
         try
         {
-            _status = await Http.GetFromJsonAsync<DhcpStatusDto>("api/status");
-            var entries = await Http.GetFromJsonAsync<List<DnsmasqWebUI.Models.DhcpHostEntry>>("api/dhcp/hosts");
-            if (entries != null)
-                _entries = entries;
+            _status = await StatusClient.GetStatusAsync();
+            var entries = await DhcpHostsClient.GetDhcpHostsAsync();
+            _entries = entries?.ToList() ?? new List<DhcpHostEntry>();
+            await LoadLeases();
         }
         catch (Exception ex)
         {
@@ -89,31 +148,46 @@ else
         }
     }
 
+    private async Task LoadLeases()
+    {
+        if (_status == null || !_status.LeasesPathConfigured) return;
+        _leasesLoading = true;
+        try
+        {
+            var resp = await LeasesClient.GetLeasesAsync();
+            _leases = resp.Entries;
+        }
+        finally
+        {
+            _leasesLoading = false;
+        }
+    }
+
     private void Add()
     {
-        _entries.Add(new DnsmasqWebUI.Models.DhcpHostEntry { Id = "new:" + Guid.NewGuid().ToString("N"), LineNumber = 0, MacAddresses = new List<string>(), Extra = new List<string>() });
+        _entries.Add(new DhcpHostEntry { Id = "new:" + Guid.NewGuid().ToString("N"), LineNumber = 0, MacAddresses = new List<string>(), Extra = new List<string>() });
         StateHasChanged();
     }
 
-    private void Delete(DnsmasqWebUI.Models.DhcpHostEntry e)
+    private void Delete(DhcpHostEntry e)
     {
         e.IsDeleted = true;
         StateHasChanged();
     }
 
-    private void ToggleValid(DnsmasqWebUI.Models.DhcpHostEntry e)
+    private void ToggleValid(DhcpHostEntry e)
     {
         e.IsComment = !e.IsComment;
         StateHasChanged();
     }
 
-    private void ToggleIgnore(DnsmasqWebUI.Models.DhcpHostEntry e)
+    private void ToggleIgnore(DhcpHostEntry e)
     {
         e.Ignore = !e.Ignore;
         StateHasChanged();
     }
 
-    private void SetMac(DnsmasqWebUI.Models.DhcpHostEntry e, string? value)
+    private void SetMac(DhcpHostEntry e, string? value)
     {
         e.MacAddresses = value?.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0).ToList() ?? new List<string>();
         StateHasChanged();
@@ -126,17 +200,11 @@ else
         _message = null;
         try
         {
-            var response = await Http.PutAsJsonAsync("api/dhcp/hosts", _entries);
-            if (!response.IsSuccessStatusCode)
-            {
-                _error = await response.Content.ReadAsStringAsync();
-                return;
-            }
-            var result = await response.Content.ReadFromJsonAsync<SaveResultDto>();
-            if (result?.reload?.success == true)
+            var result = await DhcpHostsClient.SaveDhcpHostsAsync(_entries);
+            if (result.Reload.Success)
                 _message = "Saved and dnsmasq reloaded.";
-            else if (result?.reload != null && !string.IsNullOrEmpty(result.reload.stdErr))
-                _error = "Saved but dnsmasq reload failed: " + result.reload.stdErr;
+            else if (!string.IsNullOrEmpty(result.Reload.StdErr))
+                _error = "Saved but dnsmasq reload failed: " + result.Reload.StdErr;
             else
                 _message = "Saved.";
             await Load();
@@ -151,15 +219,6 @@ else
         }
     }
 
-    private class SaveResultDto { public ReloadDto? reload { get; set; } }
-    private class DhcpStatusDto
-    {
-        public string? managedFilePath { get; set; }
-        public bool managedFilePathExists { get; set; }
-        public bool reloadCommandConfigured { get; set; }
-        public string? dnsmasqStatus { get; set; }
-    }
-
     private async Task Reload()
     {
         _saving = true;
@@ -167,13 +226,11 @@ else
         _message = null;
         try
         {
-            var result = await Http.PostAsync("api/reload", null);
-            result.EnsureSuccessStatusCode();
-            var reload = await result.Content.ReadFromJsonAsync<ReloadResultDto>();
-            if (reload?.success == true)
+            var result = await ReloadClient.ReloadAsync();
+            if (result.Success)
                 _message = "Dnsmasq reloaded.";
             else
-                _error = "Reload failed: " + (reload?.stdErr ?? "unknown");
+                _error = "Reload failed: " + (result.StdErr ?? "unknown");
         }
         catch (Exception ex)
         {
@@ -184,11 +241,4 @@ else
             _saving = false;
         }
     }
-
-    private class ReloadResultDto
-    {
-        public bool success { get; set; }
-        public string? stdErr { get; set; }
-    }
-    private class ReloadDto { public bool success { get; set; } public string? stdErr { get; set; } }
 }

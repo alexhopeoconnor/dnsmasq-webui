@@ -1,4 +1,5 @@
 using DnsmasqWebUI.Models;
+using DnsmasqWebUI.Models.Config;
 using Superpower;
 using Superpower.Model;
 using Superpower.Parsers;

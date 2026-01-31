@@ -1,4 +1,4 @@
-namespace DnsmasqWebUI.Models;
+namespace DnsmasqWebUI.Models.Config;
 
 /// <summary>
 /// Kind of dnsmasq .conf option. Each kind has a dedicated parser and backing model
@@ -35,7 +35,7 @@ public enum DnsmasqOptionKind
     // --- DHCP (structured) ---
     /// <summary>dhcp-range=... → <see cref="DhcpRangeOption"/> (complex)</summary>
     DhcpRange,
-    /// <summary>dhcp-host=... → <see cref="DhcpHostEntry"/> (already have parser)</summary>
+    /// <summary>dhcp-host=... → DhcpHostEntry (in DnsmasqWebUI.Models)</summary>
     DhcpHost,
     /// <summary>dhcp-option=... (complex)</summary>
     DhcpOption,

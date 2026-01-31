@@ -14,12 +14,14 @@ public class HostsFileService : IHostsFileService
 
     public HostsFileService(IOptions<DnsmasqOptions> options, ILogger<HostsFileService> logger)
     {
-        _path = options.Value.HostsPath;
+        _path = options.Value.SystemHostsPath?.Trim() ?? "";
         _logger = logger;
     }
 
     public async Task<IReadOnlyList<HostEntry>> ReadAsync(CancellationToken ct = default)
     {
+        if (string.IsNullOrEmpty(_path))
+            return Array.Empty<HostEntry>();
         if (!File.Exists(_path))
         {
             _logger.LogWarning("Hosts file not found: {Path}", _path);
@@ -46,6 +48,8 @@ public class HostsFileService : IHostsFileService
 
     public async Task WriteAsync(IReadOnlyList<HostEntry> entries, CancellationToken ct = default)
     {
+        if (string.IsNullOrEmpty(_path))
+            throw new InvalidOperationException("No system hosts file configured. Set Dnsmasq:SystemHostsPath to enable hosts editing.");
         var dir = Path.GetDirectoryName(_path);
         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
             Directory.CreateDirectory(dir);

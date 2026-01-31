@@ -1,4 +1,4 @@
-namespace DnsmasqWebUI.Models;
+namespace DnsmasqWebUI.Models.Config;
 
 /// <summary>Backing model for conf-file=path. Parsed from main config only.</summary>
 public record ConfFileOption(string Path, int LineNumber, string SourceFilePath);

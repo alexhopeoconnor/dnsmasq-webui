@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using DnsmasqWebUI.Options;
 using DnsmasqWebUI.Services.Abstractions;
 using Microsoft.Extensions.Options;
@@ -7,19 +6,21 @@ namespace DnsmasqWebUI.Services;
 
 public class ReloadService : IReloadService
 {
-    private readonly string? _command;
+    private readonly DnsmasqOptions _options;
+    private readonly IProcessRunner _processRunner;
     private readonly ILogger<ReloadService> _logger;
     private readonly SemaphoreSlim _reloadLock = new(1, 1);
 
-    public ReloadService(IOptions<DnsmasqOptions> options, ILogger<ReloadService> logger)
+    public ReloadService(IProcessRunner processRunner, IOptions<DnsmasqOptions> options, ILogger<ReloadService> logger)
     {
-        _command = options.Value.ReloadCommand;
+        _processRunner = processRunner;
+        _options = options.Value;
         _logger = logger;
     }
 
     public async Task<ReloadResult> ReloadAsync(CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(_command))
+        if (string.IsNullOrWhiteSpace(_options.ReloadCommand))
         {
             _logger.LogDebug("Reload command not configured");
             return new ReloadResult(true, 0, null, "Reload command not configured");
@@ -33,47 +34,23 @@ public class ReloadService : IReloadService
 
         try
         {
-            using var process = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = "/bin/sh",
-                    Arguments = "-c \"" + _command.Replace("\"", "\\\"") + "\"",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
-            process.Start();
-
-            var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
-            var stderrTask = process.StandardError.ReadToEndAsync(ct);
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(30));
-
-            var timedOut = false;
-            try
-            {
-                await process.WaitForExitAsync(timeoutCts.Token);
-            }
-            catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
-            {
-                timedOut = true;
-                _logger.LogWarning("Reload command timed out after 30 seconds");
-                try { process.Kill(); } catch { /* best effort */ }
-            }
-
-            var stdout = await stdoutTask;
-            var stderr = await stderrTask;
-            var exitCode = process.HasExited ? process.ExitCode : -1;
-            if (timedOut)
+            var result = await _processRunner.RunAsync(_options.ReloadCommand, TimeSpan.FromSeconds(30), ct);
+            var stderr = result.Stderr;
+            if (result.TimedOut)
                 stderr = (string.IsNullOrEmpty(stderr) ? "" : stderr + "\n") + "Reload command timed out after 30 seconds.";
-            if (exitCode != 0)
-                _logger.LogWarning("Reload command exited with {ExitCode}: {Stderr}", exitCode, stderr);
-            else
+            if (result.ExceptionMessage != null)
+                stderr = (string.IsNullOrEmpty(stderr) ? "" : stderr + "\n") + result.ExceptionMessage;
+
+            if (result.ExitCode != 0 && result.ExitCode.HasValue)
+                _logger.LogWarning("Reload command exited with {ExitCode}: {Stderr}", result.ExitCode.Value, stderr);
+            else if (result.ExitCode == 0)
                 _logger.LogInformation("Reload command succeeded");
-            return new ReloadResult(exitCode == 0, exitCode, stdout, stderr);
+
+            return new ReloadResult(
+                result.ExitCode == 0,
+                result.ExitCode ?? -1,
+                result.Stdout,
+                stderr);
         }
         catch (Exception ex)
         {

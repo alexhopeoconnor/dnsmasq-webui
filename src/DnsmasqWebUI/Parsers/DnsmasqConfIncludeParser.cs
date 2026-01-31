@@ -95,8 +95,81 @@ public static class DnsmasqConfIncludeParser
     }
 
     /// <summary>
+    /// Returns true if any config file contains the given option as a flag (no value or empty value).
+    /// Used for options like no-hosts, expand-hosts, bogus-priv (dnsmasq: once set, set).
+    /// </summary>
+    public static bool GetFlagFromConfigFiles(IReadOnlyList<string> configFilePathsInOrder, string optionKey)
+    {
+        var key = optionKey.Trim();
+        if (string.IsNullOrEmpty(key))
+            return false;
+        foreach (var configPath in configFilePathsInOrder)
+        {
+            if (!File.Exists(configPath))
+                continue;
+            foreach (var line in File.ReadAllLines(configPath))
+            {
+                var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
+                if (kv == null)
+                    continue;
+                var (k, v) = kv.Value;
+                if (!k.Equals(key, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Returns the last value for the given option key across config files, and the directory of the file
+    /// that contained it (for resolving relative paths). Keys are matched case-insensitively.
+    /// </summary>
+    public static (string? Value, string? ConfigFileDir) GetLastValueFromConfigFiles(IReadOnlyList<string> configFilePathsInOrder, string optionKey)
+    {
+        var key = optionKey.Trim();
+        if (string.IsNullOrEmpty(key))
+            return (null, null);
+        string? lastValue = null;
+        string? lastDir = null;
+        foreach (var configPath in configFilePathsInOrder)
+        {
+            if (!File.Exists(configPath))
+                continue;
+            var dir = Path.GetDirectoryName(configPath) ?? "";
+            foreach (var line in File.ReadAllLines(configPath))
+            {
+                var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
+                if (kv == null)
+                    continue;
+                var (k, value) = kv.Value;
+                if (!k.Equals(key, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                var trimmed = value.Trim();
+                lastValue = trimmed;
+                lastDir = dir;
+            }
+        }
+        return (lastValue, lastDir);
+    }
+
+    /// <summary>
+    /// Resolves a path value against the config file directory. If value is null/empty or already absolute, returns as-is (or null).
+    /// </summary>
+    public static string? ResolvePath(string? value, string? configFileDir)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+        if (Path.IsPathRooted(value))
+            return value;
+        if (string.IsNullOrEmpty(configFileDir))
+            return Path.GetFullPath(value);
+        return Path.GetFullPath(Path.Combine(configFileDir, value));
+    }
+
+    /// <summary>
     /// Reads the given config files in order and returns the last <c>dhcp-leasefile=</c> or <c>dhcp-lease-file=</c> path.
-    /// Relative paths are resolved against the config file's directory. Used so the app monitors the same leases file dnsmasq uses.
+    /// Both option names are the same in dnsmasq (last occurrence of either wins). Relative paths resolved against config file dir.
     /// </summary>
     public static string? GetDhcpLeaseFilePathFromConfigFiles(IReadOnlyList<string> configFilePathsInOrder)
     {
@@ -117,11 +190,18 @@ public static class DnsmasqConfIncludeParser
                     continue;
                 var path = value.Trim();
                 if (!string.IsNullOrEmpty(path))
-                    result = Path.GetFullPath(Path.Combine(dir, path));
+                    result = ResolvePath(path, dir) ?? result;
             }
         }
         return result;
     }
+
+    /// <summary>
+    /// Reads the given config files in order and returns true if <c>no-hosts</c> appears in any file.
+    /// When true, dnsmasq does not read /etc/hosts; only addn-hosts= files are used (if any).
+    /// </summary>
+    public static bool GetNoHostsFromConfigFiles(IReadOnlyList<string> configFilePathsInOrder) =>
+        GetFlagFromConfigFiles(configFilePathsInOrder, "no-hosts");
 
     /// <summary>
     /// Reads the given config files in order and returns all <c>addn-hosts=</c> paths (cumulative; dnsmasq loads each in order).

@@ -1,4 +1,4 @@
-using System.Diagnostics;
+using DnsmasqWebUI.Models;
 using DnsmasqWebUI.Options;
 using DnsmasqWebUI.Services.Abstractions;
 using Microsoft.AspNetCore.Mvc;
@@ -12,83 +12,81 @@ public class StatusController : ControllerBase
 {
     private readonly DnsmasqOptions _options;
     private readonly IDnsmasqConfigSetService _configSetService;
+    private readonly IProcessRunner _processRunner;
 
-    public StatusController(IOptions<DnsmasqOptions> options, IDnsmasqConfigSetService configSetService)
+    public StatusController(
+        IOptions<DnsmasqOptions> options,
+        IDnsmasqConfigSetService configSetService,
+        IProcessRunner processRunner)
     {
         _options = options.Value;
         _configSetService = configSetService;
+        _processRunner = processRunner;
     }
 
     [HttpGet]
-    public async Task<IActionResult> Get(CancellationToken ct)
+    public async Task<ActionResult<DnsmasqServiceStatus>> Get(CancellationToken ct)
     {
         try
         {
             var set = await _configSetService.GetConfigSetAsync(ct);
-            var (dnsmasqStatus, statusCommandExitCode, statusCommandStdout, statusCommandStderr) = GetDnsmasqServiceStatus(_options.StatusCommand);
             var effectiveLeasesPath = _configSetService.GetLeasesPath();
-            var payload = new Dictionary<string, object?>
-            {
-                ["hostsPath"] = _options.HostsPath,
-                ["mainConfigPath"] = _options.MainConfigPath,
-                ["managedFilePath"] = set.ManagedFilePath,
-                ["leasesPath"] = effectiveLeasesPath,
-                ["hostsPathExists"] = !string.IsNullOrEmpty(_options.HostsPath) && System.IO.File.Exists(_options.HostsPath),
-                ["mainConfigPathExists"] = !string.IsNullOrEmpty(_options.MainConfigPath) && System.IO.File.Exists(_options.MainConfigPath),
-                ["managedFilePathExists"] = !string.IsNullOrEmpty(set.ManagedFilePath) && System.IO.File.Exists(set.ManagedFilePath),
-                ["leasesPathConfigured"] = !string.IsNullOrEmpty(effectiveLeasesPath),
-                ["leasesPathExists"] = !string.IsNullOrEmpty(effectiveLeasesPath) && System.IO.File.Exists(effectiveLeasesPath),
-                ["reloadCommandConfigured"] = !string.IsNullOrWhiteSpace(_options.ReloadCommand),
-                ["statusCommandConfigured"] = !string.IsNullOrWhiteSpace(_options.StatusCommand),
-                ["dnsmasqStatus"] = dnsmasqStatus
-            };
-            if (dnsmasqStatus != "active" && statusCommandExitCode.HasValue)
-                payload["statusCommandExitCode"] = statusCommandExitCode.Value;
-            if (dnsmasqStatus != "active" && !string.IsNullOrEmpty(statusCommandStdout))
-                payload["statusCommandStdout"] = statusCommandStdout;
-            if (dnsmasqStatus != "active" && !string.IsNullOrEmpty(statusCommandStderr))
-                payload["statusCommandStderr"] = statusCommandStderr;
-            return Ok(payload);
+            var effectiveConfig = _configSetService.GetEffectiveConfig();
+            var systemHostsPath = _options.SystemHostsPath?.Trim();
+
+            var statusResult = await _processRunner.RunAsync(_options.StatusCommand, TimeSpan.FromSeconds(5), ct);
+            var dnsmasqStatus = statusResult.ExitCode == 0 ? "active" : (statusResult.ExitCode.HasValue ? "inactive" : "unknown");
+            var statusCommandStdout = string.IsNullOrWhiteSpace(statusResult.Stdout) ? null : statusResult.Stdout.Trim();
+            var statusCommandStderr = string.IsNullOrWhiteSpace(statusResult.Stderr) ? null : statusResult.Stderr.Trim();
+            if (statusResult.ExceptionMessage != null)
+                statusCommandStderr = (statusCommandStderr ?? "") + (statusCommandStderr != null ? "\n" : "") + statusResult.ExceptionMessage;
+
+            var showTask = string.IsNullOrWhiteSpace(_options.StatusShowCommand)
+                ? Task.FromResult(new ProcessRunResult(null, "", "", false))
+                : _processRunner.RunAsync(_options.StatusShowCommand, TimeSpan.FromSeconds(5), ct);
+            var logsTask = string.IsNullOrWhiteSpace(_options.LogsCommand)
+                ? Task.FromResult(new ProcessRunResult(null, "", "", false))
+                : _processRunner.RunAsync(_options.LogsCommand, TimeSpan.FromSeconds(10), ct);
+            await Task.WhenAll(showTask, logsTask);
+
+            var showResult = await showTask;
+            var logsResult = await logsTask;
+            var statusShowOutput = !string.IsNullOrWhiteSpace(_options.StatusShowCommand)
+                ? showResult.Stdout + (showResult.TimedOut ? "\n(Command timed out.)" : "")
+                : null;
+            var logsOutput = !string.IsNullOrWhiteSpace(_options.LogsCommand)
+                ? logsResult.Stdout + (logsResult.TimedOut ? "\n(Command timed out.)" : "")
+                : null;
+
+            var status = new DnsmasqServiceStatus(
+                SystemHostsPath: string.IsNullOrEmpty(systemHostsPath) ? null : systemHostsPath,
+                SystemHostsPathExists: !string.IsNullOrEmpty(systemHostsPath) && System.IO.File.Exists(systemHostsPath),
+                NoHosts: effectiveConfig.NoHosts,
+                AddnHostsPaths: effectiveConfig.AddnHostsPaths,
+                EffectiveConfig: effectiveConfig,
+                MainConfigPath: _options.MainConfigPath,
+                ManagedFilePath: set.ManagedFilePath,
+                LeasesPath: effectiveLeasesPath,
+                MainConfigPathExists: !string.IsNullOrEmpty(_options.MainConfigPath) && System.IO.File.Exists(_options.MainConfigPath),
+                ManagedFilePathExists: !string.IsNullOrEmpty(set.ManagedFilePath) && System.IO.File.Exists(set.ManagedFilePath),
+                LeasesPathConfigured: !string.IsNullOrEmpty(effectiveLeasesPath),
+                LeasesPathExists: !string.IsNullOrEmpty(effectiveLeasesPath) && System.IO.File.Exists(effectiveLeasesPath),
+                ReloadCommandConfigured: !string.IsNullOrWhiteSpace(_options.ReloadCommand),
+                StatusCommandConfigured: !string.IsNullOrWhiteSpace(_options.StatusCommand),
+                StatusShowConfigured: !string.IsNullOrWhiteSpace(_options.StatusShowCommand),
+                LogsConfigured: !string.IsNullOrWhiteSpace(_options.LogsCommand),
+                DnsmasqStatus: dnsmasqStatus,
+                StatusCommandExitCode: dnsmasqStatus != "active" && statusResult.ExitCode.HasValue ? statusResult.ExitCode.Value : null,
+                StatusCommandStdout: dnsmasqStatus != "active" ? statusCommandStdout : null,
+                StatusCommandStderr: dnsmasqStatus != "active" ? statusCommandStderr : null,
+                StatusShowOutput: statusShowOutput,
+                LogsOutput: logsOutput
+            );
+            return Ok(status);
         }
         catch (Exception ex)
         {
             return StatusCode(500, new { error = ex.Message });
-        }
-    }
-
-    /// <summary>Runs StatusCommand if configured; returns status and optional exit code/stdout/stderr for UI.</summary>
-    private static (string Status, int? ExitCode, string? Stdout, string? Stderr) GetDnsmasqServiceStatus(string? statusCommand)
-    {
-        if (string.IsNullOrWhiteSpace(statusCommand))
-            return ("notConfigured", null, null, null);
-
-        try
-        {
-            using var process = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = "/bin/sh",
-                    Arguments = "-c \"" + statusCommand.Replace("\"", "\\\"") + "\"",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
-            process.Start();
-            var stdout = process.StandardOutput.ReadToEnd();
-            var stderr = process.StandardError.ReadToEnd();
-            process.WaitForExit(TimeSpan.FromSeconds(5));
-            var exitCode = process.HasExited ? process.ExitCode : -1;
-            var status = exitCode == 0 ? "active" : "inactive";
-            return (status, exitCode,
-                string.IsNullOrWhiteSpace(stdout) ? null : stdout.Trim(),
-                string.IsNullOrWhiteSpace(stderr) ? null : stderr.Trim());
-        }
-        catch (Exception ex)
-        {
-            return ("unknown", null, null, ex.Message);
         }
     }
 }

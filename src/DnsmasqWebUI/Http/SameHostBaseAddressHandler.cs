@@ -1,4 +1,5 @@
 using System.Net;
+using DnsmasqWebUI.Services.Abstractions;
 
 namespace DnsmasqWebUI.Http;
 
@@ -8,17 +9,17 @@ namespace DnsmasqWebUI.Http;
 /// Resolved in the same scope as the code that requested the HttpClient (e.g. Blazor component),
 /// so IHttpContextAccessor has the current request when available.
 /// </summary>
-public sealed class SameHostBaseAddressHandler(IHttpContextAccessor httpContextAccessor) : DelegatingHandler
+public sealed class SameHostBaseAddressHandler(IHttpContextAccessor httpContextAccessor) : DelegatingHandler, IApplicationScopedConcrete
 {
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        if (request.RequestUri is { IsAbsoluteUri: false })
+        var context = httpContextAccessor.HttpContext;
+        if (context != null && request.RequestUri != null)
         {
-            var context = httpContextAccessor.HttpContext;
-            var baseUri = context != null
-                ? new Uri($"{context.Request.Scheme}://{context.Request.Host.Value}{context.Request.PathBase.Value ?? ""}")
-                : new Uri("http://localhost", UriKind.Absolute);
-            request.RequestUri = new Uri(baseUri, request.RequestUri);
+            var baseUri = new Uri($"{context.Request.Scheme}://{context.Request.Host.Value}{context.Request.PathBase.Value ?? ""}");
+            request.RequestUri = request.RequestUri.IsAbsoluteUri
+                ? new Uri(baseUri, request.RequestUri.PathAndQuery)
+                : new Uri(baseUri, request.RequestUri);
         }
 
         return base.SendAsync(request, cancellationToken);

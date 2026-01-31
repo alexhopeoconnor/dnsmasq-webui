@@ -1,5 +1,6 @@
 using System.Text;
 using DnsmasqWebUI.Models;
+using DnsmasqWebUI.Models.Config;
 using DnsmasqWebUI.Options;
 using DnsmasqWebUI.Parsers;
 using DnsmasqWebUI.Services.Abstractions;
@@ -16,7 +17,7 @@ public class DnsmasqConfigService : IDnsmasqConfigService
     public DnsmasqConfigService(IDnsmasqConfigSetService configSetService, IOptions<DnsmasqOptions> options, ILogger<DnsmasqConfigService> logger)
     {
         _configSetService = configSetService;
-        _hostsPath = options.Value.HostsPath ?? "";
+        _hostsPath = options.Value.SystemHostsPath?.Trim() ?? "";
         _logger = logger;
     }
 
@@ -67,7 +68,7 @@ public class DnsmasqConfigService : IDnsmasqConfigService
         return "line:" + e.LineNumber;
     }
 
-    /// <summary>Ensures exactly one AddnHosts line with path = hostsPath. Replaces first AddnHosts or inserts at start.</summary>
+    /// <summary>When hostsPath is set, ensures the managed file has exactly one addn-hosts line pointing to it (replaces the first AddnHosts line in the list or inserts at start). So dnsmasq loads that file; other config files may have other addn-hosts lines.</summary>
     private static void EnsureOneAddnHostsLine(List<DnsmasqConfLine> configLines, string hostsPath)
     {
         if (string.IsNullOrEmpty(hostsPath))

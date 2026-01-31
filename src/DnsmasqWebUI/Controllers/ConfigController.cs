@@ -1,4 +1,5 @@
 using DnsmasqWebUI.Models;
+using DnsmasqWebUI.Models.Config;
 using DnsmasqWebUI.Services.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 
@@ -49,7 +50,7 @@ public class ConfigController : ControllerBase
         }
     }
 
-    /// <summary>Writes the full managed config file (ensures one addn-hosts line = HostsPath), then optionally triggers reload.</summary>
+    /// <summary>Writes the full managed config file, then optionally triggers reload. When SystemHostsPath is configured, the managed file is updated so it contains exactly one addn-hosts line pointing to that path (so dnsmasq loads the editable hosts file); other config files may have additional addn-hosts lines.</summary>
     [HttpPut("managed")]
     public async Task<ActionResult<object>> PutManaged([FromBody] List<DnsmasqConfLine>? lines, CancellationToken ct)
     {

@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
+using DnsmasqWebUI.Models;
 
-namespace DnsmasqWebUI.Models;
+namespace DnsmasqWebUI.Models.Config;
 
 /// <summary>Kind of line in a dnsmasq .conf file. One option per line, key=value (no leading --), # for comments.</summary>
 public enum DnsmasqConfLineKind

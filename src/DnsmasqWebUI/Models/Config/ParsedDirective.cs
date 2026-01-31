@@ -1,4 +1,4 @@
-namespace DnsmasqWebUI.Models;
+namespace DnsmasqWebUI.Models.Config;
 
 /// <summary>
 /// One parsed directive from a dnsmasq .conf file. Kind tells which option type;

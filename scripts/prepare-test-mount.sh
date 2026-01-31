@@ -27,7 +27,7 @@ usage() {
   echo ""
   echo "Prepare the testdata mount directory and optionally start the Docker test harness"
   echo "(app with dnsmasq in one container, plus a DHCP client). The mount is synced from"
-  echo "testdata/ by default; 'leases' is excluded so dnsmasq creates the real leases file."
+  echo "testdata/ by default (includes sample leases file so the harness shows leases)."
   echo ""
   echo "Steps:"
   echo "  1. Clear mount dir (unless --no-clear), then sync source -> mount."
@@ -176,16 +176,15 @@ if [ "$NO_CLEAR" = false ]; then
 fi
 
 if command -v rsync >/dev/null 2>&1; then
-  rsync -a --exclude=leases "$SOURCE_DIR/" "$MOUNT_DIR/"
+  rsync -a "$SOURCE_DIR/" "$MOUNT_DIR/"
 else
   cp -r "$SOURCE_DIR/." "$MOUNT_DIR/"
-  rm -f "$MOUNT_DIR/leases"
 fi
 
 # Remove any leftover managed config from previous runs so dnsmasq starts clean (app will create zz-dnsmasq-webui.conf on startup).
 find "$MOUNT_DIR" -name '*dnsmasq-webui*.conf' -type f -delete 2>/dev/null || true
 
-echo "Mount directory ready: $MOUNT_DIR (source: $SOURCE_DIR, leases excluded)."
+echo "Mount directory ready: $MOUNT_DIR (source: $SOURCE_DIR)."
 
 if [ "$PREPARE_ONLY" = true ]; then
   echo "To start the harness: TESTDATA_MOUNT=./$MOUNT_DIR docker compose -f $COMPOSE_FILE up -d --build"
