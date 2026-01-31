@@ -3,7 +3,7 @@ namespace DnsmasqWebUI.Options;
 /// <summary>
 /// Configuration for dnsmasq paths and reload/status commands.
 /// File permissions: the app must be able to read MainConfigPath and the conf-dir (or conf-file) target,
-/// and to create/update the managed config file and HostsPath. In the test harness (Dockerfile.dnsmasq)
+/// and to create/update the managed config file and HostsPath. In the Docker image (Dockerfile)
 /// app and dnsmasq run in one container as root, so this works. When the UI runs in a container and
 /// dnsmasq is on the host, bind-mount the host config dir (e.g. /etc/dnsmasq.d) into the container;
 /// the container process typically needs to run as root (or the host dir must be writable by the
@@ -17,10 +17,10 @@ public class DnsmasqOptions
     /// <summary>Configuration section name (e.g. "Dnsmasq" for appsettings and Dnsmasq__* env vars).</summary>
     public const string SectionName = "Dnsmasq";
 
-    /// <summary>Path to the main dnsmasq config (e.g. /etc/dnsmasq.conf). Read only for discovery of conf-file/conf-dir via DnsmasqConfIncludeParser. App may append conf-dir= if missing; process must have write access for that.</summary>
+    /// <summary>Path to the main dnsmasq config (e.g. /etc/dnsmasq.conf). App appends conf-file= at the end if missing so the managed file is included; process must have write access.</summary>
     public string MainConfigPath { get; set; } = "";
 
-    /// <summary>Filename we create in the first conf-dir (e.g. zz-dnsmasq-webui.conf) so it loads last after other conf-dir files. Must sort after any other files in that dir (e.g. dhcp.conf) so our addn-hosts and DHCP hosts win. Managed file content parsed with DnsmasqConfFileLineParser.</summary>
+    /// <summary>Filename of the managed config (e.g. zz-dnsmasq-webui.conf), created in &lt;main-config-dir&gt;/dnsmasq.d/ and included via conf-file= at the end of the main config so it loads last. Managed file content parsed with DnsmasqConfFileLineParser.</summary>
     public string ManagedFileName { get; set; } = "zz-dnsmasq-webui.conf";
 
     /// <summary>Path we write as addn-hosts= in the managed file; HostsFileService reads/writes this path. Process must have read/write access.</summary>

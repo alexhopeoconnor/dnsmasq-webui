@@ -1,12 +1,12 @@
 #!/usr/bin/env sh
-# Prepare the testdata mount and optionally start the Docker test harness
+# Prepare the testdata mount and optionally start or stop the Docker test harness
 # (app + dnsmasq + DHCP client). See testdata/README.md and docker-compose.test.yml.
 #
 # What this script does:
-#   1. Clears the mount directory (unless --no-clear), then syncs source -> mount.
-#   2. Excludes 'leases' so dnsmasq creates/owns the real leases file in the container.
-#   3. Removes any *dnsmasq-webui*.conf so dnsmasq starts clean (app creates zz-dnsmasq-webui.conf at startup).
-#   4. Unless --prepare-only, runs: docker compose -f docker-compose.test.yml up -d [--build] [--force-recreate]
+#   Start (default): clear mount (unless --no-clear), sync source -> mount, remove *dnsmasq-webui*.conf,
+#     then docker compose up -d [--build] [--force-recreate].
+#   --stop: docker compose down (stop and remove containers/networks).
+#   --tidy: docker compose down, then clear the mount directory for a clean next run.
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -19,6 +19,8 @@ PREPARE_ONLY=false
 NO_BUILD=false
 RECREATE=false
 NO_CLEAR=false
+STOP=false
+TIDY=false
 
 usage() {
   echo "Usage: $0 [OPTIONS] [--]"
@@ -50,6 +52,11 @@ usage() {
   echo "  --recreate           Pass --force-recreate to docker compose (recreate containers)."
   echo "                      Use to ensure fresh container state and mounts."
   echo ""
+  echo "Stop / tidy:"
+  echo "  --stop              Stop the test harness: docker compose down (no prepare, no start)."
+  echo "  --tidy              Stop the harness and clear the mount directory for a clean next run."
+  echo "                      Uses default mount dir unless --mount DIR is given."
+  echo ""
   echo "Other:"
   echo "  -h, --help          Show this help and exit."
   echo ""
@@ -73,6 +80,12 @@ usage() {
   echo "  $0 --source myfixtures --mount mymount --prepare-only"
   echo "                      Sync myfixtures -> mymount only. Start with:"
   echo "                      TESTDATA_MOUNT=./mymount docker compose -f $COMPOSE_FILE up -d"
+  echo ""
+  echo "  $0 --stop"
+  echo "                      Stop and remove test harness containers and networks."
+  echo ""
+  echo "  $0 --tidy"
+  echo "                      Stop harness and clear testdata-mount for a clean next run."
 }
 
 while [ $# -gt 0 ]; do
@@ -109,6 +122,14 @@ while [ $# -gt 0 ]; do
       RECREATE=true
       shift
       ;;
+    --stop)
+      STOP=true
+      shift
+      ;;
+    --tidy)
+      TIDY=true
+      shift
+      ;;
     --)
       shift
       break
@@ -125,6 +146,22 @@ cd "$REPO_ROOT"
 
 : "${SOURCE_DIR:=testdata}"
 : "${MOUNT_DIR:=testdata-mount}"
+
+# Stop and/or tidy: no prepare, no start
+if [ "$STOP" = true ] || [ "$TIDY" = true ]; then
+  echo "Stopping test harness: docker compose -f $COMPOSE_FILE down"
+  docker compose -f "$COMPOSE_FILE" down
+  if [ "$TIDY" = true ]; then
+    if [ -d "$MOUNT_DIR" ]; then
+      echo "Clearing mount directory: $MOUNT_DIR"
+      find "$MOUNT_DIR" -mindepth 1 -delete 2>/dev/null || true
+      echo "Mount directory cleared."
+    else
+      echo "Mount directory $MOUNT_DIR does not exist; nothing to clear."
+    fi
+  fi
+  exit 0
+fi
 
 if [ ! -d "$SOURCE_DIR" ]; then
   echo "Error: source directory '$SOURCE_DIR' does not exist" >&2

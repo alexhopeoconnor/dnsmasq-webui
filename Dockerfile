@@ -1,3 +1,8 @@
+# App + dnsmasq in one container. Use this image for running dnsmasq (and the UI) in Docker.
+# Both run as root; file permissions work because config dirs are in the container.
+# For dnsmasq on the host, use the self-contained publish (scripts/publish-self-contained.sh)
+# or run the app on the host; see DnsmasqOptions XML doc for permissions and ReloadCommand scope.
+
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
 WORKDIR /app
 EXPOSE 8080
@@ -14,10 +19,14 @@ RUN dotnet build "DnsmasqWebUI.csproj" -c Release -o /app/build
 FROM build AS publish
 RUN dotnet publish "DnsmasqWebUI.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
-# Runs as root by default. For host dnsmasq + container UI: bind-mount host config dir
-# and ensure the mount is writable by the container user, or run this image as root.
-FROM base AS final
+FROM base AS app
 WORKDIR /app
 ENV ASPNETCORE_URLS=http://+:8080
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "DnsmasqWebUI.dll"]
+
+FROM app AS final
+RUN apt-get update && apt-get install -y --no-install-recommends dnsmasq procps \
+    && rm -rf /var/lib/apt/lists/*
+COPY scripts/entrypoint.sh .
+RUN chmod +x entrypoint.sh
+ENTRYPOINT ["./entrypoint.sh"]

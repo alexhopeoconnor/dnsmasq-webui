@@ -45,18 +45,19 @@ public class DnsmasqConfigSetService : IDnsmasqConfigSetService
             return new DnsmasqConfigSet("", "", Array.Empty<DnsmasqConfigSetEntry>());
 
         var mainFull = Path.GetFullPath(mainPath);
-        var withSource = DnsmasqConfIncludeParser.GetIncludedPathsWithSource(mainPath);
-        var firstConfDir = DnsmasqConfIncludeParser.GetFirstConfDir(mainPath);
-        var managedFilePath = !string.IsNullOrEmpty(firstConfDir)
-            ? Path.Combine(firstConfDir, _options.ManagedFileName)
-            : "";
+        var mainDir = Path.GetDirectoryName(mainFull) ?? "";
+        var managedFilePath = Path.Combine(mainDir, "dnsmasq.d", _options.ManagedFileName);
 
+        var withSource = DnsmasqConfIncludeParser.GetIncludedPathsWithSource(mainPath);
         var files = withSource.Select(p => new DnsmasqConfigSetEntry(
             p.Path,
             Path.GetFileName(p.Path),
             p.Source,
             IsManaged: string.Equals(p.Path, managedFilePath, StringComparison.Ordinal)
         )).ToList();
+
+        if (files.All(e => !string.Equals(e.Path, managedFilePath, StringComparison.Ordinal)))
+            files.Add(new DnsmasqConfigSetEntry(managedFilePath, Path.GetFileName(managedFilePath), DnsmasqConfFileSource.ConfFile, IsManaged: true));
 
         return new DnsmasqConfigSet(mainFull, managedFilePath, files);
     }

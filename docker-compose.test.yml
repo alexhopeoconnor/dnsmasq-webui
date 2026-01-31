@@ -2,7 +2,7 @@
 # Prepare mount: ./scripts/prepare-test-mount.sh [--prepare-only | --no-build | --recreate | --source DIR | --mount DIR]
 # Or set TESTDATA_MOUNT to override the data volume (default: ./testdata-mount).
 #
-# app builds from Dockerfile.dnsmasq (app + dnsmasq in one container; app is main process).
+# app builds from Dockerfile (app + dnsmasq in one container; app is main process).
 # ReloadCommand/StatusCommand use pkill/pgrep (procps in image). cap_add NET_ADMIN for dnsmasq.
 #
 # Networks: testnet 172.28.0.0/16 so dnsmasq can hand out 172.28.0.10–50.
@@ -10,7 +10,6 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile.dnsmasq
     ports:
       - "8080:8080"
     cap_add:
