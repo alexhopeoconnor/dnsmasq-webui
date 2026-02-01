@@ -4,6 +4,7 @@
 @inject IStatusClient StatusClient
 @inject IConfigSetClient ConfigSetClient
 @inject IReloadClient ReloadClient
+@inject IClientSettingsService ClientSettingsService
 @implements IDisposable
 
 <PageTitle>Overview | Local DNS</PageTitle>
@@ -56,56 +57,10 @@ else if (_status != null)
             </div>
         }
 
-        @* Full service status — output of StatusShowCommand *@
-        @if (_status.StatusShowConfigured)
-        {
-            <p class="mb-1 mt-3"><strong>Service status</strong></p>
-            <p class="text-muted small mb-1"><code>@_status.StatusShowCommand</code></p>
-            @if (string.IsNullOrWhiteSpace(_status.StatusShowOutput))
-            {
-                <p class="text-muted small">No output. On a systemd host use <code>systemctl status dnsmasq --no-pager</code> for full status; in Docker or without systemd use <code>ps -C dnsmasq -o pid,user,args</code> or <code>pgrep -a dnsmasq</code> for minimal process info.</p>
-            }
-            else
-            {
-                <pre class="pre-block mb-0" style="max-height: 22rem;">@_status.StatusShowOutput</pre>
-            }
-        }
+        <StatusSection RefreshIntervalSeconds="_serviceStatusIntervalSeconds" OnOpenSettings="OpenServiceStatusSettings" />
+        <LogsSection RefreshIntervalSeconds="_recentLogsIntervalSeconds" OnOpenSettings="OpenRecentLogsSettings" />
 
-        @* Recent logs — live view from LogsCommand (show command so it's clear what produces the output) *@
-        @if (_status.LogsConfigured || _status.LogsPath != null)
-        {
-            <p class="mb-1 mt-3"><strong>Recent logs</strong></p>
-            @if (_status.LogsConfigured)
-            {
-                <p class="text-muted small mb-1"><code>@_status.LogsCommand</code> <span class="text-muted">(refreshes every @(_refreshIntervalSeconds)s)</span></p>
-            }
-            @if (_status.LogsConfigured)
-            {
-                @if (string.IsNullOrWhiteSpace(_status.LogsOutput))
-                {
-                    <p class="text-muted small">No output.</p>
-                }
-                else
-                {
-                    <pre class="pre-block mb-0" style="max-height: 24rem;">@_status.LogsOutput</pre>
-                }
-            }
-        }
-
-        @if (_status.StatusShowConfigured || _status.LogsConfigured)
-        {
-            <div class="mt-2 d-flex flex-wrap gap-2 align-items-center">
-                <button class="btn btn-primary btn-sm" @onclick="RefreshStatus" disabled="@_refreshing">Refresh status &amp; logs</button>
-                @if (_status.LogsPath != null)
-                {
-                    <a href="api/status/logs/download" download="dnsmasq.log" class="btn btn-primary btn-sm">Download logs</a>
-                }
-                else
-                {
-                    <button type="button" class="btn btn-primary btn-sm" disabled title="No log file path detected. Set log-facility=/path/to/file in your dnsmasq config to enable download.">Download logs</button>
-                }
-            </div>
-        }
+        <SettingsModal IsVisible="_settingsModalOpen" Title="@_settingsModalTitle" SettingsContext="_settingsModalContext" OnClose="CloseSettingsModal" />
     </section>
 
     <section class="page-section">
@@ -201,19 +156,22 @@ else if (_status != null)
 }
 
 @code {
-    private const int _refreshIntervalSeconds = 15;
+    private int _serviceStatusIntervalSeconds = 15;
+    private int _recentLogsIntervalSeconds = 15;
+    private bool _settingsModalOpen;
+    private string _settingsModalTitle = "Client settings";
+    private SettingsModalContext _settingsModalContext = SettingsModalContext.All;
+    private ClientSettings _clientSettings = new();
 
     private DnsmasqServiceStatus? _status;
     private DnsmasqConfigSet? _configSet;
     private string? _error;
     private bool _loading = true;
     private bool _reloading;
-    private bool _refreshing;
     private string? _reloadMessage;
     private string? _reloadDetail;
     private bool _reloadSuccess;
     private readonly CancellationTokenSource _cts = new();
-    private Timer? _refreshTimer;
 
     protected override async Task OnInitializedAsync()
     {
@@ -222,6 +180,9 @@ else if (_status != null)
         {
             await Task.Delay(1, _cts.Token);
             var token = _cts.Token;
+            _clientSettings = await ClientSettingsService.LoadSettingsAsync();
+            _serviceStatusIntervalSeconds = Math.Clamp(_clientSettings.ServiceStatusPollingIntervalSeconds, 5, 300);
+            _recentLogsIntervalSeconds = Math.Clamp(_clientSettings.RecentLogsPollingIntervalSeconds, 5, 300);
             _status = await StatusClient.GetStatusAsync(token);
             if (_status != null)
             {
@@ -232,14 +193,6 @@ else if (_status != null)
                 catch
                 {
                     // Config set is optional for overview
-                }
-                if (_status.StatusShowConfigured || _status.LogsConfigured)
-                {
-                    _refreshTimer = new Timer(
-                        _ => _ = InvokeAsync(OnRefreshTick),
-                        null,
-                        TimeSpan.FromSeconds(_refreshIntervalSeconds),
-                        TimeSpan.FromSeconds(_refreshIntervalSeconds));
                 }
             }
         }
@@ -257,43 +210,9 @@ else if (_status != null)
         }
     }
 
-    private async Task OnRefreshTick()
-    {
-        if (_cts.Token.IsCancellationRequested) return;
-        await RefreshStatus();
-        StateHasChanged();
-    }
+    private void OpenServiceStatusSettings() => OpenSettingsModal(SettingsModalContext.ServicePolling, "Service status polling");
 
-    private async Task RefreshStatus()
-    {
-        if (_status == null) return;
-        _refreshing = true;
-        try
-        {
-            var token = _cts.Token;
-            _status = await StatusClient.GetStatusAsync(token);
-            if (_status != null)
-            {
-                try
-                {
-                    _configSet = await ConfigSetClient.GetConfigSetAsync(token);
-                }
-                catch
-                {
-                    // Config set is optional
-                }
-            }
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception)
-        {
-            // Don't overwrite _error on background refresh
-        }
-        finally
-        {
-            _refreshing = false;
-        }
-    }
+    private void OpenRecentLogsSettings() => OpenSettingsModal(SettingsModalContext.LogsPolling, "Recent logs polling");
 
     private static string GetStatusLabel(DnsmasqServiceStatus s)
     {
@@ -356,10 +275,24 @@ else if (_status != null)
         return parts.Count > 0 ? string.Join("\n\n", parts) : null;
     }
 
+    private void OpenSettingsModal(SettingsModalContext context, string title)
+    {
+        _settingsModalContext = context;
+        _settingsModalTitle = title;
+        _settingsModalOpen = true;
+    }
+
+    private async Task CloseSettingsModal()
+    {
+        _settingsModalOpen = false;
+        _clientSettings = await ClientSettingsService.LoadSettingsAsync();
+        _serviceStatusIntervalSeconds = Math.Clamp(_clientSettings.ServiceStatusPollingIntervalSeconds, 5, 300);
+        _recentLogsIntervalSeconds = Math.Clamp(_clientSettings.RecentLogsPollingIntervalSeconds, 5, 300);
+        StateHasChanged();
+    }
+
     public void Dispose()
     {
-        _refreshTimer?.Dispose();
-        _refreshTimer = null;
         _cts.Cancel();
         _cts.Dispose();
     }

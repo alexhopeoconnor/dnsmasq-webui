@@ -1,7 +1,8 @@
+using DnsmasqWebUI.Client.Http.Abstractions;
 using DnsmasqWebUI.Services.Abstractions;
 using System.Net.Http.Json;
 
-namespace DnsmasqWebUI.Http.Clients;
+namespace DnsmasqWebUI.Client.Http;
 
 public sealed class ReloadClient : IReloadClient
 {

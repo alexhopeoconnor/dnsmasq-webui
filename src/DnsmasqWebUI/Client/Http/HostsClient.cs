@@ -1,7 +1,8 @@
+using DnsmasqWebUI.Client.Http.Abstractions;
 using DnsmasqWebUI.Models;
 using System.Net.Http.Json;
 
-namespace DnsmasqWebUI.Http.Clients;
+namespace DnsmasqWebUI.Client.Http;
 
 public sealed class HostsClient : IHostsClient
 {

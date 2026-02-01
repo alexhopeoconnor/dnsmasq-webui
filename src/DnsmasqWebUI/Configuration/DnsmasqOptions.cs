@@ -1,4 +1,4 @@
-namespace DnsmasqWebUI.Options;
+namespace DnsmasqWebUI.Configuration;
 
 /// <summary>
 /// Configuration for dnsmasq paths and reload/status commands.
@@ -20,7 +20,7 @@ public class DnsmasqOptions
     /// <summary>Path to the main dnsmasq config (e.g. /etc/dnsmasq.conf). App appends conf-file= at the end if missing so the managed file is included; process must have write access.</summary>
     public string MainConfigPath { get; set; } = "";
 
-    /// <summary>Filename of the managed config (e.g. zz-dnsmasq-webui.conf), created in &lt;main-config-dir&gt;/dnsmasq.d/ and included via conf-file= at the end of the main config so it loads last. Managed file content parsed with DnsmasqConfFileLineParser.</summary>
+    /// <summary>Filename of the managed config (e.g. zz-dnsmasq-webui.conf), created in the same directory as the main config and included only via a conf-file= directive as the last line of the main config. Managed file content parsed with DnsmasqConfFileLineParser.</summary>
     public string ManagedFileName { get; set; } = "zz-dnsmasq-webui.conf";
 
     /// <summary>Optional path to the hosts file the app can edit (e.g. /etc/hosts). When set, the app can read/write it. When no-hosts is not set, the app adds addn-hosts= in the managed file so dnsmasq loads it; when no-hosts is set, dnsmasq only uses addn-hosts files, so this path must be one of the effective addn-hosts paths for editing to take effect. When unset, hosts UI is disabled.</summary>

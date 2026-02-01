@@ -1,4 +1,4 @@
-using DnsmasqWebUI.Options;
+using DnsmasqWebUI.Configuration;
 using DnsmasqWebUI.Services.Abstractions;
 using Microsoft.Extensions.Options;
 

@@ -1,10 +1,6 @@
-using System.Net;
 using DnsmasqWebUI.Components;
 using DnsmasqWebUI.Extensions;
-using DnsmasqWebUI.Http;
-using DnsmasqWebUI.Http.Clients;
-using DnsmasqWebUI.Options;
-using Microsoft.AspNetCore.HttpOverrides;
+using DnsmasqWebUI.Configuration;
 using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,20 +14,7 @@ builder.Services.AddSingleton<IValidateOptions<DnsmasqOptions>, DnsmasqOptionsVa
 // ---- Application services ----
 builder.Services.AddApplicationServices();
 builder.Services.AddHttpContextAccessor();
-
-const string ApiClientName = "DnsmasqWebUI.Api";
-builder.Services.AddHttpClient(ApiClientName, client =>
-{
-    client.BaseAddress = new Uri("http://localhost/", UriKind.Absolute);
-})
-.AddHttpMessageHandler<SameHostBaseAddressHandler>();
-
-builder.Services.AddHttpClient<IStatusClient, StatusClient>(ApiClientName);
-builder.Services.AddHttpClient<IConfigSetClient, ConfigSetClient>(ApiClientName);
-builder.Services.AddHttpClient<IReloadClient, ReloadClient>(ApiClientName);
-builder.Services.AddHttpClient<IHostsClient, HostsClient>(ApiClientName);
-builder.Services.AddHttpClient<IDhcpHostsClient, DhcpHostsClient>(ApiClientName);
-builder.Services.AddHttpClient<ILeasesClient, LeasesClient>(ApiClientName);
+builder.Services.AddDnsmasqApiHttpClients();
 
 builder.Services.AddControllers()
     .AddJsonOptions(o =>
@@ -42,35 +25,7 @@ builder.Services.AddControllers()
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// ---- CORS (optional; Cors:Enabled in appsettings or env) ----
-var corsEnabled = builder.Configuration.GetValue<bool>("Cors:Enabled");
-if (corsEnabled)
-{
-    var policyName = builder.Configuration.GetValue<string>("Cors:PolicyName") ?? "Default";
-    var allowAnyOrigin = builder.Configuration.GetValue<bool>("Cors:AllowAnyOrigin");
-    var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
-    var methods = builder.Configuration.GetSection("Cors:AllowedMethods").Get<string[]>();
-    var headers = builder.Configuration.GetSection("Cors:AllowedHeaders").Get<string[]>();
-
-    builder.Services.AddCors(options =>
-    {
-        options.AddPolicy(policyName, policy =>
-        {
-            if (allowAnyOrigin)
-                policy.AllowAnyOrigin();
-            else if (origins.Length > 0)
-                policy.WithOrigins(origins);
-            if (methods is { Length: > 0 })
-                policy.WithMethods(methods);
-            else
-                policy.AllowAnyMethod();
-            if (headers is { Length: > 0 })
-                policy.WithHeaders(headers);
-            else
-                policy.AllowAnyHeader();
-        });
-    });
-}
+builder.Services.AddCorsFromConfiguration(builder.Configuration);
 
 var app = builder.Build();
 
@@ -89,24 +44,9 @@ catch (OptionsValidationException ex)
 if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
 
-if (builder.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
-{
-    app.UseForwardedHeaders(new ForwardedHeadersOptions
-    {
-        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
-        KnownNetworks = { new Microsoft.AspNetCore.HttpOverrides.IPNetwork(IPAddress.Loopback, 8) },
-    });
-}
-
-if (builder.Configuration.GetValue<bool>("Https:UseRedirectAndHsts"))
-{
-    app.UseHttpsRedirection();
-    app.UseHsts();
-}
-
-if (corsEnabled)
-    app.UseCors(builder.Configuration.GetValue<string>("Cors:PolicyName") ?? "Default");
-
+app.UseForwardedHeadersFromConfiguration(builder.Configuration);
+app.UseHttpsFromConfiguration(builder.Configuration);
+app.UseCorsFromConfiguration(builder.Configuration);
 app.UseAntiforgery();
 
 // ---- Endpoints ----

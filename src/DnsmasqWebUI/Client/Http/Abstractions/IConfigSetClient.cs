@@ -1,6 +1,6 @@
 using DnsmasqWebUI.Models;
 
-namespace DnsmasqWebUI.Http.Clients;
+namespace DnsmasqWebUI.Client.Http.Abstractions;
 
 /// <summary>Typed client for GET api/config/set.</summary>
 public interface IConfigSetClient

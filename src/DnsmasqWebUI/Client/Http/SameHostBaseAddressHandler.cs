@@ -1,7 +1,7 @@
 using System.Net;
 using DnsmasqWebUI.Services.Abstractions;
 
-namespace DnsmasqWebUI.Http;
+namespace DnsmasqWebUI.Client.Http;
 
 /// <summary>
 /// DelegatingHandler that rewrites relative request URIs to the current request's scheme, host, and path base.

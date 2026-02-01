@@ -166,3 +166,8 @@ h1:focus {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
 }
+
+/* Settings gear icon size (Bootstrap Icons) */
+.bi-gear-sm {
+    font-size: 1.125rem;
+}

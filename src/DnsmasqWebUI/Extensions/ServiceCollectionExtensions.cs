@@ -1,4 +1,6 @@
 using System.Reflection;
+using DnsmasqWebUI.Client.Http;
+using DnsmasqWebUI.Client.Http.Abstractions;
 using DnsmasqWebUI.Services.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -7,6 +9,31 @@ namespace DnsmasqWebUI.Extensions;
 
 public static class ServiceCollectionExtensions
 {
+    /// <summary>Name of the HttpClient used for same-host API calls (status, config, reload, hosts, etc.).</summary>
+    public const string DnsmasqApiClientName = "DnsmasqWebUI.Api";
+
+    /// <summary>
+    /// Registers the named HttpClient for same-host API calls and all typed API clients
+    /// (IStatusClient, IConfigSetClient, IReloadClient, IHostsClient, IDhcpHostsClient, ILeasesClient).
+    /// </summary>
+    public static IServiceCollection AddDnsmasqApiHttpClients(this IServiceCollection services)
+    {
+        services.AddHttpClient(DnsmasqApiClientName, client =>
+        {
+            client.BaseAddress = new Uri("http://localhost/", UriKind.Absolute);
+        })
+        .AddHttpMessageHandler<SameHostBaseAddressHandler>();
+
+        services.AddHttpClient<IStatusClient, StatusClient>(DnsmasqApiClientName);
+        services.AddHttpClient<IConfigSetClient, ConfigSetClient>(DnsmasqApiClientName);
+        services.AddHttpClient<IReloadClient, ReloadClient>(DnsmasqApiClientName);
+        services.AddHttpClient<IHostsClient, HostsClient>(DnsmasqApiClientName);
+        services.AddHttpClient<IDhcpHostsClient, DhcpHostsClient>(DnsmasqApiClientName);
+        services.AddHttpClient<ILeasesClient, LeasesClient>(DnsmasqApiClientName);
+
+        return services;
+    }
+
     delegate void RegisterService(IServiceCollection s, Type iface, Type impl);
 
     static readonly (Type MarkerInterface, RegisterService Register)[] ApplicationRegistrations =

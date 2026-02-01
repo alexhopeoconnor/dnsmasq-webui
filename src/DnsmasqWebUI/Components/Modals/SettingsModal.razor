@@ -1,0 +1,48 @@
+@namespace DnsmasqWebUI.Components.Modals
+@implements IAsyncDisposable
+@inject IJSRuntime JSRuntime
+@inject IClientSettingsService ClientSettingsService
+
+@if (IsVisible)
+{
+    <dialog @ref="_dialogRef" class="settings-modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">@Title</h5>
+                <button type="button" class="btn-close" @onclick="Close" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                @if (SettingsContext == SettingsModalContext.All)
+                {
+                    <div class="mb-3">
+                        <label class="form-label">Search settings</label>
+                        <input type="search" class="form-control" placeholder="Search..."
+                               @bind="_searchTerm" @bind:event="oninput" />
+                    </div>
+                }
+                @if (ShouldShowSection("ServiceStatus"))
+                {
+                    <section class="mb-4">
+                        <h6 class="text-muted">Service status</h6>
+                        <label for="status-interval" class="form-label">Polling interval (seconds)</label>
+                        <input id="status-interval" type="number" class="form-control" min="5" step="1"
+                               @bind="_editingSettings.ServiceStatusPollingIntervalSeconds" />
+                    </section>
+                }
+                @if (ShouldShowSection("Logs"))
+                {
+                    <section class="mb-4">
+                        <h6 class="text-muted">Recent logs</h6>
+                        <label for="logs-interval" class="form-label">Polling interval (seconds)</label>
+                        <input id="logs-interval" type="number" class="form-control" min="5" step="1"
+                               @bind="_editingSettings.RecentLogsPollingIntervalSeconds" />
+                    </section>
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="Close">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="Save">Save</button>
+            </div>
+        </div>
+    </dialog>
+}

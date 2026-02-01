@@ -10,7 +10,10 @@
 
 @if (_status == null)
 {
-    <p>Loading...</p>
+    <p class="d-flex align-items-center gap-2">
+        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+        Loading...
+    </p>
 }
 else if (_status.NoHosts && !_pathInAddnHosts)
 {

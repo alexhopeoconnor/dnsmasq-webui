@@ -1,5 +1,5 @@
 using DnsmasqWebUI.Models;
-using DnsmasqWebUI.Options;
+using DnsmasqWebUI.Configuration;
 using DnsmasqWebUI.Parsers;
 using DnsmasqWebUI.Services.Abstractions;
 using Microsoft.Extensions.Options;
@@ -128,7 +128,7 @@ public class DnsmasqConfigSetService : IDnsmasqConfigSetService
 
         var mainFull = Path.GetFullPath(mainPath);
         var mainDir = Path.GetDirectoryName(mainFull) ?? "";
-        var managedFilePath = Path.Combine(mainDir, "dnsmasq.d", _options.ManagedFileName);
+        var managedFilePath = Path.Combine(mainDir, _options.ManagedFileName);
 
         var withSource = DnsmasqConfIncludeParser.GetIncludedPathsWithSource(mainPath);
         var files = withSource.Select(p => new DnsmasqConfigSetEntry(

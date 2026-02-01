@@ -1,6 +1,6 @@
 using DnsmasqWebUI.Models;
 
-namespace DnsmasqWebUI.Http.Clients;
+namespace DnsmasqWebUI.Client.Http.Abstractions;
 
 /// <summary>Typed client for GET/PUT api/dhcp/hosts.</summary>
 public interface IDhcpHostsClient

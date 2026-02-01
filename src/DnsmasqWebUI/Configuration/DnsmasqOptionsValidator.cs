@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Options;
 
-namespace DnsmasqWebUI.Options;
+namespace DnsmasqWebUI.Configuration;
 
 /// <summary>
 /// Validates required dnsmasq options at startup. If config is missing or default paths don't point at existing files,
