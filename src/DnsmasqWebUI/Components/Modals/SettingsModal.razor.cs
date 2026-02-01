@@ -42,7 +42,8 @@ public partial class SettingsModal : IAsyncDisposable
             _editingSettings = new ClientSettings
             {
                 ServiceStatusPollingIntervalSeconds = _editingSettings.ServiceStatusPollingIntervalSeconds,
-                RecentLogsPollingIntervalSeconds = _editingSettings.RecentLogsPollingIntervalSeconds
+                RecentLogsPollingIntervalSeconds = _editingSettings.RecentLogsPollingIntervalSeconds,
+                LeasesPollingIntervalSeconds = _editingSettings.LeasesPollingIntervalSeconds
             };
         }
     }
@@ -73,6 +74,8 @@ public partial class SettingsModal : IAsyncDisposable
             return key == "ServiceStatus";
         if (SettingsContext == SettingsModalContext.LogsPolling)
             return key == "Logs";
+        if (SettingsContext == SettingsModalContext.LeasesPolling)
+            return key == "Leases";
         if (SettingsContext == SettingsModalContext.All)
         {
             if (string.IsNullOrWhiteSpace(_searchTerm)) return true;
@@ -81,6 +84,7 @@ public partial class SettingsModal : IAsyncDisposable
             {
                 "ServiceStatus" => "service status polling".Contains(term, StringComparison.OrdinalIgnoreCase),
                 "Logs" => "recent logs polling".Contains(term, StringComparison.OrdinalIgnoreCase),
+                "Leases" => "dhcp leases refresh polling".Contains(term, StringComparison.OrdinalIgnoreCase),
                 _ => false
             };
         }
@@ -93,6 +97,8 @@ public partial class SettingsModal : IAsyncDisposable
             _editingSettings.ServiceStatusPollingIntervalSeconds, 5, 300);
         _editingSettings.RecentLogsPollingIntervalSeconds = Math.Clamp(
             _editingSettings.RecentLogsPollingIntervalSeconds, 5, 300);
+        _editingSettings.LeasesPollingIntervalSeconds = Math.Clamp(
+            _editingSettings.LeasesPollingIntervalSeconds, 5, 300);
 
         await ClientSettingsService.SaveSettingsAsync(_editingSettings);
         if (_jsModule != null)

@@ -5,9 +5,10 @@
 @inject IConfigSetClient ConfigSetClient
 @inject IReloadClient ReloadClient
 @inject IClientSettingsService ClientSettingsService
+@inject IOptions<ApplicationOptions> AppOptions
 @implements IDisposable
 
-<PageTitle>Overview | Local DNS</PageTitle>
+<PageTitle>Overview | @AppTitle</PageTitle>
 
 @if (_loading)
 {
@@ -156,6 +157,7 @@ else if (_status != null)
 }
 
 @code {
+    private string AppTitle => AppOptions!.Value!.EffectiveTitle;
     private int _serviceStatusIntervalSeconds = 15;
     private int _recentLogsIntervalSeconds = 15;
     private bool _settingsModalOpen;

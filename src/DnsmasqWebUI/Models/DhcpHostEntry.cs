@@ -17,4 +17,10 @@ public class DhcpHostEntry
     public string? Lease { get; set; }
     public List<string> Extra { get; set; } = new();
     public string? Comment { get; set; }
+
+    /// <summary>True when this entry is from the managed file (editable). False when from main config or another file (read-only). Set by server on GET; new entries created in the UI should set this to true.</summary>
+    public bool IsEditable { get; set; }
+
+    /// <summary>Path to the config file this entry comes from. Set by server on GET; null for new entries not yet saved.</summary>
+    public string? SourcePath { get; set; }
 }

@@ -12,5 +12,8 @@ public enum SettingsModalContext
     ServicePolling,
 
     /// <summary>Show only recent logs polling interval.</summary>
-    LogsPolling
+    LogsPolling,
+
+    /// <summary>Show only DHCP leases refresh interval.</summary>
+    LeasesPolling
 }

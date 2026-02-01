@@ -162,9 +162,47 @@ h1:focus {
     overflow-wrap: break-word;
 }
 
+/* Table: desktop shows table, mobile shows card list (via d-none d-md-block / d-md-none in markup) */
 .table-responsive-cards {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+}
+
+.table-responsive-cards .d-none.d-md-block {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.table-cards-mobile .card .table-card-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.75rem;
+    align-items: baseline;
+    font-size: 0.9375rem;
+}
+
+.table-cards-mobile .card .table-card-row + .table-card-row {
+    margin-top: 0.25rem;
+}
+
+.table-card-label {
+    font-size: 0.8125rem;
+    color: var(--bs-secondary);
+    min-width: 4.5rem;
+    flex-shrink: 0;
+}
+
+.table-cards-mobile .table-card-row .form-control,
+.table-cards-mobile .table-card-row .form-select,
+.table-cards-mobile .table-card-row .table-card-control {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Align checkboxes with other inputs in card mode: control starts at same column */
+.table-cards-mobile .table-card-row .table-card-control {
+    display: flex;
+    align-items: center;
 }
 
 /* Settings gear icon size (Bootstrap Icons) */

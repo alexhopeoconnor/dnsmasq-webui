@@ -29,22 +29,29 @@ public class DnsmasqConfigService : IDnsmasqConfigService
 
     public async Task<IReadOnlyList<DhcpHostEntry>> ReadDhcpHostsAsync(CancellationToken ct = default)
     {
-        var path = await GetManagedFilePathAsync(ct);
-        if (string.IsNullOrEmpty(path))
+        var set = await _configSetService.GetConfigSetAsync(ct);
+        if (string.IsNullOrEmpty(set.ManagedFilePath))
         {
             _logger.LogDebug("No managed file path (no conf-dir in main config); returning empty dhcp hosts");
             return Array.Empty<DhcpHostEntry>();
         }
-        if (!File.Exists(path))
+        var allEntries = new List<DhcpHostEntry>();
+        foreach (var file in set.Files)
         {
-            _logger.LogWarning("Managed config file not found: {Path}", path);
-            return Array.Empty<DhcpHostEntry>();
+            if (!File.Exists(file.Path))
+                continue;
+            var lines = await File.ReadAllLinesAsync(file.Path, Encoding.UTF8, ct);
+            var configLines = DnsmasqConfFileLineParser.ParseFile(lines);
+            var entries = configLines.OfType<DhcpHostLine>().Select(c => c.DhcpHost).ToList();
+            foreach (var e in entries)
+            {
+                e.SourcePath = file.Path;
+                e.IsEditable = file.IsManaged;
+            }
+            allEntries.AddRange(entries);
         }
-        var lines = await File.ReadAllLinesAsync(path, Encoding.UTF8, ct);
-        var configLines = DnsmasqConfFileLineParser.ParseFile(lines);
-        var entries = configLines.OfType<DhcpHostLine>().Select(c => c.DhcpHost).ToList();
-        AssignStableIds(entries);
-        return entries;
+        AssignStableIds(allEntries);
+        return allEntries;
     }
 
     /// <summary>Assign stable Ids so we can match by Id on write (reorder-safe). Content-based; ":LineNumber" appended for uniqueness when needed.</summary>
@@ -84,9 +91,22 @@ public class DnsmasqConfigService : IDnsmasqConfigService
 
     public async Task WriteDhcpHostsAsync(IReadOnlyList<DhcpHostEntry> entries, CancellationToken ct = default)
     {
-        var path = await GetManagedFilePathAsync(ct);
+        var set = await _configSetService.GetConfigSetAsync(ct);
+        var path = set.ManagedFilePath;
         if (string.IsNullOrEmpty(path))
             throw new InvalidOperationException("No managed file path (main config has no conf-dir). Cannot write dhcp hosts.");
+
+        var managedEntries = entries.Where(e => e.IsEditable).ToList();
+        var externalMacs = await GetMacsFromNonManagedFilesAsync(set, ct);
+        foreach (var e in managedEntries.Where(e => !e.IsDeleted))
+        {
+            foreach (var mac in e.MacAddresses.Where(m => !string.IsNullOrWhiteSpace(m)))
+            {
+                var normalized = mac.Trim();
+                if (externalMacs.TryGetValue(normalized, out var sourcePath))
+                    throw new ArgumentException($"MAC {mac} is already defined in {sourcePath}. Remove it from that file or use a different MAC.");
+            }
+        }
 
         var dir = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
@@ -103,7 +123,7 @@ public class DnsmasqConfigService : IDnsmasqConfigService
         var fileEntries = configLines.OfType<DhcpHostLine>().Select(c => c.DhcpHost).ToList();
         AssignStableIds(fileEntries);
 
-        var byId = entries.Where(e => !string.IsNullOrEmpty(e.Id)).GroupBy(e => e.Id, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        var byId = managedEntries.Where(e => !string.IsNullOrEmpty(e.Id)).GroupBy(e => e.Id, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
         var matchedIds = new HashSet<string>(StringComparer.Ordinal);
 
         for (var i = 0; i < configLines.Count; i++)
@@ -114,7 +134,7 @@ public class DnsmasqConfigService : IDnsmasqConfigService
             configLines[i] = new DhcpHostLine { LineNumber = dhcpLine.LineNumber, DhcpHost = replacement };
         }
 
-        var appended = entries.Where(e => (string.IsNullOrEmpty(e.Id) || !matchedIds.Contains(e.Id)) && !e.IsDeleted).ToList();
+        var appended = managedEntries.Where(e => (string.IsNullOrEmpty(e.Id) || !matchedIds.Contains(e.Id)) && !e.IsDeleted).ToList();
         var output = configLines.Select(DnsmasqConfFileLineParser.ToLine).ToList();
         foreach (var entry in appended)
             output.Add(DnsmasqConfDhcpHostLineParser.ToLine(entry));
@@ -123,6 +143,29 @@ public class DnsmasqConfigService : IDnsmasqConfigService
         await File.WriteAllLinesAsync(tmpPath, output, Encoding.UTF8, ct);
         File.Move(tmpPath, path, overwrite: true);
         _logger.LogInformation("Wrote managed config file: {Path}", path);
+    }
+
+    /// <summary>Returns MAC -> source file path for all dhcp-host MACs in non-managed config files (for duplicate validation).</summary>
+    private static async Task<Dictionary<string, string>> GetMacsFromNonManagedFilesAsync(DnsmasqConfigSet set, CancellationToken ct)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var managedPath = set.ManagedFilePath ?? "";
+        foreach (var file in set.Files.Where(f => !f.IsManaged && !string.Equals(f.Path, managedPath, StringComparison.Ordinal)))
+        {
+            if (!File.Exists(file.Path)) continue;
+            var lines = await File.ReadAllLinesAsync(file.Path, Encoding.UTF8, ct);
+            var configLines = DnsmasqConfFileLineParser.ParseFile(lines);
+            foreach (var dhcp in configLines.OfType<DhcpHostLine>().Select(c => c.DhcpHost))
+            {
+                foreach (var mac in dhcp.MacAddresses.Where(m => !string.IsNullOrWhiteSpace(m)))
+                {
+                    var normalized = mac.Trim();
+                    if (normalized.Length > 0 && !result.ContainsKey(normalized))
+                        result[normalized] = file.Path;
+                }
+            }
+        }
+        return result;
     }
 
     public async Task<ManagedConfigContent> ReadManagedConfigAsync(CancellationToken ct = default)

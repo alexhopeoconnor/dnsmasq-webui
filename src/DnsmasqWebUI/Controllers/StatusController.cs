@@ -32,6 +32,7 @@ public class StatusController : ControllerBase
             var set = await _configSetService.GetConfigSetAsync(ct);
             var effectiveLeasesPath = _configSetService.GetLeasesPath();
             var effectiveConfig = _configSetService.GetEffectiveConfig();
+            var (dhcpRangeStart, dhcpRangeEnd) = _configSetService.GetDhcpRange();
             var systemHostsPath = _options.SystemHostsPath?.Trim();
 
             var statusResult = await _processRunner.RunAsync(_options.StatusCommand, TimeSpan.FromSeconds(5), ct);
@@ -52,7 +53,7 @@ public class StatusController : ControllerBase
             var showResult = await showTask;
             var logsResult = await logsTask;
             var statusShowOutput = !string.IsNullOrWhiteSpace(_options.StatusShowCommand)
-                ? showResult.Stdout + (showResult.TimedOut ? "\n(Command timed out.)" : "")
+                ? FormatStatusShowOutput(showResult.Stdout + (showResult.TimedOut ? "\n(Command timed out.)" : ""))
                 : null;
             var logsOutput = !string.IsNullOrWhiteSpace(_options.LogsCommand)
                 ? logsResult.Stdout + (logsResult.TimedOut ? "\n(Command timed out.)" : "")
@@ -83,7 +84,9 @@ public class StatusController : ControllerBase
                 StatusCommandStdout: dnsmasqStatus != "active" ? statusCommandStdout : null,
                 StatusCommandStderr: dnsmasqStatus != "active" ? statusCommandStderr : null,
                 StatusShowOutput: statusShowOutput,
-                LogsOutput: logsOutput
+                LogsOutput: logsOutput,
+                DhcpRangeStart: dhcpRangeStart,
+                DhcpRangeEnd: dhcpRangeEnd
             );
             return Ok(status);
         }
@@ -91,6 +94,33 @@ public class StatusController : ControllerBase
         {
             return StatusCode(500, new { error = ex.Message });
         }
+    }
+
+    /// <summary>
+    /// Reformats StatusShow output: Active line gets a line break after the semicolon;
+    /// continuation (e.g. "4 min ago") is indented to align with the value after "Active: ".
+    /// </summary>
+    private static string FormatStatusShowOutput(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return raw;
+        var lines = raw.Split('\n');
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            var activeIdx = line.IndexOf("Active:", StringComparison.Ordinal);
+            if (activeIdx < 0) continue;
+            var semiIdx = line.IndexOf(';', activeIdx);
+            if (semiIdx < 0) continue;
+            var afterSemi = semiIdx + 1;
+            while (afterSemi < line.Length && line[afterSemi] == ' ') afterSemi++;
+            var continuation = afterSemi < line.Length ? line[afterSemi..].TrimEnd() : "";
+            var indentLength = activeIdx + "Active: ".Length;
+            var indent = new string(' ', indentLength);
+            lines[i] = continuation.Length > 0
+                ? line[..(semiIdx + 1)] + "\n" + indent + continuation
+                : line[..(semiIdx + 1)];
+        }
+        return string.Join("\n", lines);
     }
 
     /// <summary>Returns the full log file from the path in effective config (log-facility). Untruncated.</summary>

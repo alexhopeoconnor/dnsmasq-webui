@@ -7,7 +7,8 @@
 export function initDialog(dialogElement, dotNetRef) {
   if (!dialogElement) return;
   dialogElement.addEventListener('close', function handler() {
-    dotNetRef.invokeMethodAsync('OnDialogClosed', dialogElement.returnValue ?? '');
+    // Ignore errors on page refresh/unload when the Blazor circuit is already gone
+    dotNetRef.invokeMethodAsync('OnDialogClosed', dialogElement.returnValue ?? '').catch(() => {});
   });
 }
 

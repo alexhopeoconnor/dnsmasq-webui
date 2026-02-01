@@ -42,6 +42,10 @@ public class DhcpController : ControllerBase
             var reload = await _reloadService.ReloadAsync(ct);
             return Ok(new SaveWithReloadResult(true, reload));
         }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
         catch (Exception ex)
         {
             return StatusCode(500, new { error = ex.Message });

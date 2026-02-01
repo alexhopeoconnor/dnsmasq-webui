@@ -1,10 +1,11 @@
 @namespace DnsmasqWebUI.Components.Layout
+@inject IOptions<ApplicationOptions> AppOptions
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid d-flex align-items-center">
-        <a class="navbar-brand d-flex align-items-center gap-2" href="" aria-label="Local DNS home">
+        <a class="navbar-brand d-flex align-items-center gap-2" href="" aria-label="@AppTitle home">
             <i class="bi bi-globe brand-icon" aria-hidden="true"></i>
-            <span>Local DNS</span>
+            <span>@AppTitle</span>
         </a>
     </div>
 </div>
@@ -31,3 +32,6 @@
     </nav>
 </div>
 
+@code {
+    private string AppTitle => AppOptions!.Value!.EffectiveTitle;
+}

@@ -1,8 +1,9 @@
 @page "/Error"
 @namespace DnsmasqWebUI.Components.Pages
 @using System.Diagnostics
+@inject IOptions<ApplicationOptions> AppOptions
 
-<PageTitle>Error | Local DNS</PageTitle>
+<PageTitle>Error | @AppTitle</PageTitle>
 
 <h1 class="page-title text-danger">Error</h1>
 <h2 class="text-danger">An error occurred while processing your request.</h2>
@@ -29,6 +30,7 @@
     [CascadingParameter]
     private HttpContext? HttpContext { get; set; }
 
+    private string AppTitle => AppOptions!.Value!.EffectiveTitle;
     private string? RequestId { get; set; }
     private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
 

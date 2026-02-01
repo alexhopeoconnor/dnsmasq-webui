@@ -1,6 +1,7 @@
+using System.Net.Http.Json;
+using System.Text.Json.Serialization;
 using DnsmasqWebUI.Client.Http.Abstractions;
 using DnsmasqWebUI.Models;
-using System.Net.Http.Json;
 
 namespace DnsmasqWebUI.Client.Http;
 
@@ -19,8 +20,25 @@ public sealed class DhcpHostsClient : IDhcpHostsClient
     public async Task<SaveWithReloadResult> SaveDhcpHostsAsync(IReadOnlyList<DhcpHostEntry> entries, CancellationToken ct = default)
     {
         var response = await _http.PutAsJsonAsync("api/dhcp/hosts", entries, ct);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            var msg = response.ReasonPhrase ?? response.StatusCode.ToString();
+            if (!string.IsNullOrEmpty(body) && body.TrimStart().StartsWith("{"))
+            {
+                try
+                {
+                    var err = System.Text.Json.JsonSerializer.Deserialize<JsonError>(body);
+                    if (!string.IsNullOrEmpty(err?.Error))
+                        msg = err.Error;
+                }
+                catch { /* use msg as-is */ }
+            }
+            throw new HttpRequestException(msg);
+        }
         return await response.Content.ReadFromJsonAsync<SaveWithReloadResult>(ct)
             ?? throw new InvalidOperationException("Unexpected null from api/dhcp/hosts.");
     }
+
+    private sealed class JsonError { [JsonPropertyName("error")] public string? Error { get; set; } }
 }

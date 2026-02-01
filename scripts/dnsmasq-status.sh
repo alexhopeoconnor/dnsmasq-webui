@@ -1,6 +1,6 @@
 #!/bin/sh
 # Simulates "systemctl status dnsmasq" output when run in a container without systemd.
-# Uses ps/pgrep. Memory is RSS; the time shown is process uptime (elapsed), not CPU usage.
+# Uses ps/pgrep. Memory is RSS. Uptime line omitted; Active line has break after semicolon with continuation indented.
 
 pid=$(pgrep -x dnsmasq)
 if [ -z "$pid" ]; then
@@ -49,10 +49,11 @@ function fmt_since(s,   n, a, mon_num, day_pad) {
   rss_mb = (rss+0) / 1024
   if (rss_mb < 0.1) rss_mb = 0.0
 
+  # Active line: break after semicolon; continuation (e.g. "4 min ago") on next line, indented to align after "Active: "
   if (lstart != "") {
     since = fmt_since(lstart)
     ago = etime_ago(etime)
-    active_line = "     Active: active (running) since " since "; " ago
+    active_line = "     Active: active (running) since " since ";\n             " ago
   } else {
     active_line = "     Active: active (running) since container start"
   }
@@ -62,7 +63,6 @@ function fmt_since(s,   n, a, mon_num, day_pad) {
   printf "%s\n", active_line
   printf "   Main PID: %s (dnsmasq)\n", pid
   printf "     Memory: %.1fM\n", rss_mb
-  printf "     Uptime: %s\n", etime
   printf "     CGroup: (container)\n"
   printf "             └─%s %s\n", pid, args
 }'

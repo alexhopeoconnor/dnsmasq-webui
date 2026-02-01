@@ -3,8 +3,8 @@
 @namespace DnsmasqWebUI.Components.Pages
 @inject IStatusClient StatusClient
 @inject IHostsClient HostsClient
-
-<PageTitle>Hosts | Local DNS</PageTitle>
+@inject IOptions<ApplicationOptions> AppOptions
+<PageTitle>Hosts | @AppTitle</PageTitle>
 
 <h1 class="page-title">Hosts file</h1>
 
@@ -50,27 +50,42 @@ else
         <div class="alert alert-success">@_message</div>
     }
     <div class="table-responsive-cards">
-        <table class="table table-bordered">
-            <thead>
-                <tr><th>#</th><th>Address</th><th>Names</th></tr>
-            </thead>
-            <tbody>
-                @foreach (var e in _entries.Where(x => !x.IsPassthrough))
-                {
-                    <tr class="@(e.IsComment ? "table-secondary" : "")" @key="e.Id">
-                        <td>@e.LineNumber</td>
-                        <td>@e.Address</td>
-                        <td>@string.Join(", ", e.Names)</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+        <div class="d-none d-md-block">
+            <table class="table table-bordered">
+                <thead>
+                    <tr><th>#</th><th>Address</th><th>Names</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var e in _entries.Where(x => !x.IsPassthrough))
+                    {
+                        <tr class="@(e.IsComment ? "table-secondary" : "")" @key="e.Id">
+                            <td>@e.LineNumber</td>
+                            <td>@e.Address</td>
+                            <td>@string.Join(", ", e.Names)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="d-md-none table-cards-mobile">
+            @foreach (var e in _entries.Where(x => !x.IsPassthrough))
+            {
+                <div class="card mb-2 @(e.IsComment ? "table-secondary" : "")" @key="e.Id">
+                    <div class="card-body py-2">
+                        <div class="table-card-row"><span class="table-card-label">#</span> @e.LineNumber</div>
+                        <div class="table-card-row"><span class="table-card-label">Address</span> @e.Address</div>
+                        <div class="table-card-row"><span class="table-card-label">Names</span> @string.Join(", ", e.Names)</div>
+                    </div>
+                </div>
+            }
+        </div>
     </div>
     <p class="text-muted small">Path: @_status.SystemHostsPath</p>
     <button class="btn btn-primary mt-2" @onclick="Save" disabled="@_saving">Save</button>
 }
 
 @code {
+    private string AppTitle => AppOptions!.Value!.EffectiveTitle;
     private DnsmasqServiceStatus? _status;
     private List<HostEntry> _entries = new();
     private string? _error;

@@ -15,4 +15,7 @@ public interface IDnsmasqConfigSetService : IApplicationSingleton
 
     /// <summary>Additional hosts paths discovered from the config set (addn-hosts=; cumulative, all in order). Empty if none.</summary>
     IReadOnlyList<string> GetAddnHostsPaths();
+
+    /// <summary>Start and end IP of the last dhcp-range= (e.g. 172.28.0.10,172.28.0.50). Parsed from the raw value; (null, null) when not set or unparseable.</summary>
+    (string? Start, string? End) GetDhcpRange();
 }

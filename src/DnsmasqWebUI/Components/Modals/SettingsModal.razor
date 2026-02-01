@@ -38,6 +38,15 @@
                                @bind="_editingSettings.RecentLogsPollingIntervalSeconds" />
                     </section>
                 }
+                @if (ShouldShowSection("Leases"))
+                {
+                    <section class="mb-4">
+                        <h6 class="text-muted">DHCP leases</h6>
+                        <label for="leases-interval" class="form-label">Refresh interval (seconds)</label>
+                        <input id="leases-interval" type="number" class="form-control" min="5" step="1"
+                               @bind="_editingSettings.LeasesPollingIntervalSeconds" />
+                    </section>
+                }
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" @onclick="Close">Cancel</button>

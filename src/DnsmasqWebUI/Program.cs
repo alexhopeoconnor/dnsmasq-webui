@@ -5,6 +5,10 @@ using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ---- Application options (title, etc.) ----
+builder.Services.AddOptions<ApplicationOptions>()
+    .Bind(builder.Configuration.GetSection(ApplicationOptions.SectionName));
+
 // ---- Dnsmasq options (required paths validated at startup) ----
 builder.Services.AddOptions<DnsmasqOptions>()
     .Bind(builder.Configuration.GetSection(DnsmasqOptions.SectionName))

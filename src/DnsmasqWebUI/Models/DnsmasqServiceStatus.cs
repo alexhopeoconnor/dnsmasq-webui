@@ -29,6 +29,8 @@ namespace DnsmasqWebUI.Models;
 /// <param name="StatusCommandStderr">Stderr of StatusCommand when dnsmasq is not active. Null when active or not configured.</param>
 /// <param name="StatusShowOutput">Output of StatusShowCommand (full service status). Null when not configured or command produced no output.</param>
 /// <param name="LogsOutput">Output of LogsCommand (recent logs preview). Null when not configured or command produced no output.</param>
+/// <param name="DhcpRangeStart">Start IP of the first dhcp-range= (e.g. 172.28.0.10). Null when not set or unparseable.</param>
+/// <param name="DhcpRangeEnd">End IP of the first dhcp-range= (e.g. 172.28.0.50). Null when not set or unparseable.</param>
 public record DnsmasqServiceStatus(
     string? SystemHostsPath,
     bool SystemHostsPathExists,
@@ -54,5 +56,7 @@ public record DnsmasqServiceStatus(
     string? StatusCommandStdout,
     string? StatusCommandStderr,
     string? StatusShowOutput,
-    string? LogsOutput
+    string? LogsOutput,
+    string? DhcpRangeStart,
+    string? DhcpRangeEnd
 );
