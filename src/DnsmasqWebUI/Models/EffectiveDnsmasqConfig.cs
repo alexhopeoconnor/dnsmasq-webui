@@ -40,4 +40,19 @@ public record EffectiveDnsmasqConfig(
     int? MaxCacheTtl,
     int? MinCacheTtl,
     int? DhcpTtl
-);
+)
+{
+    /// <summary>
+    /// Returns the log file path when <see cref="LogFacility"/> is a file path (e.g. starts with / or contains /).
+    /// Returns null when LogFacility is not set, is a syslog facility name (e.g. local0), or is not a file path.
+    /// Used for full log download in the UI.
+    /// </summary>
+    public static string? GetLogsPath(EffectiveDnsmasqConfig? config)
+    {
+        var logFacility = config?.LogFacility?.Trim();
+        if (string.IsNullOrEmpty(logFacility)) return null;
+        if (logFacility.StartsWith('/') || logFacility.Contains('/'))
+            return logFacility;
+        return null;
+    }
+}

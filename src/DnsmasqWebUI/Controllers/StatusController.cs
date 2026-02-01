@@ -75,6 +75,9 @@ public class StatusController : ControllerBase
                 StatusCommandConfigured: !string.IsNullOrWhiteSpace(_options.StatusCommand),
                 StatusShowConfigured: !string.IsNullOrWhiteSpace(_options.StatusShowCommand),
                 LogsConfigured: !string.IsNullOrWhiteSpace(_options.LogsCommand),
+                LogsPath: EffectiveDnsmasqConfig.GetLogsPath(effectiveConfig),
+                StatusShowCommand: string.IsNullOrWhiteSpace(_options.StatusShowCommand) ? null : _options.StatusShowCommand!.Trim(),
+                LogsCommand: string.IsNullOrWhiteSpace(_options.LogsCommand) ? null : _options.LogsCommand!.Trim(),
                 DnsmasqStatus: dnsmasqStatus,
                 StatusCommandExitCode: dnsmasqStatus != "active" && statusResult.ExitCode.HasValue ? statusResult.ExitCode.Value : null,
                 StatusCommandStdout: dnsmasqStatus != "active" ? statusCommandStdout : null,
@@ -83,6 +86,35 @@ public class StatusController : ControllerBase
                 LogsOutput: logsOutput
             );
             return Ok(status);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    /// <summary>Returns the full log file from the path in effective config (log-facility). Untruncated.</summary>
+    [HttpGet("logs/download")]
+    public async Task<IActionResult> GetLogsDownload(CancellationToken ct)
+    {
+        var effectiveConfig = _configSetService.GetEffectiveConfig();
+        var logsPath = EffectiveDnsmasqConfig.GetLogsPath(effectiveConfig);
+        if (string.IsNullOrEmpty(logsPath))
+            return NotFound();
+
+        try
+        {
+            var fullPath = Path.IsPathRooted(logsPath) ? Path.GetFullPath(logsPath) : Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), logsPath));
+            if (!System.IO.File.Exists(fullPath))
+                return NotFound();
+
+            var content = await System.IO.File.ReadAllTextAsync(fullPath, System.Text.Encoding.UTF8, ct);
+            var fileName = Path.GetFileName(fullPath);
+            if (string.IsNullOrEmpty(fileName)) fileName = "dnsmasq.log";
+            return File(
+                System.Text.Encoding.UTF8.GetBytes(content),
+                "text/plain",
+                fileName);
         }
         catch (Exception ex)
         {

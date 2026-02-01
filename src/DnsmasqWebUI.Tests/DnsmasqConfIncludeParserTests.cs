@@ -312,6 +312,45 @@ public class DnsmasqConfIncludeParserTests
     }
 
     [Fact]
+    public void GetLastValueFromConfigFiles_LogFacility_ReturnsValue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-logfac-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var conf = Path.Combine(dir, "dnsmasq.conf");
+            File.WriteAllText(conf, "log-facility=/data/dnsmasq.log\n");
+            var (value, configDir) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, "log-facility");
+            Assert.Equal("/data/dnsmasq.log", value);
+            Assert.Equal(dir, configDir);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_LogFacility_LastWins()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-logfac2-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var f1 = Path.Combine(dir, "01.conf");
+        var f2 = Path.Combine(dir, "02.conf");
+        try
+        {
+            File.WriteAllText(f1, "log-facility=/var/log/dnsmasq.log\n");
+            File.WriteAllText(f2, "log-facility=/data/dnsmasq.log\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { f1, f2 }, "log-facility");
+            Assert.Equal("/data/dnsmasq.log", value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public void ResolvePath_Relative_ResolvesAgainstDir()
     {
         var dir = Path.GetTempPath();

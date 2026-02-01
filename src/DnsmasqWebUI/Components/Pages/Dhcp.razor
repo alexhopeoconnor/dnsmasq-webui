@@ -7,9 +7,9 @@
 @inject ILeasesClient LeasesClient
 @inject IReloadClient ReloadClient
 
-<PageTitle>DHCP</PageTitle>
+<PageTitle>DHCP | Local DNS</PageTitle>
 
-<h1 class="mb-4">DHCP</h1>
+<h1 class="page-title">DHCP</h1>
 
 @if (_status == null)
 {
@@ -18,8 +18,8 @@
 else
 {
     @* ---- Static hosts (dhcp-host= in managed file) ---- *@
-    <section class="mb-4">
-        <h2 class="h5 mb-2">Static hosts</h2>
+    <section class="page-section">
+        <h2 class="page-section-title">Static hosts</h2>
         @if (!_status.ManagedFilePathExists)
         {
             <p class="text-warning">Managed config file not found: @_status.ManagedFilePath</p>
@@ -38,42 +38,44 @@ else
     {
         <div class="alert alert-success">@_message</div>
     }
-    <table class="table table-bordered">
-        <thead>
-            <tr>
-                <th>#</th><th>Valid</th><th>MAC</th><th>Name</th><th>Address</th><th>Lease</th><th>Ignore</th><th>Comment</th><th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var e in _entries.Where(x => !x.IsDeleted))
-            {
-                <tr class="@(e.IsComment ? "table-secondary" : "")" @key="e.Id">
-                    <td>@e.LineNumber</td>
-                    <td><input type="checkbox" checked="@(!e.IsComment)" @onchange="() => ToggleValid(e)" /></td>
-                    <td><input class="form-control form-control-sm" value="@string.Join(", ", e.MacAddresses)" @oninput="ev => SetMac(e, ev.Value?.ToString())" style="min-width:140px" /></td>
-                    <td><input class="form-control form-control-sm" @bind="e.Name" /></td>
-                    <td><input class="form-control form-control-sm" @bind="e.Address" style="min-width:100px" /></td>
-                    <td><input class="form-control form-control-sm" @bind="e.Lease" style="min-width:70px" /></td>
-                    <td><input type="checkbox" checked="@e.Ignore" @onchange="() => ToggleIgnore(e)" /></td>
-                    <td><input class="form-control form-control-sm" @bind="e.Comment" /></td>
-                    <td><button class="btn btn-sm btn-danger" @onclick="() => Delete(e)">Delete</button></td>
+    <div class="table-responsive-cards">
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>#</th><th>Valid</th><th>MAC</th><th>Name</th><th>Address</th><th>Lease</th><th>Ignore</th><th>Comment</th><th></th>
                 </tr>
-            }
-        </tbody>
-    </table>
-    <button class="btn btn-secondary mt-2" @onclick="Add">Add host</button>
+            </thead>
+            <tbody>
+                @foreach (var e in _entries.Where(x => !x.IsDeleted))
+                {
+                    <tr class="@(e.IsComment ? "table-secondary" : "")" @key="e.Id">
+                        <td>@e.LineNumber</td>
+                        <td><input type="checkbox" checked="@(!e.IsComment)" @onchange="() => ToggleValid(e)" /></td>
+                        <td><input class="form-control form-control-sm" value="@string.Join(", ", e.MacAddresses)" @oninput="ev => SetMac(e, ev.Value?.ToString())" style="min-width:140px" /></td>
+                        <td><input class="form-control form-control-sm" @bind="e.Name" /></td>
+                        <td><input class="form-control form-control-sm" @bind="e.Address" style="min-width:100px" /></td>
+                        <td><input class="form-control form-control-sm" @bind="e.Lease" style="min-width:70px" /></td>
+                        <td><input type="checkbox" checked="@e.Ignore" @onchange="() => ToggleIgnore(e)" /></td>
+                        <td><input class="form-control form-control-sm" @bind="e.Comment" /></td>
+                        <td><button class="btn btn-sm btn-danger" @onclick="() => Delete(e)">Delete</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <button class="btn btn-primary mt-2" @onclick="Add">Add host</button>
     <button class="btn btn-primary mt-2" @onclick="Save" disabled="@_saving">Save</button>
     @if (_status.ReloadCommandConfigured)
     {
-        <button class="btn btn-outline-primary mt-2" @onclick="Reload" disabled="@_saving">Reload dnsmasq</button>
+        <button class="btn btn-primary mt-2" @onclick="Reload" disabled="@_saving">Reload config</button>
     }
     <p class="text-muted small mt-2">Managed file: @_status.ManagedFilePath</p>
         }
     </section>
 
     @* ---- Leases (dhcp-leasefile, read-only) ---- *@
-    <section class="mb-4">
-        <h2 class="h5 mb-2">Leases</h2>
+    <section class="page-section">
+        <h2 class="page-section-title">Leases</h2>
         @if (!_status.LeasesPathConfigured)
         {
             <p class="text-muted">Leases not configured (no dhcp-leasefile in config).</p>
@@ -90,29 +92,31 @@ else
         {
             <p class="text-muted">No leases yet. Leases appear here when DHCP clients obtain an address; use Refresh to update.</p>
             <p class="text-muted small">Path: @_status.LeasesPath</p>
-            <button class="btn btn-outline-primary btn-sm mt-1" @onclick="LoadLeases" disabled="@_leasesLoading">Refresh</button>
+            <button class="btn btn-primary btn-sm mt-1" @onclick="LoadLeases" disabled="@_leasesLoading">Refresh</button>
         }
         else
         {
-            <table class="table table-bordered">
-                <thead>
-                    <tr><th>Expiry</th><th>MAC</th><th>Address</th><th>Name</th><th>Client ID</th></tr>
-                </thead>
-                <tbody>
-                    @foreach (var e in _leases)
-                    {
-                        <tr>
-                            <td>@e.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                            <td>@e.Mac</td>
-                            <td>@e.Address</td>
-                            <td>@e.Name</td>
-                            <td>@e.ClientId</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+            <div class="table-responsive-cards">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr><th>Expiry</th><th>MAC</th><th>Address</th><th>Name</th><th>Client ID</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var e in _leases)
+                        {
+                            <tr>
+                                <td>@e.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                <td>@e.Mac</td>
+                                <td>@e.Address</td>
+                                <td>@e.Name</td>
+                                <td>@e.ClientId</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
             <p class="text-muted small">Path: @_status.LeasesPath (read-only). Cached and refreshed when the file changes.</p>
-            <button class="btn btn-outline-primary btn-sm mt-1" @onclick="LoadLeases" disabled="@_leasesLoading">Refresh</button>
+            <button class="btn btn-primary btn-sm mt-1" @onclick="LoadLeases" disabled="@_leasesLoading">Refresh</button>
         }
     </section>
 }

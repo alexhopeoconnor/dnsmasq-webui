@@ -4,9 +4,9 @@
 @inject IStatusClient StatusClient
 @inject IHostsClient HostsClient
 
-<PageTitle>Hosts</PageTitle>
+<PageTitle>Hosts | Local DNS</PageTitle>
 
-<h1>Hosts file</h1>
+<h1 class="page-title">Hosts file</h1>
 
 @if (_status == null)
 {
@@ -46,21 +46,23 @@ else
     {
         <div class="alert alert-success">@_message</div>
     }
-    <table class="table table-bordered">
-        <thead>
-            <tr><th>#</th><th>Address</th><th>Names</th></tr>
-        </thead>
-        <tbody>
-            @foreach (var e in _entries.Where(x => !x.IsPassthrough))
-            {
-                <tr class="@(e.IsComment ? "table-secondary" : "")" @key="e.Id">
-                    <td>@e.LineNumber</td>
-                    <td>@e.Address</td>
-                    <td>@string.Join(", ", e.Names)</td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    <div class="table-responsive-cards">
+        <table class="table table-bordered">
+            <thead>
+                <tr><th>#</th><th>Address</th><th>Names</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var e in _entries.Where(x => !x.IsPassthrough))
+                {
+                    <tr class="@(e.IsComment ? "table-secondary" : "")" @key="e.Id">
+                        <td>@e.LineNumber</td>
+                        <td>@e.Address</td>
+                        <td>@string.Join(", ", e.Names)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
     <p class="text-muted small">Path: @_status.SystemHostsPath</p>
     <button class="btn btn-primary mt-2" @onclick="Save" disabled="@_saving">Save</button>
 }

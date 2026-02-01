@@ -1,0 +1,40 @@
+.page-title {
+    font-size: 1.75rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+@media (min-width: 641px) {
+    .page-title {
+        font-size: 2rem;
+    }
+}
+
+::deep .page-section {
+    margin-bottom: 2rem;
+}
+
+::deep .table-responsive-cards {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+::deep .table {
+    margin-bottom: 1rem;
+}
+
+::deep .table th,
+::deep .table td {
+    vertical-align: middle;
+}
+
+@media (max-width: 640.98px) {
+    ::deep .table {
+        font-size: 0.875rem;
+    }
+
+    ::deep .table th,
+    ::deep .table td {
+        padding: 0.5rem;
+    }
+}

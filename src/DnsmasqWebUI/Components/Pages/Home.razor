@@ -6,15 +6,11 @@
 @inject IReloadClient ReloadClient
 @implements IDisposable
 
-<PageTitle>Dnsmasq</PageTitle>
-
-<h1 class="mb-4">Dnsmasq</h1>
-
-<p class="lead text-muted mb-4">Configuration and service status at a glance.</p>
+<PageTitle>Overview | Local DNS</PageTitle>
 
 @if (_loading)
 {
-    <p><em>Loading…</em></p>
+    <p class="text-muted"><em>Loading…</em></p>
 }
 else if (_error != null)
 {
@@ -22,9 +18,9 @@ else if (_error != null)
 }
 else if (_status != null)
 {
-    <section class="mb-4">
-        <h2 class="h5 mb-2">Service</h2>
-        <div class="alert alert-@(_status.DnsmasqStatus == "active" ? "success" : "secondary") py-2 mb-0">
+    <section class="page-section">
+        <h2 class="page-section-title">Service</h2>
+        <div class="alert alert-@(_status.DnsmasqStatus == "active" ? "success" : "secondary") py-2 mb-2">
             <strong>Dnsmasq:</strong> @GetStatusLabel(_status)
             @if (_status.StatusCommandExitCode.HasValue)
             {
@@ -37,7 +33,7 @@ else if (_status != null)
         </div>
         @if (_status.DnsmasqStatus != "active" && (_status.StatusCommandStdout != null || _status.StatusCommandStderr != null))
         {
-            <pre class="small bg-dark text-light p-2 rounded mt-1 mb-0" style="max-height: 12rem; overflow: auto;">@(_status.StatusCommandStdout != null ? _status.StatusCommandStdout : "")@(_status.StatusCommandStdout != null && _status.StatusCommandStderr != null ? "\n" : "")@(_status.StatusCommandStderr ?? "")</pre>
+            <pre class="pre-block mt-2 mb-0" style="max-height: 12rem;">@(_status.StatusCommandStdout != null ? _status.StatusCommandStdout : "")@(_status.StatusCommandStdout != null && _status.StatusCommandStderr != null ? "\n" : "")@(_status.StatusCommandStderr ?? "")</pre>
         }
         @if (_status.ReloadCommandConfigured)
         {
@@ -47,7 +43,7 @@ else if (_status != null)
                     {
                         <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                     }
-                    @(_reloading ? "Reloading…" : "Reload dnsmasq")
+                    @(_reloading ? "Reloading…" : "Reload config")
                 </button>
                 @if (!string.IsNullOrEmpty(_reloadMessage))
                 {
@@ -55,49 +51,65 @@ else if (_status != null)
                 }
                 @if (!_reloadSuccess && _reloadDetail != null)
                 {
-                    <pre class="small bg-dark text-light p-2 rounded mt-1 mb-0" style="max-height: 10rem; overflow: auto;">@_reloadDetail</pre>
+                    <pre class="pre-block mt-2 mb-0" style="max-height: 10rem;">@_reloadDetail</pre>
                 }
             </div>
         }
 
-        @* Full service status — output of StatusShowCommand; format depends on command (systemctl on host, ps/pgrep in containers) *@
+        @* Full service status — output of StatusShowCommand *@
         @if (_status.StatusShowConfigured)
         {
-            <p class="mb-1 mt-3"><strong>Service status</strong> <span class="text-muted small">(output of StatusShowCommand)</span></p>
+            <p class="mb-1 mt-3"><strong>Service status</strong></p>
+            <p class="text-muted small mb-1"><code>@_status.StatusShowCommand</code></p>
             @if (string.IsNullOrWhiteSpace(_status.StatusShowOutput))
             {
                 <p class="text-muted small">No output. On a systemd host use <code>systemctl status dnsmasq --no-pager</code> for full status; in Docker or without systemd use <code>ps -C dnsmasq -o pid,user,args</code> or <code>pgrep -a dnsmasq</code> for minimal process info.</p>
             }
             else
             {
-                <pre class="small bg-dark text-light p-2 rounded mb-0" style="max-height: 22rem; overflow: auto;">@_status.StatusShowOutput</pre>
+                <pre class="pre-block mb-0" style="max-height: 22rem;">@_status.StatusShowOutput</pre>
             }
         }
 
-        @* Recent logs — live view, auto-refreshes *@
-        @if (_status.LogsConfigured)
+        @* Recent logs — live view from LogsCommand (show command so it's clear what produces the output) *@
+        @if (_status.LogsConfigured || _status.LogsPath != null)
         {
-            <p class="mb-1 mt-3"><strong>Recent logs</strong> <span class="text-muted small">(live, refreshes every @(_refreshIntervalSeconds)s)</span></p>
-            @if (string.IsNullOrWhiteSpace(_status.LogsOutput))
+            <p class="mb-1 mt-3"><strong>Recent logs</strong></p>
+            @if (_status.LogsConfigured)
             {
-                <p class="text-muted small">No output.</p>
+                <p class="text-muted small mb-1"><code>@_status.LogsCommand</code> <span class="text-muted">(refreshes every @(_refreshIntervalSeconds)s)</span></p>
             }
-            else
+            @if (_status.LogsConfigured)
             {
-                <pre class="small bg-dark text-light p-2 rounded mb-0" style="max-height: 24rem; overflow: auto;">@_status.LogsOutput</pre>
+                @if (string.IsNullOrWhiteSpace(_status.LogsOutput))
+                {
+                    <p class="text-muted small">No output.</p>
+                }
+                else
+                {
+                    <pre class="pre-block mb-0" style="max-height: 24rem;">@_status.LogsOutput</pre>
+                }
             }
         }
 
         @if (_status.StatusShowConfigured || _status.LogsConfigured)
         {
-            <div class="mt-2">
-                <button class="btn btn-outline-secondary btn-sm" @onclick="RefreshStatus" disabled="@_refreshing">Refresh status &amp; logs</button>
+            <div class="mt-2 d-flex flex-wrap gap-2 align-items-center">
+                <button class="btn btn-primary btn-sm" @onclick="RefreshStatus" disabled="@_refreshing">Refresh status &amp; logs</button>
+                @if (_status.LogsPath != null)
+                {
+                    <a href="api/status/logs/download" download="dnsmasq.log" class="btn btn-primary btn-sm">Download logs</a>
+                }
+                else
+                {
+                    <button type="button" class="btn btn-primary btn-sm" disabled title="No log file path detected. Set log-facility=/path/to/file in your dnsmasq config to enable download.">Download logs</button>
+                }
             </div>
         }
     </section>
 
-    <section class="mb-4">
-        <h2 class="h5 mb-2">Effective config</h2>
+    <section class="page-section">
+        <h2 class="page-section-title">Effective config</h2>
         <p class="text-muted small mb-2">What dnsmasq uses after reading all config files (main + conf-file + conf-dir). Only single-value / overridable options are shown here.</p>
         <ul class="list-unstyled small">
             <li><strong>no-hosts:</strong> @(_status.NoHosts ? "Yes (hosts files disabled)" : "No")</li>
@@ -131,7 +143,7 @@ else if (_status != null)
                 <li><strong>dhcp-authoritative:</strong> @(ec.DhcpAuthoritative ? "Yes" : "No")</li>
                 <li><strong>dhcp-leasefile:</strong> @(ec.DhcpLeaseFilePath ?? "(default)")</li>
                 @if (ec.CacheSize.HasValue) { <li><strong>cache-size:</strong> @ec.CacheSize.Value</li> }
-                @if (ec.Port.HasValue) { <li><strong>port:</strong> @ec.Port.Value</li> }
+                <li><strong>port:</strong> @(ec.Port switch { null => "53 (default)", 0 => "0 (no DNS listener)", _ => ec.Port.Value.ToString() })</li>
                 @if (ec.LocalTtl.HasValue) { <li><strong>local-ttl:</strong> @ec.LocalTtl.Value</li> }
                 @if (ec.PidFilePath != null) { <li><strong>pid-file:</strong> @ec.PidFilePath</li> }
                 @if (ec.User != null) { <li><strong>user:</strong> @ec.User</li> }
@@ -141,8 +153,8 @@ else if (_status != null)
         }
     </section>
 
-    <section class="mb-4">
-        <h2 class="h5 mb-2">Config</h2>
+    <section class="page-section">
+        <h2 class="page-section-title">Config</h2>
         <ul class="list-unstyled small">
             <li><strong>Main config:</strong> @(_status.MainConfigPath ?? "—") @(_status.MainConfigPathExists ? "✓" : "(missing)")</li>
             <li><strong>Managed file:</strong> @(_status.ManagedFilePath ?? "—") @(_status.ManagedFilePathExists ? "✓" : "(not created yet)")</li>
@@ -170,8 +182,8 @@ else if (_status != null)
         }
     </section>
 
-    <section class="mb-4">
-        <h2 class="h5 mb-2">Paths</h2>
+    <section class="page-section">
+        <h2 class="page-section-title">Paths</h2>
         <ul class="list-unstyled small">
             <li>
                 <strong>Leases file:</strong> @(_status.LeasesPath ?? "—")
@@ -185,14 +197,6 @@ else if (_status != null)
                 }
             </li>
         </ul>
-    </section>
-
-    <section class="mb-4">
-        <h2 class="h5 mb-2">Quick links</h2>
-        <div class="d-flex flex-wrap gap-2">
-            <a href="hosts" class="btn btn-outline-primary btn-sm">Hosts</a>
-            <a href="dhcp" class="btn btn-outline-primary btn-sm">DHCP</a>
-        </div>
     </section>
 }
 
