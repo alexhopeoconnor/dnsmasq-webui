@@ -1,0 +1,3 @@
+# Minimal resolv file for harness; dnsmasq uses server= in main config when no-resolv is set.
+# File must exist so resolv-file= does not cause dnsmasq to fail or warn.
+nameserver 127.0.0.1

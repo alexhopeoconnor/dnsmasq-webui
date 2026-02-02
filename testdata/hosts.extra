@@ -1,0 +1,3 @@
+# Extra hosts file (second addn-hosts= in harness). Used so effective config has multiple addn-hosts with source per path.
+192.168.1.1 gateway
+192.168.1.254 dns

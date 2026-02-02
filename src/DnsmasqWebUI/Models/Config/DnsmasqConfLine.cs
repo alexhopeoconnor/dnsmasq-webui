@@ -13,7 +13,7 @@ public enum DnsmasqConfLineKind
     Other
 }
 
-/// <summary>One line of a dnsmasq .conf file (managed file only). Use the concrete type (BlankLine, CommentLine, AddnHostsLine, DhcpHostLine, OtherLine). Round-trip via DnsmasqConfFileLineParser.ParseFile / ToLine.</summary>
+/// <summary>One line of a dnsmasq .conf file, used for the managed file only. Use the concrete type (BlankLine, CommentLine, AddnHostsLine, DhcpHostLine, OtherLine). Round-trip via DnsmasqConfFileLineParser.ParseFile / ToLine. The same directive types (addn-hosts=, etc.) can appear in any conf file; we use DnsmasqConfLine only for the single managed file because that is the only file we parse into structured lines and write back. Effective config (and where each value came from) is built from all files via DnsmasqConfIncludeParser and GetEffectiveConfigWithSources.</summary>
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(BlankLine), "blank")]
 [JsonDerivedType(typeof(CommentLine), "comment")]

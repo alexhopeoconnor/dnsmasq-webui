@@ -166,6 +166,27 @@ public class DnsmasqConfIncludeParserTests
         Assert.Equal(Path.GetFullPath("/data/leases"), result);
     }
 
+    /// <summary>Uses testdata/dnsmasq-test.conf (harness main) to assert multi-value options are collected from testdata.</summary>
+    [Fact]
+    public void GetMultiValueFromConfigFiles_FromTestdata_ReturnsServerAndAddnHosts()
+    {
+        var mainPath = TestDataHelper.GetPath("dnsmasq-test.conf");
+        if (!File.Exists(mainPath))
+            return;
+        var paths = new[] { mainPath };
+        var servers = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, new[] { "server", "local" });
+        var addnHosts = DnsmasqConfIncludeParser.GetAddnHostsPathsFromConfigFiles(paths);
+        var addresses = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, "address");
+        var listenAddrs = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, "listen-address");
+        Assert.True(servers.Count >= 2, "testdata dnsmasq-test.conf should have at least 2 server= lines");
+        Assert.Contains("1.1.1.1", servers);
+        Assert.Contains("8.8.8.8", servers);
+        Assert.True(addnHosts.Count >= 2, "testdata should have at least 2 addn-hosts paths");
+        Assert.True(addresses.Count >= 2, "testdata should have at least 2 address= lines");
+        Assert.Single(listenAddrs);
+        Assert.Equal("172.28.0.2", listenAddrs[0]);
+    }
+
     [Fact]
     public void GetDhcpLeaseFilePathFromConfigFiles_LastWins()
     {
@@ -364,5 +385,210 @@ public class DnsmasqConfIncludeParserTests
         var abs = Path.Combine(Path.GetTempPath(), "absolute.pid");
         var result = DnsmasqConfIncludeParser.ResolvePath(abs, "/some/dir");
         Assert.Equal(Path.GetFullPath(abs), result);
+    }
+
+    // --- Tests matching dnsmasq option.c semantics (ARG_ONE = last wins, flags = no value allowed) ---
+
+    /// <summary>dnsmasq option.c: opts[i].has_arg == 0 && arg -> "extraneous parameter"; flag with value is invalid, so we must not count it.</summary>
+    [Fact]
+    public void GetFlagFromConfigFiles_FlagWithValue_ReturnsFalse()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-flag-val-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var conf = Path.Combine(dir, "dnsmasq.conf");
+            File.WriteAllText(conf, "expand-hosts=1\n");
+            var result = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, "expand-hosts");
+            Assert.False(result);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    /// <summary>dnsmasq option.c: strcmp(opts[i].name, start) == 0 — option names are case-sensitive; "Port" is bad option.</summary>
+    [Fact]
+    public void GetLastValueFromConfigFiles_CaseSensitive_PortWithCapitalP_ReturnsNull()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-case-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var conf = Path.Combine(dir, "dnsmasq.conf");
+            File.WriteAllText(conf, "Port=53\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, "port");
+            Assert.Null(value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    /// <summary>Path list is [main, conf-file...]. We read each file entirely in that order, so last port is last occurrence in that stream (main lines then extra). Main has port=53, port=5353; extra has port=54 → last is 54.</summary>
+    [Fact]
+    public void GetLastValueFromConfigFiles_TwoFiles_LastOccurrenceInPathOrderWins()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-two-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var main = Path.Combine(dir, "dnsmasq.conf");
+        var extra = Path.Combine(dir, "extra.conf");
+        try
+        {
+            File.WriteAllText(main, "port=53\nconf-file=extra.conf\nport=5353\n");
+            File.WriteAllText(extra, "port=54\n");
+            var paths = DnsmasqConfIncludeParser.GetIncludedPaths(main);
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(paths, "port");
+            Assert.Equal("54", value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    /// <summary>dnsmasq conf-dir=dir,*.suffix only includes files ending with suffix (option.c match_suffix).</summary>
+    [Fact]
+    public void GetIncludedPaths_ConfDir_WithMatchSuffix_OnlyIncludesMatchingFiles()
+    {
+        var baseDir = Path.Combine(Path.GetTempPath(), "dnsmasq-match-" + Guid.NewGuid().ToString("N"));
+        var subDir = Path.Combine(baseDir, "d");
+        Directory.CreateDirectory(subDir);
+        try
+        {
+            File.WriteAllText(Path.Combine(subDir, "a.conf"), "");
+            File.WriteAllText(Path.Combine(subDir, "b.txt"), "");
+            File.WriteAllText(Path.Combine(subDir, "c.conf"), "");
+            var main = Path.Combine(baseDir, "dnsmasq.conf");
+            File.WriteAllText(main, "conf-dir=d,*.conf\n");
+            var paths = DnsmasqConfIncludeParser.GetIncludedPaths(main);
+            Assert.Equal(3, paths.Count);
+            Assert.Contains(paths, p => p.EndsWith("a.conf", StringComparison.Ordinal));
+            Assert.Contains(paths, p => p.EndsWith("c.conf", StringComparison.Ordinal));
+            Assert.DoesNotContain(paths, p => p.EndsWith("b.txt", StringComparison.Ordinal));
+        }
+        finally
+        {
+            Directory.Delete(baseDir, recursive: true);
+        }
+    }
+
+    /// <summary>dnsmasq conf-dir=dir,.suffix ignores files ending with suffix (option.c ignore_suffix).</summary>
+    [Fact]
+    public void GetIncludedPaths_ConfDir_WithIgnoreSuffix_ExcludesMatchingFiles()
+    {
+        var baseDir = Path.Combine(Path.GetTempPath(), "dnsmasq-ignore-" + Guid.NewGuid().ToString("N"));
+        var subDir = Path.Combine(baseDir, "d");
+        Directory.CreateDirectory(subDir);
+        try
+        {
+            File.WriteAllText(Path.Combine(subDir, "a.conf"), "");
+            File.WriteAllText(Path.Combine(subDir, "b.conf.bak"), "");
+            var main = Path.Combine(baseDir, "dnsmasq.conf");
+            File.WriteAllText(main, "conf-dir=d,.bak\n");
+            var paths = DnsmasqConfIncludeParser.GetIncludedPaths(main);
+            Assert.Equal(2, paths.Count);
+            Assert.Contains(paths, p => p.EndsWith("a.conf", StringComparison.Ordinal));
+            Assert.DoesNotContain(paths, p => p.EndsWith("b.conf.bak", StringComparison.Ordinal));
+        }
+        finally
+        {
+            Directory.Delete(baseDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetAddnHostsPathsFromConfigFilesWithSource_ReturnsSourcePerPath()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-addn-src-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var f1 = Path.Combine(dir, "01.conf");
+        var f2 = Path.Combine(dir, "02.conf");
+        var managedPath = Path.Combine(dir, "managed.conf");
+        try
+        {
+            File.WriteAllText(f1, "addn-hosts=/etc/hosts.a\n");
+            File.WriteAllText(f2, "addn-hosts=/etc/hosts.b\naddn-hosts=/etc/hosts.c\n");
+            var result = DnsmasqConfIncludeParser.GetAddnHostsPathsFromConfigFilesWithSource(new[] { f1, f2 }, managedPath);
+            Assert.Equal(3, result.Count);
+            Assert.Equal(Path.GetFullPath("/etc/hosts.a"), result[0].Path);
+            Assert.Equal(Path.GetFileName(f1), result[0].Source.FileName);
+            Assert.False(result[0].Source.IsManaged);
+            Assert.Equal(Path.GetFullPath("/etc/hosts.b"), result[1].Path);
+            Assert.Equal(Path.GetFileName(f2), result[1].Source.FileName);
+            Assert.Equal(Path.GetFullPath("/etc/hosts.c"), result[2].Path);
+            Assert.True(result[2].Source.IsReadOnly == !result[2].Source.IsManaged);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetAddnHostsPathsFromConfigFilesWithSource_WhenManagedFileInList_IsManagedTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-addn-mgd-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var mainPath = Path.Combine(dir, "dnsmasq.conf");
+        var managedPath = Path.Combine(dir, "zz-managed.conf");
+        try
+        {
+            File.WriteAllText(mainPath, "addn-hosts=/other/hosts\n");
+            File.WriteAllText(managedPath, "addn-hosts=/managed/hosts\n");
+            var result = DnsmasqConfIncludeParser.GetAddnHostsPathsFromConfigFilesWithSource(new[] { mainPath, managedPath }, managedPath);
+            Assert.Equal(2, result.Count);
+            Assert.False(result[0].Source.IsManaged);
+            Assert.True(result[1].Source.IsManaged);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_ServerAndLocal_CollectsBothInOrder()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-multi-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var f1 = Path.Combine(dir, "01.conf");
+        var f2 = Path.Combine(dir, "02.conf");
+        try
+        {
+            File.WriteAllText(f1, "server=1.1.1.1\nlocal=/local/\n");
+            File.WriteAllText(f2, "server=/example.com/192.168.1.1\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { f1, f2 }, new[] { "server", "local" });
+            Assert.Equal(3, result.Count);
+            Assert.Equal("1.1.1.1", result[0]);
+            Assert.Equal("/local/", result[1]);
+            Assert.Equal("/example.com/192.168.1.1", result[2]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_DhcpRange_CollectsAllInOrder()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-dhcp-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "dhcp-range=172.28.0.10,172.28.0.50,12h\ndhcp-range=192.168.1.10,192.168.1.100,255.255.255.0,24h\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, "dhcp-range");
+            Assert.Equal(2, result.Count);
+            Assert.Equal("172.28.0.10,172.28.0.50,12h", result[0]);
+            Assert.Equal("192.168.1.10,192.168.1.100,255.255.255.0,24h", result[1]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
     }
 }

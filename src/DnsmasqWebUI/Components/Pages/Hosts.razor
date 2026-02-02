@@ -20,7 +20,7 @@ else if (_status.NoHosts && !_pathInAddnHosts)
     <p class="text-muted">Hosts editing is disabled: <strong>no-hosts</strong> is set in dnsmasq config (dnsmasq only uses addn-hosts files) and the configured path is not in the effective addn-hosts list, so dnsmasq would not read the file.</p>
     @if (_status.AddnHostsPaths?.Count > 0)
     {
-        <p class="text-muted small">Effective addn-hosts paths: @string.Join(", ", _status.AddnHostsPaths)</p>
+        <p class="text-muted small">Effective addn-hosts paths: @RenderAddnHostsList()</p>
     }
 }
 else if (string.IsNullOrEmpty(_status.SystemHostsPath))
@@ -28,7 +28,7 @@ else if (string.IsNullOrEmpty(_status.SystemHostsPath))
     <p class="text-muted">No system hosts file configured. Set <strong>Dnsmasq:SystemHostsPath</strong> (e.g. /etc/hosts) to edit a hosts file from this app.</p>
     @if (_status.AddnHostsPaths?.Count > 0)
     {
-        <p class="text-muted small">Dnsmasq loads these addn-hosts files (read-only here): @string.Join(", ", _status.AddnHostsPaths)</p>
+        <p class="text-muted small">Dnsmasq loads these addn-hosts files: @RenderAddnHostsList()</p>
     }
 }
 else if (!_status.SystemHostsPathExists)
@@ -96,6 +96,25 @@ else
     private bool _pathInAddnHosts => _status != null
         && !string.IsNullOrEmpty(_status.SystemHostsPath)
         && _status.AddnHostsPaths?.Any(p => string.Equals(p, Path.GetFullPath(_status.SystemHostsPath!.Trim()), StringComparison.Ordinal)) == true;
+
+    /// <summary>Returns MarkupString so Blazor renders raw HTML (path + source label).</summary>
+    private MarkupString RenderAddnHostsList()
+    {
+        if (_status?.AddnHostsPaths == null || _status.AddnHostsPaths.Count == 0)
+            return (MarkupString)"(none)";
+        var srcList = _status.EffectiveConfigSources?.AddnHostsPaths;
+        if (srcList != null && srcList.Count == _status.AddnHostsPaths.Count)
+        {
+            return (MarkupString)string.Join(", ", srcList.Select(e =>
+            {
+                var src = e.Source;
+                var tip = src?.GetReadOnlyTooltip() ?? "";
+                var label = src == null ? "?" : (src.IsReadOnly ? "from " + src.FileName + ", readonly" : "editable");
+                return $"{System.Net.WebUtility.HtmlEncode(e.Path)} <span class=\"text-muted\" title=\"{System.Net.WebUtility.HtmlEncode(tip)}\">({System.Net.WebUtility.HtmlEncode(label)})</span>";
+            }));
+        }
+        return (MarkupString)System.Net.WebUtility.HtmlEncode(string.Join(", ", _status.AddnHostsPaths));
+    }
 
     protected override async Task OnInitializedAsync()
     {

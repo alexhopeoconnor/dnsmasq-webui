@@ -8,7 +8,7 @@
 @inject IOptions<ApplicationOptions> AppOptions
 @implements IDisposable
 
-<PageTitle>Overview | @AppTitle</PageTitle>
+<PageTitle>Dnsmasq | @AppTitle</PageTitle>
 
 @if (_loading)
 {
@@ -66,15 +66,26 @@ else if (_status != null)
 
     <section class="page-section">
         <h2 class="page-section-title">Effective config</h2>
-        <p class="text-muted small mb-2">What dnsmasq uses after reading all config files (main + conf-file + conf-dir). Only single-value / overridable options are shown here.</p>
+        <p class="text-muted small mb-2">What dnsmasq uses after reading all config files (main + conf-file + conf-dir). Values from a non-managed file are readonly (edit that file to change).</p>
         <ul class="list-unstyled small">
-            <li><strong>no-hosts:</strong> @(_status.NoHosts ? "Yes (hosts files disabled)" : "No")</li>
+            <EffectiveConfigOptionItem Label="no-hosts" DisplayValue="@(_status.NoHosts ? "Yes (hosts files disabled)" : "No")" Source="@(_status.EffectiveConfigSources?.NoHosts)" />
             <li>
                 <strong>addn-hosts:</strong>
                 @if (_status.AddnHostsPaths?.Count > 0)
                 {
-                    var deduped = _status.AddnHostsPaths.Distinct().ToList();
-                    @(deduped.Count == 1 ? deduped[0] : string.Join(", ", deduped))
+                    var srcList = _status.EffectiveConfigSources?.AddnHostsPaths;
+                    if (srcList != null && srcList.Count == _status.AddnHostsPaths.Count)
+                    {
+                        @foreach (var entry in srcList)
+                        {
+                            <span class="d-inline-block me-2" title="@(entry.Source?.GetReadOnlyTooltip())">@entry.Path @(entry.Source?.IsReadOnly == true ? " (readonly)" : "")</span>
+                        }
+                    }
+                    else
+                    {
+                        var deduped = (_status.AddnHostsPaths ?? Array.Empty<string>()).Distinct().ToList();
+                        @(deduped.Count == 1 ? deduped[0] : string.Join(", ", deduped))
+                    }
                 }
                 else
                 {
@@ -89,22 +100,45 @@ else if (_status != null)
         @if (_status.EffectiveConfig != null)
         {
             var ec = _status.EffectiveConfig;
-            <p class="mb-1 mt-2 text-muted small"><strong>Overridable options</strong> (last wins; future UI will allow editing via managed file):</p>
+            var src = _status.EffectiveConfigSources;
+            <p class="mb-1 mt-2 text-muted small"><strong>Options</strong> (last wins for single-value; readonly when from a non-managed file):</p>
             <ul class="list-unstyled small ms-2">
-                <li><strong>expand-hosts:</strong> @(ec.ExpandHosts ? "Yes" : "No")</li>
-                <li><strong>bogus-priv:</strong> @(ec.BogusPriv ? "Yes" : "No")</li>
-                <li><strong>strict-order:</strong> @(ec.StrictOrder ? "Yes" : "No")</li>
-                <li><strong>no-resolv:</strong> @(ec.NoResolv ? "Yes" : "No")</li>
-                <li><strong>domain-needed:</strong> @(ec.DomainNeeded ? "Yes" : "No")</li>
-                <li><strong>dhcp-authoritative:</strong> @(ec.DhcpAuthoritative ? "Yes" : "No")</li>
-                <li><strong>dhcp-leasefile:</strong> @(ec.DhcpLeaseFilePath ?? "(default)")</li>
-                @if (ec.CacheSize.HasValue) { <li><strong>cache-size:</strong> @ec.CacheSize.Value</li> }
-                <li><strong>port:</strong> @(ec.Port switch { null => "53 (default)", 0 => "0 (no DNS listener)", _ => ec.Port.Value.ToString() })</li>
-                @if (ec.LocalTtl.HasValue) { <li><strong>local-ttl:</strong> @ec.LocalTtl.Value</li> }
-                @if (ec.PidFilePath != null) { <li><strong>pid-file:</strong> @ec.PidFilePath</li> }
-                @if (ec.User != null) { <li><strong>user:</strong> @ec.User</li> }
-                @if (ec.Group != null) { <li><strong>group:</strong> @ec.Group</li> }
-                @if (ec.DhcpLeaseMax.HasValue) { <li><strong>dhcp-lease-max:</strong> @ec.DhcpLeaseMax.Value</li> }
+                <EffectiveConfigOptionItem Label="expand-hosts" DisplayValue="@(ec.ExpandHosts ? "Yes" : "No")" Source="@(src?.ExpandHosts)" />
+                <EffectiveConfigOptionItem Label="bogus-priv" DisplayValue="@(ec.BogusPriv ? "Yes" : "No")" Source="@(src?.BogusPriv)" />
+                <EffectiveConfigOptionItem Label="strict-order" DisplayValue="@(ec.StrictOrder ? "Yes" : "No")" Source="@(src?.StrictOrder)" />
+                <EffectiveConfigOptionItem Label="no-resolv" DisplayValue="@(ec.NoResolv ? "Yes" : "No")" Source="@(src?.NoResolv)" />
+                <EffectiveConfigOptionItem Label="domain-needed" DisplayValue="@(ec.DomainNeeded ? "Yes" : "No")" Source="@(src?.DomainNeeded)" />
+                <EffectiveConfigOptionItem Label="dhcp-authoritative" DisplayValue="@(ec.DhcpAuthoritative ? "Yes" : "No")" Source="@(src?.DhcpAuthoritative)" />
+                <EffectiveConfigOptionItem Label="no-poll" DisplayValue="@(ec.NoPoll ? "Yes" : "No")" Source="@(src?.NoPoll)" />
+                <EffectiveConfigOptionItem Label="bind-interfaces" DisplayValue="@(ec.BindInterfaces ? "Yes" : "No")" Source="@(src?.BindInterfaces)" />
+                <EffectiveConfigOptionItem Label="no-negcache" DisplayValue="@(ec.NoNegcache ? "Yes" : "No")" Source="@(src?.NoNegcache)" />
+                <EffectiveConfigOptionItem Label="leasefile-ro" DisplayValue="@(ec.LeasefileRo ? "Yes" : "No")" Source="@(src?.LeasefileRo)" />
+                <EffectiveConfigOptionItem Label="dhcp-leasefile" DisplayValue="@(ec.DhcpLeaseFilePath ?? "(default)")" Source="@(src?.DhcpLeaseFilePath)" />
+                @if (ec.CacheSize.HasValue) { <EffectiveConfigOptionItem Label="cache-size" DisplayValue="@ec.CacheSize.Value.ToString()" Source="@(src?.CacheSize)" /> }
+                <EffectiveConfigOptionItem Label="port" DisplayValue="@(ec.Port switch { null => "53 (default)", 0 => "0 (no DNS listener)", _ => ec.Port.Value.ToString() })" Source="@(src?.Port)" />
+                @if (ec.LocalTtl.HasValue) { <EffectiveConfigOptionItem Label="local-ttl" DisplayValue="@ec.LocalTtl.Value.ToString()" Source="@(src?.LocalTtl)" /> }
+                @if (ec.PidFilePath != null) { <EffectiveConfigOptionItem Label="pid-file" DisplayValue="@ec.PidFilePath" Source="@(src?.PidFilePath)" /> }
+                @if (ec.User != null) { <EffectiveConfigOptionItem Label="user" DisplayValue="@ec.User" Source="@(src?.User)" /> }
+                @if (ec.Group != null) { <EffectiveConfigOptionItem Label="group" DisplayValue="@ec.Group" Source="@(src?.Group)" /> }
+                @if (ec.LogFacility != null) { <EffectiveConfigOptionItem Label="log-facility" DisplayValue="@ec.LogFacility" Source="@(src?.LogFacility)" /> }
+                @if (ec.DhcpLeaseMax.HasValue) { <EffectiveConfigOptionItem Label="dhcp-lease-max" DisplayValue="@ec.DhcpLeaseMax.Value.ToString()" Source="@(src?.DhcpLeaseMax)" /> }
+                @if (ec.NegTtl.HasValue) { <EffectiveConfigOptionItem Label="neg-ttl" DisplayValue="@ec.NegTtl.Value.ToString()" Source="@(src?.NegTtl)" /> }
+                @if (ec.MaxTtl.HasValue) { <EffectiveConfigOptionItem Label="max-ttl" DisplayValue="@ec.MaxTtl.Value.ToString()" Source="@(src?.MaxTtl)" /> }
+                @if (ec.MaxCacheTtl.HasValue) { <EffectiveConfigOptionItem Label="max-cache-ttl" DisplayValue="@ec.MaxCacheTtl.Value.ToString()" Source="@(src?.MaxCacheTtl)" /> }
+                @if (ec.MinCacheTtl.HasValue) { <EffectiveConfigOptionItem Label="min-cache-ttl" DisplayValue="@ec.MinCacheTtl.Value.ToString()" Source="@(src?.MinCacheTtl)" /> }
+                @if (ec.DhcpTtl.HasValue) { <EffectiveConfigOptionItem Label="dhcp-ttl" DisplayValue="@ec.DhcpTtl.Value.ToString()" Source="@(src?.DhcpTtl)" /> }
+            </ul>
+            <p class="mb-1 mt-2 text-muted small"><strong>Multi-value options</strong> (server/local, address, interface, etc.; each with source when known):</p>
+            <ul class="list-unstyled small ms-2">
+                @if (ec.ServerLocalValues?.Count > 0) { <EffectiveConfigMultiValueRow Label="server / local" Content="@((MarkupString)RenderMultiValueList(ec.ServerLocalValues, src?.ServerLocalValues))" /> }
+                @if (ec.AddressValues?.Count > 0) { <EffectiveConfigMultiValueRow Label="address" Content="@((MarkupString)RenderMultiValueList(ec.AddressValues, src?.AddressValues))" /> }
+                @if (ec.Interfaces?.Count > 0) { <EffectiveConfigMultiValueRow Label="interface" Content="@((MarkupString)RenderMultiValueList(ec.Interfaces, src?.Interfaces))" /> }
+                @if (ec.ListenAddresses?.Count > 0) { <EffectiveConfigMultiValueRow Label="listen-address" Content="@((MarkupString)RenderMultiValueList(ec.ListenAddresses, src?.ListenAddresses))" /> }
+                @if (ec.ExceptInterfaces?.Count > 0) { <EffectiveConfigMultiValueRow Label="except-interface" Content="@((MarkupString)RenderMultiValueList(ec.ExceptInterfaces, src?.ExceptInterfaces))" /> }
+                @if (ec.DhcpRanges?.Count > 0) { <EffectiveConfigMultiValueRow Label="dhcp-range" Content="@((MarkupString)RenderMultiValueList(ec.DhcpRanges, src?.DhcpRanges))" /> }
+                @if (ec.DhcpHostLines?.Count > 0) { <EffectiveConfigMultiValueRow Label="dhcp-host" Content="@((MarkupString)RenderMultiValueList(ec.DhcpHostLines, src?.DhcpHostLines))" /> }
+                @if (ec.DhcpOptionLines?.Count > 0) { <EffectiveConfigMultiValueRow Label="dhcp-option" Content="@((MarkupString)RenderMultiValueList(ec.DhcpOptionLines, src?.DhcpOptionLines))" /> }
+                @if (ec.ResolvFiles?.Count > 0) { <EffectiveConfigMultiValueRow Label="resolv-file" Content="@((MarkupString)RenderMultiValueList(ec.ResolvFiles, src?.ResolvFiles))" /> }
             </ul>
         }
     </section>
@@ -194,7 +228,7 @@ else if (_status != null)
                 }
                 catch
                 {
-                    // Config set is optional for overview
+                    // Config set is optional for Dnsmasq page
                 }
             }
         }
@@ -291,6 +325,25 @@ else if (_status != null)
         _serviceStatusIntervalSeconds = Math.Clamp(_clientSettings.ServiceStatusPollingIntervalSeconds, 5, 300);
         _recentLogsIntervalSeconds = Math.Clamp(_clientSettings.RecentLogsPollingIntervalSeconds, 5, 300);
         StateHasChanged();
+    }
+
+    /// <summary>Renders a multi-value list with per-value source (readonly/editable + tooltip) when EffectiveConfigSources matches; otherwise comma-separated. Returns MarkupString so Blazor renders raw HTML.</summary>
+    private static MarkupString RenderMultiValueList(IReadOnlyList<string>? values, IReadOnlyList<ValueWithSource>? sources)
+    {
+        if (values == null || values.Count == 0)
+            return (MarkupString)"(none)";
+        if (sources != null && sources.Count == values.Count)
+        {
+            var parts = sources.Select(e =>
+            {
+                var src = e.Source;
+                var tip = src?.GetReadOnlyTooltip() ?? "";
+                var label = src == null ? "?" : (src.IsReadOnly ? "from " + src.FileName + ", readonly" : "editable");
+                return $"{System.Net.WebUtility.HtmlEncode(e.Value)} <span class=\"text-muted\" title=\"{System.Net.WebUtility.HtmlEncode(tip)}\">({System.Net.WebUtility.HtmlEncode(label)})</span>";
+            });
+            return (MarkupString)string.Join(", ", parts);
+        }
+        return (MarkupString)System.Net.WebUtility.HtmlEncode(string.Join(", ", values));
     }
 
     public void Dispose()

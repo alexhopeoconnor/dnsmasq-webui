@@ -1,0 +1,10 @@
+@namespace DnsmasqWebUI.Components.EffectiveConfig
+
+<li>
+    <strong>@Label:</strong> @Content
+</li>
+
+@code {
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public MarkupString Content { get; set; }
+}

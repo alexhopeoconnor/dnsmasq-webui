@@ -1,17 +1,33 @@
 namespace DnsmasqWebUI.Models;
 
 /// <summary>
-/// Effective dnsmasq config after reading all config files (main + conf-file + conf-dir).
-/// Represents the final values that dnsmasq uses. Only includes options that are
-/// single-value (last wins) or boolean flags, so they can be overridden by writing
-/// to our managed file. Multi-value options (e.g. addn-hosts, server=) are either
-/// listed read-only or omitted from this model.
-/// Based on dnsmasq option.c: ARG_ONE = last occurrence wins; flag options = set if any.
+/// Effective dnsmasq config after reading all config files (main + conf-file + conf-dir)
+/// in the order returned by <see cref="DnsmasqConfIncludeParser.GetIncludedPathsWithSource"/>.
+/// Represents the final values dnsmasq uses: single-value (last wins), flags (set if any),
+/// and multi-value (all occurrences in order). Source per value is in <see cref="EffectiveConfigSources"/>
+/// from <see cref="IDnsmasqConfigSetService.GetEffectiveConfigWithSources"/> (file path, IsManaged).
+/// Non-managed source → readonly in UI; flags set in a non-managed file cannot be unset from the UI.
+///
+/// Single-value (ARG_ONE): last occurrence wins; can be overridden by writing to the managed file.
+/// Flags: set if any file contains the option (key-only line).
+/// Multi-value (ARG_DUP): addn-hosts, server/local, address, interface, listen-address, except-interface,
+/// dhcp-range, dhcp-host, dhcp-option, resolv-file — all values in order; each has source in EffectiveConfigSources.
 /// </summary>
 public record EffectiveDnsmasqConfig(
     // --- Hosts (already used by Hosts UI) ---
     bool NoHosts,
     IReadOnlyList<string> AddnHostsPaths,
+
+    // --- Multi-value (ARG_DUP): all occurrences in order ---
+    IReadOnlyList<string> ServerLocalValues,
+    IReadOnlyList<string> AddressValues,
+    IReadOnlyList<string> Interfaces,
+    IReadOnlyList<string> ListenAddresses,
+    IReadOnlyList<string> ExceptInterfaces,
+    IReadOnlyList<string> DhcpRanges,
+    IReadOnlyList<string> DhcpHostLines,
+    IReadOnlyList<string> DhcpOptionLines,
+    IReadOnlyList<string> ResolvFiles,
 
     // --- Boolean flags (set if any file contains the option) ---
     bool ExpandHosts,

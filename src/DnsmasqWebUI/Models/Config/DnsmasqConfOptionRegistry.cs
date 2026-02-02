@@ -17,7 +17,7 @@ public static class DnsmasqConfOptionRegistry
             // Path-valued
             { "addn-hosts", DnsmasqOptionKind.AddnHosts },
             { "dhcp-leasefile", DnsmasqOptionKind.DhcpLeaseFile },
-            { "dhcp-lease-file", DnsmasqOptionKind.DhcpLeaseFile },
+            { "dhcp-lease", DnsmasqOptionKind.DhcpLeaseFile },
             { "resolv-file", DnsmasqOptionKind.Path },
             { "dhcp-hostsfile", DnsmasqOptionKind.Path },
             { "dhcp-optsfile", DnsmasqOptionKind.Path },
@@ -57,7 +57,7 @@ public static class DnsmasqConfOptionRegistry
         {
             "domain-needed", "bogus-priv", "no-hosts", "expand-hosts", "strict-order",
             "no-resolv", "no-poll", "bind-interfaces", "no-negcache", "log-queries", "log-dhcp",
-            "all-servers", "leasefile-ro",
+            "all-servers", "leasefile-ro", "dhcp-authoritative",
             "quiet-dhcp", "quiet-dhcp6", "quiet-ra", "dhcp-broadcast", "dhcp-sequential-ip",
             "enable-tftp", "self-resolve", "conntrack",
         };

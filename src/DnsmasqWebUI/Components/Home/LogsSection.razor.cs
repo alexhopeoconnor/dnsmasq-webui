@@ -2,7 +2,7 @@ using DnsmasqWebUI.Client.Http.Abstractions;
 using DnsmasqWebUI.Models;
 using Microsoft.AspNetCore.Components;
 
-namespace DnsmasqWebUI.Components.Home;
+namespace DnsmasqWebUI.Components.Dnsmasq;
 
 /// <summary>
 /// Recent logs block: polls LogsCommand output at its own interval and re-renders only itself.

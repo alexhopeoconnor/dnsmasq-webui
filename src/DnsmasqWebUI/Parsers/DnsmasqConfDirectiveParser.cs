@@ -19,7 +19,7 @@ public static class DnsmasqConfDirectiveParser
             .AtLeastOnce().Text()
             .Select(s => s.TrimEnd());
 
-    // Optional whitespace then optional '=value'
+    // Key, optional spaces, optional '=value' (dnsmasq: key-only lines are valid for flags).
     private static readonly TextParser<(string key, string value)> KeyValue =
         from k in Key
         from _ in Character.WhiteSpace.Many()
@@ -33,11 +33,30 @@ public static class DnsmasqConfDirectiveParser
     private static readonly TextParser<(string key, string value)> DirectiveLine =
         KeyValue.AtEnd();
 
-    /// <summary>Parse a non-comment line into key and value. Returns null for empty or comment-only lines.</summary>
+    /// <summary>Strip dnsmasq-style comment: from first '#' that is at word start (after whitespace) to end of line.</summary>
+    public static string StripComment(string line)
+    {
+        bool white = true;
+        for (int i = 0; i < line.Length; i++)
+        {
+            if (char.IsWhiteSpace(line[i]))
+                white = true;
+            else if (white && line[i] == '#')
+                return line[..i].TrimEnd();
+            else
+                white = false;
+        }
+        return line;
+    }
+
+    /// <summary>Parse a non-comment line into key and value. Returns null for empty or comment-only lines.
+    /// Strips dnsmasq-style comments (# and rest when # is after whitespace). Supports key-only lines (value "").</summary>
     public static (string key, string value)? TryParseKeyValue(string line)
     {
-        var t = line.Trim();
-        if (string.IsNullOrEmpty(t) || t.StartsWith("#", StringComparison.Ordinal))
+        var t = StripComment(line).TrimStart();
+        if (string.IsNullOrEmpty(t))
+            return null;
+        if (t.StartsWith("#", StringComparison.Ordinal))
             return null;
         var result = DirectiveLine.TryParse(t);
         if (!result.HasValue)

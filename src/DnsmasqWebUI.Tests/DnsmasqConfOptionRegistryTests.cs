@@ -37,7 +37,7 @@ public class DnsmasqConfOptionRegistryTests
     public void GetKind_DhcpLeasefile_ReturnsDhcpLeaseFile()
     {
         Assert.Equal(DnsmasqOptionKind.DhcpLeaseFile, DnsmasqConfOptionRegistry.GetKind("dhcp-leasefile"));
-        Assert.Equal(DnsmasqOptionKind.DhcpLeaseFile, DnsmasqConfOptionRegistry.GetKind("dhcp-lease-file"));
+        Assert.Equal(DnsmasqOptionKind.DhcpLeaseFile, DnsmasqConfOptionRegistry.GetKind("dhcp-lease"));
     }
 
     [Fact]
@@ -76,7 +76,7 @@ public class DnsmasqConfOptionRegistryTests
         var registry = DnsmasqConfOptionRegistry.OptionKindByKey;
         Assert.True(registry.ContainsKey("addn-hosts"));
         Assert.True(registry.ContainsKey("dhcp-leasefile"));
-        Assert.True(registry.ContainsKey("dhcp-lease-file"));
+        Assert.True(registry.ContainsKey("dhcp-lease"));
         Assert.True(registry.ContainsKey("conf-file"));
         Assert.True(registry.ContainsKey("conf-dir"));
         Assert.True(registry.ContainsKey("domain"));

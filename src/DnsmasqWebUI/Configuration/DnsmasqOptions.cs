@@ -32,9 +32,9 @@ public class DnsmasqOptions
     /// <summary>Optional command to check dnsmasq service state (e.g. "systemctl is-active dnsmasq" or "pgrep -x dnsmasq"). Runs in the same environment as the app; if app is in a container, this checks for dnsmasq in the container, not on the host.</summary>
     public string? StatusCommand { get; set; }
 
-    /// <summary>Optional command for full service status (e.g. "systemctl status dnsmasq --no-pager"). Output shown on Overview.</summary>
+    /// <summary>Optional command for full service status (e.g. "systemctl status dnsmasq --no-pager"). Output shown on Dnsmasq page.</summary>
     public string? StatusShowCommand { get; set; }
 
-    /// <summary>Optional command for recent logs (e.g. "journalctl -u dnsmasq -n 100 --no-pager"). Output shown on Overview.</summary>
+    /// <summary>Optional command for recent logs (e.g. "journalctl -u dnsmasq -n 100 --no-pager"). Output shown on Dnsmasq page.</summary>
     public string? LogsCommand { get; set; }
 }

@@ -2,7 +2,7 @@ using DnsmasqWebUI.Client.Http.Abstractions;
 using DnsmasqWebUI.Models;
 using Microsoft.AspNetCore.Components;
 
-namespace DnsmasqWebUI.Components.Home;
+namespace DnsmasqWebUI.Components.Dnsmasq;
 
 /// <summary>
 /// Service status block: polls StatusShowCommand output at its own interval and re-renders only itself.

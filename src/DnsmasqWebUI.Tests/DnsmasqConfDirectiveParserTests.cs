@@ -61,7 +61,7 @@ public class DnsmasqConfDirectiveParserTests
     [Fact]
     public void ParseLine_DhcpLeaseFile_AlternativeKey_ReturnsDhcpLeaseFileOption()
     {
-        var d = DnsmasqConfDirectiveParser.ParseLine("dhcp-lease-file=/run/dnsmasq.leases", 1, SourcePath);
+        var d = DnsmasqConfDirectiveParser.ParseLine("dhcp-lease=/run/dnsmasq.leases", 1, SourcePath);
         Assert.NotNull(d);
         Assert.Equal(DnsmasqOptionKind.DhcpLeaseFile, d!.Kind);
         var opt = Assert.IsType<DhcpLeaseFileOption>(d.TypedOption);
@@ -219,5 +219,23 @@ public class DnsmasqConfDirectiveParserTests
         Assert.Single(opt.MacAddresses);
         Assert.Equal("aa:bb:cc:dd:ee:ff", opt.MacAddresses[0]);
         Assert.Equal("192.168.1.10", opt.Address);
+    }
+
+    /// <summary>dnsmasq read_file: strip from first '#' that is at word start (after whitespace) to EOL.</summary>
+    [Fact]
+    public void StripComment_CommentAfterSpace_StripsToEnd()
+    {
+        Assert.Equal("port=53", DnsmasqConfDirectiveParser.StripComment("port=53 # DNS port"));
+        Assert.Equal("port=53", DnsmasqConfDirectiveParser.StripComment("port=53  # comment"));
+    }
+
+    /// <summary>TryParseKeyValue uses StripComment; value should not include # or rest of line.</summary>
+    [Fact]
+    public void TryParseKeyValue_LineWithComment_ValueExcludesComment()
+    {
+        var kv = DnsmasqConfDirectiveParser.TryParseKeyValue("port=53 # DNS port");
+        Assert.NotNull(kv);
+        Assert.Equal("port", kv!.Value.key);
+        Assert.Equal("53", kv.Value.value);
     }
 }

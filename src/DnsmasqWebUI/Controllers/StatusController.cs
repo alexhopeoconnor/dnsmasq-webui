@@ -31,7 +31,7 @@ public class StatusController : ControllerBase
         {
             var set = await _configSetService.GetConfigSetAsync(ct);
             var effectiveLeasesPath = _configSetService.GetLeasesPath();
-            var effectiveConfig = _configSetService.GetEffectiveConfig();
+            var (effectiveConfig, effectiveConfigSources) = _configSetService.GetEffectiveConfigWithSources();
             var (dhcpRangeStart, dhcpRangeEnd) = _configSetService.GetDhcpRange();
             var systemHostsPath = _options.SystemHostsPath?.Trim();
 
@@ -65,6 +65,7 @@ public class StatusController : ControllerBase
                 NoHosts: effectiveConfig.NoHosts,
                 AddnHostsPaths: effectiveConfig.AddnHostsPaths,
                 EffectiveConfig: effectiveConfig,
+                EffectiveConfigSources: effectiveConfigSources,
                 MainConfigPath: _options.MainConfigPath,
                 ManagedFilePath: set.ManagedFilePath,
                 LeasesPath: effectiveLeasesPath,
@@ -127,7 +128,7 @@ public class StatusController : ControllerBase
     [HttpGet("logs/download")]
     public async Task<IActionResult> GetLogsDownload(CancellationToken ct)
     {
-        var effectiveConfig = _configSetService.GetEffectiveConfig();
+        var (effectiveConfig, _) = _configSetService.GetEffectiveConfigWithSources();
         var logsPath = EffectiveDnsmasqConfig.GetLogsPath(effectiveConfig);
         if (string.IsNullOrEmpty(logsPath))
             return NotFound();
