@@ -23,7 +23,10 @@ public class DnsmasqOptions
     /// <summary>Filename of the managed config (e.g. zz-dnsmasq-webui.conf), created in the same directory as the main config and included only via a conf-file= directive as the last line of the main config. Managed file content parsed with DnsmasqConfFileLineParser.</summary>
     public string ManagedFileName { get; set; } = "zz-dnsmasq-webui.conf";
 
-    /// <summary>Optional path to the hosts file the app can edit (e.g. /etc/hosts). When set, the app can read/write it. When no-hosts is not set, the app adds addn-hosts= in the managed file so dnsmasq loads it; when no-hosts is set, dnsmasq only uses addn-hosts files, so this path must be one of the effective addn-hosts paths for editing to take effect. When unset, hosts UI is disabled.</summary>
+    /// <summary>Filename of the managed hosts file (e.g. zz-dnsmasq-webui.hosts), created in the same directory as the main config. The app adds addn-hosts=&lt;this path&gt; in the managed config so dnsmasq loads it last. This is the only hosts file the app writes to.</summary>
+    public string ManagedHostsFileName { get; set; } = "zz-dnsmasq-webui.hosts";
+
+    /// <summary>Optional path to the system hosts file (e.g. /etc/hosts). When set, shown in the UI as read-only so users can see those entries. The app never writes to it; editing is via the managed hosts file only. When unset, the system hosts row is not shown.</summary>
     public string? SystemHostsPath { get; set; }
 
     /// <summary>Command to run after config changes (e.g. "systemctl reload dnsmasq" or "pkill -HUP -x dnsmasq"). Runs in the same environment as the app; if app is in a container and dnsmasq is on the host, this runs in the container and will not reload host dnsmasq unless you use a host-side relay.</summary>

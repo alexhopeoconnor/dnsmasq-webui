@@ -1,0 +1,51 @@
+<div class="hosts-file-section">
+    <h3 class="h6 @(IsFirst ? "mb-1" : "mt-3 mb-1") @(IsEditable ? "" : "text-muted")">
+        @Path
+        @if (IsEditable)
+        {
+            <span class="badge bg-primary ms-1">editable</span>
+        }
+        else
+        {
+            <span class="badge bg-secondary ms-1"> read-only</span>
+        }
+    </h3>
+    <div class="table-responsive-cards">
+        <div class="d-none d-md-block">
+            <table class="table table-bordered @(IsEditable ? "" : "table-sm")">
+                <thead>
+                    <tr><th>#</th><th>Address</th><th>Names</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var e in (Entries ?? Array.Empty<HostEntry>()).Where(x => !x.IsPassthrough))
+                    {
+                        <tr class="@(e.IsComment ? "table-secondary" : "")" @key="@(e.Id ?? ("line:" + e.LineNumber))">
+                            <td>@e.LineNumber</td>
+                            <td>@e.Address</td>
+                            <td>@string.Join(", ", e.Names)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="d-md-none table-cards-mobile">
+            @foreach (var e in (Entries ?? Array.Empty<HostEntry>()).Where(x => !x.IsPassthrough))
+            {
+                <div class="card mb-2 @(e.IsComment ? "table-secondary" : "")" @key="@(e.Id ?? ("line:" + e.LineNumber))">
+                    <div class="card-body py-2">
+                        <div class="table-card-row"><span class="table-card-label">#</span> @e.LineNumber</div>
+                        <div class="table-card-row"><span class="table-card-label">Address</span> @e.Address</div>
+                        <div class="table-card-row"><span class="table-card-label">Names</span> @string.Join(", ", e.Names)</div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Path { get; set; } = "";
+    [Parameter] public IReadOnlyList<HostEntry>? Entries { get; set; }
+    [Parameter] public bool IsEditable { get; set; }
+    [Parameter] public bool IsFirst { get; set; }
+}

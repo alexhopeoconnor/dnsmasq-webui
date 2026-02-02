@@ -1,33 +1,33 @@
 using System.Text;
 using DnsmasqWebUI.Models;
-using DnsmasqWebUI.Configuration;
 using DnsmasqWebUI.Parsers;
 using DnsmasqWebUI.Services.Abstractions;
-using Microsoft.Extensions.Options;
 
 namespace DnsmasqWebUI.Services;
 
 public class HostsFileService : IHostsFileService
 {
-    private readonly string _path;
+    private readonly IDnsmasqConfigSetService _configSetService;
     private readonly ILogger<HostsFileService> _logger;
 
-    public HostsFileService(IOptions<DnsmasqOptions> options, ILogger<HostsFileService> logger)
+    public HostsFileService(IDnsmasqConfigSetService configSetService, ILogger<HostsFileService> logger)
     {
-        _path = options.Value.SystemHostsPath?.Trim() ?? "";
+        _configSetService = configSetService;
         _logger = logger;
     }
 
     public async Task<IReadOnlyList<HostEntry>> ReadAsync(CancellationToken ct = default)
     {
-        if (string.IsNullOrEmpty(_path))
+        var set = await _configSetService.GetConfigSetAsync(ct);
+        var path = set.ManagedHostsFilePath;
+        if (string.IsNullOrEmpty(path))
             return Array.Empty<HostEntry>();
-        if (!File.Exists(_path))
+        if (!File.Exists(path))
         {
-            _logger.LogWarning("Hosts file not found: {Path}", _path);
+            _logger.LogDebug("Managed hosts file not found: {Path}", path);
             return Array.Empty<HostEntry>();
         }
-        var lines = await File.ReadAllLinesAsync(_path, Encoding.UTF8, ct);
+        var lines = await File.ReadAllLinesAsync(path, Encoding.UTF8, ct);
         var entries = new List<HostEntry>();
         var seenContentIds = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < lines.Length; i++)
@@ -48,16 +48,18 @@ public class HostsFileService : IHostsFileService
 
     public async Task WriteAsync(IReadOnlyList<HostEntry> entries, CancellationToken ct = default)
     {
-        if (string.IsNullOrEmpty(_path))
-            throw new InvalidOperationException("No system hosts file configured. Set Dnsmasq:SystemHostsPath to enable hosts editing.");
-        var dir = Path.GetDirectoryName(_path);
+        var set = await _configSetService.GetConfigSetAsync(ct);
+        var path = set.ManagedHostsFilePath;
+        if (string.IsNullOrEmpty(path))
+            throw new InvalidOperationException("No managed hosts path configured. Set Dnsmasq:MainConfigPath and Dnsmasq:ManagedHostsFileName to enable hosts editing.");
+        var dir = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
             Directory.CreateDirectory(dir);
 
-        var tmpPath = _path + ".tmp";
+        var tmpPath = path + ".tmp";
         var lines = entries.Select(HostsFileLineParser.ToLine).ToList();
         await File.WriteAllLinesAsync(tmpPath, lines, Encoding.UTF8, ct);
-        File.Move(tmpPath, _path, overwrite: true);
-        _logger.LogInformation("Wrote hosts file: {Path}", _path);
+        File.Move(tmpPath, path, overwrite: true);
+        _logger.LogInformation("Wrote managed hosts file: {Path}", path);
     }
 }

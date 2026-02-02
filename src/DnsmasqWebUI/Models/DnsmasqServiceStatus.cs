@@ -4,8 +4,10 @@ namespace DnsmasqWebUI.Models;
 /// Dnsmasq service and config status returned by GET api/status.
 /// Includes paths from config, command configuration flags, and live output from status/logs commands.
 /// </summary>
-/// <param name="SystemHostsPath">Path to the hosts file the app can edit (e.g. /etc/hosts). Null when hosts UI is disabled.</param>
+/// <param name="SystemHostsPath">Optional path to the system hosts file (e.g. /etc/hosts). When set, shown in UI as read-only. Null when not configured.</param>
 /// <param name="SystemHostsPathExists">True if <paramref name="SystemHostsPath"/> is set and the file exists on disk.</param>
+/// <param name="ManagedHostsFilePath">Path to the app's managed hosts file (the only hosts file the app writes to). Null when main config path is empty.</param>
+/// <param name="ManagedHostsPathExists">True if <paramref name="ManagedHostsFilePath"/> is set and the file exists on disk.</param>
 /// <param name="NoHosts">True when dnsmasq has no-hosts set (hosts files disabled).</param>
 /// <param name="AddnHostsPaths">Effective addn-hosts paths dnsmasq loads. Empty when none configured.</param>
 /// <param name="EffectiveConfig">Effective dnsmasq config (single-value, flags, multi-value) after parsing all config files.</param>
@@ -35,6 +37,8 @@ namespace DnsmasqWebUI.Models;
 public record DnsmasqServiceStatus(
     string? SystemHostsPath,
     bool SystemHostsPathExists,
+    string? ManagedHostsFilePath,
+    bool ManagedHostsPathExists,
     bool NoHosts,
     IReadOnlyList<string> AddnHostsPaths,
     EffectiveDnsmasqConfig? EffectiveConfig,

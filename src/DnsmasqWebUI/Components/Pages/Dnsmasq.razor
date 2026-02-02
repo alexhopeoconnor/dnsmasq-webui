@@ -92,9 +92,13 @@ else if (_status != null)
                     <span class="text-muted">(none)</span>
                 }
             </li>
+            @if (_status.ManagedHostsFilePath != null)
+            {
+                <li><strong>Managed hosts file (editable):</strong> @_status.ManagedHostsFilePath @(_status.ManagedHostsPathExists ? "✓" : "(not created yet)")</li>
+            }
             @if (_status.SystemHostsPath != null)
             {
-                <li><strong>System hosts file (editable):</strong> @_status.SystemHostsPath @(_status.SystemHostsPathExists ? "✓" : "(missing)")</li>
+                <li><strong>System hosts (read-only):</strong> @_status.SystemHostsPath @(_status.SystemHostsPathExists ? "✓" : "(missing)")</li>
             }
         </ul>
         @if (_status.EffectiveConfig != null)

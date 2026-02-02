@@ -1,23 +1,19 @@
 using System.Text;
 using DnsmasqWebUI.Models;
 using DnsmasqWebUI.Models.Config;
-using DnsmasqWebUI.Configuration;
 using DnsmasqWebUI.Parsers;
 using DnsmasqWebUI.Services.Abstractions;
-using Microsoft.Extensions.Options;
 
 namespace DnsmasqWebUI.Services;
 
 public class DnsmasqConfigService : IDnsmasqConfigService
 {
     private readonly IDnsmasqConfigSetService _configSetService;
-    private readonly string _hostsPath;
     private readonly ILogger<DnsmasqConfigService> _logger;
 
-    public DnsmasqConfigService(IDnsmasqConfigSetService configSetService, IOptions<DnsmasqOptions> options, ILogger<DnsmasqConfigService> logger)
+    public DnsmasqConfigService(IDnsmasqConfigSetService configSetService, ILogger<DnsmasqConfigService> logger)
     {
         _configSetService = configSetService;
-        _hostsPath = options.Value.SystemHostsPath?.Trim() ?? "";
         _logger = logger;
     }
 
@@ -75,18 +71,29 @@ public class DnsmasqConfigService : IDnsmasqConfigService
         return "line:" + e.LineNumber;
     }
 
-    /// <summary>When hostsPath is set, ensures the managed file has exactly one addn-hosts line pointing to it (replaces the first AddnHosts line in the list or inserts at start). So dnsmasq loads that file; other config files may have other addn-hosts lines.</summary>
-    private static void EnsureOneAddnHostsLine(List<DnsmasqConfLine> configLines, string hostsPath)
+    /// <summary>When managedHostsPath is set, ensures the managed config has exactly one addn-hosts line pointing to it (replaces the first AddnHosts line or inserts at start). So dnsmasq loads our managed hosts file last.</summary>
+    private static void EnsureOneAddnHostsLine(List<DnsmasqConfLine> configLines, string? managedHostsPath)
     {
-        if (string.IsNullOrEmpty(hostsPath))
+        if (string.IsNullOrEmpty(managedHostsPath))
             return;
         var idx = configLines.FindIndex(c => c.Kind == DnsmasqConfLineKind.AddnHosts);
         var lineNumber = idx >= 0 ? configLines[idx].LineNumber : 1;
-        var line = new AddnHostsLine { LineNumber = lineNumber, AddnHostsPath = hostsPath };
+        var line = new AddnHostsLine { LineNumber = lineNumber, AddnHostsPath = managedHostsPath };
         if (idx >= 0)
             configLines[idx] = line;
         else
             configLines.Insert(0, line);
+    }
+
+    /// <summary>Creates the managed hosts file empty if it does not exist, so dnsmasq does not error when we add addn-hosts=&lt;path&gt; to the managed config.</summary>
+    private static void EnsureManagedHostsFileExists(string? managedHostsPath)
+    {
+        if (string.IsNullOrEmpty(managedHostsPath) || File.Exists(managedHostsPath))
+            return;
+        var dir = Path.GetDirectoryName(managedHostsPath);
+        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            Directory.CreateDirectory(dir);
+        File.WriteAllText(managedHostsPath, "");
     }
 
     public async Task WriteDhcpHostsAsync(IReadOnlyList<DhcpHostEntry> entries, CancellationToken ct = default)
@@ -119,7 +126,7 @@ public class DnsmasqConfigService : IDnsmasqConfigService
             rawLines = Array.Empty<string>();
 
         var configLines = DnsmasqConfFileLineParser.ParseFile(rawLines).ToList();
-        EnsureOneAddnHostsLine(configLines, _hostsPath);
+        EnsureOneAddnHostsLine(configLines, set.ManagedHostsFilePath);
         var fileEntries = configLines.OfType<DhcpHostLine>().Select(c => c.DhcpHost).ToList();
         AssignStableIds(fileEntries);
 
@@ -142,6 +149,7 @@ public class DnsmasqConfigService : IDnsmasqConfigService
         var tmpPath = path + ".tmp";
         await File.WriteAllLinesAsync(tmpPath, output, Encoding.UTF8, ct);
         File.Move(tmpPath, path, overwrite: true);
+        EnsureManagedHostsFileExists(set.ManagedHostsFilePath);
         _logger.LogInformation("Wrote managed config file: {Path}", path);
     }
 
@@ -188,7 +196,8 @@ public class DnsmasqConfigService : IDnsmasqConfigService
 
     public async Task WriteManagedConfigAsync(IReadOnlyList<DnsmasqConfLine> lines, CancellationToken ct = default)
     {
-        var path = await GetManagedFilePathAsync(ct);
+        var set = await _configSetService.GetConfigSetAsync(ct);
+        var path = set.ManagedFilePath;
         if (string.IsNullOrEmpty(path))
             throw new InvalidOperationException("No managed file path (main config has no conf-dir). Cannot write managed config.");
 
@@ -197,12 +206,13 @@ public class DnsmasqConfigService : IDnsmasqConfigService
             Directory.CreateDirectory(dir);
 
         var list = lines.ToList();
-        EnsureOneAddnHostsLine(list, _hostsPath);
+        EnsureOneAddnHostsLine(list, set.ManagedHostsFilePath);
         var output = list.Select(DnsmasqConfFileLineParser.ToLine).ToList();
 
         var tmpPath = path + ".tmp";
         await File.WriteAllLinesAsync(tmpPath, output, Encoding.UTF8, ct);
         File.Move(tmpPath, path, overwrite: true);
+        EnsureManagedHostsFileExists(set.ManagedHostsFilePath);
         _logger.LogInformation("Wrote managed config file: {Path}", path);
     }
 }

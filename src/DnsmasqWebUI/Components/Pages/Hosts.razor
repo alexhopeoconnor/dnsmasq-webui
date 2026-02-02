@@ -15,25 +15,13 @@
         Loading...
     </p>
 }
-else if (_status.NoHosts && !_pathInAddnHosts)
+else if (string.IsNullOrEmpty(_status.ManagedHostsFilePath))
 {
-    <p class="text-muted">Hosts editing is disabled: <strong>no-hosts</strong> is set in dnsmasq config (dnsmasq only uses addn-hosts files) and the configured path is not in the effective addn-hosts list, so dnsmasq would not read the file.</p>
-    @if (_status.AddnHostsPaths?.Count > 0)
-    {
-        <p class="text-muted small">Effective addn-hosts paths: @RenderAddnHostsList()</p>
-    }
-}
-else if (string.IsNullOrEmpty(_status.SystemHostsPath))
-{
-    <p class="text-muted">No system hosts file configured. Set <strong>Dnsmasq:SystemHostsPath</strong> (e.g. /etc/hosts) to edit a hosts file from this app.</p>
+    <p class="text-muted">Hosts editing is unavailable: managed hosts path is not configured. Set <strong>Dnsmasq:MainConfigPath</strong> (and optionally <strong>Dnsmasq:ManagedHostsFileName</strong>) so the app can create and edit the managed hosts file.</p>
     @if (_status.AddnHostsPaths?.Count > 0)
     {
         <p class="text-muted small">Dnsmasq loads these addn-hosts files: @RenderAddnHostsList()</p>
     }
-}
-else if (!_status.SystemHostsPathExists)
-{
-    <p class="text-warning">System hosts file not found: @_status.SystemHostsPath</p>
 }
 else
 {
@@ -49,53 +37,30 @@ else
     {
         <div class="alert alert-success">@_message</div>
     }
-    <div class="table-responsive-cards">
-        <div class="d-none d-md-block">
-            <table class="table table-bordered">
-                <thead>
-                    <tr><th>#</th><th>Address</th><th>Names</th></tr>
-                </thead>
-                <tbody>
-                    @foreach (var e in _entries.Where(x => !x.IsPassthrough))
-                    {
-                        <tr class="@(e.IsComment ? "table-secondary" : "")" @key="e.Id">
-                            <td>@e.LineNumber</td>
-                            <td>@e.Address</td>
-                            <td>@string.Join(", ", e.Names)</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-        <div class="d-md-none table-cards-mobile">
-            @foreach (var e in _entries.Where(x => !x.IsPassthrough))
-            {
-                <div class="card mb-2 @(e.IsComment ? "table-secondary" : "")" @key="e.Id">
-                    <div class="card-body py-2">
-                        <div class="table-card-row"><span class="table-card-label">#</span> @e.LineNumber</div>
-                        <div class="table-card-row"><span class="table-card-label">Address</span> @e.Address</div>
-                        <div class="table-card-row"><span class="table-card-label">Names</span> @string.Join(", ", e.Names)</div>
-                    </div>
-                </div>
-            }
-        </div>
-    </div>
-    <p class="text-muted small">Path: @_status.SystemHostsPath</p>
+
+    <p class="text-muted small mb-2">Each hosts file below is rendered with the same component; only the managed file is editable. System hosts is excluded when <strong>no-hosts</strong> is set (dnsmasq does not read it then).</p>
+
+    <HostsFileSection Path="@(_status.ManagedHostsFilePath ?? "")" Entries="_entries" IsEditable="true" IsFirst="true" />
+    <p class="text-muted small">@_status.ManagedHostsFilePath @(!_status.ManagedHostsPathExists ? "(not created yet; will be created on first save)" : "")</p>
     <button class="btn btn-primary mt-2" @onclick="Save" disabled="@_saving">Save</button>
+
+    @if (_readOnlyHosts?.Count > 0)
+    {
+        @foreach (var ro in _readOnlyHosts)
+        {
+            <HostsFileSection Path="@ro.Path" Entries="@ro.Entries" IsEditable="false" IsFirst="false" @key="@ro.Path" />
+        }
+    }
 }
 
 @code {
     private string AppTitle => AppOptions!.Value!.EffectiveTitle;
     private DnsmasqServiceStatus? _status;
     private List<HostEntry> _entries = new();
+    private IReadOnlyList<ReadOnlyHostsFile>? _readOnlyHosts;
     private string? _error;
     private string? _message;
     private bool _saving;
-
-    /// <summary>True when SystemHostsPath is in the effective addn-hosts list (editing allowed when no-hosts is set).</summary>
-    private bool _pathInAddnHosts => _status != null
-        && !string.IsNullOrEmpty(_status.SystemHostsPath)
-        && _status.AddnHostsPaths?.Any(p => string.Equals(p, Path.GetFullPath(_status.SystemHostsPath!.Trim()), StringComparison.Ordinal)) == true;
 
     /// <summary>Returns MarkupString so Blazor renders raw HTML (path + source label).</summary>
     private MarkupString RenderAddnHostsList()
@@ -130,6 +95,7 @@ else
             _status = await StatusClient.GetStatusAsync();
             var entries = await HostsClient.GetHostsAsync();
             _entries = entries?.ToList() ?? new List<HostEntry>();
+            _readOnlyHosts = await HostsClient.GetReadOnlyHostsAsync();
         }
         catch (Exception ex)
         {
@@ -151,6 +117,7 @@ else
                 _error = "Saved but dnsmasq reload failed: " + result.Reload.StdErr;
             else
                 _message = "Saved.";
+            _status = await StatusClient.GetStatusAsync();
         }
         catch (Exception ex)
         {

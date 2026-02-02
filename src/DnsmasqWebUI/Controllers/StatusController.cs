@@ -62,6 +62,8 @@ public class StatusController : ControllerBase
             var status = new DnsmasqServiceStatus(
                 SystemHostsPath: string.IsNullOrEmpty(systemHostsPath) ? null : systemHostsPath,
                 SystemHostsPathExists: !string.IsNullOrEmpty(systemHostsPath) && System.IO.File.Exists(systemHostsPath),
+                ManagedHostsFilePath: set.ManagedHostsFilePath,
+                ManagedHostsPathExists: !string.IsNullOrEmpty(set.ManagedHostsFilePath) && System.IO.File.Exists(set.ManagedHostsFilePath),
                 NoHosts: effectiveConfig.NoHosts,
                 AddnHostsPaths: effectiveConfig.AddnHostsPaths,
                 EffectiveConfig: effectiveConfig,

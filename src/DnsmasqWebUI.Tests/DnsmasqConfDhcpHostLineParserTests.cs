@@ -177,7 +177,7 @@ public class DnsmasqConfDhcpHostLineParserTests
         }
         Assert.Single(dhcpEntries);
         Assert.Equal("aa:bb:cc:dd:ee:ff", dhcpEntries[0].MacAddresses[0]);
-        Assert.Equal("192.168.1.10", dhcpEntries[0].Address);
+        Assert.Equal("172.28.0.100", dhcpEntries[0].Address);
         Assert.Equal("testpc", dhcpEntries[0].Name);
         Assert.Equal("infinite", dhcpEntries[0].Lease);
     }

@@ -28,9 +28,9 @@ public sealed class DnsmasqOptionsValidator : IValidateOptions<DnsmasqOptions>
             }
         }
 
-        // SystemHostsPath is optional. When set, the app can edit that hosts file. Hosts UI is disabled when
-        // SystemHostsPath is unset, or when no-hosts is set and SystemHostsPath is not in the effective addn-hosts
-        // list (dnsmasq only uses addn-hosts when no-hosts is set, so the path must be in addn-hosts for editing to take effect).
+        // SystemHostsPath is optional. When set, the UI shows system hosts as read-only. The app only writes to the
+        // managed hosts file (ManagedHostsFileName in the same directory as main config). Hosts UI is available when
+        // MainConfigPath is set (managed hosts path is then derived from it and ManagedHostsFileName).
 
         if (failures.Count == 0)
             return ValidateOptionsResult.Success;

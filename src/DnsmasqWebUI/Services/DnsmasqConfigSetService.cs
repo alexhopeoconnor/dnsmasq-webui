@@ -251,11 +251,15 @@ public class DnsmasqConfigSetService : IDnsmasqConfigSetService
     {
         var mainPath = _options.MainConfigPath;
         if (string.IsNullOrEmpty(mainPath))
-            return new DnsmasqConfigSet("", "", Array.Empty<DnsmasqConfigSetEntry>());
+            return new DnsmasqConfigSet("", "", null, Array.Empty<DnsmasqConfigSetEntry>());
 
         var mainFull = Path.GetFullPath(mainPath);
         var mainDir = Path.GetDirectoryName(mainFull) ?? "";
         var managedFilePath = Path.Combine(mainDir, _options.ManagedFileName);
+        var managedHostsFileName = _options.ManagedHostsFileName?.Trim();
+        if (string.IsNullOrEmpty(managedHostsFileName))
+            managedHostsFileName = "zz-dnsmasq-webui.hosts";
+        var managedHostsFilePath = Path.Combine(mainDir, managedHostsFileName);
 
         var withSource = DnsmasqConfIncludeParser.GetIncludedPathsWithSource(mainPath);
         var files = withSource.Select(p => new DnsmasqConfigSetEntry(
@@ -268,6 +272,6 @@ public class DnsmasqConfigSetService : IDnsmasqConfigSetService
         if (files.All(e => !string.Equals(e.Path, managedFilePath, StringComparison.Ordinal)))
             files.Add(new DnsmasqConfigSetEntry(managedFilePath, Path.GetFileName(managedFilePath), DnsmasqConfFileSource.ConfFile, IsManaged: true));
 
-        return new DnsmasqConfigSet(mainFull, managedFilePath, files);
+        return new DnsmasqConfigSet(mainFull, managedFilePath, managedHostsFilePath, files);
     }
 }

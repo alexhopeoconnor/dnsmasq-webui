@@ -166,11 +166,12 @@ public class DnsmasqConfFileLineParserTests
     {
         var input = TestDataHelper.ReadAllLines("dnsmasq.d/dhcp.conf");
         var lines = DnsmasqConfFileLineParser.ParseFile(input);
-        Assert.Equal(2, lines.Count);
+        Assert.Equal(3, lines.Count);
         Assert.IsType<CommentLine>(lines[0]);
-        var dhcpLine = Assert.IsType<DhcpHostLine>(lines[1]);
+        Assert.IsType<CommentLine>(lines[1]);
+        var dhcpLine = Assert.IsType<DhcpHostLine>(lines[2]);
         Assert.Equal("aa:bb:cc:dd:ee:ff", dhcpLine.DhcpHost.MacAddresses[0]);
-        Assert.Equal("192.168.1.10", dhcpLine.DhcpHost.Address);
+        Assert.Equal("172.28.0.100", dhcpLine.DhcpHost.Address);
         Assert.Equal("testpc", dhcpLine.DhcpHost.Name);
     }
 

@@ -179,12 +179,21 @@ public class HostsFileLineParserTests
             entries.Add(HostsFileLineParser.ParseLine(lines[i], i + 1));
 
         var dataEntries = entries.Where(e => e != null && !e.IsPassthrough).ToList();
-        Assert.Equal(2, dataEntries.Count);
+        Assert.Equal(5, dataEntries.Count);
         Assert.Equal("127.0.0.1", dataEntries[0]!.Address);
         Assert.Single(dataEntries[0]!.Names);
         Assert.Equal("localhost", dataEntries[0]!.Names[0]);
         Assert.Equal("::1", dataEntries[1]!.Address);
         Assert.Single(dataEntries[1]!.Names);
         Assert.Equal("localhost", dataEntries[1]!.Names[0]);
+        Assert.Equal("192.168.1.1", dataEntries[2]!.Address);
+        Assert.Single(dataEntries[2]!.Names);
+        Assert.Equal("router", dataEntries[2]!.Names[0]);
+        Assert.Equal("192.168.1.10", dataEntries[3]!.Address);
+        Assert.Single(dataEntries[3]!.Names);
+        Assert.Equal("testpc", dataEntries[3]!.Names[0]);
+        Assert.Equal("172.28.0.2", dataEntries[4]!.Address);
+        Assert.Single(dataEntries[4]!.Names);
+        Assert.Equal("dnsmasq-webui", dataEntries[4]!.Names[0]);
     }
 }
