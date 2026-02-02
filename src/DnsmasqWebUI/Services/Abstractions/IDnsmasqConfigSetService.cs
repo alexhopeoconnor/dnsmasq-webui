@@ -1,4 +1,4 @@
-using DnsmasqWebUI.Models;
+using DnsmasqWebUI.Models.EffectiveConfig;
 
 namespace DnsmasqWebUI.Services.Abstractions;
 

@@ -1,4 +1,4 @@
-namespace DnsmasqWebUI.Models;
+namespace DnsmasqWebUI.Models.EffectiveConfig;
 
 /// <summary>
 /// Effective dnsmasq config after reading all config files (main + conf-file + conf-dir)

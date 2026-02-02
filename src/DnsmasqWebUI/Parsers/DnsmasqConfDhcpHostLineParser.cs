@@ -1,5 +1,4 @@
-using System.Text.RegularExpressions;
-using DnsmasqWebUI.Models;
+using DnsmasqWebUI.Models.Dhcp;
 using Superpower;
 using Superpower.Model;
 using Superpower.Parsers;
@@ -13,7 +12,32 @@ namespace DnsmasqWebUI.Parsers;
 /// </summary>
 public static class DnsmasqConfDhcpHostLineParser
 {
-    private static readonly Regex HostnameRegex = new(@"^[a-zA-Z][-_a-zA-Z0-9]*$", RegexOptions.Compiled);
+    // Hostname: letter then (letter/digit/_/-)*. Full string.
+    private static readonly TextParser<string> HostnameParser =
+        Character.Letter.Then(first => (Character.LetterOrDigit.Or(Character.In('_', '-')).Many().Text())
+            .OptionalOrDefault("").Select(rest => first + rest)).AtEnd().Named("hostname");
+
+    // IPv4: four octets 0-255 with '.'. Full string. Range checked after parse.
+    private static readonly TextParser<(int a, int b, int c, int d)> Ipv4OctetsParser =
+        Numerics.IntegerInt32.Then(a => Character.EqualTo('.').IgnoreThen(Numerics.IntegerInt32)
+            .Then(b => Character.EqualTo('.').IgnoreThen(Numerics.IntegerInt32)
+                .Then(c => Character.EqualTo('.').IgnoreThen(Numerics.IntegerInt32).Select(d => (a, b, c, d))))).AtEnd();
+
+    // MAC: six hex pairs xx:xx:xx:xx:xx:xx. Full string.
+    private static readonly TextParser<Unit> MacParser =
+        Span.MatchedBy(Character.HexDigit.Repeat(2))
+            .IgnoreThen(Character.EqualTo(':'))
+            .IgnoreThen(Span.MatchedBy(Character.HexDigit.Repeat(2)))
+            .IgnoreThen(Character.EqualTo(':'))
+            .IgnoreThen(Span.MatchedBy(Character.HexDigit.Repeat(2)))
+            .IgnoreThen(Character.EqualTo(':'))
+            .IgnoreThen(Span.MatchedBy(Character.HexDigit.Repeat(2)))
+            .IgnoreThen(Character.EqualTo(':'))
+            .IgnoreThen(Span.MatchedBy(Character.HexDigit.Repeat(2)))
+            .IgnoreThen(Character.EqualTo(':'))
+            .IgnoreThen(Span.MatchedBy(Character.HexDigit.Repeat(2)))
+            .AtEnd()
+            .Value(Unit.Value);
 
     // Optional ## or # at start (Try so that single # backtracks and we can match one #)
     private static readonly TextParser<(bool isComment, bool isDeleted)> Prefix =
@@ -85,7 +109,7 @@ public static class DnsmasqConfDhcpHostLineParser
                 extraList.Add(field);
             else if (field.StartsWith("set:", StringComparison.OrdinalIgnoreCase))
                 extraList.Add(field);
-            else if (HostnameRegex.IsMatch(field))
+            else if (TryParseHostname(field))
                 host.Name = field;
             else
                 extraList.Add(field);
@@ -129,15 +153,15 @@ public static class DnsmasqConfDhcpHostLineParser
         h.MacAddresses.Count > 0 || !string.IsNullOrEmpty(h.Name) || !string.IsNullOrEmpty(h.Address) ||
         h.Extra.Count > 0 || !string.IsNullOrEmpty(h.Lease) || h.Ignore;
 
-    private static bool IsMac(string s)
-    {
-        var parts = s.Split(':');
-        return parts.Length == 6 && parts.All(p => p.Length == 2 && p.All(c => char.IsAsciiHexDigit(c)));
-    }
+    private static bool IsMac(string s) => !string.IsNullOrEmpty(s) && MacParser.TryParse(s).HasValue;
 
     private static bool IsIpv4(string s)
     {
-        var parts = s.Split('.');
-        return parts.Length == 4 && parts.All(p => p.Length > 0 && p.All(char.IsDigit) && int.TryParse(p, out var n) && n >= 0 && n <= 255);
+        var r = Ipv4OctetsParser.TryParse(s);
+        if (!r.HasValue) return false;
+        var (a, b, c, d) = r.Value;
+        return a >= 0 && a <= 255 && b >= 0 && b <= 255 && c >= 0 && c <= 255 && d >= 0 && d <= 255;
     }
+
+    private static bool TryParseHostname(string s) => !string.IsNullOrEmpty(s) && HostnameParser.TryParse(s).HasValue;
 }

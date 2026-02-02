@@ -1,13 +1,13 @@
 using DnsmasqWebUI.Client.Http.Abstractions;
-using DnsmasqWebUI.Models;
+using DnsmasqWebUI.Models.Status;
 using Microsoft.AspNetCore.Components;
 
 namespace DnsmasqWebUI.Components.Dnsmasq;
 
 /// <summary>
-/// Recent logs block: polls LogsCommand output at its own interval and re-renders only itself.
+/// Service status block: polls StatusShowCommand output at its own interval and re-renders only itself.
 /// </summary>
-public partial class LogsSection : IDisposable
+public partial class StatusSection : IDisposable
 {
     private DnsmasqServiceStatus? _status;
     private bool _refreshing;

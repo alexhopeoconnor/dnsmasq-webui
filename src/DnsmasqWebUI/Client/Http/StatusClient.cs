@@ -1,6 +1,6 @@
 using System.Text.Json;
 using DnsmasqWebUI.Client.Http.Abstractions;
-using DnsmasqWebUI.Models;
+using DnsmasqWebUI.Models.Status;
 using System.Net.Http.Json;
 
 namespace DnsmasqWebUI.Client.Http;

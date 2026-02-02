@@ -38,10 +38,7 @@ else
         <div class="alert alert-success">@_message</div>
     }
 
-    <p class="text-muted small mb-2">Each hosts file below is rendered with the same component; only the managed file is editable. System hosts is excluded when <strong>no-hosts</strong> is set (dnsmasq does not read it then).</p>
-
     <HostsFileSection Path="@(_status.ManagedHostsFilePath ?? "")" Entries="_entries" IsEditable="true" IsFirst="true" />
-    <p class="text-muted small">@_status.ManagedHostsFilePath @(!_status.ManagedHostsPathExists ? "(not created yet; will be created on first save)" : "")</p>
     <button class="btn btn-primary mt-2" @onclick="Save" disabled="@_saving">Save</button>
 
     @if (_readOnlyHosts?.Count > 0)

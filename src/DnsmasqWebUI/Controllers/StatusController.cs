@@ -1,4 +1,5 @@
-using DnsmasqWebUI.Models;
+using DnsmasqWebUI.Models.EffectiveConfig;
+using DnsmasqWebUI.Models.Status;
 using DnsmasqWebUI.Configuration;
 using DnsmasqWebUI.Services.Abstractions;
 using Microsoft.AspNetCore.Mvc;

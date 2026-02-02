@@ -1,5 +1,5 @@
 using DnsmasqWebUI.Configuration;
-using DnsmasqWebUI.Models;
+using DnsmasqWebUI.Models.EffectiveConfig;
 using DnsmasqWebUI.Services;
 using Microsoft.Extensions.Options;
 

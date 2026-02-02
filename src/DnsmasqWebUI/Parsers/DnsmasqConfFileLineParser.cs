@@ -1,5 +1,5 @@
-using DnsmasqWebUI.Models;
 using DnsmasqWebUI.Models.Config;
+using DnsmasqWebUI.Models.EffectiveConfig;
 using Superpower;
 using Superpower.Model;
 using Superpower.Parsers;
@@ -16,24 +16,24 @@ public static class DnsmasqConfFileLineParser
     private enum ConfLineParseKind { Blank, Comment, AddnHosts, DhcpHostCandidate, Other }
 
     private static readonly TextParser<(ConfLineParseKind kind, string content)> Blank =
-        Character.WhiteSpace.Many().AtEnd().Select(_ => (ConfLineParseKind.Blank, ""));
+        Character.WhiteSpace.Many().AtEnd().Select(_ => (ConfLineParseKind.Blank, "")).Named("blank line");
 
     private static readonly TextParser<(ConfLineParseKind kind, string content)> Comment =
         Character.EqualTo('#').IgnoreThen(Character.AnyChar.Many().Text())
-            .Select(_ => (ConfLineParseKind.Comment, ""));
+            .Select(_ => (ConfLineParseKind.Comment, "")).Named("comment");
 
     private static readonly TextParser<(ConfLineParseKind kind, string content)> AddnHosts =
         ConfParserHelpers.OptionalCommentPrefix.IgnoreThen(Span.EqualTo("addn-hosts="))
             .IgnoreThen(Character.AnyChar.Many().Text())
-            .Select(s => (ConfLineParseKind.AddnHosts, s.Trim()));
+            .Select(s => (ConfLineParseKind.AddnHosts, s.Trim())).Named("addn-hosts line");
 
     private static readonly TextParser<(ConfLineParseKind kind, string content)> DhcpHostCandidate =
         ConfParserHelpers.OptionalCommentPrefix.IgnoreThen(Span.EqualTo("dhcp-host="))
             .IgnoreThen(Character.AnyChar.Many())
-            .Select(_ => (ConfLineParseKind.DhcpHostCandidate, ""));
+            .Select(_ => (ConfLineParseKind.DhcpHostCandidate, "")).Named("dhcp-host line");
 
     private static readonly TextParser<(ConfLineParseKind kind, string content)> Other =
-        Character.AnyChar.Many().Text().Select(s => (ConfLineParseKind.Other, s));
+        Character.AnyChar.Many().Text().Select(s => (ConfLineParseKind.Other, s)).Named("directive or other");
 
     private static readonly TextParser<(ConfLineParseKind kind, string content)> LineParser =
         Blank.Try().Or(Comment.Try()).Or(AddnHosts.Try()).Or(DhcpHostCandidate.Try()).Or(Other).AtEnd();

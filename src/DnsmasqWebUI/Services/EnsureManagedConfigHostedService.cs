@@ -1,6 +1,6 @@
 using System.Text;
-using DnsmasqWebUI.Models;
 using DnsmasqWebUI.Models.Config;
+using DnsmasqWebUI.Models.EffectiveConfig;
 using DnsmasqWebUI.Configuration;
 using DnsmasqWebUI.Parsers;
 using DnsmasqWebUI.Services.Abstractions;

@@ -1,4 +1,5 @@
-using DnsmasqWebUI.Models;
+using DnsmasqWebUI.Models.Hosts;
+using DnsmasqWebUI.Models.Status;
 
 namespace DnsmasqWebUI.Client.Http.Abstractions;
 

@@ -1,4 +1,4 @@
-namespace DnsmasqWebUI.Models;
+namespace DnsmasqWebUI.Models.EffectiveConfig;
 
 /// <summary>
 /// Where an effective config value came from (which file). Used so the UI can show exactly which file

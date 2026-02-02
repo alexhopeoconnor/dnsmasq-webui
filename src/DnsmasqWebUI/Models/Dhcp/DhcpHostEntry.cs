@@ -1,4 +1,4 @@
-namespace DnsmasqWebUI.Models;
+namespace DnsmasqWebUI.Models.Dhcp;
 
 public class DhcpHostEntry
 {

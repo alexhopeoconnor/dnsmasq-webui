@@ -17,6 +17,6 @@ Source for the Docker test harness: `scripts/prepare-test-mount.sh` syncs this d
 | **hosts** | First addn-hosts file; system hosts when `Dnsmasq:SystemHostsPath` points here. |
 | **hosts.extra** | Second addn-hosts file. |
 | **resolv.dnsmasq** | Minimal file for resolv-file= in 03-more.conf; must exist so dnsmasq does not fail/warn. |
-| **leases** | Sample DHCP leases for harness leases table. |
+| **leases** | Sample DHCP leases for unit tests only; not synced to the harness. The harness uses the path from config (`dhcp-leasefile=` in dnsmasq-test.conf); the app discovers and monitors that file; dnsmasq creates it when DHCP clients obtain addresses. |
 
 Harness usage (start/stop/tidy): see **agents.md** in the repo root.

@@ -1,5 +1,5 @@
 using System.Text.Json.Serialization;
-using DnsmasqWebUI.Models;
+using DnsmasqWebUI.Models.Dhcp;
 
 namespace DnsmasqWebUI.Models.Config;
 

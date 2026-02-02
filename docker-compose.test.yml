@@ -21,7 +21,6 @@ services:
       DNSMASQ_CONF: /data/dnsmasq-test.conf
       Dnsmasq__MainConfigPath: /data/dnsmasq-test.conf
       Dnsmasq__ManagedFileName: zz-dnsmasq-webui.conf
-      # System hosts: app default /etc/hosts shows the container's hosts file (read-only).
       Dnsmasq__ReloadCommand: "pkill -HUP -x dnsmasq"
       Dnsmasq__StatusCommand: "pgrep -x dnsmasq"
       # Simulated systemctl status + real logs (dnsmasq logs to /data/dnsmasq.log via log-facility in dnsmasq-test.conf)

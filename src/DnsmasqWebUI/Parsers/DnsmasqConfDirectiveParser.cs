@@ -1,5 +1,5 @@
-using DnsmasqWebUI.Models;
 using DnsmasqWebUI.Models.Config;
+using DnsmasqWebUI.Models.EffectiveConfig;
 using Superpower;
 using Superpower.Model;
 using Superpower.Parsers;
@@ -13,40 +13,15 @@ namespace DnsmasqWebUI.Parsers;
 /// </summary>
 public static class DnsmasqConfDirectiveParser
 {
-    // Key: non-= chars, trimmed
-    private static readonly TextParser<string> Key =
-        Character.Matching(c => c != '=' && c != '\r' && c != '\n', "key character")
-            .AtLeastOnce().Text()
-            .Select(s => s.TrimEnd());
-
-    // Key, optional spaces, optional '=value' (dnsmasq: key-only lines are valid for flags).
-    private static readonly TextParser<(string key, string value)> KeyValue =
-        from k in Key
-        from _ in Character.WhiteSpace.Many()
-        from v in Character.EqualTo('=')
-            .IgnoreThen(Character.AnyChar.Many().Text())
-            .Select(s => s.Trim())
-            .OptionalOrDefault("")
-        select (k.Trim(), v);
-
-    // Full line: key=value or key only
+    // Key=value line using shared helper (Then/IgnoreThen for hot path). Full line.
     private static readonly TextParser<(string key, string value)> DirectiveLine =
-        KeyValue.AtEnd();
+        ConfParserHelpers.KeyValueLine.Named("key=value directive");
 
     /// <summary>Strip dnsmasq-style comment: from first '#' that is at word start (after whitespace) to end of line.</summary>
     public static string StripComment(string line)
     {
-        bool white = true;
-        for (int i = 0; i < line.Length; i++)
-        {
-            if (char.IsWhiteSpace(line[i]))
-                white = true;
-            else if (white && line[i] == '#')
-                return line[..i].TrimEnd();
-            else
-                white = false;
-        }
-        return line;
+        var result = ConfParserHelpers.StripCommentContent.TryParse(line);
+        return result.HasValue ? result.Value : line.TrimEnd();
     }
 
     /// <summary>Parse a non-comment line into key and value. Returns null for empty or comment-only lines.
@@ -65,6 +40,29 @@ public static class DnsmasqConfDirectiveParser
         if (string.IsNullOrWhiteSpace(key))
             return null;
         return (key, value);
+    }
+
+    /// <summary>Like <see cref="TryParseKeyValue"/> but when parsing fails returns the Superpower error message and position (line/column).</summary>
+    public static bool TryParseKeyValue(string line, out (string key, string value)? kv, out string? error, out Position errorPosition)
+    {
+        kv = null;
+        error = null;
+        errorPosition = Position.Empty;
+        var t = StripComment(line).TrimStart();
+        if (string.IsNullOrEmpty(t) || t.StartsWith("#", StringComparison.Ordinal))
+            return true; // not a directive line, no error
+        var result = DirectiveLine.TryParse(t);
+        if (result.HasValue)
+        {
+            var (key, value) = result.Value;
+            if (string.IsNullOrWhiteSpace(key))
+                return true;
+            kv = (key, value);
+            return true;
+        }
+        error = result.ToString();
+        errorPosition = result.ErrorPosition;
+        return false;
     }
 
     /// <summary>Parse one non-blank, non-comment .conf line into a typed directive. Returns null if line is empty or comment.</summary>

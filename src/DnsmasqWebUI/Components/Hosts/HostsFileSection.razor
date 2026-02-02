@@ -1,3 +1,4 @@
+@namespace DnsmasqWebUI.Components.Hosts
 <div class="hosts-file-section">
     <h3 class="h6 @(IsFirst ? "mb-1" : "mt-3 mb-1") @(IsEditable ? "" : "text-muted")">
         @Path
@@ -17,27 +18,41 @@
                     <tr><th>#</th><th>Address</th><th>Names</th></tr>
                 </thead>
                 <tbody>
-                    @foreach (var e in (Entries ?? Array.Empty<HostEntry>()).Where(x => !x.IsPassthrough))
+                    @if (_visibleEntries.Count == 0)
                     {
-                        <tr class="@(e.IsComment ? "table-secondary" : "")" @key="@(e.Id ?? ("line:" + e.LineNumber))">
-                            <td>@e.LineNumber</td>
-                            <td>@e.Address</td>
-                            <td>@string.Join(", ", e.Names)</td>
-                        </tr>
+                        <tr><td colspan="3" class="text-muted small">No host entries.</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var e in _visibleEntries)
+                        {
+                            <tr class="@(e.IsComment ? "table-secondary" : "")" @key="@(e.Id ?? ("line:" + e.LineNumber))">
+                                <td>@e.LineNumber</td>
+                                <td>@e.Address</td>
+                                <td>@string.Join(", ", e.Names)</td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
         </div>
         <div class="d-md-none table-cards-mobile">
-            @foreach (var e in (Entries ?? Array.Empty<HostEntry>()).Where(x => !x.IsPassthrough))
+            @if (_visibleEntries.Count == 0)
             {
-                <div class="card mb-2 @(e.IsComment ? "table-secondary" : "")" @key="@(e.Id ?? ("line:" + e.LineNumber))">
-                    <div class="card-body py-2">
-                        <div class="table-card-row"><span class="table-card-label">#</span> @e.LineNumber</div>
-                        <div class="table-card-row"><span class="table-card-label">Address</span> @e.Address</div>
-                        <div class="table-card-row"><span class="table-card-label">Names</span> @string.Join(", ", e.Names)</div>
+                <p class="text-muted small mb-0">No host entries.</p>
+            }
+            else
+            {
+                @foreach (var e in _visibleEntries)
+                {
+                    <div class="card mb-2 @(e.IsComment ? "table-secondary" : "")" @key="@(e.Id ?? ("line:" + e.LineNumber))">
+                        <div class="card-body py-2">
+                            <div class="table-card-row"><span class="table-card-label">#</span> @e.LineNumber</div>
+                            <div class="table-card-row"><span class="table-card-label">Address</span> @e.Address</div>
+                            <div class="table-card-row"><span class="table-card-label">Names</span> @string.Join(", ", e.Names)</div>
+                        </div>
                     </div>
-                </div>
+                }
             }
         </div>
     </div>
@@ -48,4 +63,11 @@
     [Parameter] public IReadOnlyList<HostEntry>? Entries { get; set; }
     [Parameter] public bool IsEditable { get; set; }
     [Parameter] public bool IsFirst { get; set; }
+
+    private IReadOnlyList<HostEntry> _visibleEntries = Array.Empty<HostEntry>();
+
+    protected override void OnParametersSet()
+    {
+        _visibleEntries = (Entries ?? Array.Empty<HostEntry>()).Where(x => !x.IsPassthrough).ToList();
+    }
 }

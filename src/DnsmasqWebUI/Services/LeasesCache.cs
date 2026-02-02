@@ -1,5 +1,5 @@
 using System.Text;
-using DnsmasqWebUI.Models;
+using DnsmasqWebUI.Models.Dhcp;
 using DnsmasqWebUI.Parsers;
 using DnsmasqWebUI.Services.Abstractions;
 

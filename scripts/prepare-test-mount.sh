@@ -168,6 +168,10 @@ if [ ! -d "$SOURCE_DIR" ]; then
   exit 1
 fi
 
+# Take the harness down so all containers (including one-shot DHCP clients) are recreated on up.
+echo "Stopping test harness: docker compose -f $COMPOSE_FILE down"
+docker compose -f "$COMPOSE_FILE" down
+
 mkdir -p "$MOUNT_DIR"
 
 if [ "$NO_CLEAR" = false ]; then
@@ -176,9 +180,10 @@ if [ "$NO_CLEAR" = false ]; then
 fi
 
 if command -v rsync >/dev/null 2>&1; then
-  rsync -a "$SOURCE_DIR/" "$MOUNT_DIR/"
+  rsync -a --exclude='leases' "$SOURCE_DIR/" "$MOUNT_DIR/"
 else
   cp -r "$SOURCE_DIR/." "$MOUNT_DIR/"
+  rm -f "$MOUNT_DIR/leases"
 fi
 
 # Remove any leftover managed config from previous runs so dnsmasq starts clean (app will create zz-dnsmasq-webui.conf on startup).

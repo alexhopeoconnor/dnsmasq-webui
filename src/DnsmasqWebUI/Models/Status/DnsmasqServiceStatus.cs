@@ -1,4 +1,6 @@
-namespace DnsmasqWebUI.Models;
+using DnsmasqWebUI.Models.EffectiveConfig;
+
+namespace DnsmasqWebUI.Models.Status;
 
 /// <summary>
 /// Dnsmasq service and config status returned by GET api/status.

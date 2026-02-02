@@ -1,4 +1,4 @@
-namespace DnsmasqWebUI.Models;
+namespace DnsmasqWebUI.Models.EffectiveConfig;
 
 /// <summary>
 /// Source file for each field in <see cref="EffectiveDnsmasqConfig"/>.

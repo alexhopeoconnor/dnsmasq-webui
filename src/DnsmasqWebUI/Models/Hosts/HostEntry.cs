@@ -1,4 +1,4 @@
-namespace DnsmasqWebUI.Models;
+namespace DnsmasqWebUI.Models.Hosts;
 
 public class HostEntry
 {

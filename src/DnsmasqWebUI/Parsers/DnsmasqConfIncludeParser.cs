@@ -1,4 +1,7 @@
-using DnsmasqWebUI.Models;
+using DnsmasqWebUI.Models.EffectiveConfig;
+using Superpower;
+using Superpower.Model;
+using Superpower.Parsers;
 
 namespace DnsmasqWebUI.Parsers;
 
@@ -106,19 +109,33 @@ public static class DnsmasqConfIncludeParser
         }
     }
 
+    // conf-dir value: comma-delimited fields (dir, optional *suffix, optional ignore suffixes). Superpower grammar.
+    private static readonly TextParser<string> ConfDirField =
+        Character.Matching(c => c != ',' && c != '\r' && c != '\n', "field character").AtLeastOnce().Text()
+            .Then(s => Character.WhiteSpace.Many().IgnoreThen(Parse.Return(s.Trim())));
+
+    private static readonly TextParser<List<string>> ConfDirValueParser =
+        ConfDirField.AtLeastOnceDelimitedBy(ConfParserHelpers.Token(Character.EqualTo(',')))
+            .AtEnd()
+            .Select(list => list.ToList())
+            .Named("conf-dir value");
+
     private static (string? directory, List<string>? matchSuffix, List<string>? ignoreSuffix) ParseConfDirValue(string value)
     {
-        var parts = value.Split(',').Select(p => p.Trim()).Where(p => p.Length > 0).ToList();
-        if (parts.Count == 0) return (null, null, null);
+        var parsed = ConfDirValueParser.TryParse(value.Trim());
+        if (!parsed.HasValue || parsed.Value.Count == 0)
+            return (null, null, null);
+        var parts = parsed.Value;
         var dir = parts[0];
         var matchSuffix = new List<string>();
         var ignoreSuffix = new List<string>();
         for (var i = 1; i < parts.Count; i++)
         {
-            if (parts[i].StartsWith('*'))
-                matchSuffix.Add(parts[i].Length > 1 ? parts[i][1..] : "");
+            var p = parts[i];
+            if (p.StartsWith('*'))
+                matchSuffix.Add(p.Length > 1 ? p[1..] : "");
             else
-                ignoreSuffix.Add(parts[i]);
+                ignoreSuffix.Add(p);
         }
         return (dir, matchSuffix.Count > 0 ? matchSuffix : null, ignoreSuffix.Count > 0 ? ignoreSuffix : null);
     }
