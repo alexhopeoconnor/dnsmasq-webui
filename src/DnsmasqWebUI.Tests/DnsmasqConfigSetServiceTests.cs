@@ -1,6 +1,7 @@
 using DnsmasqWebUI.Configuration;
 using DnsmasqWebUI.Models.EffectiveConfig;
 using DnsmasqWebUI.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace DnsmasqWebUI.Tests;
@@ -14,7 +15,8 @@ public class DnsmasqConfigSetServiceTests
     public void GetEffectiveConfigWithSources_NoMainPath_ReturnsDefaultConfigAndDefaultSources()
     {
         var options = Options.Create(new DnsmasqOptions { MainConfigPath = "" });
-        var service = new DnsmasqConfigSetService(options);
+        var cache = new ConfigSetCache(options, NullLogger<ConfigSetCache>.Instance);
+        var service = new DnsmasqConfigSetService(cache);
         var (config, sources) = service.GetEffectiveConfigWithSources();
 
         Assert.NotNull(config);
@@ -35,7 +37,7 @@ public class DnsmasqConfigSetServiceTests
         var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-svc-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         var mainPath = Path.Combine(dir, "dnsmasq.conf");
-        var managedPath = Path.Combine(dir, "zz-dnsmasq-webui.conf");
+        ConfigSetCache? cache = null;
         try
         {
             File.WriteAllText(mainPath, "port=53\ncache-size=500\naddn-hosts=/etc/hosts.extra\n");
@@ -44,7 +46,8 @@ public class DnsmasqConfigSetServiceTests
                 MainConfigPath = mainPath,
                 ManagedFileName = "zz-dnsmasq-webui.conf"
             });
-            var service = new DnsmasqConfigSetService(options);
+            cache = new ConfigSetCache(options, NullLogger<ConfigSetCache>.Instance);
+            var service = new DnsmasqConfigSetService(cache);
             var (config, sources) = service.GetEffectiveConfigWithSources();
 
             Assert.NotNull(config);
@@ -66,6 +69,7 @@ public class DnsmasqConfigSetServiceTests
         }
         finally
         {
+            cache?.Dispose();
             Directory.Delete(dir, recursive: true);
         }
     }

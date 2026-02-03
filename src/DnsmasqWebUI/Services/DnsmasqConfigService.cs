@@ -10,11 +10,13 @@ namespace DnsmasqWebUI.Services;
 public class DnsmasqConfigService : IDnsmasqConfigService
 {
     private readonly IDnsmasqConfigSetService _configSetService;
+    private readonly IConfigSetCache _configSetCache;
     private readonly ILogger<DnsmasqConfigService> _logger;
 
-    public DnsmasqConfigService(IDnsmasqConfigSetService configSetService, ILogger<DnsmasqConfigService> logger)
+    public DnsmasqConfigService(IDnsmasqConfigSetService configSetService, IConfigSetCache configSetCache, ILogger<DnsmasqConfigService> logger)
     {
         _configSetService = configSetService;
+        _configSetCache = configSetCache;
         _logger = logger;
     }
 
@@ -26,27 +28,13 @@ public class DnsmasqConfigService : IDnsmasqConfigService
 
     public async Task<IReadOnlyList<DhcpHostEntry>> ReadDhcpHostsAsync(CancellationToken ct = default)
     {
-        var set = await _configSetService.GetConfigSetAsync(ct);
-        if (string.IsNullOrEmpty(set.ManagedFilePath))
+        var snapshot = await _configSetCache.GetSnapshotAsync(ct);
+        if (string.IsNullOrEmpty(snapshot.Set.ManagedFilePath))
         {
             _logger.LogDebug("No managed file path (no conf-dir in main config); returning empty dhcp hosts");
             return Array.Empty<DhcpHostEntry>();
         }
-        var allEntries = new List<DhcpHostEntry>();
-        foreach (var file in set.Files)
-        {
-            if (!File.Exists(file.Path))
-                continue;
-            var lines = await File.ReadAllLinesAsync(file.Path, Encoding.UTF8, ct);
-            var configLines = DnsmasqConfFileLineParser.ParseFile(lines);
-            var entries = configLines.OfType<DhcpHostLine>().Select(c => c.DhcpHost).ToList();
-            foreach (var e in entries)
-            {
-                e.SourcePath = file.Path;
-                e.IsEditable = file.IsManaged;
-            }
-            allEntries.AddRange(entries);
-        }
+        var allEntries = snapshot.DhcpHostEntries.ToList();
         AssignStableIds(allEntries);
         return allEntries;
     }
@@ -151,6 +139,8 @@ public class DnsmasqConfigService : IDnsmasqConfigService
         await File.WriteAllLinesAsync(tmpPath, output, Encoding.UTF8, ct);
         File.Move(tmpPath, path, overwrite: true);
         EnsureManagedHostsFileExists(set.ManagedHostsFilePath);
+        var effectiveHostsPathDhcp = configLines.OfType<AddnHostsLine>().FirstOrDefault()?.AddnHostsPath ?? "";
+        _configSetCache.NotifyWeWroteManagedConfig(new ManagedConfigContent(configLines, effectiveHostsPathDhcp));
         _logger.LogInformation("Wrote managed config file: {Path}", path);
     }
 
@@ -179,20 +169,10 @@ public class DnsmasqConfigService : IDnsmasqConfigService
 
     public async Task<ManagedConfigContent> ReadManagedConfigAsync(CancellationToken ct = default)
     {
-        var path = await GetManagedFilePathAsync(ct);
-        if (string.IsNullOrEmpty(path))
+        var snapshot = await _configSetCache.GetSnapshotAsync(ct);
+        if (string.IsNullOrEmpty(snapshot.Set.ManagedFilePath))
             return new ManagedConfigContent(Array.Empty<DnsmasqConfLine>(), "");
-
-        if (!File.Exists(path))
-        {
-            _logger.LogWarning("Managed config file not found: {Path}", path);
-            return new ManagedConfigContent(Array.Empty<DnsmasqConfLine>(), "");
-        }
-
-        var lines = await File.ReadAllLinesAsync(path, Encoding.UTF8, ct);
-        var configLines = DnsmasqConfFileLineParser.ParseFile(lines);
-        var effectiveHostsPath = configLines.OfType<AddnHostsLine>().FirstOrDefault()?.AddnHostsPath ?? "";
-        return new ManagedConfigContent(configLines, effectiveHostsPath);
+        return snapshot.ManagedContent;
     }
 
     public async Task WriteManagedConfigAsync(IReadOnlyList<DnsmasqConfLine> lines, CancellationToken ct = default)
@@ -214,6 +194,8 @@ public class DnsmasqConfigService : IDnsmasqConfigService
         await File.WriteAllLinesAsync(tmpPath, output, Encoding.UTF8, ct);
         File.Move(tmpPath, path, overwrite: true);
         EnsureManagedHostsFileExists(set.ManagedHostsFilePath);
+        var effectiveHostsPath = list.OfType<AddnHostsLine>().FirstOrDefault()?.AddnHostsPath ?? "";
+        _configSetCache.NotifyWeWroteManagedConfig(new ManagedConfigContent(list, effectiveHostsPath));
         _logger.LogInformation("Wrote managed config file: {Path}", path);
     }
 }

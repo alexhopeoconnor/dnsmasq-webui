@@ -12,52 +12,52 @@ public static class DnsmasqConfOptionRegistry
         new Dictionary<string, DnsmasqOptionKind>(StringComparer.OrdinalIgnoreCase)
         {
             // Include
-            { "conf-file", DnsmasqOptionKind.ConfFile },
-            { "conf-dir", DnsmasqOptionKind.ConfDir },
+            { DnsmasqConfKeys.ConfFile, DnsmasqOptionKind.ConfFile },
+            { DnsmasqConfKeys.ConfDir, DnsmasqOptionKind.ConfDir },
             // Path-valued
-            { "addn-hosts", DnsmasqOptionKind.AddnHosts },
-            { "dhcp-leasefile", DnsmasqOptionKind.DhcpLeaseFile },
-            { "dhcp-lease", DnsmasqOptionKind.DhcpLeaseFile },
-            { "resolv-file", DnsmasqOptionKind.Path },
+            { DnsmasqConfKeys.AddnHosts, DnsmasqOptionKind.AddnHosts },
+            { DnsmasqConfKeys.DhcpLeasefile, DnsmasqOptionKind.DhcpLeaseFile },
+            { DnsmasqConfKeys.DhcpLease, DnsmasqOptionKind.DhcpLeaseFile },
+            { DnsmasqConfKeys.ResolvFile, DnsmasqOptionKind.Path },
             { "dhcp-hostsfile", DnsmasqOptionKind.Path },
             { "dhcp-optsfile", DnsmasqOptionKind.Path },
-            { "pid-file", DnsmasqOptionKind.Path },
+            { DnsmasqConfKeys.PidFile, DnsmasqOptionKind.Path },
             { "hostsdir", DnsmasqOptionKind.Path },
             { "dhcp-script", DnsmasqOptionKind.Path },
             { "dhcp-lua-script", DnsmasqOptionKind.Path },
             { "read-ethers", DnsmasqOptionKind.Path },
             // Simple string / domain
             { "domain", DnsmasqOptionKind.Domain },
-            { "interface", DnsmasqOptionKind.String },
-            { "listen-address", DnsmasqOptionKind.String },
-            { "port", DnsmasqOptionKind.String },
-            { "user", DnsmasqOptionKind.String },
-            { "group", DnsmasqOptionKind.String },
-            { "cache-size", DnsmasqOptionKind.String },
-            { "local-ttl", DnsmasqOptionKind.String },
-            { "log-facility", DnsmasqOptionKind.String },
+            { DnsmasqConfKeys.Interface, DnsmasqOptionKind.String },
+            { DnsmasqConfKeys.ListenAddress, DnsmasqOptionKind.String },
+            { DnsmasqConfKeys.Port, DnsmasqOptionKind.String },
+            { DnsmasqConfKeys.User, DnsmasqOptionKind.String },
+            { DnsmasqConfKeys.Group, DnsmasqOptionKind.String },
+            { DnsmasqConfKeys.CacheSize, DnsmasqOptionKind.String },
+            { DnsmasqConfKeys.LocalTtl, DnsmasqOptionKind.String },
+            { DnsmasqConfKeys.LogFacility, DnsmasqOptionKind.String },
             { "dhcp-ignore", DnsmasqOptionKind.String },
             { "min-port", DnsmasqOptionKind.String },
             { "max-port", DnsmasqOptionKind.String },
             { "query-port", DnsmasqOptionKind.String },
             { "edns-packet-max", DnsmasqOptionKind.String },
             // DHCP structured
-            { "dhcp-range", DnsmasqOptionKind.DhcpRange },
-            { "dhcp-host", DnsmasqOptionKind.DhcpHost },
-            { "dhcp-option", DnsmasqOptionKind.DhcpOption },
+            { DnsmasqConfKeys.DhcpRange, DnsmasqOptionKind.DhcpRange },
+            { DnsmasqConfKeys.DhcpHost, DnsmasqOptionKind.DhcpHost },
+            { DnsmasqConfKeys.DhcpOption, DnsmasqOptionKind.DhcpOption },
             // DNS structured
-            { "server", DnsmasqOptionKind.Server },
-            { "local", DnsmasqOptionKind.Local },
-            { "address", DnsmasqOptionKind.Address },
+            { DnsmasqConfKeys.Server, DnsmasqOptionKind.Server },
+            { DnsmasqConfKeys.Local, DnsmasqOptionKind.Local },
+            { DnsmasqConfKeys.Address, DnsmasqOptionKind.Address },
         };
 
     /// <summary>Well-known flag options (no value).</summary>
     public static IReadOnlySet<string> FlagOptions { get; } =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "domain-needed", "bogus-priv", "no-hosts", "expand-hosts", "strict-order",
-            "no-resolv", "no-poll", "bind-interfaces", "no-negcache", "log-queries", "log-dhcp",
-            "all-servers", "leasefile-ro", "dhcp-authoritative",
+            DnsmasqConfKeys.DomainNeeded, DnsmasqConfKeys.BogusPriv, DnsmasqConfKeys.NoHosts, DnsmasqConfKeys.ExpandHosts, DnsmasqConfKeys.StrictOrder,
+            DnsmasqConfKeys.NoResolv, DnsmasqConfKeys.NoPoll, DnsmasqConfKeys.BindInterfaces, DnsmasqConfKeys.NoNegcache, "log-queries", "log-dhcp",
+            "all-servers", DnsmasqConfKeys.LeasefileRo, DnsmasqConfKeys.DhcpAuthoritative,
             "quiet-dhcp", "quiet-dhcp6", "quiet-ra", "dhcp-broadcast", "dhcp-sequential-ip",
             "enable-tftp", "self-resolve", "conntrack",
         };

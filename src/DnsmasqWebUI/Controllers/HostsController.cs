@@ -1,12 +1,7 @@
-using System.Text;
-using DnsmasqWebUI.Configuration;
-using DnsmasqWebUI.Models.EffectiveConfig;
 using DnsmasqWebUI.Models.Hosts;
 using DnsmasqWebUI.Models.Status;
-using DnsmasqWebUI.Parsers;
 using DnsmasqWebUI.Services.Abstractions;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 
 namespace DnsmasqWebUI.Controllers;
 
@@ -16,15 +11,13 @@ public class HostsController : ControllerBase
 {
     private readonly IHostsFileService _hostsService;
     private readonly IReloadService _reloadService;
-    private readonly IDnsmasqConfigSetService _configSetService;
-    private readonly DnsmasqOptions _options;
+    private readonly IHostsCache _hostsCache;
 
-    public HostsController(IHostsFileService hostsService, IReloadService reloadService, IDnsmasqConfigSetService configSetService, IOptions<DnsmasqOptions> options)
+    public HostsController(IHostsFileService hostsService, IReloadService reloadService, IHostsCache hostsCache)
     {
         _hostsService = hostsService;
         _reloadService = reloadService;
-        _configSetService = configSetService;
-        _options = options.Value;
+        _hostsCache = hostsCache;
     }
 
     [HttpGet]
@@ -47,68 +40,8 @@ public class HostsController : ControllerBase
     {
         try
         {
-            var set = await _configSetService.GetConfigSetAsync(ct);
-            var effectiveConfig = _configSetService.GetEffectiveConfig();
-            var addnPaths = effectiveConfig.AddnHostsPaths ?? Array.Empty<string>();
-            var managedPath = set.ManagedHostsFilePath != null ? Path.GetFullPath(set.ManagedHostsFilePath) : null;
-
-            var result = new List<ReadOnlyHostsFile>();
-
-            // System hosts: only when configured and no-hosts is false (dnsmasq reads it then).
-            var systemPath = _options.SystemHostsPath?.Trim();
-            if (!string.IsNullOrEmpty(systemPath) && !effectiveConfig.NoHosts)
-            {
-                var fullPath = Path.GetFullPath(systemPath);
-                if (System.IO.File.Exists(fullPath))
-                {
-                    try
-                    {
-                        var lines = await System.IO.File.ReadAllLinesAsync(fullPath, Encoding.UTF8, ct);
-                        var entries = new List<HostEntry>();
-                        for (var i = 0; i < lines.Length; i++)
-                        {
-                            var entry = HostsFileLineParser.ParseLine(lines[i], i + 1);
-                            if (entry != null)
-                                entries.Add(entry);
-                        }
-                        result.Add(new ReadOnlyHostsFile(fullPath, entries));
-                    }
-                    catch
-                    {
-                        // Skip unreadable
-                    }
-                }
-            }
-
-            var systemPathFull = !string.IsNullOrEmpty(systemPath) ? Path.GetFullPath(systemPath) : null;
-
-            foreach (var p in addnPaths)
-            {
-                var fullPath = Path.GetFullPath(p);
-                if (managedPath != null && string.Equals(fullPath, managedPath, StringComparison.Ordinal))
-                    continue;
-                if (systemPathFull != null && string.Equals(fullPath, systemPathFull, StringComparison.Ordinal))
-                    continue;
-                if (!System.IO.File.Exists(fullPath))
-                    continue;
-                try
-                {
-                    var lines = await System.IO.File.ReadAllLinesAsync(fullPath, Encoding.UTF8, ct);
-                    var entries = new List<HostEntry>();
-                    for (var i = 0; i < lines.Length; i++)
-                    {
-                        var entry = HostsFileLineParser.ParseLine(lines[i], i + 1);
-                        if (entry != null)
-                            entries.Add(entry);
-                    }
-                    result.Add(new ReadOnlyHostsFile(fullPath, entries));
-                }
-                catch
-                {
-                    // Skip unreadable files
-                }
-            }
-            return Ok(result);
+            var snapshot = await _hostsCache.GetSnapshotAsync(ct);
+            return Ok(snapshot.ReadOnlyFiles);
         }
         catch (Exception ex)
         {

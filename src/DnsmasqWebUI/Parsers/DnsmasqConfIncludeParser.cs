@@ -1,3 +1,4 @@
+using DnsmasqWebUI.Models.Config;
 using DnsmasqWebUI.Models.EffectiveConfig;
 using Superpower;
 using Superpower.Model;
@@ -15,6 +16,10 @@ namespace DnsmasqWebUI.Parsers;
 public static class DnsmasqConfIncludeParser
 {
     private static readonly StringComparison KeyComparison = StringComparison.Ordinal;
+
+    /// <summary>Gets lines for a path from pre-read content; used by config set cache to avoid double read.</summary>
+    private static string[] GetLines(string path, IReadOnlyDictionary<string, string[]> pathToLines) =>
+        pathToLines.TryGetValue(path, out var L) ? L : Array.Empty<string>();
 
     /// <summary>
     /// Returns the ordered list of absolute config file paths dnsmasq loads, in the exact order
@@ -80,7 +85,7 @@ public static class DnsmasqConfIncludeParser
                 continue;
             var (key, value) = kv.Value;
 
-            if (string.Equals(key, "conf-file", KeyComparison))
+            if (string.Equals(key, DnsmasqConfKeys.ConfFile, KeyComparison))
             {
                 var path = value.Trim();
                 if (string.IsNullOrEmpty(path)) continue;
@@ -90,7 +95,7 @@ public static class DnsmasqConfIncludeParser
                 continue;
             }
 
-            if (string.Equals(key, "conf-dir", KeyComparison))
+            if (string.Equals(key, DnsmasqConfKeys.ConfDir, KeyComparison))
             {
                 var (directory, matchSuffix, ignoreSuffix) = ParseConfDirValue(value);
                 if (string.IsNullOrEmpty(directory)) continue;
@@ -192,7 +197,7 @@ public static class DnsmasqConfIncludeParser
             if (kv == null)
                 continue;
             var (key, value) = kv.Value;
-            if (!string.Equals(key, "conf-dir", KeyComparison))
+            if (!string.Equals(key, DnsmasqConfKeys.ConfDir, KeyComparison))
                 continue;
             var path = value.Split(',')[0].Trim();
             return Path.GetFullPath(Path.Combine(mainDir, path));
@@ -231,6 +236,30 @@ public static class DnsmasqConfIncludeParser
         return false;
     }
 
+    /// <summary>Same as <see cref="GetFlagFromConfigFiles(IReadOnlyList{string}, string)"/> but uses pre-read content (e.g. from config set cache).</summary>
+    public static bool GetFlagFromConfigFiles(IReadOnlyList<string> configFilePathsInOrder, IReadOnlyDictionary<string, string[]> pathToLines, string optionKey)
+    {
+        var key = optionKey.Trim();
+        if (string.IsNullOrEmpty(key))
+            return false;
+        foreach (var configPath in configFilePathsInOrder)
+        {
+            foreach (var line in GetLines(configPath, pathToLines))
+            {
+                var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
+                if (kv == null)
+                    continue;
+                var (k, v) = kv.Value;
+                if (!string.Equals(k, key, KeyComparison))
+                    continue;
+                if (!string.IsNullOrEmpty(v?.Trim()))
+                    continue;
+                return true;
+            }
+        }
+        return false;
+    }
+
     /// <summary>
     /// Returns the last value for the given option key across config files, and the directory of the file
     /// that contained it (for resolving relative paths). Keys matched case-sensitively per dnsmasq.
@@ -257,6 +286,32 @@ public static class DnsmasqConfIncludeParser
                     continue;
                 var trimmed = value.Trim();
                 lastValue = trimmed;
+                lastDir = dir;
+            }
+        }
+        return (lastValue, lastDir);
+    }
+
+    /// <summary>Same as <see cref="GetLastValueFromConfigFiles(IReadOnlyList{string}, string)"/> but uses pre-read content.</summary>
+    public static (string? Value, string? ConfigFileDir) GetLastValueFromConfigFiles(IReadOnlyList<string> configFilePathsInOrder, IReadOnlyDictionary<string, string[]> pathToLines, string optionKey)
+    {
+        var key = optionKey.Trim();
+        if (string.IsNullOrEmpty(key))
+            return (null, null);
+        string? lastValue = null;
+        string? lastDir = null;
+        foreach (var configPath in configFilePathsInOrder)
+        {
+            var dir = Path.GetDirectoryName(configPath) ?? "";
+            foreach (var line in GetLines(configPath, pathToLines))
+            {
+                var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
+                if (kv == null)
+                    continue;
+                var (k, value) = kv.Value;
+                if (!string.Equals(k, key, KeyComparison))
+                    continue;
+                lastValue = value.Trim();
                 lastDir = dir;
             }
         }
@@ -295,7 +350,30 @@ public static class DnsmasqConfIncludeParser
                 if (kv == null)
                     continue;
                 var (key, value) = kv.Value;
-                if (!string.Equals(key, "dhcp-leasefile", KeyComparison) && !string.Equals(key, "dhcp-lease", KeyComparison))
+                if (!string.Equals(key, DnsmasqConfKeys.DhcpLeasefile, KeyComparison) && !string.Equals(key, DnsmasqConfKeys.DhcpLease, KeyComparison))
+                    continue;
+                var path = value.Trim();
+                if (!string.IsNullOrEmpty(path))
+                    result = ResolvePath(path, dir) ?? result;
+            }
+        }
+        return result;
+    }
+
+    /// <summary>Same as <see cref="GetDhcpLeaseFilePathFromConfigFiles(IReadOnlyList{string})"/> but uses pre-read content.</summary>
+    public static string? GetDhcpLeaseFilePathFromConfigFiles(IReadOnlyList<string> configFilePathsInOrder, IReadOnlyDictionary<string, string[]> pathToLines)
+    {
+        string? result = null;
+        foreach (var configPath in configFilePathsInOrder)
+        {
+            var dir = Path.GetDirectoryName(configPath) ?? "";
+            foreach (var line in GetLines(configPath, pathToLines))
+            {
+                var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
+                if (kv == null)
+                    continue;
+                var (key, value) = kv.Value;
+                if (!string.Equals(key, DnsmasqConfKeys.DhcpLeasefile, KeyComparison) && !string.Equals(key, DnsmasqConfKeys.DhcpLease, KeyComparison))
                     continue;
                 var path = value.Trim();
                 if (!string.IsNullOrEmpty(path))
@@ -310,7 +388,11 @@ public static class DnsmasqConfIncludeParser
     /// When true, dnsmasq does not read /etc/hosts; only addn-hosts= files are used (if any).
     /// </summary>
     public static bool GetNoHostsFromConfigFiles(IReadOnlyList<string> configFilePathsInOrder) =>
-        GetFlagFromConfigFiles(configFilePathsInOrder, "no-hosts");
+        GetFlagFromConfigFiles(configFilePathsInOrder, DnsmasqConfKeys.NoHosts);
+
+    /// <summary>Same as <see cref="GetNoHostsFromConfigFiles(IReadOnlyList{string})"/> but uses pre-read content.</summary>
+    public static bool GetNoHostsFromConfigFiles(IReadOnlyList<string> configFilePathsInOrder, IReadOnlyDictionary<string, string[]> pathToLines) =>
+        GetFlagFromConfigFiles(configFilePathsInOrder, pathToLines, DnsmasqConfKeys.NoHosts);
 
     /// <summary>
     /// Reads the given config files in order and returns all <c>addn-hosts=</c> paths (cumulative; dnsmasq loads each in order).
@@ -330,7 +412,31 @@ public static class DnsmasqConfIncludeParser
                 if (kv == null)
                     continue;
                 var (key, value) = kv.Value;
-                if (!string.Equals(key, "addn-hosts", KeyComparison))
+                if (!string.Equals(key, DnsmasqConfKeys.AddnHosts, KeyComparison))
+                    continue;
+                var path = value.Trim();
+                if (string.IsNullOrEmpty(path))
+                    continue;
+                result.Add(Path.GetFullPath(Path.Combine(dir, path)));
+            }
+        }
+        return result;
+    }
+
+    /// <summary>Same as <see cref="GetAddnHostsPathsFromConfigFiles(IReadOnlyList{string})"/> but uses pre-read content.</summary>
+    public static IReadOnlyList<string> GetAddnHostsPathsFromConfigFiles(IReadOnlyList<string> configFilePathsInOrder, IReadOnlyDictionary<string, string[]> pathToLines)
+    {
+        var result = new List<string>();
+        foreach (var configPath in configFilePathsInOrder)
+        {
+            var dir = Path.GetDirectoryName(configPath) ?? "";
+            foreach (var line in GetLines(configPath, pathToLines))
+            {
+                var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
+                if (kv == null)
+                    continue;
+                var (key, value) = kv.Value;
+                if (!string.Equals(key, DnsmasqConfKeys.AddnHosts, KeyComparison))
                     continue;
                 var path = value.Trim();
                 if (string.IsNullOrEmpty(path))
@@ -374,6 +480,32 @@ public static class DnsmasqConfIncludeParser
         return (lastValue, lastSource);
     }
 
+    /// <summary>Same as <see cref="GetLastValueFromConfigFilesWithSource(IReadOnlyList{string}, string, string?)"/> but uses pre-read content.</summary>
+    public static (string? Value, ConfigValueSource? Source) GetLastValueFromConfigFilesWithSource(
+        IReadOnlyList<string> configFilePathsInOrder, IReadOnlyDictionary<string, string[]> pathToLines, string optionKey, string? managedFilePath)
+    {
+        var key = optionKey.Trim();
+        if (string.IsNullOrEmpty(key))
+            return (null, null);
+        string? lastValue = null;
+        ConfigValueSource? lastSource = null;
+        foreach (var configPath in configFilePathsInOrder)
+        {
+            foreach (var line in GetLines(configPath, pathToLines))
+            {
+                var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
+                if (kv == null)
+                    continue;
+                var (k, value) = kv.Value;
+                if (!string.Equals(k, key, KeyComparison))
+                    continue;
+                lastValue = value.Trim();
+                lastSource = MakeSource(configPath, managedFilePath);
+            }
+        }
+        return (lastValue, lastSource);
+    }
+
     /// <summary>Like <see cref="GetFlagFromConfigFiles"/> but returns which file set the flag (for readonly: if not managed, user cannot unset from UI).</summary>
     public static (bool IsSet, ConfigValueSource? Source) GetFlagFromConfigFilesWithSource(
         IReadOnlyList<string> configFilePathsInOrder, string optionKey, string? managedFilePath)
@@ -386,6 +518,31 @@ public static class DnsmasqConfIncludeParser
             if (!File.Exists(configPath))
                 continue;
             foreach (var line in File.ReadAllLines(configPath))
+            {
+                var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
+                if (kv == null)
+                    continue;
+                var (k, v) = kv.Value;
+                if (!string.Equals(k, key, KeyComparison))
+                    continue;
+                if (!string.IsNullOrEmpty(v?.Trim()))
+                    continue;
+                return (true, MakeSource(configPath, managedFilePath));
+            }
+        }
+        return (false, null);
+    }
+
+    /// <summary>Same as <see cref="GetFlagFromConfigFilesWithSource(IReadOnlyList{string}, string, string?)"/> but uses pre-read content.</summary>
+    public static (bool IsSet, ConfigValueSource? Source) GetFlagFromConfigFilesWithSource(
+        IReadOnlyList<string> configFilePathsInOrder, IReadOnlyDictionary<string, string[]> pathToLines, string optionKey, string? managedFilePath)
+    {
+        var key = optionKey.Trim();
+        if (string.IsNullOrEmpty(key))
+            return (false, null);
+        foreach (var configPath in configFilePathsInOrder)
+        {
+            foreach (var line in GetLines(configPath, pathToLines))
             {
                 var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
                 if (kv == null)
@@ -418,7 +575,35 @@ public static class DnsmasqConfIncludeParser
                 if (kv == null)
                     continue;
                 var (key, value) = kv.Value;
-                if (!string.Equals(key, "dhcp-leasefile", KeyComparison) && !string.Equals(key, "dhcp-lease", KeyComparison))
+                if (!string.Equals(key, DnsmasqConfKeys.DhcpLeasefile, KeyComparison) && !string.Equals(key, DnsmasqConfKeys.DhcpLease, KeyComparison))
+                    continue;
+                var path = value.Trim();
+                if (!string.IsNullOrEmpty(path))
+                {
+                    result = ResolvePath(path, dir) ?? result;
+                    lastSource = MakeSource(configPath, managedFilePath);
+                }
+            }
+        }
+        return (result, lastSource);
+    }
+
+    /// <summary>Same as <see cref="GetDhcpLeaseFilePathFromConfigFilesWithSource(IReadOnlyList{string}, string?)"/> but uses pre-read content.</summary>
+    public static (string? Path, ConfigValueSource? Source) GetDhcpLeaseFilePathFromConfigFilesWithSource(
+        IReadOnlyList<string> configFilePathsInOrder, IReadOnlyDictionary<string, string[]> pathToLines, string? managedFilePath)
+    {
+        string? result = null;
+        ConfigValueSource? lastSource = null;
+        foreach (var configPath in configFilePathsInOrder)
+        {
+            var dir = Path.GetDirectoryName(configPath) ?? "";
+            foreach (var line in GetLines(configPath, pathToLines))
+            {
+                var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
+                if (kv == null)
+                    continue;
+                var (key, value) = kv.Value;
+                if (!string.Equals(key, DnsmasqConfKeys.DhcpLeasefile, KeyComparison) && !string.Equals(key, DnsmasqConfKeys.DhcpLease, KeyComparison))
                     continue;
                 var path = value.Trim();
                 if (!string.IsNullOrEmpty(path))
@@ -448,7 +633,33 @@ public static class DnsmasqConfIncludeParser
                 if (kv == null)
                     continue;
                 var (key, value) = kv.Value;
-                if (!string.Equals(key, "addn-hosts", KeyComparison))
+                if (!string.Equals(key, DnsmasqConfKeys.AddnHosts, KeyComparison))
+                    continue;
+                var path = value.Trim();
+                if (string.IsNullOrEmpty(path))
+                    continue;
+                result.Add((Path.GetFullPath(Path.Combine(dir, path)), source));
+            }
+        }
+        return result;
+    }
+
+    /// <summary>Same as <see cref="GetAddnHostsPathsFromConfigFilesWithSource(IReadOnlyList{string}, string?)"/> but uses pre-read content.</summary>
+    public static IReadOnlyList<(string Path, ConfigValueSource Source)> GetAddnHostsPathsFromConfigFilesWithSource(
+        IReadOnlyList<string> configFilePathsInOrder, IReadOnlyDictionary<string, string[]> pathToLines, string? managedFilePath)
+    {
+        var result = new List<(string Path, ConfigValueSource Source)>();
+        foreach (var configPath in configFilePathsInOrder)
+        {
+            var dir = Path.GetDirectoryName(configPath) ?? "";
+            var source = MakeSource(configPath, managedFilePath);
+            foreach (var line in GetLines(configPath, pathToLines))
+            {
+                var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
+                if (kv == null)
+                    continue;
+                var (key, value) = kv.Value;
+                if (!string.Equals(key, DnsmasqConfKeys.AddnHosts, KeyComparison))
                     continue;
                 var path = value.Trim();
                 if (string.IsNullOrEmpty(path))
@@ -485,6 +696,30 @@ public static class DnsmasqConfIncludeParser
         return result;
     }
 
+    /// <summary>Same as <see cref="GetMultiValueFromConfigFiles(IReadOnlyList{string}, string)"/> but uses pre-read content.</summary>
+    public static IReadOnlyList<string> GetMultiValueFromConfigFiles(
+        IReadOnlyList<string> configFilePathsInOrder, IReadOnlyDictionary<string, string[]> pathToLines, string optionKey)
+    {
+        var result = new List<string>();
+        var key = optionKey.Trim();
+        if (string.IsNullOrEmpty(key))
+            return result;
+        foreach (var configPath in configFilePathsInOrder)
+        {
+            foreach (var line in GetLines(configPath, pathToLines))
+            {
+                var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
+                if (kv == null)
+                    continue;
+                var (k, value) = kv.Value;
+                if (!string.Equals(k, key, KeyComparison))
+                    continue;
+                result.Add(value.Trim());
+            }
+        }
+        return result;
+    }
+
     /// <summary>Collects all values for multiple option keys (e.g. server and local) in file order. Keys matched case-sensitively.</summary>
     public static IReadOnlyList<string> GetMultiValueFromConfigFiles(
         IReadOnlyList<string> configFilePathsInOrder, IReadOnlyList<string> optionKeys)
@@ -498,6 +733,30 @@ public static class DnsmasqConfIncludeParser
             if (!File.Exists(configPath))
                 continue;
             foreach (var line in File.ReadAllLines(configPath))
+            {
+                var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
+                if (kv == null)
+                    continue;
+                var (k, value) = kv.Value;
+                if (!keys.Contains(k))
+                    continue;
+                result.Add(value.Trim());
+            }
+        }
+        return result;
+    }
+
+    /// <summary>Same as <see cref="GetMultiValueFromConfigFiles(IReadOnlyList{string}, IReadOnlyList{string})"/> but uses pre-read content.</summary>
+    public static IReadOnlyList<string> GetMultiValueFromConfigFiles(
+        IReadOnlyList<string> configFilePathsInOrder, IReadOnlyDictionary<string, string[]> pathToLines, IReadOnlyList<string> optionKeys)
+    {
+        var keys = new HashSet<string>(optionKeys.Select(k => k.Trim()).Where(k => k.Length > 0), StringComparer.Ordinal);
+        if (keys.Count == 0)
+            return Array.Empty<string>();
+        var result = new List<string>();
+        foreach (var configPath in configFilePathsInOrder)
+        {
+            foreach (var line in GetLines(configPath, pathToLines))
             {
                 var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
                 if (kv == null)
@@ -538,6 +797,31 @@ public static class DnsmasqConfIncludeParser
         return result;
     }
 
+    /// <summary>Same as <see cref="GetMultiValueFromConfigFilesWithSource(IReadOnlyList{string}, string, string?)"/> but uses pre-read content.</summary>
+    public static IReadOnlyList<(string Value, ConfigValueSource Source)> GetMultiValueFromConfigFilesWithSource(
+        IReadOnlyList<string> configFilePathsInOrder, IReadOnlyDictionary<string, string[]> pathToLines, string optionKey, string? managedFilePath)
+    {
+        var result = new List<(string Value, ConfigValueSource Source)>();
+        var key = optionKey.Trim();
+        if (string.IsNullOrEmpty(key))
+            return result;
+        foreach (var configPath in configFilePathsInOrder)
+        {
+            var source = MakeSource(configPath, managedFilePath);
+            foreach (var line in GetLines(configPath, pathToLines))
+            {
+                var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
+                if (kv == null)
+                    continue;
+                var (k, value) = kv.Value;
+                if (!string.Equals(k, key, KeyComparison))
+                    continue;
+                result.Add((value.Trim(), source));
+            }
+        }
+        return result;
+    }
+
     /// <summary>Like <see cref="GetMultiValueFromConfigFiles(IReadOnlyList{string}, IReadOnlyList{string})"/> but returns source per value.</summary>
     public static IReadOnlyList<(string Value, ConfigValueSource Source)> GetMultiValueFromConfigFilesWithSource(
         IReadOnlyList<string> configFilePathsInOrder, IReadOnlyList<string> optionKeys, string? managedFilePath)
@@ -552,6 +836,31 @@ public static class DnsmasqConfIncludeParser
                 continue;
             var source = MakeSource(configPath, managedFilePath);
             foreach (var line in File.ReadAllLines(configPath))
+            {
+                var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
+                if (kv == null)
+                    continue;
+                var (k, value) = kv.Value;
+                if (!keys.Contains(k))
+                    continue;
+                result.Add((value.Trim(), source));
+            }
+        }
+        return result;
+    }
+
+    /// <summary>Same as <see cref="GetMultiValueFromConfigFilesWithSource(IReadOnlyList{string}, IReadOnlyList{string}, string?)"/> but uses pre-read content.</summary>
+    public static IReadOnlyList<(string Value, ConfigValueSource Source)> GetMultiValueFromConfigFilesWithSource(
+        IReadOnlyList<string> configFilePathsInOrder, IReadOnlyDictionary<string, string[]> pathToLines, IReadOnlyList<string> optionKeys, string? managedFilePath)
+    {
+        var keys = new HashSet<string>(optionKeys.Select(k => k.Trim()).Where(k => k.Length > 0), StringComparer.Ordinal);
+        if (keys.Count == 0)
+            return Array.Empty<(string, ConfigValueSource)>();
+        var result = new List<(string Value, ConfigValueSource Source)>();
+        foreach (var configPath in configFilePathsInOrder)
+        {
+            var source = MakeSource(configPath, managedFilePath);
+            foreach (var line in GetLines(configPath, pathToLines))
             {
                 var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
                 if (kv == null)
