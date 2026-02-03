@@ -5,5 +5,6 @@ namespace DnsmasqWebUI.Client.Http.Abstractions;
 /// <summary>Typed client for GET api/leases.</summary>
 public interface ILeasesClient
 {
-    Task<LeasesResult> GetLeasesAsync(CancellationToken ct = default);
+    /// <param name="forceRefresh">When true, invalidates the server cache so the next read is from disk (e.g. after manual Refresh).</param>
+    Task<LeasesResult> GetLeasesAsync(bool forceRefresh = false, CancellationToken ct = default);
 }

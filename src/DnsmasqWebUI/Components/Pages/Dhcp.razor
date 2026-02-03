@@ -252,7 +252,7 @@ else
         {
             <p class="text-muted">No leases yet. Leases appear here when DHCP clients obtain an address; use Refresh to update.</p>
             <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-                <button class="btn btn-primary" @onclick="() => LoadLeases(showLoading: true)" disabled="@_leasesLoading">Refresh</button>
+                <button class="btn btn-primary" @onclick="() => LoadLeases(showLoading: true, forceRefresh: true)" disabled="@_leasesLoading">Refresh</button>
             </div>
         }
         else
@@ -317,7 +317,7 @@ else
                 </div>
             </div>
             <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-                <button class="btn btn-primary" @onclick="() => LoadLeases(showLoading: true)" disabled="@_leasesLoading">Refresh</button>
+                <button class="btn btn-primary" @onclick="() => LoadLeases(showLoading: true, forceRefresh: true)" disabled="@_leasesLoading">Refresh</button>
             </div>
         }
         <SettingsModal IsVisible="_settingsModalOpen" Title="@_settingsModalTitle" SettingsContext="_settingsModalContext" OnClose="CloseSettingsModal" />
@@ -461,13 +461,13 @@ else
         await InvokeAsync(StateHasChanged);
     }
 
-    private async Task LoadLeases(bool showLoading = true)
+    private async Task LoadLeases(bool showLoading = true, bool forceRefresh = false)
     {
         if (_status == null || !_status.LeasesPathConfigured) return;
         if (showLoading) _leasesLoading = true;
         try
         {
-            var resp = await LeasesClient.GetLeasesAsync();
+            var resp = await LeasesClient.GetLeasesAsync(forceRefresh: forceRefresh);
             _leases = resp.Entries;
         }
         finally

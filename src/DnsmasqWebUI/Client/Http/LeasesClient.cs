@@ -10,7 +10,10 @@ public sealed class LeasesClient : ILeasesClient
 
     public LeasesClient(HttpClient http) => _http = http;
 
-    public async Task<LeasesResult> GetLeasesAsync(CancellationToken ct = default) =>
-        await _http.GetFromJsonAsync<LeasesResult>("api/leases", ct)
+    public async Task<LeasesResult> GetLeasesAsync(bool forceRefresh = false, CancellationToken ct = default)
+    {
+        var url = forceRefresh ? "api/leases?refresh=true" : "api/leases";
+        return await _http.GetFromJsonAsync<LeasesResult>(url, ct)
             ?? throw new InvalidOperationException("Unexpected null from api/leases.");
+    }
 }

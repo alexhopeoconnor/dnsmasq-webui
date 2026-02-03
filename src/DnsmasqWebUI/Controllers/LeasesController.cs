@@ -9,17 +9,21 @@ namespace DnsmasqWebUI.Controllers;
 public class LeasesController : ControllerBase
 {
     private readonly ILeasesFileService _leasesService;
+    private readonly ILeasesCache _cache;
 
-    public LeasesController(ILeasesFileService leasesService)
+    public LeasesController(ILeasesFileService leasesService, ILeasesCache cache)
     {
         _leasesService = leasesService;
+        _cache = cache;
     }
 
     [HttpGet]
-    public async Task<ActionResult<LeasesResult>> Get(CancellationToken ct)
+    public async Task<ActionResult<LeasesResult>> Get([FromQuery] bool refresh, CancellationToken ct)
     {
         try
         {
+            if (refresh)
+                _cache.Invalidate();
             var (available, entries) = await _leasesService.TryReadAsync(ct);
             if (!available)
                 return Ok(new LeasesResult(false, null, "Leases not configured."));
