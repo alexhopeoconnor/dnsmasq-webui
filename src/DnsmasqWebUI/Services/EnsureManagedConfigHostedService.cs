@@ -46,7 +46,8 @@ public class EnsureManagedConfigHostedService : IApplicationHostedService
         var mainDir = Path.GetDirectoryName(mainFull) ?? "";
         var managedPath = Path.GetFullPath(set.ManagedFilePath);
         var managedDir = Path.GetDirectoryName(managedPath) ?? "";
-        var confFileLine = "conf-file=" + Path.GetRelativePath(mainDir, managedPath);
+        // Use absolute path so dnsmasq finds the file regardless of CWD (e.g. systemd may run with CWD=/).
+        var confFileLine = "conf-file=" + managedPath;
 
         var lines = File.Exists(mainFull)
             ? (await File.ReadAllLinesAsync(mainFull, DnsmasqFileEncoding.Utf8NoBom, cancellationToken)).ToList()
@@ -62,6 +63,7 @@ public class EnsureManagedConfigHostedService : IApplicationHostedService
             var value = trimmed.Length > 10 ? trimmed[10..].Trim() : "";
             if (string.IsNullOrEmpty(value))
                 continue;
+            // Resolve relative to main config dir; absolute value is used as-is.
             var resolved = Path.GetFullPath(Path.Combine(mainDir, value));
             if (string.Equals(resolved, managedPath, StringComparison.Ordinal))
                 lines.RemoveAt(i);

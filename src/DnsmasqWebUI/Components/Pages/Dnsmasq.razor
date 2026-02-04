@@ -22,16 +22,15 @@ else if (_status != null)
 {
     <section class="page-section">
         <h2 class="page-section-title">Service configuration</h2>
-        <ul class="list-unstyled small mb-0">
-            <li><strong>Main config:</strong> @(_status.MainConfigPath ?? "—") @(_status.MainConfigPathExists ? "✓" : "(missing)")</li>
-            <li><strong>Managed file:</strong> @(_status.ManagedFilePath ?? "—") @(_status.ManagedFilePathExists ? "✓" : "(not created yet)")</li>
-        </ul>
-        @if (_configSet != null && _configSet.Files?.Count > 0)
-        {
-            <p class="mb-1 mt-2"><strong>Config set (load order):</strong></p>
-            <ul class="list-unstyled small ms-2 mb-0">
+        <p class="mb-1"><strong>Config files (load order):</strong></p>
+        <ul class="list-unstyled small ms-2 mb-0">
+            @if (_configSet != null && _configSet.Files?.Count > 0)
+            {
                 @foreach (var f in _configSet.Files)
                 {
+                    var isMain = string.Equals(f.Path, _status.MainConfigPath, StringComparison.Ordinal);
+                    var isManaged = f.IsManaged;
+                    var exists = isMain ? _status.MainConfigPathExists : (isManaged ? _status.ManagedFilePathExists : (bool?)null);
                     <li>
                         @if (f.IsManaged)
                         {
@@ -41,12 +40,18 @@ else if (_status != null)
                         {
                             <span class="badge bg-secondary me-1">@(f.Source.ToString().ToLowerInvariant())</span>
                         }
-                        @f.FileName
-                        <span class="text-muted">(@f.Path)</span>
+                        @f.Path
+                        @if (exists == true) { <text> ✓</text> }
+                        @if (exists == false) { <text> @(isManaged ? "(not created yet)" : "(missing)")</text> }
                     </li>
                 }
-            </ul>
-        }
+            }
+            else
+            {
+                <li><strong>Main config:</strong> @(_status.MainConfigPath ?? "—") @(_status.MainConfigPathExists ? "✓" : "(missing)")</li>
+                <li><strong>Managed file:</strong> @(_status.ManagedFilePath ?? "—") @(_status.ManagedFilePathExists ? "✓" : "(not created yet)")</li>
+            }
+        </ul>
         <EffectiveConfigSection Status="_status" />
         @if (_status.ReloadCommandConfigured)
         {
