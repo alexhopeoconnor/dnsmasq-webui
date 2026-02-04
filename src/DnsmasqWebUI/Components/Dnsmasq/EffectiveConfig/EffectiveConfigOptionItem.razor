@@ -1,10 +1,21 @@
 @namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Models.EffectiveConfig
 
-<li title="@(Source?.GetReadOnlyTooltip())">
-    <strong>@Label:</strong> @DisplayValue
-    @if (Source?.IsReadOnly == true)
+<li class="ec-field" title="@(Source?.GetReadOnlyTooltip())">
+    <span class="ec-field-label" title="@(LabelTooltip ?? Source?.GetReadOnlyTooltip())"><strong>@Label:</strong></span>
+    @if (DisplayMode == EffectiveConfigDisplayMode.Edit && Source?.IsReadOnly != true)
     {
-        <span class="badge bg-secondary ms-1">readonly</span>
+        <span class="ec-field-value">
+            <input type="text" class="form-control form-control-sm" value="@DisplayValue" @oninput="OnValueInput" />
+        </span>
+    }
+    else
+    {
+        <span class="ec-field-value">@DisplayValue</span>
+        @if (Source?.IsReadOnly == true)
+        {
+            <span class="badge bg-secondary ms-1">readonly</span>
+        }
     }
 </li>
 
@@ -12,4 +23,15 @@
     [Parameter] public string Label { get; set; } = "";
     [Parameter] public string DisplayValue { get; set; } = "";
     [Parameter] public ConfigValueSource? Source { get; set; }
+    /// <summary>Optional explainer shown on hover over the label (e.g. from DnsmasqOptionTooltips).</summary>
+    [Parameter] public string? LabelTooltip { get; set; }
+    /// <summary>When Edit and not readonly: raised when the user changes the value. Not yet wired to save.</summary>
+    [Parameter] public EventCallback<string> DisplayValueChanged { get; set; }
+    [CascadingParameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
+
+    private async Task OnValueInput(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString() ?? "";
+        await DisplayValueChanged.InvokeAsync(value);
+    }
 }

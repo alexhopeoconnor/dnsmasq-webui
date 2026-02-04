@@ -1,7 +1,7 @@
 # dnsmasq-webui
 
 <div align="center">
-  <img src="src/DnsmasqWebUI/wwwroot/logo.png" alt="dnsmasq-webui logo" width="200">
+  <img src="src/DnsmasqWebUI/wwwroot/logo.webp" alt="dnsmasq-webui logo" width="200">
 </div>
 
 A self-hosted web UI for managing [dnsmasq](https://thekelleys.org.uk/dnsmasq/doc.html) configuration and hosts. It runs alongside your existing dnsmasq setup and edits the same config files; it does not replace dnsmasq.
@@ -70,7 +70,7 @@ On systemd-based systems you can install a unit so the app runs as a service. Us
 sudo ./scripts/install.sh --system --service     # System service (starts at boot)
 ```
 
-After install: configure the app (see [Configuration](#configuration)), then start the service: `systemctl --user start dnsmasq-webui` or `sudo systemctl start dnsmasq-webui`. User services run only when you’re logged in unless you enable linger: `loginctl enable-linger`.
+After install: configure the app (see [Configuration](#configuration)), then start the service: `systemctl --user start dnsmasq-webui` or `sudo systemctl start dnsmasq-webui`. User services run only when you’re logged in unless you enable linger: `loginctl enable-linger`. If you add `--service` later or switch from user to system service (or vice versa), the script removes the previous service type before installing the new one.
 
 **Update to latest release:**
 
@@ -79,6 +79,15 @@ After install: configure the app (see [Configuration](#configuration)), then sta
 ```
 
 Reinstalls the latest release into the default user directory (~/.local/share/dnsmasq-webui).
+
+**Uninstall:**
+
+```bash
+./scripts/install.sh --uninstall               # Remove services and symlinks only (keeps install dir)
+./scripts/install.sh --uninstall --purge         # Also remove default install dir (~/.local/share/dnsmasq-webui)
+sudo ./scripts/install.sh --uninstall --purge --system   # Also remove /opt/dnsmasq-webui
+./scripts/install.sh --uninstall --purge --dir /path/to/dir   # Purge a specific install dir
+```
 
 **Custom directory or specific version:**
 
@@ -203,7 +212,7 @@ All scripts live under `scripts/` and are intended for Linux (WSL may work but i
 
 ### scripts/install.sh
 
-**Purpose:** Download and install dnsmasq-webui from a GitHub release for the current OS/arch (RID). Supports install, **update** (reinstall latest to default dir), and switch-release (re-run with same `--dir` and different `--version`). Default install is user-writable (~/.local/share/dnsmasq-webui) with an optional symlink so you can run `dnsmasq-webui` from the terminal; use `--system` for a system-wide install to /opt (requires sudo). Use `--service` to install a systemd unit (user service without sudo, or system service with `--system`); only supported on systemd-based systems.
+**Purpose:** Download and install dnsmasq-webui from a GitHub release for the current OS/arch (RID). Supports install, **update** (reinstall latest to default dir), switch-release (re-run with same `--dir` and different `--version`), and **uninstall** (remove services and symlinks; use `--purge` to also remove the install directory). Default install is user-writable (~/.local/share/dnsmasq-webui) with an optional symlink so you can run `dnsmasq-webui` from the terminal; use `--system` for a system-wide install to /opt (requires sudo). Use `--service` to install a systemd unit (user service without sudo, or system service with `--system`); only supported on systemd-based systems. When installing a service, the script removes the other type first (e.g. switching from user to system service cleans up the user unit).
 
 **Usage:** `./scripts/install.sh [OPTIONS]`
 
@@ -217,8 +226,58 @@ All scripts live under `scripts/` and are intended for Linux (WSL may work but i
 | `--update` | Reinstall latest into the default user directory (~/.local/share/dnsmasq-webui). |
 | `--dir DIR` | Install into DIR instead of default. |
 | `--system` | Install to /opt/dnsmasq-webui and symlink /usr/local/bin/dnsmasq-webui. Requires root (run with sudo). |
-| `--service` | Install a systemd unit so the app runs as a service. With `--system`: system unit (requires root, starts at boot). Without: user unit (no sudo, starts at login). Only on systemd-based systems. |
+| `--service` | Install a systemd unit so the app runs as a service. With `--system`: system unit (requires root, starts at boot). Without: user unit (no sudo, starts at login). Removes the other type first if present. Only on systemd-based systems. |
+| `--uninstall` | Remove systemd units and symlinks (user and, if root, system). Does not remove the install directory. |
+| `--purge` | With `--uninstall` only: also remove the install directory. Use `--dir DIR` or `--system` to target a specific location. Errors if used without `--uninstall`. |
 | `-h`, `-?`, `--help` | Show help. |
+
+Invalid combinations (script errors with a clear message): `--purge` without `--uninstall`; `--uninstall` with `--version`, `--update`, or `--service`; `--list` with install/uninstall options.
+
+**How to use the script**
+
+1. **Run one command to get a runnable binary for your OS/arch** (no repo or build choice needed).  
+   Script detects RID and default repo (or git origin), downloads the matching zip, extracts it, and creates a symlink when possible.  
+   **Commands:** `curl -sSL https://raw.githubusercontent.com/alexhopeoconnor/dnsmasq-webui/main/scripts/install.sh | sh` or `./scripts/install.sh`
+
+2. **Install into your home directory by default** (no root).  
+   Default is `~/.local/share/dnsmasq-webui`; symlink in `~/.local/bin` if writable.  
+   **Command:** `./scripts/install.sh`
+
+3. **Install to /opt and have `dnsmasq-webui` in PATH for all users.**  
+   Script requires root, then installs to `/opt/dnsmasq-webui` and symlinks `/usr/local/bin/dnsmasq-webui`.  
+   **Command:** `sudo ./scripts/install.sh --system`
+
+4. **Install a systemd unit that starts at boot** so the UI runs as a service.  
+   Script checks root and systemd, installs and enables the system unit, and removes the invoking user's user unit so you do not have both.  
+   **Command:** `sudo ./scripts/install.sh --system --service`
+
+5. **Install a user systemd unit (no sudo)** that starts when you log in.  
+   Script installs and enables the user unit and removes any existing user unit; if a system unit exists it tells you how to remove it.  
+   **Command:** `./scripts/install.sh --service`
+
+6. **Upgrade your existing install to the latest release** without changing where it is installed.  
+   `--update` keeps your current target (default dir, `--dir`, or `--system`) and installs latest there.  
+   **Commands:** `./scripts/install.sh --update` or `sudo ./scripts/install.sh --update --system` or `./scripts/install.sh --update --dir /path`
+
+7. **Switch from user service to system service (or the other way)** without manually removing the old unit.  
+   Installing one type removes the other for that scope (or tells you how to remove the system unit when installing user).  
+   **Commands:** `sudo ./scripts/install.sh --system --service` (user to system) or `./scripts/install.sh --service` (system to user; run `sudo ./scripts/install.sh --uninstall` first if you had a system unit).
+
+8. **Uninstall cleanly:** remove services and symlinks, and optionally delete the install directory.  
+   `--uninstall` removes units and symlinks; `--purge` also removes one install dir, and you must say which (default, `--dir`, or `--system`).  
+   **Commands:** `./scripts/install.sh --uninstall`, `./scripts/install.sh --uninstall --purge`, `sudo ./scripts/install.sh --uninstall --purge --system`, or `./scripts/install.sh --uninstall --purge --dir /path`
+
+9. **List available releases** to choose which version to install.  
+   Script lists release tags and dates; list-only mode cannot be combined with install/uninstall so you do not accidentally change the system.  
+   **Command:** `./scripts/install.sh --list`
+
+10. **Install from a fork or a specific GitHub repo** instead of the default.  
+    You pass the repo; script uses it for the API. Without a clone or `--repo`/GITHUB_REPO it errors so you fix the command instead of getting a confusing API failure.  
+    **Command:** `./scripts/install.sh --repo owner/dnsmasq-webui` or `GITHUB_REPO=owner/dnsmasq-webui ./scripts/install.sh`
+
+11. **Install a specific release tag** (e.g. an older or pinned version) instead of latest.  
+    Script fetches that tag's release and the asset for your RID. If no asset matches your OS/arch it errors and prints the asset names so you can pick another tag or report a missing build.  
+    **Command:** `./scripts/install.sh --version v1.0.0`
 
 **Examples:**
 
@@ -239,6 +298,11 @@ sudo ./scripts/install.sh --system
 ./scripts/install.sh --service
 sudo ./scripts/install.sh --system --service
 
+# Uninstall (services + symlinks only; add --purge to remove install dir)
+./scripts/install.sh --uninstall
+./scripts/install.sh --uninstall --purge
+sudo ./scripts/install.sh --uninstall --purge --system
+
 # Install to custom dir
 ./scripts/install.sh --dir /opt/dnsmasq-webui
 
@@ -248,6 +312,29 @@ sudo ./scripts/install.sh --system --service
 # List releases (from fork)
 ./scripts/install.sh --repo alexhopeoconnor/dnsmasq-webui --list
 ```
+
+**How the script works and avoids mistakes**
+
+1. **Modes are exclusive**  
+   The script does one of: list releases, uninstall, or install (including update/switch-release). It errors if you mix modes, e.g. `--uninstall` with `--update` or `--service`, or `--list` with install/uninstall options. `--purge` is only valid with `--uninstall`; using `--purge` alone errors.
+
+2. **Privilege checks**  
+   `--system` (install to /opt and system-wide symlink) and `--system --service` (system systemd unit) require root. The script checks `id -u` and exits with a clear message (“Run with sudo: sudo $0 --system”) instead of failing partway. Uninstall with `--purge --system` also requires root and is checked before removing anything.
+
+3. **Service switching**  
+   When you install a systemd unit, the script removes the *other* type first: installing a system service stops/disables and removes the invoking user’s user unit (via `SUDO_USER`), and installing a user service leaves any system unit in place but prints a note on how to remove it. You never end up with both user and system units for the same user by accident.
+
+4. **Update and target dir**  
+   `--update` means “reinstall latest.” If you also pass `--dir DIR` or `--system`, that target is used (e.g. `--update --dir /opt/foo` or `sudo ./install.sh --update --system`). So upgrade-in-place is predictable and you don’t overwrite a different install.
+
+5. **Uninstall is explicit**  
+   `--uninstall` removes only systemd units and symlinks unless you add `--purge`. With `--purge`, you must say *which* install to remove: default user dir (no extra flags), `--dir DIR`, or `--system` for /opt. That avoids accidentally deleting the wrong directory.
+
+6. **Repo and release**  
+   When not in a git clone, the script needs a repo (e.g. `REPO_DEFAULT` in the one-liner or `--repo` / `GITHUB_REPO`). It errors with a clear message instead of hitting the GitHub API with an empty repo. If no asset matches your OS/arch (RID), it prints the available asset names so you can pick a different release or report a missing build.
+
+7. **Dependencies**  
+   The script requires `curl`, `jq`, and `unzip`. It checks for `jq` before calling the GitHub API and errors with an install hint. `--service` requires `systemctl` (systemd) and errors on non-systemd systems instead of writing a unit that won’t be used.
 
 ---
 

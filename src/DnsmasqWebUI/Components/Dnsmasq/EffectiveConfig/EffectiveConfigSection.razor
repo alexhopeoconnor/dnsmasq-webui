@@ -21,7 +21,7 @@
         var sectionDescriptors = descriptors.Where(d => d.SectionId == sectionId).ToList();
         if (sectionDescriptors.Count > 0)
         {
-            <EffectiveConfigSectionPanel SectionId="@sectionId" Title="@title" Descriptors="@sectionDescriptors" IsOpen="@IsOpen(sectionId)" OnToggle="@OnSectionToggle" />
+            <EffectiveConfigSectionPanel SectionId="@sectionId" Title="@title" Descriptors="@sectionDescriptors" IsOpen="@IsOpen(sectionId)" OnToggle="@OnSectionToggle" DisplayMode="@DisplayMode" />
         }
     }
 </div>
@@ -29,6 +29,8 @@
 
 @code {
     [Parameter] public DnsmasqServiceStatus? Status { get; set; }
+    /// <summary>View = read-only; Edit = editable (future). Cascaded to field displays.</summary>
+    [Parameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
 
     private HashSet<string> _openPanels = new();
 

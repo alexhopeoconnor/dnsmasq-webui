@@ -1,18 +1,44 @@
 @namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig
 @using DnsmasqWebUI.Models.EffectiveConfig
+@using DnsmasqWebUI.Models.Config
+@using DnsmasqWebUI.Services.Abstractions
+@inject IEffectiveConfigRenderFragmentRegistry RenderFragmentRegistry
 
-@if (Descriptor.IsMultiValue)
+@* Custom fragment renders only the value; we keep the row shell (label + value slot + badge) here for consistency. *@
+@if (_customFragment is { } fragment)
+{
+    var labelTooltip = DnsmasqOptionTooltips.Get(Descriptor.OptionName);
+    <li class="ec-field" title="@(Descriptor.GetSource()?.GetReadOnlyTooltip())">
+        <span class="ec-field-label" title="@(labelTooltip ?? Descriptor.GetSource()?.GetReadOnlyTooltip())"><strong>@Descriptor.OptionName:</strong></span>
+        <span class="ec-field-value">@fragment(Descriptor)</span>
+        @if (Descriptor.GetSource()?.IsReadOnly == true)
+        {
+            <span class="badge bg-secondary ms-1">readonly</span>
+        }
+    </li>
+}
+else if (Descriptor.IsMultiValue)
 {
     var items = Descriptor.GetItems();
-    <EffectiveConfigMultiValueRow Label="@Descriptor.OptionName" Items="@items" />
+    <EffectiveConfigMultiValueRow Label="@Descriptor.OptionName" Items="@items" LabelTooltip="@_labelTooltip" />
 }
 else
 {
     var value = Descriptor.GetValue();
     var displayValue = value == null ? "(not set)" : (value is IReadOnlyList<string> list ? (list.Count == 0 ? "(none)" : string.Join(", ", list)) : value.ToString());
-    <EffectiveConfigOptionItem Label="@Descriptor.OptionName" DisplayValue="@(displayValue ?? "(not set)")" Source="@Descriptor.GetSource()" />
+    <EffectiveConfigOptionItem Label="@Descriptor.OptionName" DisplayValue="@(displayValue ?? "(not set)")" Source="@Descriptor.GetSource()" LabelTooltip="@_labelTooltip" />
 }
 
 @code {
     [Parameter] public EffectiveConfigFieldDescriptor Descriptor { get; set; } = null!;
+    [CascadingParameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
+
+    private RenderFragment<EffectiveConfigFieldDescriptor>? _customFragment;
+    private string? _labelTooltip;
+
+    protected override void OnParametersSet()
+    {
+        _customFragment = RenderFragmentRegistry.GetDisplayFragment(Descriptor.SectionId, Descriptor.OptionName);
+        _labelTooltip = DnsmasqOptionTooltips.Get(Descriptor.OptionName);
+    }
 }

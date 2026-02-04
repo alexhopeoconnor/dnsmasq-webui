@@ -1,7 +1,7 @@
 @namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig
 @using DnsmasqWebUI.Models.EffectiveConfig
 
-<span class="d-inline-block me-2" title="@(Source?.GetReadOnlyTooltip())">
+<span class="ec-field-value-item" title="@(Source?.GetReadOnlyTooltip())">
     @Value
     @if (Source?.IsReadOnly == true)
     {

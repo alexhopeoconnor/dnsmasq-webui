@@ -14,14 +14,14 @@
     border-bottom: none;
 }
 
-/* Touch-friendly header: min 44px tap target (WCAG 2.5.5) */
+/* Touch-friendly header: min 44px tap target (WCAG 2.5.5), breathing room from edges */
 ::deep .ec-section-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     width: 100%;
     min-height: 2.75rem;
-    padding: 0.5rem 0;
+    padding: 0.625rem 1rem;
     margin: 0;
     border: none;
     border-radius: 0.25rem;
@@ -75,9 +75,10 @@
 }
 
 ::deep .ec-section-body {
-    padding: 0.25rem 0 0.5rem 0;
-    padding-left: 0.5rem;
+    padding: 0.25rem 1rem 0.5rem 1rem;
+    padding-left: 1rem;
     border-left: 2px solid var(--bs-border-color-translucent, rgba(0, 0, 0, 0.075));
+    margin-left: 0;
     overflow-wrap: break-word;
     word-break: break-word;
 }
@@ -93,8 +94,69 @@
     word-break: break-word;
 }
 
+/* Field row: label + value + optional badge. Same structure for custom and default displays. */
+::deep .ec-field {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.5rem;
+    margin-bottom: 0.35rem;
+}
+
+::deep .ec-field:last-child {
+    margin-bottom: 0;
+}
+
+::deep .ec-field-label {
+    flex-shrink: 0;
+    min-width: 0;
+}
+
+::deep .ec-field-value {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+/* Multi-value: full width below label, indented ordered list */
+::deep .ec-field-value-multi {
+    flex-basis: 100%;
+    padding-left: 1.25rem;
+    margin-top: 0.15rem;
+}
+
+::deep .ec-field-value-list {
+    margin: 0;
+    padding-left: 1.25rem;
+    list-style-type: decimal;
+}
+
+::deep .ec-field-value-list li {
+    margin-bottom: 0.2rem;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+::deep .ec-field-value-list li:last-child {
+    margin-bottom: 0;
+}
+
+::deep .ec-field-value-item {
+    display: inline;
+}
+
+::deep .ec-field-value-sep {
+    margin-right: 0.25rem;
+}
+
 @media (max-width: 767.98px) {
+    ::deep .ec-section-header {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
     ::deep .ec-section-body {
-        padding-left: 0.35rem;
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
     }
 }

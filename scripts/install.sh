@@ -13,6 +13,8 @@ LIST=false
 INSTALL_DIR=""
 SYSTEM_INSTALL=false
 SERVICE=false
+UNINSTALL=false
+PURGE=false
 UPDATE=false
 
 # Default install dir (user-writable, no sudo). Overridden by --dir or --system.
@@ -44,7 +46,14 @@ usage() {
   echo "Service (systemd):"
   echo "  --service          Install a systemd unit so the app can run as a service (start on boot)."
   echo "                     With --system: installs system unit (requires root). Without: installs user unit (no sudo)."
+  echo "                     If you already have the other type (user vs system), it is removed first."
   echo "                     Only supported on systemd-based systems; errors if systemd is not available."
+  echo ""
+  echo "Uninstall:"
+  echo "  --uninstall        Remove symlinks and systemd units (user and, if root, system). Does not remove install directory."
+  echo "  --purge            With --uninstall: also remove the install directory (use --dir or --system to specify which)."
+  echo "                     E.g. $0 --uninstall --purge   # remove default user dir"
+  echo "                     sudo $0 --uninstall --purge --system   # also remove /opt/dnsmasq-webui"
   echo ""
   echo "Examples:"
   echo "  $0                          # Install latest (clone: auto repo; curl: use REPO_DEFAULT or --repo)"
@@ -54,6 +63,9 @@ usage() {
   echo "  sudo $0 --system             # System-wide install to /opt, runnable as dnsmasq-webui"
   echo "  $0 --service                 # Install + user systemd service (starts when you log in)"
   echo "  sudo $0 --system --service   # Install + system systemd service (starts at boot)"
+  echo "  $0 --uninstall               # Remove services and symlinks only"
+  echo "  $0 --uninstall --purge       # Remove services, symlinks, and default install dir"
+  echo "  sudo $0 --uninstall --purge --system   # Also remove /opt/dnsmasq-webui"
   echo "  $0 --list                   # List releases"
   echo ""
   echo "After install, configure via appsettings.json or Dnsmasq__* environment variables, then run the binary (or dnsmasq-webui if symlink created). If you used --service, enable/start with systemctl."
@@ -172,6 +184,92 @@ find_asset_url() {
   ' | head -n1
 }
 
+# Remove user systemd unit (stop, disable, rm file). No root. Safe if not present.
+remove_user_service() {
+  if ! command -v systemctl >/dev/null 2>&1; then
+    return 0
+  fi
+  systemctl --user stop dnsmasq-webui.service 2>/dev/null || true
+  systemctl --user disable dnsmasq-webui.service 2>/dev/null || true
+  rm -f "${HOME:-}/.config/systemd/user/dnsmasq-webui.service" 2>/dev/null || true
+  systemctl --user daemon-reload 2>/dev/null || true
+}
+
+# Remove system systemd unit (stop, disable, rm file). Requires root. Safe if not present.
+remove_system_service() {
+  if [ "$(id -u)" -ne 0 ]; then
+    return 0
+  fi
+  if ! command -v systemctl >/dev/null 2>&1; then
+    return 0
+  fi
+  systemctl stop dnsmasq-webui.service 2>/dev/null || true
+  systemctl disable dnsmasq-webui.service 2>/dev/null || true
+  rm -f /etc/systemd/system/dnsmasq-webui.service 2>/dev/null || true
+  systemctl daemon-reload 2>/dev/null || true
+}
+
+# Remove user service for a specific user (by name). Call as root with SUDO_USER.
+# Used when installing system service so the invoking user doesn't keep a user unit.
+remove_user_service_for() {
+  local u
+  u="$1"
+  [ -n "$u" ] || return 0
+  if [ "$(id -u)" -ne 0 ]; then
+    return 0
+  fi
+  # Run as that user to stop/disable and remove their user unit
+  su "$u" -c 'systemctl --user stop dnsmasq-webui.service 2>/dev/null; systemctl --user disable dnsmasq-webui.service 2>/dev/null; rm -f ~/.config/systemd/user/dnsmasq-webui.service; systemctl --user daemon-reload 2>/dev/null' 2>/dev/null || true
+}
+
+# Uninstall: remove services, symlinks, optionally purge install dir(s).
+do_uninstall() {
+  echo "Uninstalling dnsmasq-webui..."
+  # Remove user service (current user)
+  remove_user_service
+  # Remove system service (if root)
+  remove_system_service
+  # Remove symlinks
+  if [ -n "${HOME:-}" ] && [ -L "${HOME}/.local/bin/dnsmasq-webui" ]; then
+    rm -f "${HOME}/.local/bin/dnsmasq-webui"
+    echo "Removed symlink ~/.local/bin/dnsmasq-webui"
+  fi
+  if [ "$(id -u)" -eq 0 ] && [ -L /usr/local/bin/dnsmasq-webui ]; then
+    rm -f /usr/local/bin/dnsmasq-webui
+    echo "Removed symlink /usr/local/bin/dnsmasq-webui"
+  fi
+  if [ "$PURGE" = true ]; then
+    if [ -n "$INSTALL_DIR" ]; then
+      if [ -d "$INSTALL_DIR" ]; then
+        rm -rf "$INSTALL_DIR"
+        echo "Removed directory $INSTALL_DIR"
+      else
+        echo "Directory $INSTALL_DIR not found."
+      fi
+    elif [ "$SYSTEM_INSTALL" = true ] && [ "$(id -u)" -eq 0 ]; then
+      if [ -d /opt/dnsmasq-webui ]; then
+        rm -rf /opt/dnsmasq-webui
+        echo "Removed directory /opt/dnsmasq-webui"
+      else
+        echo "Directory /opt/dnsmasq-webui not found."
+      fi
+    else
+      local default_dir
+      default_dir="$(default_install_dir)"
+      if [ -d "$default_dir" ]; then
+        rm -rf "$default_dir"
+        echo "Removed directory $default_dir"
+      else
+        echo "Directory $default_dir not found."
+      fi
+    fi
+  else
+    echo "Services and symlinks removed. To also remove the install directory, run with --purge (and --dir or --system if needed)."
+  fi
+  echo "Uninstall complete."
+  exit 0
+}
+
 # Main install: fetch release, find asset for RID, download, extract, optionally symlink.
 do_install() {
   check_jq
@@ -250,6 +348,7 @@ do_install() {
 }
 
 # Install systemd unit. Call only when SERVICE=true and systemctl exists.
+# Removes the other service type first (user vs system) so switching works cleanly.
 # $1 = INSTALL_DIR (where DnsmasqWebUI binary and appsettings.json live)
 install_systemd_unit() {
   local dir bin
@@ -260,6 +359,11 @@ install_systemd_unit() {
     return 0
   fi
   if [ "$SYSTEM_INSTALL" = true ]; then
+    # Installing system service: remove existing system unit (idempotent), then remove user unit for whoever ran sudo so they don't have both
+    remove_system_service
+    if [ -n "${SUDO_USER:-}" ]; then
+      remove_user_service_for "$SUDO_USER"
+    fi
     cat > /etc/systemd/system/dnsmasq-webui.service << EOF
 [Unit]
 Description=dnsmasq-webui - Web UI for dnsmasq
@@ -284,6 +388,12 @@ EOF
     echo "  sudo systemctl enable dnsmasq-webui  # already enabled for boot"
     echo "  sudo systemctl status dnsmasq-webui  # check status"
   else
+    # Installing user service: remove existing user unit (idempotent)
+    remove_user_service
+    # We cannot remove system service without root; remind if they might have had one
+    if [ -f /etc/systemd/system/dnsmasq-webui.service ] 2>/dev/null; then
+      echo "Note: A system-wide service also exists. To remove it and use only this user service: sudo $0 --uninstall  (then re-run without --system --service)." >&2
+    fi
     mkdir -p "${HOME:-}/.config/systemd/user"
     cat > "${HOME:-}/.config/systemd/user/dnsmasq-webui.service" << EOF
 [Unit]
@@ -352,6 +462,14 @@ while [ $# -gt 0 ]; do
       SERVICE=true
       shift
       ;;
+    --uninstall)
+      UNINSTALL=true
+      shift
+      ;;
+    --purge)
+      PURGE=true
+      shift
+      ;;
     -*)
       echo "Error: unknown option $1" >&2
       usage >&2
@@ -365,12 +483,39 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# Validate option combinations to prevent mistakes
+if [ "$PURGE" = true ] && [ "$UNINSTALL" != true ]; then
+  echo "Error: --purge must be used with --uninstall. E.g. $0 --uninstall --purge" >&2
+  exit 1
+fi
+if [ "$UNINSTALL" = true ]; then
+  if [ "$UPDATE" = true ] || [ -n "$VERSION" ] || [ "$SERVICE" = true ]; then
+    echo "Error: --uninstall cannot be combined with install/update options (--version, --update, --service). Run uninstall alone, then install if needed." >&2
+    exit 1
+  fi
+  if [ "$LIST" = true ]; then
+    echo "Error: --uninstall cannot be combined with --list." >&2
+    exit 1
+  fi
+fi
 if [ "$LIST" = true ]; then
+  if [ "$UNINSTALL" = true ] || [ "$UPDATE" = true ] || [ "$SERVICE" = true ] || [ -n "$VERSION" ]; then
+    echo "Error: --list lists releases and exits; do not combine with install/uninstall options." >&2
+    exit 1
+  fi
   list_releases
 fi
 
+if [ "$UNINSTALL" = true ]; then
+  if [ "$PURGE" = true ] && [ "$SYSTEM_INSTALL" = true ] && [ "$(id -u)" -ne 0 ]; then
+    echo "Error: --uninstall --purge --system requires root. Run with sudo." >&2
+    exit 1
+  fi
+  do_uninstall
+fi
+
 if [ "$UPDATE" = true ]; then
-  INSTALL_DIR="$(default_install_dir)"
+  [ -z "$INSTALL_DIR" ] && INSTALL_DIR="$(default_install_dir)"
   VERSION="latest"
 fi
 

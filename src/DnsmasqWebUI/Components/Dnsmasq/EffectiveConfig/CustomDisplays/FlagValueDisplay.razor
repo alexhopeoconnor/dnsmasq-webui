@@ -1,0 +1,24 @@
+@namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig.CustomDisplays
+@using DnsmasqWebUI.Models.EffectiveConfig
+
+@* Reusable value-only display for boolean/flag options. Edit mode: checkbox (unless readonly); View: "Enabled" / "Disabled". *@
+@if (DisplayMode == EffectiveConfigDisplayMode.Edit && Descriptor.GetSource()?.IsReadOnly != true)
+{
+    var isSet = Descriptor.GetValue() is bool b && b;
+    <input type="checkbox" class="form-check-input" checked="@isSet" @onchange="OnCheckedChange" />
+}
+else
+{
+    @(Descriptor.GetValue() is bool isSet && isSet ? "Enabled" : "Disabled")
+}
+
+@code {
+    [Parameter] public EffectiveConfigFieldDescriptor Descriptor { get; set; } = null!;
+    [CascadingParameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
+    [Parameter] public EventCallback<bool> CheckedChanged { get; set; }
+
+    private async Task OnCheckedChange(ChangeEventArgs e)
+    {
+        await CheckedChanged.InvokeAsync(e.Value is true);
+    }
+}
