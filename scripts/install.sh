@@ -18,6 +18,14 @@ PURGE=false
 UPDATE=false
 BUILD_FROM_SOURCE=false
 
+# Config to apply at install: env vars DNSMASQ_WEBUI_* and --set KEY=VALUE.
+# CONFIG_SET_FILE: --set args appended during parse. CONFIG_VARS_FILE: built after parse (env first, then --set).
+CONFIG_SET_FILE=""
+CONFIG_VARS_FILE=""
+# Create temp files for config; we'll create CONFIG_VARS_FILE after parsing.
+CONFIG_SET_FILE="$(mktemp)"
+trap 'rm -f "$CONFIG_SET_FILE" "$CONFIG_VARS_FILE"' EXIT
+
 # Default install dir (user-writable, no sudo). Overridden by --dir or --system.
 default_install_dir() {
   echo "${HOME}/.local/share/dnsmasq-webui"
@@ -51,6 +59,12 @@ usage() {
   echo "                     If you already have the other type (user vs system), it is removed first."
   echo "                     Only supported on systemd-based systems; errors if systemd is not available."
   echo ""
+  echo "Config (applied at install for service or written to install dir for manual run):"
+  echo "  --set KEY=VALUE    Set an env var for the app (e.g. Application__ApplicationTitle=Tree DNS, ASPNETCORE_URLS=http://0.0.0.0:8080)."
+  echo "                     Multiple --set allowed. With sudo, use --set (env vars are not passed to the script by default)."
+  echo "  Env: DNSMASQ_WEBUI_*  Any env var starting with DNSMASQ_WEBUI_ is passed through (e.g. DNSMASQ_WEBUI_Application__ApplicationTitle=Tree DNS)."
+  echo "                     For system install with sudo, prefer --set or run with sudo -E to preserve env."
+  echo ""
   echo "Uninstall:"
   echo "  --uninstall        Remove symlinks and systemd units (user and, if root, system). Does not remove install directory."
   echo "  --purge            With --uninstall: also remove the install directory (use --dir or --system to specify which)."
@@ -65,19 +79,64 @@ usage() {
   echo "  sudo $0 --system             # System-wide install to /opt, runnable as dnsmasq-webui"
   echo "  $0 --service                 # Install + user systemd service (starts when you log in)"
   echo "  sudo $0 --system --service   # Install + system systemd service (starts at boot)"
+  echo "  sudo $0 --system --service --set Application__ApplicationTitle=Tree\ DNS --set ASPNETCORE_URLS=http://0.0.0.0:8080"
   echo "  $0 --uninstall               # Remove services and symlinks only"
   echo "  $0 --uninstall --purge       # Remove services, symlinks, and default install dir"
   echo "  sudo $0 --uninstall --purge --system   # Also remove /opt/dnsmasq-webui"
   echo "  $0 --list                   # List releases"
   echo "  $0 --build-from-source      # Build locally (if prebuilt binary fails on your system)"
   echo ""
-  echo "After install, configure via appsettings.json or Dnsmasq__* environment variables, then run the binary (or dnsmasq-webui if symlink created). If you used --service, enable/start with systemctl. If the app fails to start with TypeLoadException or a glibc error, try --build-from-source (requires .NET SDK)."
+  echo "After install, configure via appsettings.json or Dnsmasq__* env vars (or use --set / DNSMASQ_WEBUI_* at install). If you used --service, enable/start with systemctl. If the app fails to start with TypeLoadException or a glibc error, try --build-from-source (requires .NET SDK)."
   exit 0
 }
 
 # Trim whitespace and carriage return (e.g. from script downloaded on Windows or with CRLF).
 trim_repo() {
   echo "$1" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
+}
+
+# Build CONFIG_VARS_FILE from env (DNSMASQ_WEBUI_*) then --set lines. Call before do_install when installing.
+# Result: key=value per line (env first, then --set so --set overrides). Safe for values with = in them.
+collect_config() {
+  CONFIG_VARS_FILE="$(mktemp)"
+  export CONFIG_VARS_FILE
+  # Env vars: strip DNSMASQ_WEBUI_ prefix; key=value per line
+  env | grep '^DNSMASQ_WEBUI_' | while IFS= read -r line; do
+    key="${line%%=*}"
+    key="${key#DNSMASQ_WEBUI_}"
+    value="${line#*=}"
+    printf '%s=%s\n' "$key" "$value" >> "$CONFIG_VARS_FILE"
+  done
+  # --set lines (last occurrence of each key wins when systemd reads the file)
+  [ -s "$CONFIG_SET_FILE" ] && cat "$CONFIG_SET_FILE" >> "$CONFIG_VARS_FILE"
+}
+
+# Write env file for the app/service. $1 = path. Adds ASPNETCORE_URLS=http://0.0.0.0:8080 if not in config (for service).
+# Reads CONFIG_VARS_FILE. Values are escaped for env file (double-quote wrapped, internal " escaped).
+write_env_file() {
+  local path default_urls
+  path="$1"
+  default_urls="${2:-}"   # optional: e.g. "ASPNETCORE_URLS=http://0.0.0.0:8080" to add when missing
+  if [ ! -s "$CONFIG_VARS_FILE" ] && [ -z "$default_urls" ]; then
+    return
+  fi
+  : > "$path"
+  if [ -n "$default_urls" ]; then
+    # Add default only if not already in config
+    if ! grep -q '^ASPNETCORE_URLS=' "$CONFIG_VARS_FILE" 2>/dev/null; then
+      echo "$default_urls" >> "$path"
+    fi
+  fi
+  if [ -s "$CONFIG_VARS_FILE" ]; then
+    while IFS= read -r line; do
+      [ -z "$line" ] && continue
+      key="${line%%=*}"
+      value="${line#*=}"
+      # Escape double quotes in value and wrap in double quotes for env file
+      value="$(printf '%s' "$value" | sed 's/"/\\"/g')"
+      echo "${key}=\"${value}\"" >> "$path"
+    done < "$CONFIG_VARS_FILE"
+  fi
 }
 
 # Detect owner/repo from git remote, REPO_DEFAULT, or require --repo/GITHUB_REPO.
@@ -452,17 +511,20 @@ do_install() {
 
   if [ "$SERVICE" = true ]; then
     install_systemd_unit "$INSTALL_DIR"
+  elif [ -s "$CONFIG_VARS_FILE" ]; then
+    write_env_file "$INSTALL_DIR/dnsmasq-webui.env" "ASPNETCORE_URLS=http://0.0.0.0:8080"
+    echo "Wrote config: $INSTALL_DIR/dnsmasq-webui.env (use when running manually: set -a && . $INSTALL_DIR/dnsmasq-webui.env && set +a && $INSTALL_DIR/dnsmasq-webui)"
   fi
 
-  echo "Configure via appsettings.json in that directory or Dnsmasq__* environment variables (e.g. Dnsmasq__MainConfigPath=/etc/dnsmasq.conf)."
+  echo "Configure via appsettings.json or Dnsmasq__* env vars (or use --set / DNSMASQ_WEBUI_* at install)."
   echo "If the app fails to start with TypeLoadException or a glibc error, try: $0 --build-from-source (requires .NET SDK)."
 }
 
 # Install systemd unit. Call only when SERVICE=true and systemctl exists.
 # Removes the other service type first (user vs system) so switching works cleanly.
-# $1 = INSTALL_DIR (contains dnsmasq-webui runnable and appsettings.json)
+# $1 = INSTALL_DIR. Uses CONFIG_VARS_FILE to write env file; default ASPNETCORE_URLS=http://0.0.0.0:8080.
 install_systemd_unit() {
-  local dir bin
+  local dir bin env_file
   dir="$1"
   if [ -f "$dir/dnsmasq-webui" ]; then
     bin="$dir/dnsmasq-webui"
@@ -478,6 +540,12 @@ install_systemd_unit() {
     if [ -n "${SUDO_USER:-}" ]; then
       remove_user_service_for "$SUDO_USER"
     fi
+    env_file="/etc/default/dnsmasq-webui"
+    # Only write when we have new config so update preserves existing /etc/default/dnsmasq-webui
+    if [ -s "$CONFIG_VARS_FILE" ]; then
+      write_env_file "$env_file" ""
+      echo "Wrote config: $env_file"
+    fi
     cat > /etc/systemd/system/dnsmasq-webui.service << EOF
 [Unit]
 Description=dnsmasq-webui - Web UI for dnsmasq
@@ -488,6 +556,8 @@ Wants=network-online.target
 Type=exec
 WorkingDirectory=$dir
 ExecStart=$bin
+Environment=ASPNETCORE_URLS=http://0.0.0.0:8080
+EnvironmentFile=-$env_file
 Restart=on-failure
 RestartSec=5
 
@@ -508,6 +578,12 @@ EOF
     if [ -f /etc/systemd/system/dnsmasq-webui.service ] 2>/dev/null; then
       echo "Note: A system-wide service also exists. To remove it and use only this user service: sudo $0 --uninstall  (then re-run without --system --service)." >&2
     fi
+    env_file="$dir/dnsmasq-webui.env"
+    # Only write when we have new config or file doesn't exist (first install), so update preserves existing env
+    if [ -s "$CONFIG_VARS_FILE" ] || [ ! -f "$env_file" ]; then
+      write_env_file "$env_file" "ASPNETCORE_URLS=http://0.0.0.0:8080"
+      echo "Wrote config: $env_file"
+    fi
     mkdir -p "${HOME:-}/.config/systemd/user"
     cat > "${HOME:-}/.config/systemd/user/dnsmasq-webui.service" << EOF
 [Unit]
@@ -519,6 +595,7 @@ Wants=network-online.target
 Type=exec
 WorkingDirectory=$dir
 ExecStart=$bin
+EnvironmentFile=$env_file
 Restart=on-failure
 RestartSec=5
 
@@ -574,6 +651,12 @@ while [ $# -gt 0 ]; do
       ;;
     --service)
       SERVICE=true
+      shift
+      ;;
+    --set)
+      shift
+      [ $# -gt 0 ] || { echo "Error: --set requires KEY=VALUE (e.g. Application__ApplicationTitle=Tree DNS)" >&2; exit 1; }
+      echo "$1" >> "$CONFIG_SET_FILE"
       shift
       ;;
     --uninstall)
@@ -640,11 +723,19 @@ if [ "$UNINSTALL" = true ]; then
     exit 1
   fi
   do_uninstall
+  exit 0
+fi
+
+if [ "$LIST" = true ]; then
+  exit 0
 fi
 
 if [ "$UPDATE" = true ]; then
   [ -z "$INSTALL_DIR" ] && INSTALL_DIR="$(default_install_dir)"
   RELEASE_TAG="latest"
 fi
+
+# Merge env (DNSMASQ_WEBUI_*) and --set into CONFIG_VARS_FILE for install/service
+collect_config
 
 do_install

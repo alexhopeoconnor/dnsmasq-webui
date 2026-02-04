@@ -72,13 +72,19 @@ sudo ./scripts/install.sh --system --service     # System service (starts at boo
 
 After install: configure the app (see [Configuration](#configuration)), then start the service: `systemctl --user start dnsmasq-webui` or `sudo systemctl start dnsmasq-webui`. User services run only when you’re logged in unless you enable linger: `loginctl enable-linger`. If you add `--service` later or switch from user to system service (or vice versa), the script removes the previous service type before installing the new one.
 
+**Configure at install:** You can pass config when installing so the app and service are configured in one step. Use **`--set KEY=VALUE`** (e.g. `--set Application__ApplicationTitle=Tree DNS` or `--set ASPNETCORE_URLS=http://0.0.0.0:8080`) or **env vars** with prefix **`DNSMASQ_WEBUI_`** (e.g. `DNSMASQ_WEBUI_Application__ApplicationTitle=Tree DNS`). With `sudo`, env vars are not passed to the script by default—use `--set` or `sudo -E`. The script writes an env file used by the service (system: `/etc/default/dnsmasq-webui`; user: `install-dir/dnsmasq-webui.env`) and sets the service to listen on **port 8080** by default.
+
+```bash
+sudo ./scripts/install.sh --system --service --set Application__ApplicationTitle=Tree\ DNS --set Dnsmasq__MainConfigPath=/etc/dnsmasq.conf --set Dnsmasq__ReloadCommand="systemctl reload dnsmasq"
+```
+
 **Update to latest release:**
 
 ```bash
 ./scripts/install.sh --update
 ```
 
-Reinstalls the latest release into the default user directory (~/.local/share/dnsmasq-webui).
+Reinstalls the latest release into the default user directory (~/.local/share/dnsmasq-webui). Existing env files (`/etc/default/dnsmasq-webui` or `install-dir/dnsmasq-webui.env`) are **not overwritten** on update unless you pass `--set` or `DNSMASQ_WEBUI_*` again.
 
 **Uninstall:**
 
@@ -239,6 +245,8 @@ All scripts live under `scripts/` and are intended for Linux (WSL may work but i
 | `--dir DIR` | Install into DIR instead of default. |
 | `--system` | Install to /opt/dnsmasq-webui and symlink /usr/local/bin/dnsmasq-webui. Requires root (run with sudo). |
 | `--service` | Install a systemd unit so the app runs as a service. With `--system`: system unit (requires root, starts at boot). Without: user unit (no sudo, starts at login). Removes the other type first if present. Only on systemd-based systems. |
+| `--set KEY=VALUE` | Set an env var for the app at install (e.g. `Application__ApplicationTitle=Tree DNS`, `ASPNETCORE_URLS=http://0.0.0.0:8080`). Multiple allowed. Written to the service env file or install-dir `dnsmasq-webui.env` for manual runs. With sudo, prefer `--set` (env is not passed by default). |
+| Env `DNSMASQ_WEBUI_*` | Any env var starting with `DNSMASQ_WEBUI_` is passed through (e.g. `DNSMASQ_WEBUI_Application__ApplicationTitle=Tree DNS`). For system install with sudo use `--set` or `sudo -E`. |
 | `--uninstall` | Remove systemd units and symlinks (user and, if root, system). Does not remove the install directory. |
 | `--purge` | With `--uninstall` only: also remove the install directory. Use `--dir DIR` or `--system` to target a specific location. Errors if used without `--uninstall`. |
 | `-h`, `-?`, `--help` | Show help. |
