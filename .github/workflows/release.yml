@@ -1,5 +1,7 @@
-# Build self-contained binaries for multiple RIDs when a version tag is pushed,
+# Build self-contained binaries for portable Linux RIDs when a version tag is pushed,
 # then create/update the release and attach the zips as release assets.
+# linux-x64 and linux-arm64 are built inside a container (Debian-based SDK image) so
+# the resulting binaries work across glibc-based distros (Ubuntu, Debian, etc.).
 # Run: push a tag (e.g. v1.0.0); the workflow builds that commit and uploads assets.
 name: Release
 
@@ -16,20 +18,28 @@ jobs:
         rid:
           - linux-x64
           - linux-arm64
-          - ubuntu.24.04-x64
-          - ubuntu.22.04-x64
           - linux-musl-x64
           - linux-musl-arm64
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      - name: Publish for ${{ matrix.rid }} (glibc in Docker)
+        if: matrix.rid == 'linux-x64' || matrix.rid == 'linux-arm64'
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/src" -w /src \
+            mcr.microsoft.com/dotnet/sdk:9.0 \
+            ./scripts/publish-self-contained.sh ${{ matrix.rid }}
+
       - name: Setup .NET
+        if: matrix.rid == 'linux-musl-x64' || matrix.rid == 'linux-musl-arm64'
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
 
-      - name: Publish for ${{ matrix.rid }}
+      - name: Publish for ${{ matrix.rid }} (musl on host)
+        if: matrix.rid == 'linux-musl-x64' || matrix.rid == 'linux-musl-arm64'
         run: ./scripts/publish-self-contained.sh ${{ matrix.rid }}
 
       - name: Zip publish output

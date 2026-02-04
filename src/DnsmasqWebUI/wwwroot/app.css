@@ -209,3 +209,21 @@ h1:focus {
 .bi-gear-sm {
     font-size: 1.125rem;
 }
+
+/* Sidebar brand logo – 64px, header stays 3.5rem min-height */
+.sidebar .navbar-brand .brand-logo-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 4rem;   /* 64px */
+    height: 4rem;
+}
+
+.sidebar .navbar-brand .brand-logo {
+    display: block;
+    height: 4rem;
+    width: auto;
+    object-fit: contain;
+    vertical-align: middle;
+}

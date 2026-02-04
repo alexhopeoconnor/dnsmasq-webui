@@ -3,9 +3,7 @@
 # for ASP.NET Core). Copy the publish directory to the target host and run the binary.
 #
 # Platform auto-detection: if you do not pass a RID, the script picks one from /etc/os-release
-# and uname -m. On Ubuntu 24.04/22.04 we use ubuntu.<ver>-<arch> so the runtime matches the
-# host and avoids TypeLoadException seen with generic linux-x64 on those distros. Else we use
-# generic linux-* or linux-musl-* (Alpine). Trimming is off by default because PublishTrimmed
+# and uname -m. We use generic linux-* (glibc) or linux-musl-* (Alpine). Trimming is off by default because PublishTrimmed
 # can cause Blazor routing/404 issues. The script cleans the target RID before publish
 # so previous artefacts (e.g. from a different --trim or RID) cannot pollute the build.
 set -e
@@ -14,6 +12,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROJECT="$REPO_ROOT/src/DnsmasqWebUI/DnsmasqWebUI.csproj"
 
+# Portable RIDs (built in CI). Ubuntu RIDs for local builds only (CI does not build these;
+# use when .NET from distro repo so the binary runs on this machine without TypeLoadException).
 VALID_RIDS="linux-x64 linux-arm64 linux-arm linux-musl-x64 linux-musl-arm64 ubuntu.24.04-x64 ubuntu.24.04-arm64 ubuntu.22.04-x64 ubuntu.22.04-arm64"
 TRIM=false
 CLEAN=true
@@ -30,7 +30,9 @@ detect_arch() {
   esac
 }
 
-# Pick RID from OS and arch so runtime matches host (avoids TypeLoadException on Ubuntu).
+# Pick RID from OS and arch. We only add explicit distro RIDs where we've seen
+# TypeLoadException with portable linux-x64 (Ubuntu when .NET from distro). Alpine
+# uses musl. Other distros (Debian, Fedora, etc.) fall through to linux-x64/linux-arm64.
 default_rid() {
   local arch
   arch="$(detect_arch)"
@@ -64,7 +66,7 @@ while [ $# -gt 0 ]; do
       echo ""
       echo "Build a self-contained folder publish for Linux. If RID is omitted, the script"
       echo "auto-detects from the current OS and architecture (recommended on Ubuntu and Alpine)."
-      echo "Pass options first, then RID if desired (e.g. $0 --trim ubuntu.24.04-x64)."
+      echo "Pass options first, then RID if desired (e.g. $0 --trim linux-x64)."
       echo ""
       echo "Options:"
       echo "  --trim       Enable trimming (smaller output; can cause 404/routing issues with Blazor)"
@@ -79,7 +81,7 @@ while [ $# -gt 0 ]; do
       echo "  Alpine (musl):"
       echo "    linux-musl-x64  Alpine amd64"
       echo "    linux-musl-arm64 Alpine aarch64"
-      echo "  Ubuntu (use on Ubuntu to avoid TypeLoadException with generic RID):"
+      echo "  Ubuntu (local builds only; not in CI releases; use if prebuilt linux-x64 fails):"
       echo "    ubuntu.24.04-x64   ubuntu.24.04-arm64"
       echo "    ubuntu.22.04-x64   ubuntu.22.04-arm64"
       echo ""
@@ -87,11 +89,11 @@ while [ $# -gt 0 ]; do
       echo ""
       echo "Examples:"
       echo "  $0                          # Publish for current machine (auto-detect RID)"
-      echo "  $0 ubuntu.24.04-x64         # Publish for Ubuntu 24.04 amd64"
+      echo "  $0 linux-x64                # Publish for glibc amd64 (Debian, Ubuntu, etc.)"
       echo "  $0 linux-arm64              # Publish for Raspberry Pi 4/5 or other aarch64"
       echo "  $0 linux-musl-x64           # Publish for Alpine (e.g. Docker)"
       echo "  $0 --trim linux-x64         # Smaller build (not recommended for Blazor)"
-      echo "  $0 --no-clean ubuntu.24.04-x64  # Skip clean (faster; same RID/options as last run)"
+      echo "  $0 --no-clean linux-x64     # Skip clean (faster; same RID/options as last run)"
       exit 0
       ;;
     --trim)

@@ -16,6 +16,7 @@ SERVICE=false
 UNINSTALL=false
 PURGE=false
 UPDATE=false
+BUILD_FROM_SOURCE=false
 
 # Default install dir (user-writable, no sudo). Overridden by --dir or --system.
 default_install_dir() {
@@ -36,6 +37,7 @@ usage() {
   echo "  --list             List available releases (tag, name, published_at) and exit."
   echo "  --version TAG      Install from release TAG (e.g. v1.0.0). Default: latest."
   echo "  --update           Reinstall latest into the default user directory (~/.local/share/dnsmasq-webui)."
+  echo "  --build-from-source  Build from source instead of downloading (requires .NET SDK and a git clone; not supported when run via curl | sh). Auto-detects RID for your machine. Use if the prebuilt binary fails to start (e.g. TypeLoadException)."
   echo "  -h, -?, --help     Show this help."
   echo ""
   echo "Install location:"
@@ -67,8 +69,9 @@ usage() {
   echo "  $0 --uninstall --purge       # Remove services, symlinks, and default install dir"
   echo "  sudo $0 --uninstall --purge --system   # Also remove /opt/dnsmasq-webui"
   echo "  $0 --list                   # List releases"
+  echo "  $0 --build-from-source      # Build locally (if prebuilt binary fails on your system)"
   echo ""
-  echo "After install, configure via appsettings.json or Dnsmasq__* environment variables, then run the binary (or dnsmasq-webui if symlink created). If you used --service, enable/start with systemctl."
+  echo "After install, configure via appsettings.json or Dnsmasq__* environment variables, then run the binary (or dnsmasq-webui if symlink created). If you used --service, enable/start with systemctl. If the app fails to start with TypeLoadException or a glibc error, try --build-from-source (requires .NET SDK)."
   exit 0
 }
 
@@ -113,17 +116,15 @@ detect_arch() {
   esac
 }
 
+# Map to portable RIDs only (linux-x64, linux-arm64, linux-musl-*). Ubuntu and other
+# glibc distros use linux-x64/linux-arm64; Alpine uses linux-musl-*. Used for downloading
+# release assets (CI builds portable RIDs only).
 detect_rid() {
   local arch
   arch="$(detect_arch)"
   if [ -f /etc/os-release ]; then
     . /etc/os-release
     case "${ID:-}" in
-      ubuntu)
-        case "${VERSION_ID:-}" in
-          24.04) echo "ubuntu.24.04-$arch"; return ;;
-          22.04) echo "ubuntu.22.04-$arch"; return ;;
-        esac ;;
       alpine)
         case "$arch" in
           x64) echo "linux-musl-x64"; return ;;
@@ -137,6 +138,18 @@ detect_rid() {
     arm) echo "linux-arm" ;;
     *) echo "linux-x64" ;;
   esac
+}
+
+# Print detected environment (OS, arch) for user feedback.
+print_env_detection() {
+  local rid
+  rid="$1"
+  if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    echo "Detected: ${ID:-unknown} ${VERSION_ID:-}, $(uname -m) -> RID $rid"
+  else
+    echo "Detected: $(uname -m) -> RID $rid"
+  fi
 }
 
 # GET release (latest or by tag). Output raw JSON to stdout.
@@ -270,8 +283,97 @@ do_uninstall() {
   exit 0
 }
 
+# Build from source and install to INSTALL_DIR. Requires .NET SDK and running from a git clone.
+do_install_from_source() {
+  local script_dir repo_root publish_output rid publish_dir
+  script_dir="$(cd "$(dirname "$0")" && pwd)"
+  repo_root="$(cd "$script_dir/.." && pwd)"
+
+  if [ ! -f "$repo_root/scripts/publish-self-contained.sh" ]; then
+    echo "Error: --build-from-source requires a git clone (run from the repo directory). Not found: $repo_root/scripts/publish-self-contained.sh" >&2
+    echo "Do not use --build-from-source when installing via 'curl ... | sh'; clone the repo first, then run ./scripts/install.sh --build-from-source" >&2
+    exit 1
+  fi
+  if ! command -v dotnet >/dev/null 2>&1; then
+    echo "Error: --build-from-source requires the .NET SDK. Install from https://dotnet.microsoft.com/download or your distro (e.g. apt install dotnet-sdk-9.0)." >&2
+    exit 1
+  fi
+
+  if [ "$SYSTEM_INSTALL" = true ]; then
+    if [ "$(id -u)" -ne 0 ]; then
+      echo "Error: --system installs to /opt and requires root. Run with sudo: sudo $0 --system --build-from-source" >&2
+      exit 1
+    fi
+    INSTALL_DIR="/opt/dnsmasq-webui"
+  elif [ -z "$INSTALL_DIR" ]; then
+    INSTALL_DIR="$(default_install_dir)"
+  fi
+
+  echo "Building from source (auto-detecting RID for your machine)..."
+  publish_output="$(cd "$repo_root" && ./scripts/publish-self-contained.sh 2>&1)" || exit $?
+  echo "$publish_output"
+  rid="$(echo "$publish_output" | sed -n 's/^Detected RID: \([^ ]*\).*/\1/p')"
+  if [ -z "$rid" ]; then
+    rid="$(echo "$publish_output" | sed -n 's/^Publishing self-contained.* for \([^.]*\)\.\.\./\1/p')"
+  fi
+  if [ -z "$rid" ]; then
+    echo "Error: Could not determine RID from build output." >&2
+    exit 1
+  fi
+  publish_dir="$repo_root/src/DnsmasqWebUI/bin/Release/net9.0/$rid/publish"
+  if [ ! -d "$publish_dir" ] || [ ! -f "$publish_dir/DnsmasqWebUI" ]; then
+    echo "Error: Build output not found at $publish_dir" >&2
+    exit 1
+  fi
+
+  echo "Installing to $INSTALL_DIR ..."
+  mkdir -p "$INSTALL_DIR"
+  cp -a "$publish_dir"/* "$INSTALL_DIR/"
+  ln -sf DnsmasqWebUI "$INSTALL_DIR/dnsmasq-webui" 2>/dev/null || true
+
+  if [ "$SYSTEM_INSTALL" = true ]; then
+    ln -sf "$INSTALL_DIR/dnsmasq-webui" /usr/local/bin/dnsmasq-webui 2>/dev/null || true
+    echo ""
+    echo "Installed to $INSTALL_DIR (system-wide)"
+    echo "Run: dnsmasq-webui   (or $INSTALL_DIR/dnsmasq-webui)"
+  else
+    LOCAL_BIN="${HOME:-}/.local/bin"
+    if [ -n "${HOME:-}" ] && [ -d "$(dirname "$LOCAL_BIN")" ]; then
+      mkdir -p "$LOCAL_BIN"
+      if [ -w "$LOCAL_BIN" ]; then
+        ln -sf "$INSTALL_DIR/dnsmasq-webui" "$LOCAL_BIN/dnsmasq-webui" 2>/dev/null && echo "Symlink: $LOCAL_BIN/dnsmasq-webui -> $INSTALL_DIR/dnsmasq-webui" || true
+      fi
+    fi
+    echo ""
+    echo "Installed to $INSTALL_DIR"
+    echo "Run: $INSTALL_DIR/dnsmasq-webui"
+    if [ -f "$LOCAL_BIN/dnsmasq-webui" ] 2>/dev/null; then
+      echo "  or: dnsmasq-webui   (if ~/.local/bin is in your PATH)"
+    fi
+  fi
+
+  if [ "$SERVICE" = true ]; then
+    if [ "$SYSTEM_INSTALL" = true ] && [ "$(id -u)" -ne 0 ]; then
+      echo "Error: Installing a system service (--service with --system) requires root." >&2
+      exit 1
+    fi
+    if ! command -v systemctl >/dev/null 2>&1; then
+      echo "Error: systemd not found. --service is only supported on systemd-based systems." >&2
+      exit 1
+    fi
+    install_systemd_unit "$INSTALL_DIR"
+  fi
+
+  echo "Configure via appsettings.json in that directory or Dnsmasq__* environment variables (e.g. Dnsmasq__MainConfigPath=/etc/dnsmasq.conf)."
+}
+
 # Main install: fetch release, find asset for RID, download, extract, optionally symlink.
 do_install() {
+  if [ "$BUILD_FROM_SOURCE" = true ]; then
+    do_install_from_source
+    return
+  fi
+
   check_jq
   detect_repo
 
@@ -297,7 +399,7 @@ do_install() {
   fi
 
   rid="$(detect_rid)"
-  echo "Detected RID: $rid"
+  print_env_detection "$rid"
   echo "Fetching release..."
   release_json="$(fetch_release)"
   tag="$(echo "$release_json" | jq -r '.tag_name')"
@@ -317,24 +419,25 @@ do_install() {
   echo "Extracting to $INSTALL_DIR ..."
   unzip -o -q "$tmpzip" -d "$INSTALL_DIR"
   rm -f "$tmpzip"
+  ln -sf DnsmasqWebUI "$INSTALL_DIR/dnsmasq-webui" 2>/dev/null || true
 
   if [ "$SYSTEM_INSTALL" = true ]; then
-    ln -sf "$INSTALL_DIR/DnsmasqWebUI" /usr/local/bin/dnsmasq-webui 2>/dev/null || true
+    ln -sf "$INSTALL_DIR/dnsmasq-webui" /usr/local/bin/dnsmasq-webui 2>/dev/null || true
     echo ""
     echo "Installed to $INSTALL_DIR (system-wide)"
-    echo "Run: dnsmasq-webui   (or $INSTALL_DIR/DnsmasqWebUI)"
+    echo "Run: dnsmasq-webui   (or $INSTALL_DIR/dnsmasq-webui)"
   else
     # User install: create ~/.local/bin symlink so `dnsmasq-webui` works if ~/.local/bin is in PATH
     LOCAL_BIN="${HOME:-}/.local/bin"
     if [ -n "${HOME:-}" ] && [ -d "$(dirname "$LOCAL_BIN")" ]; then
       mkdir -p "$LOCAL_BIN"
       if [ -w "$LOCAL_BIN" ]; then
-        ln -sf "$INSTALL_DIR/DnsmasqWebUI" "$LOCAL_BIN/dnsmasq-webui" 2>/dev/null && echo "Symlink: $LOCAL_BIN/dnsmasq-webui -> $INSTALL_DIR/DnsmasqWebUI" || true
+        ln -sf "$INSTALL_DIR/dnsmasq-webui" "$LOCAL_BIN/dnsmasq-webui" 2>/dev/null && echo "Symlink: $LOCAL_BIN/dnsmasq-webui -> $INSTALL_DIR/dnsmasq-webui" || true
       fi
     fi
     echo ""
     echo "Installed to $INSTALL_DIR"
-    echo "Run: $INSTALL_DIR/DnsmasqWebUI"
+    echo "Run: $INSTALL_DIR/dnsmasq-webui"
     if [ -f "$LOCAL_BIN/dnsmasq-webui" ] 2>/dev/null; then
       echo "  or: dnsmasq-webui   (if ~/.local/bin is in your PATH)"
     fi
@@ -345,17 +448,21 @@ do_install() {
   fi
 
   echo "Configure via appsettings.json in that directory or Dnsmasq__* environment variables (e.g. Dnsmasq__MainConfigPath=/etc/dnsmasq.conf)."
+  echo "If the app fails to start with TypeLoadException or a glibc error, try: $0 --build-from-source (requires .NET SDK)."
 }
 
 # Install systemd unit. Call only when SERVICE=true and systemctl exists.
 # Removes the other service type first (user vs system) so switching works cleanly.
-# $1 = INSTALL_DIR (where DnsmasqWebUI binary and appsettings.json live)
+# $1 = INSTALL_DIR (contains dnsmasq-webui runnable and appsettings.json)
 install_systemd_unit() {
   local dir bin
   dir="$1"
-  bin="$dir/DnsmasqWebUI"
-  if [ ! -f "$bin" ]; then
-    echo "Warning: Binary $bin not found; skipping systemd unit install." >&2
+  if [ -f "$dir/dnsmasq-webui" ]; then
+    bin="$dir/dnsmasq-webui"
+  elif [ -f "$dir/DnsmasqWebUI" ]; then
+    bin="$dir/DnsmasqWebUI"
+  else
+    echo "Warning: No binary found in $dir; skipping systemd unit install." >&2
     return 0
   fi
   if [ "$SYSTEM_INSTALL" = true ]; then
@@ -470,6 +577,10 @@ while [ $# -gt 0 ]; do
       PURGE=true
       shift
       ;;
+    --build-from-source)
+      BUILD_FROM_SOURCE=true
+      shift
+      ;;
     -*)
       echo "Error: unknown option $1" >&2
       usage >&2
@@ -488,16 +599,26 @@ if [ "$PURGE" = true ] && [ "$UNINSTALL" != true ]; then
   echo "Error: --purge must be used with --uninstall. E.g. $0 --uninstall --purge" >&2
   exit 1
 fi
-if [ "$UNINSTALL" = true ]; then
-  if [ "$UPDATE" = true ] || [ -n "$VERSION" ] || [ "$SERVICE" = true ]; then
-    echo "Error: --uninstall cannot be combined with install/update options (--version, --update, --service). Run uninstall alone, then install if needed." >&2
-    exit 1
+  if [ "$UNINSTALL" = true ]; then
+    if [ "$UPDATE" = true ] || [ -n "$VERSION" ] || [ "$SERVICE" = true ] || [ "$BUILD_FROM_SOURCE" = true ]; then
+      echo "Error: --uninstall cannot be combined with install/update options (--version, --update, --service, --build-from-source). Run uninstall alone, then install if needed." >&2
+      exit 1
+    fi
+    if [ "$LIST" = true ]; then
+      echo "Error: --uninstall cannot be combined with --list." >&2
+      exit 1
+    fi
   fi
-  if [ "$LIST" = true ]; then
-    echo "Error: --uninstall cannot be combined with --list." >&2
-    exit 1
+  if [ "$BUILD_FROM_SOURCE" = true ]; then
+    if [ "$LIST" = true ]; then
+      echo "Error: --build-from-source cannot be combined with --list." >&2
+      exit 1
+    fi
+    if [ -n "$VERSION" ] || [ "$UPDATE" = true ]; then
+      echo "Error: --build-from-source builds from current source; do not use --version or --update." >&2
+      exit 1
+    fi
   fi
-fi
 if [ "$LIST" = true ]; then
   if [ "$UNINSTALL" = true ] || [ "$UPDATE" = true ] || [ "$SERVICE" = true ] || [ -n "$VERSION" ]; then
     echo "Error: --list lists releases and exits; do not combine with install/uninstall options." >&2

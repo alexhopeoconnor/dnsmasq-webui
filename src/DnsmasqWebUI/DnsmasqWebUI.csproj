@@ -4,6 +4,9 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Avoid pre-compressed .br/.gz so MapStaticAssets serves uncompressed files (fixes 0-byte/empty response bug). -->
+    <DisableBuildCompression>true</DisableBuildCompression>
+    <PublishCompressionFormats></PublishCompressionFormats>
   </PropertyGroup>
 
   <ItemGroup>

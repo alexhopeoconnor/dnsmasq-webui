@@ -50,7 +50,7 @@ By default the script installs to **`~/.local/share/dnsmasq-webui`** and creates
 ```bash
 dnsmasq-webui
 # or
-~/.local/share/dnsmasq-webui/DnsmasqWebUI
+~/.local/share/dnsmasq-webui/dnsmasq-webui
 ```
 
 **System-wide install (requires sudo):**
@@ -97,6 +97,8 @@ sudo ./scripts/install.sh --uninstall --purge --system   # Also remove /opt/dnsm
 ```
 
 **Installing from a fork:** Pass the repo explicitly: `./scripts/install.sh --repo owner/dnsmasq-webui` or set `GITHUB_REPO=owner/dnsmasq-webui`. The default repo is `alexhopeoconnor/dnsmasq-webui`.
+
+**If the binary fails to run** (e.g. `TypeLoadException` or glibc errors): use the install script with `--build-from-source` so the app is built for your machine. This requires the .NET SDK and a **git clone** (it does not work when installing via `curl ... | sh`). Clone the repo, then run `./scripts/install.sh --build-from-source`. The script checks that .NET is installed, detects your OS/arch, and builds (on Ubuntu it may use a distro-specific RID for a better match). Other distros use the portable RID and may still hit runtime issues; building from source on the target machine is the most reliable.
 
 **Configuration:** Set at least `Dnsmasq__MainConfigPath` to your main dnsmasq config. See [Configuration](#configuration) for all options.
 
@@ -200,9 +202,19 @@ The app is configured via **appsettings.json**, **environment variables**, and *
 | `StatusShowCommand` | Optional: full status output (e.g. systemctl status) | `systemctl status dnsmasq --no-pager` |
 | `LogsCommand` | Optional: recent logs (e.g. journalctl) | `journalctl -u dnsmasq -n 100 --no-pager` |
 
+**Application options** (use `Application__` prefix for env, `Application` section in JSON):
+
+| Option | Description | Example |
+|--------|-------------|---------|
+| `ApplicationTitle` | Title shown in the sidebar brand and browser tab (default: "Local DNS") | `"ApplicationTitle": "My DNS"` or `Application__ApplicationTitle=My DNS` |
+
 **Host / URLs:** `ASPNETCORE_URLS=http://0.0.0.0:8080` or `--urls=http://0.0.0.0:8080` to bind to a specific address and port.
 
-Place `appsettings.json` in the same directory as the executable (or use the default project paths when running with `dotnet run`).
+Place `appsettings.json` in the same directory as the executable (or use the default project paths when running with `dotnet run`). You can override any option via environment variables using the `Dnsmasq__` prefix (e.g. `Dnsmasq__MainConfigPath=/path/to/dnsmasq.conf`). To use the repo test config:
+
+```bash
+Dnsmasq__MainConfigPath=/path/to/dnsmasq-webui/testdata/dnsmasq-test.conf dnsmasq-webui
+```
 
 ---
 

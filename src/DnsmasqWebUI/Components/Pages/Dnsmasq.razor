@@ -48,13 +48,9 @@ else if (_status != null)
             </ul>
         }
         <EffectiveConfigSection Status="_status" />
-        @if (_status.DnsmasqStatus != "active" && (_status.StatusCommandStdout != null || _status.StatusCommandStderr != null))
-        {
-            <pre class="pre-block mt-2 mb-0" style="max-height: 12rem;">@(_status.StatusCommandStdout != null ? _status.StatusCommandStdout : "")@(_status.StatusCommandStdout != null && _status.StatusCommandStderr != null ? "\n" : "")@(_status.StatusCommandStderr ?? "")</pre>
-        }
         @if (_status.ReloadCommandConfigured)
         {
-            <div class="d-flex align-items-center gap-2 flex-wrap">
+            <div class="d-flex align-items-center gap-2 flex-wrap mt-3">
                 <button class="btn btn-primary btn-sm" @onclick="ReloadDnsmasq" disabled="@_reloading">
                     @if (_reloading)
                     {

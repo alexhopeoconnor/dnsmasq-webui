@@ -3,7 +3,11 @@ using DnsmasqWebUI.Extensions;
 using DnsmasqWebUI.Configuration;
 using Microsoft.Extensions.Options;
 
-var builder = WebApplication.CreateBuilder(args);
+// When not in Development, use the app's directory (not CWD) so static assets work when run via symlink or from any CWD.
+var isDevelopment = string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
+var builder = isDevelopment
+    ? WebApplication.CreateBuilder(args)
+    : WebApplication.CreateBuilder(new WebApplicationOptions { ContentRootPath = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), Args = args });
 
 // ---- Application options (title, etc.) ----
 builder.Services.AddOptions<ApplicationOptions>()
@@ -55,7 +59,8 @@ app.UseAntiforgery();
 
 // ---- Endpoints ----
 app.MapControllers();
-app.MapStaticAssets();
+// UseStaticFiles: MapStaticAssets returns 0-byte responses for fingerprinted assets (known bug). Serve from wwwroot directly.
+app.UseStaticFiles();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
