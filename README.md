@@ -36,7 +36,7 @@ The recommended way to get a prebuilt binary is the **install script**. It picks
 **Quick start:**
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/alexhopeoconnor/dnsmasq-webui/main/scripts/install.sh | sh
+curl -sSL https://raw.githubusercontent.com/alexhopeoconnor/dnsmasq-webui/master/scripts/install.sh | sh
 ```
 
 **From a git clone** (repo is detected from `git remote origin`):
@@ -249,7 +249,7 @@ Invalid combinations (script errors with a clear message): `--purge` without `--
 
 1. **Run one command to get a runnable binary for your OS/arch** (no repo or build choice needed).  
    Script detects RID and default repo (or git origin), downloads the matching zip, extracts it, and creates a symlink when possible.  
-   **Commands:** `curl -sSL https://raw.githubusercontent.com/alexhopeoconnor/dnsmasq-webui/main/scripts/install.sh | sh` or `./scripts/install.sh`
+   **Commands:** `curl -sSL https://raw.githubusercontent.com/alexhopeoconnor/dnsmasq-webui/master/scripts/install.sh | sh` or `./scripts/install.sh`
 
 2. **Install into your home directory by default** (no root).  
    Default is `~/.local/share/dnsmasq-webui`; symlink in `~/.local/bin` if writable.  
@@ -530,4 +530,4 @@ To add or change the repository license (e.g. with GitHub CLI): `gh repo license
 
 ## Disclaimer
 
-This codebase was developed with the help of AI-assisted tooling (including LLM-based development tools). It has been reviewed and is maintained by humans. Use it at your own risk; no warranty is provided. See the [LICENSE](LICENSE) for terms.
+This codebase was developed with the help of AI-assisted tooling (including LLM-based development tools). No warranty is provided. See the [LICENSE](LICENSE) for terms.

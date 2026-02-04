@@ -75,22 +75,29 @@ usage() {
   exit 0
 }
 
+# Trim whitespace and carriage return (e.g. from script downloaded on Windows or with CRLF).
+trim_repo() {
+  echo "$1" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
+}
+
 # Detect owner/repo from git remote, REPO_DEFAULT, or require --repo/GITHUB_REPO.
 detect_repo() {
   if [ -n "$GITHUB_REPO" ]; then
+    GITHUB_REPO="$(trim_repo "$GITHUB_REPO")"
     return
   fi
   if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     origin="$(git remote get-url origin 2>/dev/null)" || true
     if [ -n "$origin" ]; then
       GITHUB_REPO="$(echo "$origin" | sed -E 's|^https://github\.com/||; s|^git@github\.com:||; s|\.git$||; s|/$||')"
+      GITHUB_REPO="$(trim_repo "$GITHUB_REPO")"
       if [ -n "$GITHUB_REPO" ]; then
         return
       fi
     fi
   fi
   if [ -n "$REPO_DEFAULT" ]; then
-    GITHUB_REPO="$REPO_DEFAULT"
+    GITHUB_REPO="$(trim_repo "$REPO_DEFAULT")"
     return
   fi
   echo "Error: GitHub repo not set. Use --repo owner/repo, set GITHUB_REPO, or run from a clone. For the one-liner, set REPO_DEFAULT in the script." >&2
@@ -404,7 +411,7 @@ do_install() {
   release_json="$(fetch_release)"
   tag="$(echo "$release_json" | jq -r '.tag_name')"
   echo "Release: $tag"
-  url="$(find_asset_url "$release_json" "$rid")"
+  url="$(find_asset_url "$release_json" "$rid" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
   if [ -z "$url" ] || [ "$url" = "null" ]; then
     echo "Error: No asset found for RID $rid in release $tag." >&2
     echo "Available assets:" >&2
