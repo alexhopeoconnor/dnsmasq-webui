@@ -1,4 +1,4 @@
-using System.Text;
+using DnsmasqWebUI.Infrastructure;
 using DnsmasqWebUI.Models.Hosts;
 using DnsmasqWebUI.Parsers;
 using DnsmasqWebUI.Services.Abstractions;
@@ -36,7 +36,7 @@ public class HostsFileService : IHostsFileService
 
         var tmpPath = path + ".tmp";
         var lines = entries.Select(HostsFileLineParser.ToLine).ToList();
-        await File.WriteAllLinesAsync(tmpPath, lines, Encoding.UTF8, ct);
+        await File.WriteAllLinesAsync(tmpPath, lines, DnsmasqFileEncoding.Utf8NoBom, ct);
         File.Move(tmpPath, path, overwrite: true);
         _hostsCache.NotifyWeWroteManagedHosts(entries);
         _logger.LogInformation("Wrote managed hosts file: {Path}", path);

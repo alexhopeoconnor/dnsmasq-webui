@@ -1,4 +1,5 @@
 using System.Text;
+using DnsmasqWebUI.Infrastructure;
 using DnsmasqWebUI.Models.Config;
 using DnsmasqWebUI.Models.Dhcp;
 using DnsmasqWebUI.Models.EffectiveConfig;
@@ -82,7 +83,7 @@ public class DnsmasqConfigService : IDnsmasqConfigService
         var dir = Path.GetDirectoryName(managedHostsPath);
         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
             Directory.CreateDirectory(dir);
-        File.WriteAllText(managedHostsPath, "");
+        File.WriteAllText(managedHostsPath, "", DnsmasqFileEncoding.Utf8NoBom);
     }
 
     public async Task WriteDhcpHostsAsync(IReadOnlyList<DhcpHostEntry> entries, CancellationToken ct = default)
@@ -110,7 +111,10 @@ public class DnsmasqConfigService : IDnsmasqConfigService
 
         IReadOnlyList<string> rawLines;
         if (File.Exists(path))
-            rawLines = await File.ReadAllLinesAsync(path, Encoding.UTF8, ct);
+        {
+            var read = await File.ReadAllLinesAsync(path, DnsmasqFileEncoding.Utf8NoBom, ct);
+            rawLines = StripBomFromFirstLine(read);
+        }
         else
             rawLines = Array.Empty<string>();
 
@@ -136,7 +140,7 @@ public class DnsmasqConfigService : IDnsmasqConfigService
             output.Add(DnsmasqConfDhcpHostLineParser.ToLine(entry));
 
         var tmpPath = path + ".tmp";
-        await File.WriteAllLinesAsync(tmpPath, output, Encoding.UTF8, ct);
+        await File.WriteAllLinesAsync(tmpPath, output, DnsmasqFileEncoding.Utf8NoBom, ct);
         File.Move(tmpPath, path, overwrite: true);
         EnsureManagedHostsFileExists(set.ManagedHostsFilePath);
         var effectiveHostsPathDhcp = configLines.OfType<AddnHostsLine>().FirstOrDefault()?.AddnHostsPath ?? "";
@@ -152,7 +156,7 @@ public class DnsmasqConfigService : IDnsmasqConfigService
         foreach (var file in set.Files.Where(f => !f.IsManaged && !string.Equals(f.Path, managedPath, StringComparison.Ordinal)))
         {
             if (!File.Exists(file.Path)) continue;
-            var lines = await File.ReadAllLinesAsync(file.Path, Encoding.UTF8, ct);
+            var lines = await File.ReadAllLinesAsync(file.Path, DnsmasqFileEncoding.Utf8NoBom, ct);
             var configLines = DnsmasqConfFileLineParser.ParseFile(lines);
             foreach (var dhcp in configLines.OfType<DhcpHostLine>().Select(c => c.DhcpHost))
             {
@@ -191,11 +195,25 @@ public class DnsmasqConfigService : IDnsmasqConfigService
         var output = list.Select(DnsmasqConfFileLineParser.ToLine).ToList();
 
         var tmpPath = path + ".tmp";
-        await File.WriteAllLinesAsync(tmpPath, output, Encoding.UTF8, ct);
+        await File.WriteAllLinesAsync(tmpPath, output, DnsmasqFileEncoding.Utf8NoBom, ct);
         File.Move(tmpPath, path, overwrite: true);
         EnsureManagedHostsFileExists(set.ManagedHostsFilePath);
         var effectiveHostsPath = list.OfType<AddnHostsLine>().FirstOrDefault()?.AddnHostsPath ?? "";
         _configSetCache.NotifyWeWroteManagedConfig(new ManagedConfigContent(list, effectiveHostsPath));
         _logger.LogInformation("Wrote managed config file: {Path}", path);
+    }
+
+    /// <summary>Strip UTF-8 BOM from first line if present.</summary>
+    private static IReadOnlyList<string> StripBomFromFirstLine(IReadOnlyList<string> lines)
+    {
+        if (lines.Count == 0) return lines;
+        var first = lines[0];
+        if (first.Length > 0 && first[0] == '\uFEFF')
+        {
+            var list = lines.ToList();
+            list[0] = first[1..];
+            return list;
+        }
+        return lines;
     }
 }

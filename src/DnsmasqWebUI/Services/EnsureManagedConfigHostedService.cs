@@ -1,4 +1,5 @@
 using System.Text;
+using DnsmasqWebUI.Infrastructure;
 using DnsmasqWebUI.Models.Config;
 using DnsmasqWebUI.Models.EffectiveConfig;
 using DnsmasqWebUI.Configuration;
@@ -48,8 +49,9 @@ public class EnsureManagedConfigHostedService : IApplicationHostedService
         var confFileLine = "conf-file=" + Path.GetRelativePath(mainDir, managedPath);
 
         var lines = File.Exists(mainFull)
-            ? (await File.ReadAllLinesAsync(mainFull, Encoding.UTF8, cancellationToken)).ToList()
+            ? (await File.ReadAllLinesAsync(mainFull, DnsmasqFileEncoding.Utf8NoBom, cancellationToken)).ToList()
             : new List<string>();
+        StripBomFromFirstLine(lines);
 
         // Remove any conf-file= line that points to our managed path (we will add it as the last line).
         for (var i = lines.Count - 1; i >= 0; i--)
@@ -75,12 +77,12 @@ public class EnsureManagedConfigHostedService : IApplicationHostedService
             if (lines.Count > 0 && !string.IsNullOrWhiteSpace(lines[^1]))
                 lines.Add("");
             lines.Add(confFileLine);
-            await File.WriteAllLinesAsync(mainFull, lines, Encoding.UTF8, cancellationToken);
+            await File.WriteAllLinesAsync(mainFull, lines, DnsmasqFileEncoding.Utf8NoBom, cancellationToken);
             _logger.LogInformation("Set {Line} as the last line of main config {Path} so the managed file is included only by conf-file=.", confFileLine, mainFull);
         }
         else
         {
-            await File.WriteAllLinesAsync(mainFull, lines, Encoding.UTF8, cancellationToken);
+            await File.WriteAllLinesAsync(mainFull, lines, DnsmasqFileEncoding.Utf8NoBom, cancellationToken);
         }
 
         Directory.CreateDirectory(managedDir);
@@ -90,6 +92,15 @@ public class EnsureManagedConfigHostedService : IApplicationHostedService
 
         _logger.LogInformation("Creating managed config file at startup: {Path}", set.ManagedFilePath);
         await configService.WriteManagedConfigAsync(Array.Empty<DnsmasqConfLine>(), cancellationToken);
+    }
+
+    /// <summary>Strip UTF-8 BOM from first line if present, so we do not perpetuate it when writing.</summary>
+    private static void StripBomFromFirstLine(List<string> lines)
+    {
+        if (lines.Count == 0) return;
+        var first = lines[0];
+        if (first.Length > 0 && first[0] == '\uFEFF')
+            lines[0] = first[1..];
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
