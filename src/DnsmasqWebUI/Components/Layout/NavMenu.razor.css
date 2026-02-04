@@ -31,12 +31,12 @@
     color: white !important;
 }
 
-.brand-icon {
-    display: inline-flex;
+.brand-logo {
+    display: block;
     flex-shrink: 0;
-    color: rgba(255, 255, 255, 0.95);
-    font-size: 1.5rem;
-    vertical-align: -0.125em;
+    height: 1.75rem;
+    width: auto;
+    vertical-align: middle;
 }
 
 /* Bootstrap Icons in nav: white, sized to match link text */
