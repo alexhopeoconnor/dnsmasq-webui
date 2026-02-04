@@ -219,6 +219,7 @@ print_env_detection() {
 }
 
 # GET release (latest or by tag). Output raw JSON to stdout.
+# Use </dev/null so curl does not consume stdin (script when run via curl | sh).
 fetch_release() {
   local api_url
   if [ -z "$RELEASE_TAG" ] || [ "$RELEASE_TAG" = "latest" ]; then
@@ -226,7 +227,7 @@ fetch_release() {
   else
     api_url="https://api.github.com/repos/$GITHUB_REPO/releases/tags/$RELEASE_TAG"
   fi
-  resp="$(curl -sSL -A "dnsmasq-webui-install/1.0" -w "\n%{http_code}" "$api_url")"
+  resp="$(curl -sSL -A "dnsmasq-webui-install/1.0" -w "\n%{http_code}" "$api_url" </dev/null)"
   code="$(echo "$resp" | tail -n1)"
   body="$(echo "$resp" | sed '$d')"
   if [ "$code" != "200" ]; then
@@ -242,7 +243,7 @@ list_releases() {
   check_jq
   detect_repo
   api_url="https://api.github.com/repos/$GITHUB_REPO/releases?per_page=20"
-  resp="$(curl -sSL -A "dnsmasq-webui-install/1.0" -w "\n%{http_code}" "$api_url")"
+  resp="$(curl -sSL -A "dnsmasq-webui-install/1.0" -w "\n%{http_code}" "$api_url" </dev/null)"
   code="$(echo "$resp" | tail -n1)"
   body="$(echo "$resp" | sed '$d')"
   if [ "$code" != "200" ]; then
@@ -440,6 +441,7 @@ do_install() {
     return
   fi
 
+  echo "Installing dnsmasq-webui..."
   check_jq
   detect_repo
 
@@ -481,7 +483,7 @@ do_install() {
   mkdir -p "$INSTALL_DIR"
   tmpzip="${TMPDIR:-/tmp}/dnsmasq-webui-$rid.zip"
   echo "Downloading $url ..."
-  curl -sSL -A "dnsmasq-webui-install/1.0" -o "$tmpzip" "$url"
+  curl -sSL -A "dnsmasq-webui-install/1.0" -o "$tmpzip" "$url" </dev/null
   echo "Extracting to $INSTALL_DIR ..."
   unzip -o -q "$tmpzip" -d "$INSTALL_DIR"
   rm -f "$tmpzip"
