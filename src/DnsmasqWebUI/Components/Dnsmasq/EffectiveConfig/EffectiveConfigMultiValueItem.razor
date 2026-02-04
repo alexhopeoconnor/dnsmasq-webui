@@ -1,0 +1,15 @@
+@namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Models.EffectiveConfig
+
+<span class="d-inline-block me-2" title="@(Source?.GetReadOnlyTooltip())">
+    @Value
+    @if (Source?.IsReadOnly == true)
+    {
+        <span class="badge bg-secondary ms-1">readonly</span>
+    }
+</span>
+
+@code {
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public ConfigValueSource? Source { get; set; }
+}

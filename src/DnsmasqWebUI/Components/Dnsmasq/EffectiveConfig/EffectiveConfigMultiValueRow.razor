@@ -1,10 +1,24 @@
 @namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Models.EffectiveConfig
 
 <li>
-    <strong>@Label:</strong> @Content
+    <strong>@Label:</strong>
+    @if (Items?.Count > 0)
+    {
+        @for (var i = 0; i < Items.Count; i++)
+        {
+            if (i > 0) { <span class="me-2">, </span> }
+            var item = Items[i];
+            <EffectiveConfigMultiValueItem Value="@item.Value" Source="@item.Source" />
+        }
+    }
+    else
+    {
+        <span class="text-muted">(none)</span>
+    }
 </li>
 
 @code {
     [Parameter] public string Label { get; set; } = "";
-    [Parameter] public MarkupString Content { get; set; }
+    [Parameter] public IReadOnlyList<ValueWithSource>? Items { get; set; }
 }

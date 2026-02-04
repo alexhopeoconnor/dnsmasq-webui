@@ -3,7 +3,7 @@
 # (app + dnsmasq + DHCP client). See testdata/README.md and docker-compose.test.yml.
 #
 # What this script does:
-#   Start (default): clear mount (unless --no-clear), sync source -> mount, remove *dnsmasq-webui*.conf,
+#   Start (default): clear mount (unless --no-clear), sync source -> mount, clean up previous test data,
 #     then docker compose up -d [--build] [--force-recreate].
 #   --stop: docker compose down (stop and remove containers/networks).
 #   --tidy: docker compose down, then clear the mount directory for a clean next run.
@@ -16,7 +16,7 @@ COMPOSE_FILE="docker-compose.test.yml"
 SOURCE_DIR=""
 MOUNT_DIR=""
 PREPARE_ONLY=false
-NO_BUILD=false
+BUILD=false
 RECREATE=false
 NO_CLEAR=false
 STOP=false
@@ -25,13 +25,12 @@ TIDY=false
 usage() {
   echo "Usage: $0 [OPTIONS] [--]"
   echo ""
-  echo "Prepare the testdata mount directory and optionally start the Docker test harness"
-  echo "(app with dnsmasq in one container, plus a DHCP client). The mount is synced from"
-  echo "testdata/ by default (includes sample leases file so the harness shows leases)."
+  echo "Prepare the testdata mount directory and optionally start or stop the Docker test harness"
+  echo "(app + dnsmasq + DHCP client). By default: clear mount, sync testdata -> mount, then up -d (no rebuild)."
   echo ""
-  echo "Steps:"
+  echo "Steps (when starting):"
   echo "  1. Clear mount dir (unless --no-clear), then sync source -> mount."
-  echo "  2. Remove any leftover *dnsmasq-webui*.conf so dnsmasq starts clean."
+  echo "  2. Clean up previous test data (e.g. managed config) so the harness starts clean."
   echo "  3. If not --prepare-only: docker compose -f $COMPOSE_FILE up -d [options]."
   echo ""
   echo "Path options:"
@@ -47,31 +46,32 @@ usage() {
   echo "Compose behaviour:"
   echo "  --prepare-only      Only prepare the mount; do not run docker compose."
   echo "                      Use to inspect or edit the mount before starting containers."
-  echo "  --no-build           Do not pass --build to docker compose (use existing images)."
-  echo "                      Use for a quick restart when only the mount changed."
-  echo "  --recreate           Pass --force-recreate to docker compose (recreate containers)."
+  echo "  --build             Pass --build to docker compose (rebuild images before starting)."
+  echo "                      Use after changing the app or Dockerfile. Default: use existing images."
+  echo "  --no-build          Do not rebuild (default). Use existing images for a quick restart."
+  echo "  --recreate          Pass --force-recreate to docker compose (recreate containers)."
   echo "                      Use to ensure fresh container state and mounts."
   echo ""
-  echo "Stop / tidy:"
+  echo "Stop / tidy (take precedence: other options are ignored when used):"
   echo "  --stop              Stop the test harness: docker compose down (no prepare, no start)."
   echo "  --tidy              Stop the harness and clear the mount directory for a clean next run."
   echo "                      Uses default mount dir unless --mount DIR is given."
   echo ""
   echo "Other:"
-  echo "  -h, --help          Show this help and exit."
+  echo "  -h, -?, --help      Show this help and exit."
   echo ""
   echo "Examples:"
   echo "  $0"
-  echo "                      Full run: clear mount, sync testdata, build and start containers."
+  echo "                      Full run: clear mount, sync testdata, start containers (no rebuild)."
   echo ""
-  echo "  $0 --no-build"
-  echo "                      Clear and sync, then start containers without rebuilding images."
+  echo "  $0 --build"
+  echo "                      Clear and sync, then rebuild images and start containers."
   echo ""
   echo "  $0 --recreate"
-  echo "                      Clear and sync, then up --build --force-recreate (clean containers)."
+  echo "                      Clear and sync, then up -d --force-recreate (fresh containers)."
   echo ""
-  echo "  $0 --no-clear --no-build"
-  echo "                      Preserve mount contents, sync over it, start without rebuild."
+  echo "  $0 --no-clear"
+  echo "                      Preserve mount contents, sync over it, start (no rebuild)."
   echo ""
   echo "  $0 --prepare-only"
   echo "                      Only clear and sync testdata -> testdata-mount; no containers."
@@ -90,7 +90,7 @@ usage() {
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    -h|--help)
+    -h|-?|--help)
       usage
       exit 0
       ;;
@@ -114,8 +114,12 @@ while [ $# -gt 0 ]; do
       PREPARE_ONLY=true
       shift
       ;;
+    --build)
+      BUILD=true
+      shift
+      ;;
     --no-build)
-      NO_BUILD=true
+      BUILD=false
       shift
       ;;
     --recreate)
@@ -134,13 +138,24 @@ while [ $# -gt 0 ]; do
       shift
       break
       ;;
-    *)
+    -?*)
       echo "Error: unknown option $1" >&2
+      usage >&2
+      exit 1
+      ;;
+    *)
+      echo "Error: unexpected argument: $1" >&2
       usage >&2
       exit 1
       ;;
   esac
 done
+
+if [ $# -gt 0 ]; then
+  echo "Error: unexpected argument: $1" >&2
+  usage >&2
+  exit 1
+fi
 
 cd "$REPO_ROOT"
 
@@ -186,23 +201,28 @@ else
   rm -f "$MOUNT_DIR/leases"
 fi
 
-# Remove any leftover managed config from previous runs so dnsmasq starts clean (app will create zz-dnsmasq-webui.conf on startup).
+# Clean up previous test data (e.g. managed config) so the harness starts clean (app will create zz-dnsmasq-webui.conf on startup).
 find "$MOUNT_DIR" -name '*dnsmasq-webui*.conf' -type f -delete 2>/dev/null || true
 
 echo "Mount directory ready: $MOUNT_DIR (source: $SOURCE_DIR)."
 
 if [ "$PREPARE_ONLY" = true ]; then
-  echo "To start the harness: TESTDATA_MOUNT=./$MOUNT_DIR docker compose -f $COMPOSE_FILE up -d --build"
+  case "$MOUNT_DIR" in
+    /*) MOUNT_EXPORT="$MOUNT_DIR" ;;
+    *)  MOUNT_EXPORT="./$MOUNT_DIR" ;;
+  esac
+  echo "To start the harness: TESTDATA_MOUNT=$MOUNT_EXPORT docker compose -f $COMPOSE_FILE up -d [--build]"
   exit 0
 fi
 
 # Compose uses TESTDATA_MOUNT for the data volume (default: ./testdata-mount)
-export TESTDATA_MOUNT="./$MOUNT_DIR"
+case "$MOUNT_DIR" in
+  /*) export TESTDATA_MOUNT="$MOUNT_DIR" ;;
+  *)  export TESTDATA_MOUNT="./$MOUNT_DIR" ;;
+esac
 
 COMPOSE_CMD="docker compose -f $COMPOSE_FILE up -d"
-if [ "$NO_BUILD" = true ]; then
-  COMPOSE_CMD="$COMPOSE_CMD"
-else
+if [ "$BUILD" = true ]; then
   COMPOSE_CMD="$COMPOSE_CMD --build"
 fi
 if [ "$RECREATE" = true ]; then

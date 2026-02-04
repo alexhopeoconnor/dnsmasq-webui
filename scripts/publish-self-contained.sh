@@ -59,16 +59,17 @@ default_rid() {
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    -h|--help)
+    -h|-?|--help)
       echo "Usage: $0 [OPTIONS] [RID]"
       echo ""
       echo "Build a self-contained folder publish for Linux. If RID is omitted, the script"
       echo "auto-detects from the current OS and architecture (recommended on Ubuntu and Alpine)."
+      echo "Pass options first, then RID if desired (e.g. $0 --trim ubuntu.24.04-x64)."
       echo ""
       echo "Options:"
       echo "  --trim       Enable trimming (smaller output; can cause 404/routing issues with Blazor)"
       echo "  --no-clean   Skip clean before publish (faster; use only if same RID and options as last run)"
-      echo "  -h, --help   Show this help"
+      echo "  -h, -?, --help  Show this help"
       echo ""
       echo "Supported RIDs:"
       echo "  Generic (glibc):"
@@ -101,6 +102,11 @@ while [ $# -gt 0 ]; do
       CLEAN=false
       shift
       ;;
+    -*)
+      echo "Error: unknown option $1" >&2
+      echo "Use -h, -?, or --help for usage." >&2
+      exit 1
+      ;;
     *)
       RID="$1"
       shift
@@ -108,6 +114,12 @@ while [ $# -gt 0 ]; do
       ;;
   esac
 done
+
+if [ $# -gt 0 ]; then
+  echo "Error: unexpected argument: $1" >&2
+  echo "Use -h, -?, or --help for usage." >&2
+  exit 1
+fi
 
 if [ -z "$RID" ]; then
   RID="$(default_rid)"

@@ -1,0 +1,69 @@
+# Build self-contained binaries for multiple RIDs when a version tag is pushed,
+# then create/update the release and attach the zips as release assets.
+# Run: push a tag (e.g. v1.0.0); the workflow builds that commit and uploads assets.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        rid:
+          - linux-x64
+          - linux-arm64
+          - ubuntu.24.04-x64
+          - ubuntu.22.04-x64
+          - linux-musl-x64
+          - linux-musl-arm64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Publish for ${{ matrix.rid }}
+        run: ./scripts/publish-self-contained.sh ${{ matrix.rid }}
+
+      - name: Zip publish output
+        run: |
+          PUBLISH_DIR="src/DnsmasqWebUI/bin/Release/net9.0/${{ matrix.rid }}/publish"
+          (cd "$PUBLISH_DIR" && zip -r "../../../../../../../dnsmasq-webui-${{ matrix.rid }}.zip" .)
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dnsmasq-webui-${{ matrix.rid }}
+          path: dnsmasq-webui-${{ matrix.rid }}.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Collect zips into workspace root
+        run: |
+          for dir in dnsmasq-webui-*/; do
+            [ -d "$dir" ] && cp "$dir"/*.zip . 2>/dev/null || true
+          done
+
+      - name: Create release and upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          files: dnsmasq-webui-*.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

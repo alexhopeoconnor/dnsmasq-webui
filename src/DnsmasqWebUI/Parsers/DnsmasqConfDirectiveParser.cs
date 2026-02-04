@@ -1,5 +1,3 @@
-using DnsmasqWebUI.Models.Config;
-using DnsmasqWebUI.Models.EffectiveConfig;
 using Superpower;
 using Superpower.Model;
 using Superpower.Parsers;
@@ -7,9 +5,8 @@ using Superpower.Parsers;
 namespace DnsmasqWebUI.Parsers;
 
 /// <summary>
-/// Parses a single line from a dnsmasq .conf file into a <see cref="DnsmasqConfDirective"/> using
-/// <see cref="DnsmasqConfOptionRegistry"/> to resolve option kind and dispatching to the
-/// appropriate backing model. Add parsers here for each option kind we support.
+/// Key/value parsing for dnsmasq .conf lines. Used by <see cref="DnsmasqConfIncludeParser"/> to build effective config.
+/// StripComment and TryParseKeyValue handle comments and key=value (or key-only) lines.
 /// </summary>
 public static class DnsmasqConfDirectiveParser
 {
@@ -63,61 +60,5 @@ public static class DnsmasqConfDirectiveParser
         error = result.ToString();
         errorPosition = result.ErrorPosition;
         return false;
-    }
-
-    /// <summary>Parse one non-blank, non-comment .conf line into a typed directive. Returns null if line is empty or comment.</summary>
-    public static DnsmasqConfDirective? ParseLine(string line, int lineNumber, string sourceFilePath)
-    {
-        var kv = TryParseKeyValue(line);
-        if (kv == null)
-            return null;
-
-        var (key, value) = kv.Value;
-        var kind = DnsmasqConfOptionRegistry.GetKind(key);
-        var dir = Path.GetDirectoryName(sourceFilePath) ?? "";
-
-        static string ResolvePath(string baseDir, string val)
-        {
-            if (string.IsNullOrEmpty(val)) return val;
-            return Path.IsPathRooted(val) ? Path.GetFullPath(val) : Path.GetFullPath(Path.Combine(baseDir, val));
-        }
-
-        static ConfDirOption ParseConfDirValue(string value, string baseDir, int lineNumber, string sourceFilePath)
-        {
-            var parts = value.Split(',', 2);
-            var path = parts[0].Trim();
-            var suffix = parts.Length > 1 ? parts[1].Trim() : null;
-            if (string.IsNullOrEmpty(suffix)) suffix = null;
-            return new ConfDirOption(ResolvePath(baseDir, path), suffix, lineNumber, sourceFilePath);
-        }
-
-        object typed = kind switch
-        {
-            DnsmasqOptionKind.ConfFile => new ConfFileOption(ResolvePath(dir, value), lineNumber, sourceFilePath),
-            DnsmasqOptionKind.ConfDir => ParseConfDirValue(value, dir, lineNumber, sourceFilePath),
-            DnsmasqOptionKind.AddnHosts => new AddnHostsOption(ResolvePath(dir, value), lineNumber, sourceFilePath),
-            DnsmasqOptionKind.DhcpLeaseFile => new DhcpLeaseFileOption(ResolvePath(dir, value), lineNumber, sourceFilePath),
-            DnsmasqOptionKind.Domain => new DomainOption(value, lineNumber, sourceFilePath),
-            DnsmasqOptionKind.DhcpRange => new DhcpRangeOption(value, lineNumber, sourceFilePath),
-            DnsmasqOptionKind.DhcpOption => new DhcpOptionOption(value, lineNumber, sourceFilePath),
-            DnsmasqOptionKind.DhcpHost => DnsmasqConfDhcpHostLineParser.ParseLine(key + (string.IsNullOrEmpty(value) ? "" : "=" + value), lineNumber) is { } dhcp
-                ? dhcp
-                : new RawOption(key, value, lineNumber, sourceFilePath),
-            DnsmasqOptionKind.Server => new ServerOption(value, lineNumber, sourceFilePath),
-            DnsmasqOptionKind.Local => new LocalOption(value, lineNumber, sourceFilePath),
-            DnsmasqOptionKind.Address => new AddressOption(value, lineNumber, sourceFilePath),
-            DnsmasqOptionKind.String => new RawOption(key, value, lineNumber, sourceFilePath),
-            DnsmasqOptionKind.Path => new PathOption(key, ResolvePath(dir, value), lineNumber, sourceFilePath),
-            DnsmasqOptionKind.Flag => new RawOption(key, "", lineNumber, sourceFilePath),
-            _ => new RawOption(key, value, lineNumber, sourceFilePath)
-        };
-
-        return new DnsmasqConfDirective
-        {
-            LineNumber = lineNumber,
-            SourceFilePath = sourceFilePath,
-            Kind = kind,
-            TypedOption = typed
-        };
     }
 }

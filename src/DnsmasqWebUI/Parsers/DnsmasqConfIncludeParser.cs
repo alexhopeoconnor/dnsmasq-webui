@@ -447,8 +447,8 @@ public static class DnsmasqConfIncludeParser
         return result;
     }
 
-    private static ConfigValueSource MakeSource(string configPath, string? managedFilePath) =>
-        new(configPath, Path.GetFileName(configPath), string.Equals(Path.GetFullPath(configPath), managedFilePath != null ? Path.GetFullPath(managedFilePath) : null, StringComparison.Ordinal));
+    private static ConfigValueSource MakeSource(string configPath, string? managedFilePath, int? lineNumber = null) =>
+        new(configPath, Path.GetFileName(configPath), string.Equals(Path.GetFullPath(configPath), managedFilePath != null ? Path.GetFullPath(managedFilePath) : null, StringComparison.Ordinal), lineNumber);
 
     /// <summary>Like <see cref="GetLastValueFromConfigFiles"/> but returns which file set the value (for readonly/editable UI).</summary>
     public static (string? Value, ConfigValueSource? Source) GetLastValueFromConfigFilesWithSource(
@@ -464,8 +464,10 @@ public static class DnsmasqConfIncludeParser
             if (!File.Exists(configPath))
                 continue;
             var dir = Path.GetDirectoryName(configPath) ?? "";
-            foreach (var line in File.ReadAllLines(configPath))
+            var lines = File.ReadAllLines(configPath);
+            for (var i = 0; i < lines.Length; i++)
             {
+                var line = lines[i];
                 var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
                 if (kv == null)
                     continue;
@@ -474,7 +476,7 @@ public static class DnsmasqConfIncludeParser
                     continue;
                 var trimmed = value.Trim();
                 lastValue = trimmed;
-                lastSource = MakeSource(configPath, managedFilePath);
+                lastSource = MakeSource(configPath, managedFilePath, i + 1);
             }
         }
         return (lastValue, lastSource);
@@ -491,8 +493,10 @@ public static class DnsmasqConfIncludeParser
         ConfigValueSource? lastSource = null;
         foreach (var configPath in configFilePathsInOrder)
         {
-            foreach (var line in GetLines(configPath, pathToLines))
+            var lines = GetLines(configPath, pathToLines);
+            for (var i = 0; i < lines.Length; i++)
             {
+                var line = lines[i];
                 var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
                 if (kv == null)
                     continue;
@@ -500,7 +504,7 @@ public static class DnsmasqConfIncludeParser
                 if (!string.Equals(k, key, KeyComparison))
                     continue;
                 lastValue = value.Trim();
-                lastSource = MakeSource(configPath, managedFilePath);
+                lastSource = MakeSource(configPath, managedFilePath, i + 1);
             }
         }
         return (lastValue, lastSource);
@@ -517,8 +521,10 @@ public static class DnsmasqConfIncludeParser
         {
             if (!File.Exists(configPath))
                 continue;
-            foreach (var line in File.ReadAllLines(configPath))
+            var lines = File.ReadAllLines(configPath);
+            for (var i = 0; i < lines.Length; i++)
             {
+                var line = lines[i];
                 var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
                 if (kv == null)
                     continue;
@@ -527,7 +533,7 @@ public static class DnsmasqConfIncludeParser
                     continue;
                 if (!string.IsNullOrEmpty(v?.Trim()))
                     continue;
-                return (true, MakeSource(configPath, managedFilePath));
+                return (true, MakeSource(configPath, managedFilePath, i + 1));
             }
         }
         return (false, null);
@@ -542,8 +548,10 @@ public static class DnsmasqConfIncludeParser
             return (false, null);
         foreach (var configPath in configFilePathsInOrder)
         {
-            foreach (var line in GetLines(configPath, pathToLines))
+            var lines = GetLines(configPath, pathToLines);
+            for (var i = 0; i < lines.Length; i++)
             {
+                var line = lines[i];
                 var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
                 if (kv == null)
                     continue;
@@ -552,7 +560,7 @@ public static class DnsmasqConfIncludeParser
                     continue;
                 if (!string.IsNullOrEmpty(v?.Trim()))
                     continue;
-                return (true, MakeSource(configPath, managedFilePath));
+                return (true, MakeSource(configPath, managedFilePath, i + 1));
             }
         }
         return (false, null);
@@ -569,8 +577,10 @@ public static class DnsmasqConfIncludeParser
             if (!File.Exists(configPath))
                 continue;
             var dir = Path.GetDirectoryName(configPath) ?? "";
-            foreach (var line in File.ReadAllLines(configPath))
+            var lines = File.ReadAllLines(configPath);
+            for (var i = 0; i < lines.Length; i++)
             {
+                var line = lines[i];
                 var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
                 if (kv == null)
                     continue;
@@ -581,7 +591,7 @@ public static class DnsmasqConfIncludeParser
                 if (!string.IsNullOrEmpty(path))
                 {
                     result = ResolvePath(path, dir) ?? result;
-                    lastSource = MakeSource(configPath, managedFilePath);
+                    lastSource = MakeSource(configPath, managedFilePath, i + 1);
                 }
             }
         }
@@ -597,8 +607,10 @@ public static class DnsmasqConfIncludeParser
         foreach (var configPath in configFilePathsInOrder)
         {
             var dir = Path.GetDirectoryName(configPath) ?? "";
-            foreach (var line in GetLines(configPath, pathToLines))
+            var lines = GetLines(configPath, pathToLines);
+            for (var i = 0; i < lines.Length; i++)
             {
+                var line = lines[i];
                 var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
                 if (kv == null)
                     continue;
@@ -609,7 +621,7 @@ public static class DnsmasqConfIncludeParser
                 if (!string.IsNullOrEmpty(path))
                 {
                     result = ResolvePath(path, dir) ?? result;
-                    lastSource = MakeSource(configPath, managedFilePath);
+                    lastSource = MakeSource(configPath, managedFilePath, i + 1);
                 }
             }
         }
@@ -626,9 +638,10 @@ public static class DnsmasqConfIncludeParser
             if (!File.Exists(configPath))
                 continue;
             var dir = Path.GetDirectoryName(configPath) ?? "";
-            var source = MakeSource(configPath, managedFilePath);
-            foreach (var line in File.ReadAllLines(configPath))
+            var lines = File.ReadAllLines(configPath);
+            for (var i = 0; i < lines.Length; i++)
             {
+                var line = lines[i];
                 var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
                 if (kv == null)
                     continue;
@@ -638,7 +651,7 @@ public static class DnsmasqConfIncludeParser
                 var path = value.Trim();
                 if (string.IsNullOrEmpty(path))
                     continue;
-                result.Add((Path.GetFullPath(Path.Combine(dir, path)), source));
+                result.Add((Path.GetFullPath(Path.Combine(dir, path)), MakeSource(configPath, managedFilePath, i + 1)));
             }
         }
         return result;
@@ -652,9 +665,10 @@ public static class DnsmasqConfIncludeParser
         foreach (var configPath in configFilePathsInOrder)
         {
             var dir = Path.GetDirectoryName(configPath) ?? "";
-            var source = MakeSource(configPath, managedFilePath);
-            foreach (var line in GetLines(configPath, pathToLines))
+            var lines = GetLines(configPath, pathToLines);
+            for (var i = 0; i < lines.Length; i++)
             {
+                var line = lines[i];
                 var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
                 if (kv == null)
                     continue;
@@ -664,7 +678,7 @@ public static class DnsmasqConfIncludeParser
                 var path = value.Trim();
                 if (string.IsNullOrEmpty(path))
                     continue;
-                result.Add((Path.GetFullPath(Path.Combine(dir, path)), source));
+                result.Add((Path.GetFullPath(Path.Combine(dir, path)), MakeSource(configPath, managedFilePath, i + 1)));
             }
         }
         return result;
@@ -782,16 +796,17 @@ public static class DnsmasqConfIncludeParser
         {
             if (!File.Exists(configPath))
                 continue;
-            var source = MakeSource(configPath, managedFilePath);
-            foreach (var line in File.ReadAllLines(configPath))
+            var lines = File.ReadAllLines(configPath);
+            for (var i = 0; i < lines.Length; i++)
             {
+                var line = lines[i];
                 var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
                 if (kv == null)
                     continue;
                 var (k, value) = kv.Value;
                 if (!string.Equals(k, key, KeyComparison))
                     continue;
-                result.Add((value.Trim(), source));
+                result.Add((value.Trim(), MakeSource(configPath, managedFilePath, i + 1)));
             }
         }
         return result;
@@ -807,16 +822,17 @@ public static class DnsmasqConfIncludeParser
             return result;
         foreach (var configPath in configFilePathsInOrder)
         {
-            var source = MakeSource(configPath, managedFilePath);
-            foreach (var line in GetLines(configPath, pathToLines))
+            var lines = GetLines(configPath, pathToLines);
+            for (var i = 0; i < lines.Length; i++)
             {
+                var line = lines[i];
                 var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
                 if (kv == null)
                     continue;
                 var (k, value) = kv.Value;
                 if (!string.Equals(k, key, KeyComparison))
                     continue;
-                result.Add((value.Trim(), source));
+                result.Add((value.Trim(), MakeSource(configPath, managedFilePath, i + 1)));
             }
         }
         return result;
@@ -834,16 +850,17 @@ public static class DnsmasqConfIncludeParser
         {
             if (!File.Exists(configPath))
                 continue;
-            var source = MakeSource(configPath, managedFilePath);
-            foreach (var line in File.ReadAllLines(configPath))
+            var lines = File.ReadAllLines(configPath);
+            for (var i = 0; i < lines.Length; i++)
             {
+                var line = lines[i];
                 var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
                 if (kv == null)
                     continue;
                 var (k, value) = kv.Value;
                 if (!keys.Contains(k))
                     continue;
-                result.Add((value.Trim(), source));
+                result.Add((value.Trim(), MakeSource(configPath, managedFilePath, i + 1)));
             }
         }
         return result;
@@ -859,16 +876,17 @@ public static class DnsmasqConfIncludeParser
         var result = new List<(string Value, ConfigValueSource Source)>();
         foreach (var configPath in configFilePathsInOrder)
         {
-            var source = MakeSource(configPath, managedFilePath);
-            foreach (var line in GetLines(configPath, pathToLines))
+            var lines = GetLines(configPath, pathToLines);
+            for (var i = 0; i < lines.Length; i++)
             {
+                var line = lines[i];
                 var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
                 if (kv == null)
                     continue;
                 var (k, value) = kv.Value;
                 if (!keys.Contains(k))
                     continue;
-                result.Add((value.Trim(), source));
+                result.Add((value.Trim(), MakeSource(configPath, managedFilePath, i + 1)));
             }
         }
         return result;

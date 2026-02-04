@@ -5,136 +5,24 @@
 @if (Status != null)
 {
 <div class="ec-sections small">
-    @* Hosts *@
-    <div class="ec-section">
-        <button type="button" class="ec-section-header" @onclick='() => TogglePanel("hosts")' aria-expanded="@IsOpen("hosts")">
-            <span class="ec-section-title fw-bold">Hosts</span>
-            <i class="bi @(IsOpen("hosts") ? "bi-chevron-down" : "bi-chevron-right") ec-section-chevron" aria-hidden="true"></i>
-        </button>
-        <div class="collapse @(IsOpen("hosts") ? "show" : "")">
-            <div class="ec-section-body">
-                <ul class="list-unstyled mb-0">
-                    <EffectiveConfigOptionItem Label="no-hosts" DisplayValue="@(Status.NoHosts ? "Yes (hosts files disabled)" : "No")" Source="@(Status.EffectiveConfigSources?.NoHosts)" />
-                    <li>
-                        <strong>addn-hosts:</strong>
-                        @if (Status.AddnHostsPaths?.Count > 0)
-                        {
-                            var srcList = Status.EffectiveConfigSources?.AddnHostsPaths;
-                            if (srcList != null && srcList.Count == Status.AddnHostsPaths.Count)
-                            {
-                                @foreach (var entry in srcList)
-                                {
-                                    <span class="d-inline-block me-2" title="@(entry.Source?.GetReadOnlyTooltip())">@entry.Path @(entry.Source?.IsReadOnly == true ? " (readonly)" : "")</span>
-                                }
-                            }
-                            else
-                            {
-                                var deduped = (Status.AddnHostsPaths ?? Array.Empty<string>()).Distinct().ToList();
-                                @(deduped.Count == 1 ? deduped[0] : string.Join(", ", deduped))
-                            }
-                        }
-                        else { <span class="text-muted">(none)</span> }
-                    </li>
-                    @if (Status.ManagedHostsFilePath != null) { <li><strong>Managed hosts file (editable):</strong> @Status.ManagedHostsFilePath @(Status.ManagedHostsPathExists ? "✓" : "(not created yet)")</li> }
-                    @if (Status.SystemHostsPath != null) { <li><strong>System hosts (read-only):</strong> @Status.SystemHostsPath @(Status.SystemHostsPathExists ? "✓" : "(missing)")</li> }
-                </ul>
-            </div>
-        </div>
-    </div>
-
-    @if (Status.EffectiveConfig != null)
+    @{
+        var descriptors = EffectiveConfigFieldBuilder.BuildFieldDescriptors(Status);
+        var sections = new[]
+        {
+            (EffectiveConfigFieldBuilder.SectionHosts, "Hosts"),
+            (EffectiveConfigFieldBuilder.SectionResolver, "Resolver / DNS"),
+            (EffectiveConfigFieldBuilder.SectionDhcp, "DHCP"),
+            (EffectiveConfigFieldBuilder.SectionCache, "Cache"),
+            (EffectiveConfigFieldBuilder.SectionProcess, "Process & networking")
+        };
+    }
+    @foreach (var (sectionId, title) in sections)
     {
-        var ec = Status.EffectiveConfig;
-        var src = Status.EffectiveConfigSources;
-
-        @* Resolver / DNS *@
-        <div class="ec-section">
-            <button type="button" class="ec-section-header" @onclick='() => TogglePanel("resolver")' aria-expanded="@IsOpen("resolver")">
-                <span class="ec-section-title fw-bold">Resolver / DNS</span>
-                <i class="bi @(IsOpen("resolver") ? "bi-chevron-down" : "bi-chevron-right") ec-section-chevron" aria-hidden="true"></i>
-            </button>
-            <div class="collapse @(IsOpen("resolver") ? "show" : "")">
-                <div class="ec-section-body">
-                    <ul class="list-unstyled mb-0">
-                        <EffectiveConfigOptionItem Label="expand-hosts" DisplayValue="@(ec.ExpandHosts ? "Yes" : "No")" Source="@(src?.ExpandHosts)" />
-                        <EffectiveConfigOptionItem Label="bogus-priv" DisplayValue="@(ec.BogusPriv ? "Yes" : "No")" Source="@(src?.BogusPriv)" />
-                        <EffectiveConfigOptionItem Label="strict-order" DisplayValue="@(ec.StrictOrder ? "Yes" : "No")" Source="@(src?.StrictOrder)" />
-                        <EffectiveConfigOptionItem Label="no-resolv" DisplayValue="@(ec.NoResolv ? "Yes" : "No")" Source="@(src?.NoResolv)" />
-                        <EffectiveConfigOptionItem Label="domain-needed" DisplayValue="@(ec.DomainNeeded ? "Yes" : "No")" Source="@(src?.DomainNeeded)" />
-                        <EffectiveConfigOptionItem Label="port" DisplayValue="@(ec.Port switch { null => "53 (default)", 0 => "0 (no DNS listener)", _ => ec.Port.Value.ToString() })" Source="@(src?.Port)" />
-                        @if (ec.ServerLocalValues?.Count > 0) { <EffectiveConfigMultiValueRow Label="server / local" Content="@((MarkupString)RenderMultiValueList(ec.ServerLocalValues, src?.ServerLocalValues))" /> }
-                        @if (ec.AddressValues?.Count > 0) { <EffectiveConfigMultiValueRow Label="address" Content="@((MarkupString)RenderMultiValueList(ec.AddressValues, src?.AddressValues))" /> }
-                        @if (ec.ResolvFiles?.Count > 0) { <EffectiveConfigMultiValueRow Label="resolv-file" Content="@((MarkupString)RenderMultiValueList(ec.ResolvFiles, src?.ResolvFiles))" /> }
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        @* DHCP *@
-        <div class="ec-section">
-            <button type="button" class="ec-section-header" @onclick='() => TogglePanel("dhcp")' aria-expanded="@IsOpen("dhcp")">
-                <span class="ec-section-title fw-bold">DHCP</span>
-                <i class="bi @(IsOpen("dhcp") ? "bi-chevron-down" : "bi-chevron-right") ec-section-chevron" aria-hidden="true"></i>
-            </button>
-            <div class="collapse @(IsOpen("dhcp") ? "show" : "")">
-                <div class="ec-section-body">
-                    <ul class="list-unstyled mb-0">
-                        <EffectiveConfigOptionItem Label="dhcp-authoritative" DisplayValue="@(ec.DhcpAuthoritative ? "Yes" : "No")" Source="@(src?.DhcpAuthoritative)" />
-                        <EffectiveConfigOptionItem Label="leasefile-ro" DisplayValue="@(ec.LeasefileRo ? "Yes" : "No")" Source="@(src?.LeasefileRo)" />
-                        <EffectiveConfigOptionItem Label="dhcp-leasefile" DisplayValue="@(ec.DhcpLeaseFilePath ?? "(default)")" Source="@(src?.DhcpLeaseFilePath)" />
-                        @if (ec.DhcpLeaseMax.HasValue) { <EffectiveConfigOptionItem Label="dhcp-lease-max" DisplayValue="@ec.DhcpLeaseMax.Value.ToString()" Source="@(src?.DhcpLeaseMax)" /> }
-                        @if (ec.DhcpTtl.HasValue) { <EffectiveConfigOptionItem Label="dhcp-ttl" DisplayValue="@ec.DhcpTtl.Value.ToString()" Source="@(src?.DhcpTtl)" /> }
-                        @if (ec.DhcpRanges?.Count > 0) { <EffectiveConfigMultiValueRow Label="dhcp-range" Content="@((MarkupString)RenderMultiValueList(ec.DhcpRanges, src?.DhcpRanges))" /> }
-                        @if (ec.DhcpHostLines?.Count > 0) { <EffectiveConfigMultiValueRow Label="dhcp-host" Content="@((MarkupString)RenderMultiValueList(ec.DhcpHostLines, src?.DhcpHostLines))" /> }
-                        @if (ec.DhcpOptionLines?.Count > 0) { <EffectiveConfigMultiValueRow Label="dhcp-option" Content="@((MarkupString)RenderMultiValueList(ec.DhcpOptionLines, src?.DhcpOptionLines))" /> }
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        @* Cache *@
-        <div class="ec-section">
-            <button type="button" class="ec-section-header" @onclick='() => TogglePanel("cache")' aria-expanded="@IsOpen("cache")">
-                <span class="ec-section-title fw-bold">Cache</span>
-                <i class="bi @(IsOpen("cache") ? "bi-chevron-down" : "bi-chevron-right") ec-section-chevron" aria-hidden="true"></i>
-            </button>
-            <div class="collapse @(IsOpen("cache") ? "show" : "")">
-                <div class="ec-section-body">
-                    <ul class="list-unstyled mb-0">
-                        @if (ec.CacheSize.HasValue) { <EffectiveConfigOptionItem Label="cache-size" DisplayValue="@ec.CacheSize.Value.ToString()" Source="@(src?.CacheSize)" /> }
-                        @if (ec.LocalTtl.HasValue) { <EffectiveConfigOptionItem Label="local-ttl" DisplayValue="@ec.LocalTtl.Value.ToString()" Source="@(src?.LocalTtl)" /> }
-                        <EffectiveConfigOptionItem Label="no-negcache" DisplayValue="@(ec.NoNegcache ? "Yes" : "No")" Source="@(src?.NoNegcache)" />
-                        @if (ec.NegTtl.HasValue) { <EffectiveConfigOptionItem Label="neg-ttl" DisplayValue="@ec.NegTtl.Value.ToString()" Source="@(src?.NegTtl)" /> }
-                        @if (ec.MaxTtl.HasValue) { <EffectiveConfigOptionItem Label="max-ttl" DisplayValue="@ec.MaxTtl.Value.ToString()" Source="@(src?.MaxTtl)" /> }
-                        @if (ec.MaxCacheTtl.HasValue) { <EffectiveConfigOptionItem Label="max-cache-ttl" DisplayValue="@ec.MaxCacheTtl.Value.ToString()" Source="@(src?.MaxCacheTtl)" /> }
-                        @if (ec.MinCacheTtl.HasValue) { <EffectiveConfigOptionItem Label="min-cache-ttl" DisplayValue="@ec.MinCacheTtl.Value.ToString()" Source="@(src?.MinCacheTtl)" /> }
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        @* Process & networking *@
-        <div class="ec-section">
-            <button type="button" class="ec-section-header" @onclick='() => TogglePanel("process")' aria-expanded="@IsOpen("process")">
-                <span class="ec-section-title fw-bold">Process &amp; networking</span>
-                <i class="bi @(IsOpen("process") ? "bi-chevron-down" : "bi-chevron-right") ec-section-chevron" aria-hidden="true"></i>
-            </button>
-            <div class="collapse @(IsOpen("process") ? "show" : "")">
-                <div class="ec-section-body">
-                    <ul class="list-unstyled mb-0">
-                        <EffectiveConfigOptionItem Label="no-poll" DisplayValue="@(ec.NoPoll ? "Yes" : "No")" Source="@(src?.NoPoll)" />
-                        <EffectiveConfigOptionItem Label="bind-interfaces" DisplayValue="@(ec.BindInterfaces ? "Yes" : "No")" Source="@(src?.BindInterfaces)" />
-                        @if (ec.Interfaces?.Count > 0) { <EffectiveConfigMultiValueRow Label="interface" Content="@((MarkupString)RenderMultiValueList(ec.Interfaces, src?.Interfaces))" /> }
-                        @if (ec.ListenAddresses?.Count > 0) { <EffectiveConfigMultiValueRow Label="listen-address" Content="@((MarkupString)RenderMultiValueList(ec.ListenAddresses, src?.ListenAddresses))" /> }
-                        @if (ec.ExceptInterfaces?.Count > 0) { <EffectiveConfigMultiValueRow Label="except-interface" Content="@((MarkupString)RenderMultiValueList(ec.ExceptInterfaces, src?.ExceptInterfaces))" /> }
-                        @if (ec.PidFilePath != null) { <EffectiveConfigOptionItem Label="pid-file" DisplayValue="@ec.PidFilePath" Source="@(src?.PidFilePath)" /> }
-                        @if (ec.User != null) { <EffectiveConfigOptionItem Label="user" DisplayValue="@ec.User" Source="@(src?.User)" /> }
-                        @if (ec.Group != null) { <EffectiveConfigOptionItem Label="group" DisplayValue="@ec.Group" Source="@(src?.Group)" /> }
-                        @if (ec.LogFacility != null) { <EffectiveConfigOptionItem Label="log-facility" DisplayValue="@ec.LogFacility" Source="@(src?.LogFacility)" /> }
-                    </ul>
-                </div>
-            </div>
-        </div>
+        var sectionDescriptors = descriptors.Where(d => d.SectionId == sectionId).ToList();
+        if (sectionDescriptors.Count > 0)
+        {
+            <EffectiveConfigSectionPanel SectionId="@sectionId" Title="@title" Descriptors="@sectionDescriptors" IsOpen="@IsOpen(sectionId)" OnToggle="@OnSectionToggle" />
+        }
     }
 </div>
 }
@@ -146,33 +34,11 @@
 
     private bool IsOpen(string id) => _openPanels.Contains(id);
 
-    private void TogglePanel(string id)
+    private void OnSectionToggle(string id)
     {
         if (_openPanels.Contains(id))
             _openPanels.Remove(id);
         else
             _openPanels.Add(id);
-    }
-
-    private static MarkupString RenderMultiValueList(IReadOnlyList<string>? values, IReadOnlyList<ValueWithSource>? sources)
-    {
-        if (values == null || values.Count == 0)
-            return (MarkupString)"(none)";
-        if (sources != null && sources.Count == values.Count)
-        {
-            var parts = sources.Select(e =>
-            {
-                var s = e.Source;
-                var valueEnc = System.Net.WebUtility.HtmlEncode(e.Value);
-                if (s?.IsReadOnly == true)
-                {
-                    var tipEnc = System.Net.WebUtility.HtmlEncode(s.GetReadOnlyTooltip() ?? "");
-                    return $"{valueEnc} <span class=\"badge bg-secondary ms-1\" title=\"{tipEnc}\">readonly</span>";
-                }
-                return valueEnc;
-            });
-            return (MarkupString)string.Join(", ", parts);
-        }
-        return (MarkupString)System.Net.WebUtility.HtmlEncode(string.Join(", ", values));
     }
 }

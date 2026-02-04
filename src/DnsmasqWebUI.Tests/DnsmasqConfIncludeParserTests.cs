@@ -1,3 +1,4 @@
+using DnsmasqWebUI.Models.Config;
 using DnsmasqWebUI.Parsers;
 
 namespace DnsmasqWebUI.Tests;
@@ -174,10 +175,10 @@ public class DnsmasqConfIncludeParserTests
         if (!File.Exists(mainPath))
             return;
         var paths = new[] { mainPath };
-        var servers = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, new[] { "server", "local" });
+        var servers = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, DnsmasqConfKeys.ServerLocalKeys);
         var addnHosts = DnsmasqConfIncludeParser.GetAddnHostsPathsFromConfigFiles(paths);
-        var addresses = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, "address");
-        var listenAddrs = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, "listen-address");
+        var addresses = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, DnsmasqConfKeys.Address);
+        var listenAddrs = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, DnsmasqConfKeys.ListenAddress);
         Assert.True(servers.Count >= 2, "testdata dnsmasq-test.conf should have at least 2 server= lines");
         Assert.Contains("1.1.1.1", servers);
         Assert.Contains("8.8.8.8", servers);
@@ -283,9 +284,9 @@ public class DnsmasqConfIncludeParserTests
         {
             var conf = Path.Combine(dir, "dnsmasq.conf");
             File.WriteAllText(conf, "expand-hosts\nno-resolv\n");
-            var result = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, "expand-hosts");
+            var result = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.ExpandHosts);
             Assert.True(result);
-            Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, "no-resolv"));
+            Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.NoResolv));
         }
         finally
         {
@@ -302,7 +303,7 @@ public class DnsmasqConfIncludeParserTests
         {
             var conf = Path.Combine(dir, "dnsmasq.conf");
             File.WriteAllText(conf, "port=53\n");
-            var result = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, "no-hosts");
+            var result = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.NoHosts);
             Assert.False(result);
         }
         finally
@@ -322,7 +323,7 @@ public class DnsmasqConfIncludeParserTests
         {
             File.WriteAllText(f1, "cache-size=100\n");
             File.WriteAllText(f2, "cache-size=200\n");
-            var (value, configDir) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { f1, f2 }, "cache-size");
+            var (value, configDir) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { f1, f2 }, DnsmasqConfKeys.CacheSize);
             Assert.Equal("200", value);
             Assert.Equal(dir, configDir);
         }
@@ -341,7 +342,7 @@ public class DnsmasqConfIncludeParserTests
         {
             var conf = Path.Combine(dir, "dnsmasq.conf");
             File.WriteAllText(conf, "log-facility=/data/dnsmasq.log\n");
-            var (value, configDir) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, "log-facility");
+            var (value, configDir) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.LogFacility);
             Assert.Equal("/data/dnsmasq.log", value);
             Assert.Equal(dir, configDir);
         }
@@ -362,7 +363,7 @@ public class DnsmasqConfIncludeParserTests
         {
             File.WriteAllText(f1, "log-facility=/var/log/dnsmasq.log\n");
             File.WriteAllText(f2, "log-facility=/data/dnsmasq.log\n");
-            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { f1, f2 }, "log-facility");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { f1, f2 }, DnsmasqConfKeys.LogFacility);
             Assert.Equal("/data/dnsmasq.log", value);
         }
         finally
@@ -399,7 +400,7 @@ public class DnsmasqConfIncludeParserTests
         {
             var conf = Path.Combine(dir, "dnsmasq.conf");
             File.WriteAllText(conf, "expand-hosts=1\n");
-            var result = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, "expand-hosts");
+            var result = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.ExpandHosts);
             Assert.False(result);
         }
         finally
@@ -418,7 +419,7 @@ public class DnsmasqConfIncludeParserTests
         {
             var conf = Path.Combine(dir, "dnsmasq.conf");
             File.WriteAllText(conf, "Port=53\n");
-            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, "port");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.Port);
             Assert.Null(value);
         }
         finally
@@ -440,7 +441,7 @@ public class DnsmasqConfIncludeParserTests
             File.WriteAllText(main, "port=53\nconf-file=extra.conf\nport=5353\n");
             File.WriteAllText(extra, "port=54\n");
             var paths = DnsmasqConfIncludeParser.GetIncludedPaths(main);
-            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(paths, "port");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(paths, DnsmasqConfKeys.Port);
             Assert.Equal("54", value);
         }
         finally
@@ -516,9 +517,12 @@ public class DnsmasqConfIncludeParserTests
             Assert.Equal(Path.GetFullPath("/etc/hosts.a"), result[0].Path);
             Assert.Equal(Path.GetFileName(f1), result[0].Source.FileName);
             Assert.False(result[0].Source.IsManaged);
+            Assert.Equal(1, result[0].Source.LineNumber);
             Assert.Equal(Path.GetFullPath("/etc/hosts.b"), result[1].Path);
             Assert.Equal(Path.GetFileName(f2), result[1].Source.FileName);
+            Assert.Equal(1, result[1].Source.LineNumber);
             Assert.Equal(Path.GetFullPath("/etc/hosts.c"), result[2].Path);
+            Assert.Equal(2, result[2].Source.LineNumber);
             Assert.True(result[2].Source.IsReadOnly == !result[2].Source.IsManaged);
         }
         finally
@@ -541,7 +545,9 @@ public class DnsmasqConfIncludeParserTests
             var result = DnsmasqConfIncludeParser.GetAddnHostsPathsFromConfigFilesWithSource(new[] { mainPath, managedPath }, managedPath);
             Assert.Equal(2, result.Count);
             Assert.False(result[0].Source.IsManaged);
+            Assert.Equal(1, result[0].Source.LineNumber);
             Assert.True(result[1].Source.IsManaged);
+            Assert.Equal(1, result[1].Source.LineNumber);
         }
         finally
         {
@@ -560,7 +566,7 @@ public class DnsmasqConfIncludeParserTests
         {
             File.WriteAllText(f1, "server=1.1.1.1\nlocal=/local/\n");
             File.WriteAllText(f2, "server=/example.com/192.168.1.1\n");
-            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { f1, f2 }, new[] { "server", "local" });
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { f1, f2 }, DnsmasqConfKeys.ServerLocalKeys);
             Assert.Equal(3, result.Count);
             Assert.Equal("1.1.1.1", result[0]);
             Assert.Equal("/local/", result[1]);
@@ -581,7 +587,7 @@ public class DnsmasqConfIncludeParserTests
         try
         {
             File.WriteAllText(conf, "dhcp-range=172.28.0.10,172.28.0.50,12h\ndhcp-range=192.168.1.10,192.168.1.100,255.255.255.0,24h\n");
-            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, "dhcp-range");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DhcpRange);
             Assert.Equal(2, result.Count);
             Assert.Equal("172.28.0.10,172.28.0.50,12h", result[0]);
             Assert.Equal("192.168.1.10,192.168.1.100,255.255.255.0,24h", result[1]);

@@ -1,0 +1,18 @@
+@namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Models.EffectiveConfig
+
+@if (Descriptor.IsMultiValue)
+{
+    var items = Descriptor.GetItems();
+    <EffectiveConfigMultiValueRow Label="@Descriptor.OptionName" Items="@items" />
+}
+else
+{
+    var value = Descriptor.GetValue();
+    var displayValue = value == null ? "(not set)" : (value is IReadOnlyList<string> list ? (list.Count == 0 ? "(none)" : string.Join(", ", list)) : value.ToString());
+    <EffectiveConfigOptionItem Label="@Descriptor.OptionName" DisplayValue="@(displayValue ?? "(not set)")" Source="@Descriptor.GetSource()" />
+}
+
+@code {
+    [Parameter] public EffectiveConfigFieldDescriptor Descriptor { get; set; } = null!;
+}

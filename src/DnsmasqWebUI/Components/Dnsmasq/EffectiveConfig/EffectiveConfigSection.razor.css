@@ -1,28 +1,30 @@
-/* Effective config sections – mobile-first, touch-friendly */
+/* Effective config sections – mobile-first, touch-friendly.
+   Use ::deep so styles apply to EffectiveConfigSectionPanel (child component) markup. */
 .ec-sections {
     display: flex;
     flex-direction: column;
     gap: 0;
 }
 
-.ec-section {
+::deep .ec-section {
     border-bottom: 1px solid var(--bs-border-color, #dee2e6);
 }
 
-.ec-section:last-child {
+::deep .ec-section:last-child {
     border-bottom: none;
 }
 
 /* Touch-friendly header: min 44px tap target (WCAG 2.5.5) */
-.ec-section-header {
+::deep .ec-section-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     width: 100%;
     min-height: 2.75rem;
-    padding: 0.4rem 0;
+    padding: 0.5rem 0;
     margin: 0;
     border: none;
+    border-radius: 0.25rem;
     background: transparent;
     color: inherit;
     text-align: left;
@@ -30,30 +32,49 @@
     font-size: inherit;
     line-height: 1.3;
     -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.ec-section-header:hover {
+::deep .ec-section-header:hover {
     color: var(--bs-primary, #0d6efd);
+    background-color: var(--bs-secondary-bg, rgba(0, 0, 0, 0.04));
 }
 
-.ec-section-header:focus-visible {
+::deep .ec-section-header:focus-visible {
     outline: 2px solid var(--bs-primary, #0d6efd);
     outline-offset: 2px;
 }
 
-.ec-section-title {
+/* Open state: header reads as "active" and clearly separates from body */
+::deep .ec-section-open .ec-section-header {
+    background-color: var(--bs-secondary-bg, rgba(0, 0, 0, 0.05));
+    color: var(--bs-emphasis-color, inherit);
+    font-weight: 600;
+}
+
+::deep .ec-section-open .ec-section-header:hover {
+    background-color: var(--bs-tertiary-bg, rgba(0, 0, 0, 0.08));
+    color: var(--bs-primary, #0d6efd);
+}
+
+::deep .ec-section-title {
     flex: 1;
     min-width: 0;
 }
 
-.ec-section-chevron {
+::deep .ec-section-chevron {
     flex-shrink: 0;
-    font-size: 0.75rem;
-    opacity: 0.7;
-    margin-left: 0.25rem;
+    font-size: 0.8rem;
+    opacity: 0.8;
+    margin-left: 0.35rem;
+    transition: opacity 0.2s ease;
 }
 
-.ec-section-body {
+::deep .ec-section-open .ec-section-chevron {
+    opacity: 1;
+}
+
+::deep .ec-section-body {
     padding: 0.25rem 0 0.5rem 0;
     padding-left: 0.5rem;
     border-left: 2px solid var(--bs-border-color-translucent, rgba(0, 0, 0, 0.075));
@@ -62,18 +83,18 @@
 }
 
 /* Long paths/values wrap on small screens; badges stay inline */
-.ec-section-body ul {
+::deep .ec-section-body ul {
     overflow-wrap: break-word;
     word-break: break-word;
 }
 
-.ec-section-body li {
+::deep .ec-section-body li {
     overflow-wrap: break-word;
     word-break: break-word;
 }
 
 @media (max-width: 767.98px) {
-    .ec-section-body {
+    ::deep .ec-section-body {
         padding-left: 0.35rem;
     }
 }
