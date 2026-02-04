@@ -100,15 +100,21 @@ trim_repo() {
 collect_config() {
   CONFIG_VARS_FILE="$(mktemp)"
   export CONFIG_VARS_FILE
-  # Env vars: strip DNSMASQ_WEBUI_ prefix; key=value per line
-  env | grep '^DNSMASQ_WEBUI_' | while IFS= read -r line; do
-    key="${line%%=*}"
-    key="${key#DNSMASQ_WEBUI_}"
-    value="${line#*=}"
-    printf '%s=%s\n' "$key" "$value" >> "$CONFIG_VARS_FILE"
-  done
+  # Env vars: strip DNSMASQ_WEBUI_ prefix; key=value per line. set +e so grep (no match) / read (EOF) / [ -f ] do not trigger exit.
+  set +e
+  env | grep '^DNSMASQ_WEBUI_' > "${CONFIG_VARS_FILE}.env" 2>/dev/null
+  if [ -f "${CONFIG_VARS_FILE}.env" ] && [ -s "${CONFIG_VARS_FILE}.env" ]; then
+    while IFS= read -r line; do
+      key="${line%%=*}"
+      key="${key#DNSMASQ_WEBUI_}"
+      value="${line#*=}"
+      printf '%s=%s\n' "$key" "$value" >> "$CONFIG_VARS_FILE"
+    done < "${CONFIG_VARS_FILE}.env"
+  fi
+  rm -f "${CONFIG_VARS_FILE}.env"
+  set -e
   # --set lines (last occurrence of each key wins when systemd reads the file)
-  [ -s "$CONFIG_SET_FILE" ] && cat "$CONFIG_SET_FILE" >> "$CONFIG_VARS_FILE"
+  [ -s "$CONFIG_SET_FILE" ] && cat "$CONFIG_SET_FILE" >> "$CONFIG_VARS_FILE" || true
 }
 
 # Write env file for the app/service. $1 = path. Adds ASPNETCORE_URLS=http://0.0.0.0:8080 if not in config (for service).
