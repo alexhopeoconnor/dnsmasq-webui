@@ -8,7 +8,7 @@ set -e
 GITHUB_REPO="${GITHUB_REPO:-}"
 REPO_DEFAULT="${REPO_DEFAULT:-alexhopeoconnor/dnsmasq-webui}"
 
-VERSION=""
+RELEASE_TAG=""
 LIST=false
 INSTALL_DIR=""
 SYSTEM_INSTALL=false
@@ -162,10 +162,10 @@ print_env_detection() {
 # GET release (latest or by tag). Output raw JSON to stdout.
 fetch_release() {
   local api_url
-  if [ -z "$VERSION" ] || [ "$VERSION" = "latest" ]; then
+  if [ -z "$RELEASE_TAG" ] || [ "$RELEASE_TAG" = "latest" ]; then
     api_url="https://api.github.com/repos/$GITHUB_REPO/releases/latest"
   else
-    api_url="https://api.github.com/repos/$GITHUB_REPO/releases/tags/$VERSION"
+    api_url="https://api.github.com/repos/$GITHUB_REPO/releases/tags/$RELEASE_TAG"
   fi
   resp="$(curl -sSL -A "dnsmasq-webui-install/1.0" -w "\n%{http_code}" "$api_url")"
   code="$(echo "$resp" | tail -n1)"
@@ -555,7 +555,7 @@ while [ $# -gt 0 ]; do
     --version)
       shift
       [ $# -gt 0 ] || { echo "Error: --version requires TAG" >&2; exit 1; }
-      VERSION="$1"
+      RELEASE_TAG="$1"
       shift
       ;;
     --update)
@@ -607,7 +607,7 @@ if [ "$PURGE" = true ] && [ "$UNINSTALL" != true ]; then
   exit 1
 fi
   if [ "$UNINSTALL" = true ]; then
-    if [ "$UPDATE" = true ] || [ -n "$VERSION" ] || [ "$SERVICE" = true ] || [ "$BUILD_FROM_SOURCE" = true ]; then
+    if [ "$UPDATE" = true ] || [ -n "$RELEASE_TAG" ] || [ "$SERVICE" = true ] || [ "$BUILD_FROM_SOURCE" = true ]; then
       echo "Error: --uninstall cannot be combined with install/update options (--version, --update, --service, --build-from-source). Run uninstall alone, then install if needed." >&2
       exit 1
     fi
@@ -621,13 +621,13 @@ fi
       echo "Error: --build-from-source cannot be combined with --list." >&2
       exit 1
     fi
-    if [ -n "$VERSION" ] || [ "$UPDATE" = true ]; then
+    if [ -n "$RELEASE_TAG" ] || [ "$UPDATE" = true ]; then
       echo "Error: --build-from-source builds from current source; do not use --version or --update." >&2
       exit 1
     fi
   fi
 if [ "$LIST" = true ]; then
-  if [ "$UNINSTALL" = true ] || [ "$UPDATE" = true ] || [ "$SERVICE" = true ] || [ -n "$VERSION" ]; then
+  if [ "$UNINSTALL" = true ] || [ "$UPDATE" = true ] || [ "$SERVICE" = true ] || [ -n "$RELEASE_TAG" ]; then
     echo "Error: --list lists releases and exits; do not combine with install/uninstall options." >&2
     exit 1
   fi
@@ -644,7 +644,7 @@ fi
 
 if [ "$UPDATE" = true ]; then
   [ -z "$INSTALL_DIR" ] && INSTALL_DIR="$(default_install_dir)"
-  VERSION="latest"
+  RELEASE_TAG="latest"
 fi
 
 do_install
