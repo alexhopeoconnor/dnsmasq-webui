@@ -238,9 +238,12 @@ fetch_release() {
   body="$(echo "$resp" | sed '$d')"
   if [ "$code" != "200" ]; then
     echo "Error: GitHub API returned $code for $api_url" >&2
+    body="$(printf '%s' "$body" | tr -d '\000-\011\013\014\016-\037')"
     echo "$body" | jq -r '.message // .' 2>/dev/null || echo "$body" >&2
     exit 1
   fi
+  # GitHub API can return release body with unescaped control chars; jq rejects them. Strip control chars (keep \n \r).
+  body="$(printf '%s' "$body" | tr -d '\000-\011\013\014\016-\037')"
   echo "$body"
 }
 
@@ -256,6 +259,7 @@ list_releases() {
     echo "Error: GitHub API returned $code" >&2
     exit 1
   fi
+  body="$(printf '%s' "$body" | tr -d '\000-\011\013\014\016-\037')"
   echo "$body" | jq -r '.[] | "\(.tag_name)  \(.name)  \(.published_at // .created_at)"'
   exit 0
 }
