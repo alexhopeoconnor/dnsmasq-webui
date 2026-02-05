@@ -39,7 +39,7 @@ The recommended way to get a prebuilt binary is the **install script**. It picks
 curl -sSL https://raw.githubusercontent.com/alexhopeoconnor/dnsmasq-webui/master/scripts/install.sh | sh
 ```
 
-**From a git clone** (repo is detected from `git remote origin`):
+**From a git clone:**
 
 ```bash
 ./scripts/install.sh
@@ -101,8 +101,6 @@ sudo ./scripts/install.sh --uninstall --purge --system   # Also remove /opt/dnsm
 ./scripts/install.sh --dir /opt/dnsmasq-webui
 ./scripts/install.sh --version v1.0.0
 ```
-
-**Installing from a fork:** Pass the repo explicitly: `./scripts/install.sh --repo owner/dnsmasq-webui` or set `GITHUB_REPO=owner/dnsmasq-webui`. The default repo is `alexhopeoconnor/dnsmasq-webui`.
 
 **If the binary fails to run** (e.g. `TypeLoadException` or glibc errors): use the install script with `--build-from-source` so the app is built for your machine. This requires the .NET SDK and a **git clone** (it does not work when installing via `curl ... | sh`). Clone the repo, then run `./scripts/install.sh --build-from-source`. The script checks that .NET is installed, detects your OS/arch, and builds (on Ubuntu it may use a distro-specific RID for a better match). Other distros use the portable RID and may still hit runtime issues; building from source on the target machine is the most reliable.
 
@@ -238,7 +236,6 @@ All scripts live under `scripts/` and are intended for Linux (WSL may work but i
 
 | Option | Description |
 |--------|-------------|
-| `--repo OWNER/REPO` | GitHub owner/repo (or set `GITHUB_REPO`). When run from a clone, repo is detected from `git remote origin`. Default repo: `alexhopeoconnor/dnsmasq-webui`. |
 | `--list` | List available releases (tag, name, published_at) and exit. |
 | `--version TAG` | Install from release TAG (e.g. v1.0.0). Default: latest. |
 | `--update` | Reinstall latest into the default user directory (~/.local/share/dnsmasq-webui). |
@@ -291,18 +288,14 @@ Invalid combinations (script errors with a clear message): `--purge` without `--
    Script lists release tags and dates; list-only mode cannot be combined with install/uninstall so you do not accidentally change the system.  
    **Command:** `./scripts/install.sh --list`
 
-10. **Install from a fork or a specific GitHub repo** instead of the default.  
-    You pass the repo; script uses it for the API. Without a clone or `--repo`/GITHUB_REPO it errors so you fix the command instead of getting a confusing API failure.  
-    **Command:** `./scripts/install.sh --repo owner/dnsmasq-webui` or `GITHUB_REPO=owner/dnsmasq-webui ./scripts/install.sh`
-
-11. **Install a specific release tag** (e.g. an older or pinned version) instead of latest.  
+10. **Install a specific release tag** (e.g. an older or pinned version) instead of latest.  
     Script fetches that tag's release and the asset for your RID. If no asset matches your OS/arch it errors and prints the asset names so you can pick another tag or report a missing build.  
     **Command:** `./scripts/install.sh --version v1.0.0`
 
 **Examples:**
 
 ```bash
-# Install latest (from clone: repo auto-detected; from curl: uses alexhopeoconnor/dnsmasq-webui by default, or use --repo)
+# Install latest
 ./scripts/install.sh
 
 # Update to latest release
@@ -329,8 +322,8 @@ sudo ./scripts/install.sh --uninstall --purge --system
 # Switch to another release (overwrites that dir)
 ./scripts/install.sh --dir ~/.local/share/dnsmasq-webui --version v0.9.0
 
-# List releases (from fork)
-./scripts/install.sh --repo alexhopeoconnor/dnsmasq-webui --list
+# List releases
+./scripts/install.sh --list
 ```
 
 **How the script works and avoids mistakes**
@@ -351,7 +344,7 @@ sudo ./scripts/install.sh --uninstall --purge --system
    `--uninstall` removes only systemd units and symlinks unless you add `--purge`. With `--purge`, you must say *which* install to remove: default user dir (no extra flags), `--dir DIR`, or `--system` for /opt. That avoids accidentally deleting the wrong directory.
 
 6. **Repo and release**  
-   When not in a git clone, the script needs a repo (e.g. `REPO_DEFAULT` in the one-liner or `--repo` / `GITHUB_REPO`). It errors with a clear message instead of hitting the GitHub API with an empty repo. If no asset matches your OS/arch (RID), it prints the available asset names so you can pick a different release or report a missing build.
+   If no asset matches your OS/arch (RID), the script prints the available asset names so you can pick a different release or report a missing build.
 
 7. **Dependencies**  
    The script requires `curl`, `jq`, and `unzip`. It checks for `jq` before calling the GitHub API and errors with an install hint. `--service` requires `systemctl` (systemd) and errors on non-systemd systems instead of writing a unit that won’t be used.

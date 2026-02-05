@@ -1,12 +1,10 @@
 #!/usr/bin/env sh
 # Download and install dnsmasq-webui from a GitHub release. Picks the binary
 # matching the current OS/arch (RID). Run from a clone or via:
-#   curl -sSL https://raw.githubusercontent.com/alexhopeoconnor/dnsmasq-webui/main/scripts/install.sh | sh
-# When run from a clone, repo is detected from git remote origin.
+#   curl -sSL https://raw.githubusercontent.com/alexhopeoconnor/dnsmasq-webui/master/scripts/install.sh | sh
 set -e
 
-GITHUB_REPO="${GITHUB_REPO:-}"
-REPO_DEFAULT="${REPO_DEFAULT:-alexhopeoconnor/dnsmasq-webui}"
+GITHUB_REPO="alexhopeoconnor/dnsmasq-webui"
 
 RELEASE_TAG=""
 LIST=false
@@ -36,10 +34,6 @@ usage() {
   echo ""
   echo "Download and install dnsmasq-webui from a GitHub release for this machine's OS/arch."
   echo "Supports install, update, and switch-release (re-run with same --dir and different --version)."
-  echo ""
-  echo "Repo (when not in a clone):"
-  echo "  --repo OWNER/REPO   GitHub owner/repo. Or set GITHUB_REPO. Or set REPO_DEFAULT in the script."
-  echo "                      When run inside a git clone with origin, repo is detected automatically."
   echo ""
   echo "Release:"
   echo "  --list             List available releases (tag, name, published_at) and exit."
@@ -72,7 +66,7 @@ usage() {
   echo "                     sudo $0 --uninstall --purge --system   # also remove /opt/dnsmasq-webui"
   echo ""
   echo "Examples:"
-  echo "  $0                          # Install latest (clone: auto repo; curl: use REPO_DEFAULT or --repo)"
+  echo "  $0                          # Install latest"
   echo "  $0 --update                  # Reinstall latest to default dir (upgrade)"
   echo "  $0 --version v1.0.0         # Install v1.0.0 to default dir"
   echo "  $0 --dir /opt/dnsmasq-webui  # Install to custom dir"
@@ -88,11 +82,6 @@ usage() {
   echo ""
   echo "After install, configure via appsettings.json or Dnsmasq__* env vars (or use --set / DNSMASQ_WEBUI_* at install). If you used --service, enable/start with systemctl. If the app fails to start with TypeLoadException or a glibc error, try --build-from-source (requires .NET SDK)."
   exit 0
-}
-
-# Trim whitespace and carriage return (e.g. from script downloaded on Windows or with CRLF).
-trim_repo() {
-  echo "$1" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
 }
 
 # Build CONFIG_VARS_FILE from env (DNSMASQ_WEBUI_*) then --set lines. Call before do_install when installing.
@@ -145,30 +134,6 @@ write_env_file() {
   fi
 }
 
-# Detect owner/repo from git remote, REPO_DEFAULT, or require --repo/GITHUB_REPO.
-detect_repo() {
-  if [ -n "$GITHUB_REPO" ]; then
-    GITHUB_REPO="$(trim_repo "$GITHUB_REPO")"
-    return
-  fi
-  if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    origin="$(git remote get-url origin 2>/dev/null)" || true
-    if [ -n "$origin" ]; then
-      GITHUB_REPO="$(echo "$origin" | sed -E 's|^https://github\.com/||; s|^git@github\.com:||; s|\.git$||; s|/$||')"
-      GITHUB_REPO="$(trim_repo "$GITHUB_REPO")"
-      if [ -n "$GITHUB_REPO" ]; then
-        return
-      fi
-    fi
-  fi
-  if [ -n "$REPO_DEFAULT" ]; then
-    GITHUB_REPO="$(trim_repo "$REPO_DEFAULT")"
-    return
-  fi
-  echo "Error: GitHub repo not set. Use --repo owner/repo, set GITHUB_REPO, or run from a clone. For the one-liner, set REPO_DEFAULT in the script." >&2
-  exit 1
-}
-
 # Require jq for parsing GitHub API JSON.
 check_jq() {
   if command -v jq >/dev/null 2>&1; then
@@ -176,6 +141,14 @@ check_jq() {
   fi
   echo "Error: jq is required to parse GitHub API responses. Install jq (e.g. apt install jq)." >&2
   exit 1
+}
+
+# Safely run jq on release JSON (avoids echo mangling). $1 = JSON, $2+ = jq args.
+jq_release() {
+  local json
+  json="$1"
+  shift
+  printf '%s' "$json" | jq -r "$@"
 }
 
 # Detect RID (same logic as publish-self-contained.sh).
@@ -234,44 +207,45 @@ fetch_release() {
     api_url="https://api.github.com/repos/$GITHUB_REPO/releases/tags/$RELEASE_TAG"
   fi
   resp="$(curl -sSL -A "dnsmasq-webui-install/1.0" -w "\n%{http_code}" "$api_url" </dev/null)"
-  code="$(echo "$resp" | tail -n1)"
-  body="$(echo "$resp" | sed '$d')"
+  code="$(printf '%s' "$resp" | tail -n1)"
+  body="$(printf '%s' "$resp" | sed '$d')"
   if [ "$code" != "200" ]; then
     echo "Error: GitHub API returned $code for $api_url" >&2
     body="$(printf '%s' "$body" | tr -d '\000-\011\013\014\016-\037')"
-    echo "$body" | jq -r '.message // .' 2>/dev/null || echo "$body" >&2
+    printf '%s' "$body" | jq -r '.message // .' 2>/dev/null || printf '%s' "$body" >&2
     exit 1
   fi
   # GitHub API can return release body with unescaped control chars; jq rejects them. Strip control chars (keep \n \r).
   body="$(printf '%s' "$body" | tr -d '\000-\011\013\014\016-\037')"
-  echo "$body"
+  printf '%s' "$body"
 }
 
 # List releases and exit.
 list_releases() {
   check_jq
-  detect_repo
   api_url="https://api.github.com/repos/$GITHUB_REPO/releases?per_page=20"
   resp="$(curl -sSL -A "dnsmasq-webui-install/1.0" -w "\n%{http_code}" "$api_url" </dev/null)"
-  code="$(echo "$resp" | tail -n1)"
-  body="$(echo "$resp" | sed '$d')"
+  code="$(printf '%s' "$resp" | tail -n1)"
+  body="$(printf '%s' "$resp" | sed '$d')"
   if [ "$code" != "200" ]; then
     echo "Error: GitHub API returned $code" >&2
     exit 1
   fi
   body="$(printf '%s' "$body" | tr -d '\000-\011\013\014\016-\037')"
-  echo "$body" | jq -r '.[] | "\(.tag_name)  \(.name)  \(.published_at // .created_at)"'
+  printf '%s' "$body" | jq -r '.[] | "\(.tag_name)  \(.name)  \(.published_at // .created_at)"'
   exit 0
 }
 
-# Find asset download URL whose name contains the given RID.
+# Find asset download URL whose name contains the given RID. Output trimmed single line or empty.
 find_asset_url() {
-  local release_json rid
+  local release_json rid raw
   release_json="$1"
   rid="$2"
-  echo "$release_json" | jq -r --arg rid "$rid" '
+  raw="$(jq_release "$release_json" --arg rid "$rid" '
     .assets[] | select(.name | test($rid)) | .browser_download_url
-  ' | head -n1
+  ' | head -n1)"
+  # Trim CR and leading/trailing whitespace (defensive for API quirks)
+  printf '%s' "$raw" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
 }
 
 # Remove user systemd unit (stop, disable, rm file). No root. Safe if not present.
@@ -453,7 +427,6 @@ do_install() {
 
   echo "Installing dnsmasq-webui..."
   check_jq
-  detect_repo
 
   if [ "$SYSTEM_INSTALL" = true ]; then
     if [ "$(id -u)" -ne 0 ]; then
@@ -480,18 +453,18 @@ do_install() {
   print_env_detection "$rid"
   echo "Fetching release..."
   release_json="$(fetch_release)"
-  tag="$(echo "$release_json" | jq -r '.tag_name')"
+  tag="$(jq_release "$release_json" '.tag_name')"
   echo "Release: $tag"
-  url="$(find_asset_url "$release_json" "$rid" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  url="$(find_asset_url "$release_json" "$rid")"
   if [ -z "$url" ] || [ "$url" = "null" ]; then
     echo "Error: No asset found for RID $rid in release $tag." >&2
     echo "Available assets:" >&2
-    echo "$release_json" | jq -r '.assets[].name' | sed 's/^/  /' >&2
+    jq_release "$release_json" '.assets[].name' | sed 's/^/  /' >&2
     exit 1
   fi
 
   mkdir -p "$INSTALL_DIR"
-  tmpzip="${TMPDIR:-/tmp}/dnsmasq-webui-$rid.zip"
+  tmpzip="$(mktemp)"
   echo "Downloading $url ..."
   curl -sSL -A "dnsmasq-webui-install/1.0" -o "$tmpzip" "$url" </dev/null
   echo "Extracting to $INSTALL_DIR ..."
@@ -631,12 +604,6 @@ while [ $# -gt 0 ]; do
     -h|-?|--help)
       usage
       ;;
-    --repo)
-      shift
-      [ $# -gt 0 ] || { echo "Error: --repo requires OWNER/REPO" >&2; exit 1; }
-      GITHUB_REPO="$1"
-      shift
-      ;;
     --list)
       LIST=true
       shift
@@ -701,26 +668,26 @@ if [ "$PURGE" = true ] && [ "$UNINSTALL" != true ]; then
   echo "Error: --purge must be used with --uninstall. E.g. $0 --uninstall --purge" >&2
   exit 1
 fi
-  if [ "$UNINSTALL" = true ]; then
-    if [ "$UPDATE" = true ] || [ -n "$RELEASE_TAG" ] || [ "$SERVICE" = true ] || [ "$BUILD_FROM_SOURCE" = true ]; then
-      echo "Error: --uninstall cannot be combined with install/update options (--version, --update, --service, --build-from-source). Run uninstall alone, then install if needed." >&2
-      exit 1
-    fi
-    if [ "$LIST" = true ]; then
-      echo "Error: --uninstall cannot be combined with --list." >&2
-      exit 1
-    fi
+if [ "$UNINSTALL" = true ]; then
+  if [ "$UPDATE" = true ] || [ -n "$RELEASE_TAG" ] || [ "$SERVICE" = true ] || [ "$BUILD_FROM_SOURCE" = true ]; then
+    echo "Error: --uninstall cannot be combined with install/update options (--version, --update, --service, --build-from-source). Run uninstall alone, then install if needed." >&2
+    exit 1
   fi
-  if [ "$BUILD_FROM_SOURCE" = true ]; then
-    if [ "$LIST" = true ]; then
-      echo "Error: --build-from-source cannot be combined with --list." >&2
-      exit 1
-    fi
-    if [ -n "$RELEASE_TAG" ] || [ "$UPDATE" = true ]; then
-      echo "Error: --build-from-source builds from current source; do not use --version or --update." >&2
-      exit 1
-    fi
+  if [ "$LIST" = true ]; then
+    echo "Error: --uninstall cannot be combined with --list." >&2
+    exit 1
   fi
+fi
+if [ "$BUILD_FROM_SOURCE" = true ]; then
+  if [ "$LIST" = true ]; then
+    echo "Error: --build-from-source cannot be combined with --list." >&2
+    exit 1
+  fi
+  if [ -n "$RELEASE_TAG" ] || [ "$UPDATE" = true ]; then
+    echo "Error: --build-from-source builds from current source; do not use --version or --update." >&2
+    exit 1
+  fi
+fi
 if [ "$LIST" = true ]; then
   if [ "$UNINSTALL" = true ] || [ "$UPDATE" = true ] || [ "$SERVICE" = true ] || [ -n "$RELEASE_TAG" ]; then
     echo "Error: --list lists releases and exits; do not combine with install/uninstall options." >&2
