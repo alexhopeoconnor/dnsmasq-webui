@@ -1,7 +1,8 @@
-using DnsmasqWebUI.Models.EffectiveConfig;
-using DnsmasqWebUI.Models.Status;
-using DnsmasqWebUI.Configuration;
-using DnsmasqWebUI.Services.Abstractions;
+using DnsmasqWebUI.Models.Dnsmasq;
+using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
+using DnsmasqWebUI.Models.Config;
+using DnsmasqWebUI.Models.Contracts;
+using DnsmasqWebUI.Infrastructure.Services.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
@@ -76,6 +77,7 @@ public class StatusController : ControllerBase
                 ManagedFilePathExists: !string.IsNullOrEmpty(set.ManagedFilePath) && System.IO.File.Exists(set.ManagedFilePath),
                 LeasesPathConfigured: !string.IsNullOrEmpty(effectiveLeasesPath),
                 LeasesPathExists: !string.IsNullOrEmpty(effectiveLeasesPath) && System.IO.File.Exists(effectiveLeasesPath),
+                ConfigFiles: set.Files.Count > 0 ? set.Files : null,
                 ReloadCommandConfigured: !string.IsNullOrWhiteSpace(_options.ReloadCommand),
                 StatusCommandConfigured: !string.IsNullOrWhiteSpace(_options.StatusCommand),
                 StatusShowConfigured: !string.IsNullOrWhiteSpace(_options.StatusShowCommand),

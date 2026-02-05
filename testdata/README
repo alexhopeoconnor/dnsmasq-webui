@@ -9,7 +9,7 @@ Source for the Docker test harness: `scripts/prepare-test-mount.sh` syncs this d
 | **dnsmasq-test.conf** | Harness main config (`/data/dnsmasq-test.conf`). DNS + DHCP; `conf-dir=/data/dnsmasq.d`, multiple server/addn-hosts/address/dhcp-range. |
 | **dnsmasq.conf** | Minimal main (conf-dir only). Used by unit tests when conf-dir is absent. |
 | **dnsmasq.conf.example** | Commented example; not used by harness or tests. |
-| **dnsmasq.d/** | Included configs (alphabetical order). |
+| **dnsmasq.d/** | Included configs (conf-dir; alphabetical order). In the harness, "Config files (load order)" should list main, then these, then zz-dnsmasq-webui.conf. |
 | **dnsmasq.d/01-other.conf** | `domain=local`. Not managed. |
 | **dnsmasq.d/02-servers.conf** | Extra `server=` / `local=` (readonly in UI). |
 | **dnsmasq.d/03-more.conf** | `resolv-file=`, `dhcp-option=`. Not managed. |
@@ -20,3 +20,5 @@ Source for the Docker test harness: `scripts/prepare-test-mount.sh` syncs this d
 | **leases** | Sample DHCP leases for unit tests only; not synced to the harness. The harness uses the path from config (`dhcp-leasefile=` in dnsmasq-test.conf); the app discovers and monitors that file; dnsmasq creates it when DHCP clients obtain addresses. |
 
 Harness usage (start/stop/tidy): see **agents.md** in the repo root.
+
+**Manual check for conf-dir fix:** After starting the harness, open the app and confirm "Config files (load order)" shows: main (`/data/dnsmasq-test.conf`), then conf-dir files (`01-other.conf`, `02-servers.conf`, `03-more.conf`, `dhcp.conf`), then managed (`zz-dnsmasq-webui.conf`). Unit test `GetIncludedPathsWithSource_ConfDirAndConfFile_ReturnsAllFilesInLoadOrderWithSources` asserts the same layout (main + conf-dir + conf-file) with sources.

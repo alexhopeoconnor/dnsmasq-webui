@@ -1,5 +1,5 @@
 using DnsmasqWebUI.Models.Dhcp;
-using DnsmasqWebUI.Services.Abstractions;
+using DnsmasqWebUI.Infrastructure.Services.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DnsmasqWebUI.Controllers;

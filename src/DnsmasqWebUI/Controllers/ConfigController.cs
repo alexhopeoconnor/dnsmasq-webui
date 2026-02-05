@@ -1,6 +1,8 @@
 using DnsmasqWebUI.Models.Config;
-using DnsmasqWebUI.Models.EffectiveConfig;
-using DnsmasqWebUI.Services.Abstractions;
+using DnsmasqWebUI.Models.Dnsmasq;
+using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
+using DnsmasqWebUI.Models.Contracts;
+using DnsmasqWebUI.Infrastructure.Services.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DnsmasqWebUI.Controllers;

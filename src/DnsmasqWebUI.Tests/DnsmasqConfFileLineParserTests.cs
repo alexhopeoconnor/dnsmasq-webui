@@ -1,6 +1,6 @@
 using DnsmasqWebUI.Models.Config;
 using DnsmasqWebUI.Models.Dhcp;
-using DnsmasqWebUI.Parsers;
+using DnsmasqWebUI.Infrastructure.Parsers;
 
 namespace DnsmasqWebUI.Tests;
 

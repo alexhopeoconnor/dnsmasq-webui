@@ -1,5 +1,7 @@
-using DnsmasqWebUI.Models.Config;
-using DnsmasqWebUI.Parsers;
+using DnsmasqWebUI.Infrastructure.Helpers.Config;
+using DnsmasqWebUI.Models.Dnsmasq;
+using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
+using DnsmasqWebUI.Infrastructure.Parsers;
 
 namespace DnsmasqWebUI.Tests;
 
@@ -145,14 +147,57 @@ public class DnsmasqConfIncludeParserTests
     }
 
     [Fact]
-    public void GetIncludedPaths_testdata_dnsmasq_conf_ReturnsMainOnlyWhenConfDirMissing()
+    public void GetIncludedPaths_ConfDirMissing_ReturnsMainOnly()
     {
-        var mainPath = TestDataHelper.GetPath("dnsmasq.conf");
-        if (!File.Exists(mainPath))
-            return; // testdata not copied
-        var paths = DnsmasqConfIncludeParser.GetIncludedPaths(mainPath);
-        Assert.Single(paths);
-        Assert.Equal(Path.GetFullPath(mainPath), paths[0]);
+        var baseDir = Path.Combine(Path.GetTempPath(), "dnsmasq-confdir-missing-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(baseDir);
+        try
+        {
+            var main = Path.Combine(baseDir, "dnsmasq.conf");
+            File.WriteAllText(main, "conf-dir=nonexistent-subdir\n");
+            var paths = DnsmasqConfIncludeParser.GetIncludedPaths(main);
+            Assert.Single(paths);
+            Assert.Equal(Path.GetFullPath(main), paths[0]);
+        }
+        finally
+        {
+            Directory.Delete(baseDir, recursive: true);
+        }
+    }
+
+    /// <summary>Mirrors harness layout: main + conf-dir with multiple files (including lan-dns.conf) + conf-file. Asserts all appear in load order with correct sources.</summary>
+    [Fact]
+    public void GetIncludedPathsWithSource_ConfDirAndConfFile_ReturnsAllFilesInLoadOrderWithSources()
+    {
+        var baseDir = Path.Combine(Path.GetTempPath(), "dnsmasq-harness-layout-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(baseDir);
+        var confDir = Path.Combine(baseDir, "dnsmasq.d");
+        Directory.CreateDirectory(confDir);
+        try
+        {
+            File.WriteAllText(Path.Combine(confDir, "01-other.conf"), "# other\n");
+            File.WriteAllText(Path.Combine(confDir, "02-servers.conf"), "# servers\n");
+            File.WriteAllText(Path.Combine(confDir, "lan-dns.conf"), "# lan dns\n");
+            File.WriteAllText(Path.Combine(baseDir, "zz-dnsmasq-webui.conf"), "# managed\n");
+            var main = Path.Combine(baseDir, "dnsmasq.conf");
+            File.WriteAllText(main, "conf-dir=dnsmasq.d\nconf-file=zz-dnsmasq-webui.conf\n");
+            var withSource = DnsmasqConfIncludeParser.GetIncludedPathsWithSource(main);
+            Assert.Equal(5, withSource.Count);
+            Assert.Equal(Path.GetFullPath(main), withSource[0].Path);
+            Assert.Equal(DnsmasqConfFileSource.Main, withSource[0].Source);
+            Assert.Equal(Path.GetFullPath(Path.Combine(confDir, "01-other.conf")), withSource[1].Path);
+            Assert.Equal(DnsmasqConfFileSource.ConfDir, withSource[1].Source);
+            Assert.Equal(Path.GetFullPath(Path.Combine(confDir, "02-servers.conf")), withSource[2].Path);
+            Assert.Equal(DnsmasqConfFileSource.ConfDir, withSource[2].Source);
+            Assert.Equal(Path.GetFullPath(Path.Combine(confDir, "lan-dns.conf")), withSource[3].Path);
+            Assert.Equal(DnsmasqConfFileSource.ConfDir, withSource[3].Source);
+            Assert.Equal(Path.GetFullPath(Path.Combine(baseDir, "zz-dnsmasq-webui.conf")), withSource[4].Path);
+            Assert.Equal(DnsmasqConfFileSource.ConfFile, withSource[4].Source);
+        }
+        finally
+        {
+            Directory.Delete(baseDir, recursive: true);
+        }
     }
 
     [Fact]

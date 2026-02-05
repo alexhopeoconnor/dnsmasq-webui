@@ -1,5 +1,5 @@
 using DnsmasqWebUI.Models.Hosts;
-using DnsmasqWebUI.Parsers;
+using DnsmasqWebUI.Infrastructure.Parsers;
 
 namespace DnsmasqWebUI.Tests;
 

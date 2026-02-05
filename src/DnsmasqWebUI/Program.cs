@@ -1,6 +1,7 @@
 using DnsmasqWebUI.Components;
+using DnsmasqWebUI.Models.Config;
 using DnsmasqWebUI.Extensions;
-using DnsmasqWebUI.Configuration;
+using DnsmasqWebUI.Infrastructure.Helpers.Http;
 using Microsoft.Extensions.Options;
 
 // When not in Development, use the app's directory (not CWD) so static assets work when run via symlink or from any CWD.
@@ -25,11 +26,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddDnsmasqApiHttpClients();
 
 builder.Services.AddControllers()
-    .AddJsonOptions(o =>
-    {
-        o.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
-        o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
-    });
+    .AddJsonOptions(o => ApiJsonOptions.ConfigureServer(o.JsonSerializerOptions));
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 

@@ -1,0 +1,35 @@
+using DnsmasqWebUI.Infrastructure.Client.Abstractions;
+using DnsmasqWebUI.Infrastructure.Helpers.Http;
+using DnsmasqWebUI.Models.Hosts;
+using DnsmasqWebUI.Models.Dnsmasq;
+using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
+using System.Net.Http.Json;
+
+namespace DnsmasqWebUI.Infrastructure.Client;
+
+public sealed class HostsClient : IHostsClient
+{
+    private readonly HttpClient _http;
+
+    public HostsClient(HttpClient http) => _http = http;
+
+    public async Task<IReadOnlyList<HostEntry>> GetHostsAsync(CancellationToken ct = default)
+    {
+        var list = await _http.GetFromJsonAsync<List<HostEntry>>("api/hosts", ApiJsonOptions.ClientOptions, ct);
+        return list ?? new List<HostEntry>();
+    }
+
+    public async Task<IReadOnlyList<ReadOnlyHostsFile>> GetReadOnlyHostsAsync(CancellationToken ct = default)
+    {
+        var list = await _http.GetFromJsonAsync<List<ReadOnlyHostsFile>>("api/hosts/readonly", ApiJsonOptions.ClientOptions, ct);
+        return list ?? new List<ReadOnlyHostsFile>();
+    }
+
+    public async Task<SaveWithReloadResult> SaveHostsAsync(IReadOnlyList<HostEntry> entries, CancellationToken ct = default)
+    {
+        var response = await _http.PutAsJsonAsync("api/hosts", entries, ApiJsonOptions.ClientOptions, ct);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<SaveWithReloadResult>(ApiJsonOptions.ClientOptions, ct)
+            ?? throw new InvalidOperationException("Unexpected null from api/hosts.");
+    }
+}

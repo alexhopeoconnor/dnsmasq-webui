@@ -24,9 +24,12 @@ else if (_status != null)
         <h2 class="page-section-title">Service configuration</h2>
         <p class="mb-1"><strong>Config files (load order):</strong></p>
         <ul class="list-unstyled small ms-2 mb-0">
-            @if (_configSet != null && _configSet.Files?.Count > 0)
+            @{
+                var configFileList = _status.ConfigFiles?.Count > 0 ? _status.ConfigFiles : _configSet?.Files;
+            }
+            @if (configFileList != null && configFileList.Count > 0)
             {
-                @foreach (var f in _configSet.Files)
+                @foreach (var f in configFileList)
                 {
                     var isMain = string.Equals(f.Path, _status.MainConfigPath, StringComparison.Ordinal);
                     var isManaged = f.IsManaged;

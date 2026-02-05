@@ -1,4 +1,4 @@
-using DnsmasqWebUI.Models.EffectiveConfig;
+using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 
 namespace DnsmasqWebUI.Tests;
 
