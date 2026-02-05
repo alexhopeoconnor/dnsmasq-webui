@@ -10,5 +10,6 @@ public interface ILeasesCache : IApplicationSingleton
     /// <summary>Forces the next <see cref="GetOrRefreshAsync"/> to re-read the file. Use for manual Refresh; no need to recreate the file watcher.</summary>
     void Invalidate();
 
+    /// <summary>Returns cached lease entries, or re-reads from disk if invalidated or file changed.</summary>
     Task<(bool Available, IReadOnlyList<LeaseEntry>? Entries)> GetOrRefreshAsync(CancellationToken ct = default);
 }

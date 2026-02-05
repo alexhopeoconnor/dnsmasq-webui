@@ -477,9 +477,9 @@ sudo ./scripts/install.sh --uninstall --purge --system
 
 **Codebase overview:**
 
-- **Entry and config:** `Program.cs` wires the host; configuration (e.g. `Dnsmasq__*`) is in `Configuration/` (`DnsmasqOptions`, `ApplicationOptions`). Options are validated at startup.
-- **Config and hosts:** Services in `Services/` and `Services/Abstractions/` read and write dnsmasq config and hosts. A **managed** config file and optional managed hosts file are written by the app; the main config must include the managed file (e.g. via a final `conf-file=` line). Caches (`ConfigSetCache`, `HostsCache`) keep in-memory snapshots and refresh on file changes or staleness.
-- **Parsers and models:** `Parsers/` parses dnsmasq config lines and files (`DnsmasqConfIncludeParser`, `DnsmasqConfDirectiveParser`, etc.). Models in `Models/` represent config sets, config, sources, DHCP entries, hosts, leases.
+- **Entry and config:** `Program.cs` wires the host; configuration (e.g. `Dnsmasq__*`) lives in `Models/Config/` (`DnsmasqOptions`, `ApplicationOptions`, `DnsmasqOptionsValidator`). Options are validated at startup.
+- **Infrastructure:** Under `Infrastructure/`: **Client/** (HTTP API clients and `Abstractions/`), **Services/** and **Services/Abstractions/** (caches, config/hosts/leases services, reload, hosted services), **Parsers/** (dnsmasq config and hosts line parsers), **Helpers/Config/** and **Helpers/Http/** (option keys, encoding, tooltips, JSON options). A **managed** config file and optional managed hosts file are written by the app; the main config must include the managed file (e.g. via a final `conf-file=` line). Caches (`ConfigSetCache`, `HostsCache`) keep in-memory snapshots and refresh on file changes or staleness.
+- **Models:** `Models/Config/` (options, validators, `DnsmasqConfLine`); `Models/Contracts/` (snapshots and DTOs such as `ConfigSetSnapshot`, `HostsSnapshot`, `ManagedConfigContent`, `ProcessRunResult`, `ReloadResult`); `Models/Dnsmasq/` (status, `SaveWithReloadResult`, and `EffectiveConfig/` for effective config and sources); `Models/Client/`, `Models/Dhcp/`, `Models/Hosts/` (UI and API DTOs).
 - **API and UI:** `Controllers/` expose API endpoints; `Components/` contains Blazor Server components for config editor, hosts, DHCP, Dnsmasq status, and app settings. Static assets in `wwwroot/`.
 - **Tests:** `DnsmasqWebUI.Tests` contains unit tests for parsers, config set service, config, and related logic. Run with `dotnet test`.
 
