@@ -1,5 +1,7 @@
-using DnsmasqWebUI.Models.Config;
+using DnsmasqWebUI.Infrastructure.Logging;
 using DnsmasqWebUI.Infrastructure.Services.Abstractions;
+using DnsmasqWebUI.Models.Config;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace DnsmasqWebUI.Infrastructure.Services;
@@ -22,13 +24,13 @@ public class ReloadService : IReloadService
     {
         if (string.IsNullOrWhiteSpace(_options.ReloadCommand))
         {
-            _logger.LogDebug("Reload command not configured");
+            _logger.LogDebug(LogEvents.ReloadCommandNotConfigured, "Reload command not configured");
             return new ReloadResult(true, 0, null, "Reload command not configured");
         }
 
         if (!await _reloadLock.WaitAsync(TimeSpan.Zero, ct))
         {
-            _logger.LogDebug("Reload already in progress, rejecting concurrent request");
+            _logger.LogDebug(LogEvents.ReloadRejectedConcurrent, "Reload already in progress, rejecting concurrent request");
             return new ReloadResult(false, -1, null, "Reload already in progress.");
         }
 
@@ -42,9 +44,9 @@ public class ReloadService : IReloadService
                 stderr = (string.IsNullOrEmpty(stderr) ? "" : stderr + "\n") + result.ExceptionMessage;
 
             if (result.ExitCode != 0 && result.ExitCode.HasValue)
-                _logger.LogWarning("Reload command exited with {ExitCode}: {Stderr}", result.ExitCode.Value, stderr);
+                _logger.LogWarning(LogEvents.ReloadNonZeroExit, "Reload command exited with {ExitCode}: {Stderr}", result.ExitCode.Value, stderr);
             else if (result.ExitCode == 0)
-                _logger.LogInformation("Reload command succeeded");
+                _logger.LogInformation(LogEvents.ReloadSucceeded, "Reload command succeeded");
 
             return new ReloadResult(
                 result.ExitCode == 0,
@@ -54,7 +56,7 @@ public class ReloadService : IReloadService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to run reload command");
+            _logger.LogError(LogEvents.ReloadFailed, ex, "Failed to run reload command");
             return new ReloadResult(false, -1, null, ex.Message);
         }
         finally

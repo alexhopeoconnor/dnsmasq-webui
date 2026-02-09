@@ -1,9 +1,11 @@
 using System.Text;
 using DnsmasqWebUI.Infrastructure.Helpers.Config;
-using DnsmasqWebUI.Models.Config;
-using DnsmasqWebUI.Models.Dnsmasq;
+using DnsmasqWebUI.Infrastructure.Logging;
 using DnsmasqWebUI.Infrastructure.Parsers;
 using DnsmasqWebUI.Infrastructure.Services.Abstractions;
+using DnsmasqWebUI.Models.Config;
+using DnsmasqWebUI.Models.Dnsmasq;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace DnsmasqWebUI.Infrastructure.Services;
@@ -79,7 +81,7 @@ public class EnsureManagedConfigHostedService : IApplicationHostedService
                 lines.Add("");
             lines.Add(confFileLine);
             await File.WriteAllLinesAsync(mainFull, lines, DnsmasqFileEncoding.Utf8NoBom, cancellationToken);
-            _logger.LogInformation("Set {Line} as the last line of main config {Path} so the managed file is included only by conf-file=.", confFileLine, mainFull);
+            _logger.LogInformation(LogEvents.ManagedConfigConfFileLineSet, "Set {Line} as the last line of main config {Path} so the managed file is included only by conf-file=.", confFileLine, mainFull);
         }
         else
         {
@@ -91,7 +93,7 @@ public class EnsureManagedConfigHostedService : IApplicationHostedService
         if (File.Exists(set.ManagedFilePath))
             return;
 
-        _logger.LogInformation("Creating managed config file at startup: {Path}", set.ManagedFilePath);
+        _logger.LogInformation(LogEvents.ManagedConfigCreatedAtStartup, "Creating managed config file at startup: {Path}", set.ManagedFilePath);
         await configService.WriteManagedConfigAsync(Array.Empty<DnsmasqConfLine>(), cancellationToken);
     }
 

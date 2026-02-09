@@ -1,4 +1,5 @@
 using DnsmasqWebUI.Components;
+using DnsmasqWebUI.Hubs;
 using DnsmasqWebUI.Models.Config;
 using DnsmasqWebUI.Extensions;
 using DnsmasqWebUI.Infrastructure.Helpers.Http;
@@ -12,9 +13,19 @@ var builder = isDevelopment
     ? WebApplication.CreateBuilder(args)
     : WebApplication.CreateBuilder(new WebApplicationOptions { ContentRootPath = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), Args = args });
 
+// Runtime overrides file (Logging.LogLevel.Default, etc.) — add as config source so startup uses actual log level.
+var overridesPath = builder.Configuration["RuntimeOverrides:FilePath"]?.Trim();
+if (string.IsNullOrEmpty(overridesPath))
+    overridesPath = Path.Combine(AppContext.BaseDirectory, RuntimeOverridesOptions.DefaultFileName);
+builder.Configuration.AddJsonFile(overridesPath, optional: true, reloadOnChange: true);
+
 // ---- Application options (title, etc.) ----
 builder.Services.AddOptions<ApplicationOptions>()
     .Bind(builder.Configuration.GetSection(ApplicationOptions.SectionName));
+builder.Services.AddOptions<AppLogsOptions>()
+    .Bind(builder.Configuration.GetSection(AppLogsOptions.SectionName));
+builder.Services.AddOptions<RuntimeOverridesOptions>()
+    .Bind(builder.Configuration.GetSection(RuntimeOverridesOptions.SectionName));
 
 // ---- Dnsmasq options (required paths validated at startup) ----
 builder.Services.AddOptions<DnsmasqOptions>()
@@ -30,9 +41,11 @@ builder.Services.AddDnsmasqApiHttpClients();
 
 builder.Services.AddControllers()
     .AddJsonOptions(o => ApiJsonOptions.ConfigureServer(o.JsonSerializerOptions));
+builder.Services.AddSignalR();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Logging.AddAppLogs(builder.Configuration);
 builder.Services.AddCorsFromConfiguration(builder.Configuration);
 
 var app = builder.Build();
@@ -59,6 +72,7 @@ app.UseAntiforgery();
 
 // ---- Endpoints ----
 app.MapControllers();
+app.MapHub<LogsHub>("/hubs/logs");
 // UseStaticFiles: MapStaticAssets returns 0-byte responses for fingerprinted assets (known bug). Serve from wwwroot directly.
 app.UseStaticFiles();
 app.MapRazorComponents<App>()

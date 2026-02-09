@@ -3,16 +3,18 @@
 @inject ISettingsModalService SettingsModalService
 
 <div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid d-flex align-items-center">
+    <div class="top-row-inner">
         <a class="navbar-brand d-flex align-items-center gap-2" href="" aria-label="@AppTitle home">
             <span class="brand-logo-wrap"><img src="logo.webp" alt="" class="brand-logo" /></span>
             <span>@AppTitle</span>
         </a>
-        <button type="button" class="nav-settings-btn" aria-label="Settings" title="Settings" @onclick="OpenAllSettings">
-            <i class="bi bi-gear-fill" aria-hidden="true"></i>
-        </button>
+        <div class="nav-top-controls">
+            <button type="button" class="nav-settings-btn" aria-label="Settings" title="Settings" @onclick="OpenAllSettings">
+                <i class="bi bi-gear-fill" aria-hidden="true"></i>
+            </button>
+            <input type="checkbox" title="Navigation menu" class="navbar-toggler" id="nav-toggler" aria-label="Toggle navigation" />
+        </div>
     </div>
-    <input type="checkbox" title="Navigation menu" class="navbar-toggler" id="nav-toggler" aria-label="Toggle navigation" />
 </div>
 
 <div class="nav-scrollable" onclick="document.getElementById('nav-toggler')?.click()">

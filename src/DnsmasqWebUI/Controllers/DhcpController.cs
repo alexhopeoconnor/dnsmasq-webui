@@ -1,7 +1,9 @@
+using DnsmasqWebUI.Infrastructure.Logging;
+using DnsmasqWebUI.Infrastructure.Services.Abstractions;
 using DnsmasqWebUI.Models.Dhcp;
 using DnsmasqWebUI.Models.Dnsmasq;
-using DnsmasqWebUI.Infrastructure.Services.Abstractions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace DnsmasqWebUI.Controllers;
 
@@ -11,11 +13,13 @@ public class DhcpController : ControllerBase
 {
     private readonly IDnsmasqConfigService _configService;
     private readonly IReloadService _reloadService;
+    private readonly ILogger<DhcpController> _logger;
 
-    public DhcpController(IDnsmasqConfigService configService, IReloadService reloadService)
+    public DhcpController(IDnsmasqConfigService configService, IReloadService reloadService, ILogger<DhcpController> logger)
     {
         _configService = configService;
         _reloadService = reloadService;
+        _logger = logger;
     }
 
     [HttpGet("hosts")]
@@ -23,11 +27,13 @@ public class DhcpController : ControllerBase
     {
         try
         {
+            _logger.LogDebug("Get DHCP hosts");
             var entries = await _configService.ReadDhcpHostsAsync(ct);
             return Ok(entries);
         }
         catch (Exception ex)
         {
+            _logger.LogError(LogEvents.DhcpGetHostsFailed, ex, "Get DHCP hosts failed");
             return StatusCode(500, new { error = ex.Message });
         }
     }
@@ -41,14 +47,17 @@ public class DhcpController : ControllerBase
         {
             await _configService.WriteDhcpHostsAsync(entries, ct);
             var reload = await _reloadService.ReloadAsync(ct);
+            _logger.LogInformation(LogEvents.DhcpPutHostsSuccess, "DHCP hosts saved, count={Count}, reload success={Success}", entries.Count, reload.Success);
             return Ok(new SaveWithReloadResult(true, reload));
         }
         catch (ArgumentException ex)
         {
+            _logger.LogWarning(LogEvents.DhcpPutHostsValidationFailed, ex, "DHCP hosts put validation failed");
             return BadRequest(new { error = ex.Message });
         }
         catch (Exception ex)
         {
+            _logger.LogError(LogEvents.DhcpPutHostsFailed, ex, "Put DHCP hosts failed");
             return StatusCode(500, new { error = ex.Message });
         }
     }

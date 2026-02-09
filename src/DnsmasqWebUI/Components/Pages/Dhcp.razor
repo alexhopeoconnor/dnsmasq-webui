@@ -399,10 +399,16 @@ else
         ("2592000", "30 days"),
     };
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
         SettingsModalService.SettingsChanged += OnSettingsChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
         await Load();
+        StateHasChanged();
     }
 
     private async Task Load()
@@ -412,7 +418,7 @@ else
         try
         {
             var clientSettings = await ClientSettingsService.LoadSettingsAsync();
-            _leasesRefreshIntervalSeconds = Math.Clamp(clientSettings.LeasesPollingIntervalSeconds, 5, 300);
+            _leasesRefreshIntervalSeconds = ClientSettingsFields.LeasesPollingInterval.Clamp(clientSettings.LeasesPollingIntervalSeconds);
             _status = await StatusClient.GetStatusAsync();
             var entries = await DhcpHostsClient.GetDhcpHostsAsync();
             _entries = entries?.ToList() ?? new List<DhcpHostEntry>();
@@ -433,7 +439,7 @@ else
         await InvokeAsync(async () =>
         {
             var clientSettings = await ClientSettingsService.LoadSettingsAsync();
-            _leasesRefreshIntervalSeconds = Math.Clamp(clientSettings.LeasesPollingIntervalSeconds, 5, 300);
+            _leasesRefreshIntervalSeconds = ClientSettingsFields.LeasesPollingInterval.Clamp(clientSettings.LeasesPollingIntervalSeconds);
             if (_status != null && _status.LeasesPathConfigured)
                 StartLeasesRefreshTimer();
             StateHasChanged();

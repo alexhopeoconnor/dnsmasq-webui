@@ -1,7 +1,9 @@
-using DnsmasqWebUI.Models.Hosts;
-using DnsmasqWebUI.Models.Dnsmasq;
+using DnsmasqWebUI.Infrastructure.Logging;
 using DnsmasqWebUI.Infrastructure.Services.Abstractions;
+using DnsmasqWebUI.Models.Dnsmasq;
+using DnsmasqWebUI.Models.Hosts;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace DnsmasqWebUI.Controllers;
 
@@ -12,12 +14,14 @@ public class HostsController : ControllerBase
     private readonly IHostsFileService _hostsService;
     private readonly IReloadService _reloadService;
     private readonly IHostsCache _hostsCache;
+    private readonly ILogger<HostsController> _logger;
 
-    public HostsController(IHostsFileService hostsService, IReloadService reloadService, IHostsCache hostsCache)
+    public HostsController(IHostsFileService hostsService, IReloadService reloadService, IHostsCache hostsCache, ILogger<HostsController> logger)
     {
         _hostsService = hostsService;
         _reloadService = reloadService;
         _hostsCache = hostsCache;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -25,11 +29,13 @@ public class HostsController : ControllerBase
     {
         try
         {
+            _logger.LogDebug("Get hosts");
             var entries = await _hostsService.ReadAsync(ct);
             return Ok(entries);
         }
         catch (Exception ex)
         {
+            _logger.LogError(LogEvents.HostsGetFailed, ex, "Get hosts failed");
             return StatusCode(500, new { error = ex.Message });
         }
     }
@@ -40,11 +46,13 @@ public class HostsController : ControllerBase
     {
         try
         {
+            _logger.LogDebug("Get readonly hosts");
             var snapshot = await _hostsCache.GetSnapshotAsync(ct);
             return Ok(snapshot.ReadOnlyFiles);
         }
         catch (Exception ex)
         {
+            _logger.LogError(LogEvents.HostsGetReadOnlyFailed, ex, "Get readonly hosts failed");
             return StatusCode(500, new { error = ex.Message });
         }
     }
@@ -58,14 +66,17 @@ public class HostsController : ControllerBase
         {
             await _hostsService.WriteAsync(entries, ct);
             var reload = await _reloadService.ReloadAsync(ct);
+            _logger.LogInformation(LogEvents.HostsPutSuccess, "Hosts saved, count={Count}, reload success={Success}", entries.Count, reload.Success);
             return Ok(new SaveWithReloadResult(true, reload));
         }
         catch (InvalidOperationException ex)
         {
+            _logger.LogWarning(LogEvents.HostsPutValidationFailed, ex, "Hosts put validation failed");
             return BadRequest(new { error = ex.Message });
         }
         catch (Exception ex)
         {
+            _logger.LogError(LogEvents.HostsPutFailed, ex, "Put hosts failed");
             return StatusCode(500, new { error = ex.Message });
         }
     }

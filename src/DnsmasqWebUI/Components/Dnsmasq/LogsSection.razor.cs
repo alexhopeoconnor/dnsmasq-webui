@@ -1,81 +1,181 @@
-using DnsmasqWebUI.Infrastructure.Client.Abstractions;
+using DnsmasqWebUI.Models.Client;
 using DnsmasqWebUI.Models.Dnsmasq;
+using DnsmasqWebUI.Models.Logs;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.JSInterop;
 
 namespace DnsmasqWebUI.Components.Dnsmasq;
 
 /// <summary>
-/// Recent logs block: polls LogsCommand output at its own interval and re-renders only itself.
+/// Recent logs block: connects to LogsHub, polls at interval via RequestDnsmasqLogs,
+/// receives DnsmasqLogsUpdate pushes, updates DOM via JS interop.
 /// </summary>
-public partial class LogsSection : IDisposable
+public partial class LogsSection : IAsyncDisposable
 {
+    private const string LogsPreId = "dnsmasq-logs-pre";
+
     private DnsmasqServiceStatus? _status;
     private bool _refreshing;
+    private bool _justUpdated;
     private int _intervalSeconds;
+    private HubConnection? _hubConnection;
+    private IJSObjectReference? _logsJs;
+    private Timer? _pollTimer;
+    private Timer? _justUpdatedResetTimer;
     private readonly CancellationTokenSource _cts = new();
-    private Timer? _timer;
+
+    [Parameter] public DnsmasqServiceStatus? Status { get; set; }
 
     [Parameter] public int RefreshIntervalSeconds { get; set; } = 15;
 
+    [Parameter] public int LogsMaxLines { get; set; } = 500;
+
+    [Parameter] public bool LogsAutoScroll { get; set; } = true;
+
     [Parameter] public EventCallback OnOpenSettings { get; set; }
 
-    [Inject] private IStatusClient StatusClient { get; set; } = null!;
+    private object LogsOptions => new { maxLines = LogsMaxLines, autoScroll = LogsAutoScroll };
 
-    protected override async Task OnInitializedAsync()
-    {
-        _intervalSeconds = Math.Clamp(RefreshIntervalSeconds, 5, 300);
-        await RefreshAsync();
-        _timer = new Timer(
-            _ => _ = InvokeAsync(OnRefreshTick),
-            null,
-            TimeSpan.FromSeconds(_intervalSeconds),
-            TimeSpan.FromSeconds(_intervalSeconds));
-    }
+    private string _initialPlaceholder => _hubConnection?.State == HubConnectionState.Connected ? "Waiting for logs…" : "Connecting…";
 
     protected override void OnParametersSet()
     {
-        var next = Math.Clamp(RefreshIntervalSeconds, 5, 300);
+        _status = Status;
+        var next = ClientSettingsFields.RecentLogsPollingInterval.Clamp(RefreshIntervalSeconds);
         if (next == _intervalSeconds) return;
         _intervalSeconds = next;
-        _timer?.Dispose();
-        _timer = new Timer(
-            _ => _ = InvokeAsync(OnRefreshTick),
+        RestartPollTimer();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _intervalSeconds = ClientSettingsFields.RecentLogsPollingInterval.Clamp(RefreshIntervalSeconds);
+        _status = Status;
+
+        var hubUri = new Uri(new Uri(Navigation.BaseUri), "hubs/logs").ToString();
+
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(hubUri)
+            .WithAutomaticReconnect()
+            .Build();
+
+        _hubConnection.On<LogsUpdatePayload>("DnsmasqLogsUpdate", OnDnsmasqLogsUpdate);
+
+        try
+        {
+            _logsJs = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/logs.js");
+        }
+        catch (InvalidOperationException ex) { Logger.LogDebug(ex, "LogsSection: JS import skipped (prerender)"); return; }
+        catch (JSDisconnectedException ex) { Logger.LogDebug(ex, "LogsSection: JS import skipped (circuit disconnected)"); return; }
+        catch (JSException ex) { Logger.LogDebug(ex, "LogsSection: JS import failed"); return; }
+
+        await _hubConnection.StartAsync(_cts.Token);
+        RestartPollTimer();
+
+        // Initial request
+        await RequestRefreshAsync();
+    }
+
+    private void RestartPollTimer()
+    {
+        _pollTimer?.Dispose();
+        _pollTimer = new Timer(
+            _ => _ = InvokeAsync(PollTick),
             null,
             TimeSpan.FromSeconds(_intervalSeconds),
             TimeSpan.FromSeconds(_intervalSeconds));
     }
 
-    private async Task OnRefreshTick()
+    private async Task PollTick()
     {
-        if (_cts.Token.IsCancellationRequested) return;
-        await RefreshAsync();
-        StateHasChanged();
+        if (_cts.Token.IsCancellationRequested || _hubConnection?.State != HubConnectionState.Connected)
+            return;
+        await RequestRefreshAsync();
     }
 
-    private async Task RefreshAsync()
+    private async Task RequestRefreshAsync()
     {
+        if (_hubConnection?.State != HubConnectionState.Connected)
+            return;
         _refreshing = true;
+        StateHasChanged();
         try
         {
-            var token = _cts.Token;
-            _status = await StatusClient.GetStatusAsync(token);
+            await _hubConnection.InvokeAsync("RequestDnsmasqLogs", _cts.Token);
         }
         catch (OperationCanceledException) { }
-        catch
+        catch (Exception)
         {
             // Don't overwrite on background refresh
         }
         finally
         {
             _refreshing = false;
+            StateHasChanged();
         }
     }
 
-    public void Dispose()
+    private async void OnDnsmasqLogsUpdate(LogsUpdatePayload payload)
     {
-        _timer?.Dispose();
-        _timer = null;
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                if (_logsJs == null) return;
+                try
+                {
+                    if (payload.Mode == "replace")
+                        await _logsJs.InvokeVoidAsync("replaceLogs", LogsPreId, payload.Content, LogsOptions);
+                    else
+                        await _logsJs.InvokeVoidAsync("appendLogs", LogsPreId, payload.Content, LogsOptions);
+                    SetJustUpdated();
+                    StateHasChanged();
+                }
+                catch (JSDisconnectedException) { /* Circuit disconnected; ignore */ }
+                catch (InvalidOperationException) { /* Prerender or circuit disposed; ignore */ }
+                catch (JSException) { /* JS error; ignore */ }
+            });
+        }
+        catch (ObjectDisposedException) { /* Component disposed; ignore */ }
+        catch (InvalidOperationException) { /* Circuit disconnected; ignore */ }
+    }
+
+    private void SetJustUpdated()
+    {
+        _justUpdated = true;
+        _justUpdatedResetTimer?.Dispose();
+        _justUpdatedResetTimer = new Timer(_ =>
+        {
+            _justUpdatedResetTimer?.Dispose();
+            _justUpdatedResetTimer = null;
+            _ = InvokeAsync(() =>
+            {
+                _justUpdated = false;
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(2), Timeout.InfiniteTimeSpan);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _pollTimer?.Dispose();
+        _justUpdatedResetTimer?.Dispose();
         _cts.Cancel();
         _cts.Dispose();
+        if (_hubConnection != null)
+        {
+            await _hubConnection.DisposeAsync();
+            _hubConnection = null;
+        }
+        if (_logsJs != null)
+        {
+            try { await _logsJs.DisposeAsync(); }
+            catch (InvalidOperationException ex) { Logger.LogDebug(ex, "LogsSection: DisposeAsync skipped (prerender)"); }
+            catch (JSDisconnectedException ex) { Logger.LogDebug(ex, "LogsSection: DisposeAsync skipped (circuit disconnected)"); }
+            catch (JSException ex) { Logger.LogDebug(ex, "LogsSection: DisposeAsync failed"); }
+            _logsJs = null;
+        }
     }
 }

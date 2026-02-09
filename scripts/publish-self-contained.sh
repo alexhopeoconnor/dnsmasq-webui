@@ -85,7 +85,7 @@ while [ $# -gt 0 ]; do
       echo "    ubuntu.24.04-x64   ubuntu.24.04-arm64"
       echo "    ubuntu.22.04-x64   ubuntu.22.04-arm64"
       echo ""
-      echo "Output: src/DnsmasqWebUI/bin/Release/net9.0/<RID>/publish/"
+      echo "Output: src/DnsmasqWebUI/bin/Release/net10.0/<RID>/publish/"
       echo ""
       echo "Examples:"
       echo "  $0                          # Publish for current machine (auto-detect RID)"
@@ -163,7 +163,7 @@ else
     --self-contained true
 fi
 
-OUT_DIR="$REPO_ROOT/src/DnsmasqWebUI/bin/Release/net9.0/$RID/publish"
+OUT_DIR="$REPO_ROOT/src/DnsmasqWebUI/bin/Release/net10.0/$RID/publish"
 echo ""
 echo "Done. Output: $OUT_DIR"
 echo "Run on this host:    $OUT_DIR/DnsmasqWebUI"

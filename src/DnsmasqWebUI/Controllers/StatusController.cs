@@ -1,9 +1,11 @@
-using DnsmasqWebUI.Models.Dnsmasq;
-using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
+using DnsmasqWebUI.Infrastructure.Logging;
+using DnsmasqWebUI.Infrastructure.Services.Abstractions;
 using DnsmasqWebUI.Models.Config;
 using DnsmasqWebUI.Models.Contracts;
-using DnsmasqWebUI.Infrastructure.Services.Abstractions;
+using DnsmasqWebUI.Models.Dnsmasq;
+using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace DnsmasqWebUI.Controllers;
@@ -15,15 +17,18 @@ public class StatusController : ControllerBase
     private readonly DnsmasqOptions _options;
     private readonly IDnsmasqConfigSetService _configSetService;
     private readonly IProcessRunner _processRunner;
+    private readonly ILogger<StatusController> _logger;
 
     public StatusController(
         IOptions<DnsmasqOptions> options,
         IDnsmasqConfigSetService configSetService,
-        IProcessRunner processRunner)
+        IProcessRunner processRunner,
+        ILogger<StatusController> logger)
     {
         _options = options.Value;
         _configSetService = configSetService;
         _processRunner = processRunner;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -31,6 +36,7 @@ public class StatusController : ControllerBase
     {
         try
         {
+            _logger.LogDebug("Get status");
             var set = await _configSetService.GetConfigSetAsync(ct);
             var effectiveLeasesPath = _configSetService.GetLeasesPath();
             var (effectiveConfig, effectiveConfigSources) = _configSetService.GetEffectiveConfigWithSources();
@@ -98,6 +104,7 @@ public class StatusController : ControllerBase
         }
         catch (Exception ex)
         {
+            _logger.LogError(LogEvents.StatusGetFailed, ex, "Get status failed");
             return StatusCode(500, new { error = ex.Message });
         }
     }
@@ -140,6 +147,7 @@ public class StatusController : ControllerBase
 
         try
         {
+            _logger.LogDebug("Get status logs download");
             var fullPath = Path.IsPathRooted(logsPath) ? Path.GetFullPath(logsPath) : Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), logsPath));
             if (!System.IO.File.Exists(fullPath))
                 return NotFound();
@@ -154,6 +162,7 @@ public class StatusController : ControllerBase
         }
         catch (Exception ex)
         {
+            _logger.LogError(LogEvents.StatusLogsDownloadFailed, ex, "Status logs download failed");
             return StatusCode(500, new { error = ex.Message });
         }
     }

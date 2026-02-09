@@ -20,7 +20,7 @@ public static class WebApplicationExtensions
         app.UseForwardedHeaders(new ForwardedHeadersOptions
         {
             ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
-            KnownNetworks = { new Microsoft.AspNetCore.HttpOverrides.IPNetwork(IPAddress.Loopback, 8) },
+            KnownIPNetworks = { new System.Net.IPNetwork(IPAddress.Loopback, 8) },
         });
 
         return app;

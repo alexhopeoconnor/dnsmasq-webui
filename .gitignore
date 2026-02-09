@@ -43,6 +43,7 @@ testdata-mount/
 .DS_Store
 Thumbs.db
 
-# User-specific
+# User-specific / runtime
 appsettings.*.local.json
+appsettings.Overrides.json
 *.local

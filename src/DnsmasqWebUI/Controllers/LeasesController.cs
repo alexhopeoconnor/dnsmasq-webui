@@ -1,6 +1,8 @@
-using DnsmasqWebUI.Models.Dhcp;
+using DnsmasqWebUI.Infrastructure.Logging;
 using DnsmasqWebUI.Infrastructure.Services.Abstractions;
+using DnsmasqWebUI.Models.Dhcp;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace DnsmasqWebUI.Controllers;
 
@@ -10,11 +12,13 @@ public class LeasesController : ControllerBase
 {
     private readonly ILeasesFileService _leasesService;
     private readonly ILeasesCache _cache;
+    private readonly ILogger<LeasesController> _logger;
 
-    public LeasesController(ILeasesFileService leasesService, ILeasesCache cache)
+    public LeasesController(ILeasesFileService leasesService, ILeasesCache cache, ILogger<LeasesController> logger)
     {
         _leasesService = leasesService;
         _cache = cache;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -22,6 +26,7 @@ public class LeasesController : ControllerBase
     {
         try
         {
+            _logger.LogDebug("Get leases, refresh={Refresh}", refresh);
             if (refresh)
                 _cache.Invalidate();
             var (available, entries) = await _leasesService.TryReadAsync(ct);
@@ -33,6 +38,7 @@ public class LeasesController : ControllerBase
         }
         catch (Exception ex)
         {
+            _logger.LogError(LogEvents.LeasesGetFailed, ex, "Get leases failed");
             return StatusCode(500, new { error = ex.Message });
         }
     }

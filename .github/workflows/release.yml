@@ -29,14 +29,14 @@ jobs:
         run: |
           docker run --rm \
             -v "${{ github.workspace }}:/src" -w /src \
-            mcr.microsoft.com/dotnet/sdk:9.0 \
+            mcr.microsoft.com/dotnet/sdk:10.0 \
             ./scripts/publish-self-contained.sh ${{ matrix.rid }}
 
       - name: Setup .NET
         if: matrix.rid == 'linux-musl-x64' || matrix.rid == 'linux-musl-arm64'
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Publish for ${{ matrix.rid }} (musl on host)
         if: matrix.rid == 'linux-musl-x64' || matrix.rid == 'linux-musl-arm64'
@@ -44,7 +44,7 @@ jobs:
 
       - name: Zip publish output
         run: |
-          PUBLISH_DIR="src/DnsmasqWebUI/bin/Release/net9.0/${{ matrix.rid }}/publish"
+          PUBLISH_DIR="src/DnsmasqWebUI/bin/Release/net10.0/${{ matrix.rid }}/publish"
           (cd "$PUBLISH_DIR" && zip -r "../../../../../../../dnsmasq-webui-${{ matrix.rid }}.zip" .)
 
       - name: Upload artifact

@@ -16,6 +16,7 @@ public partial class SettingsModal : IAsyncDisposable
     private IJSObjectReference? _jsModule;
     private DotNetObjectReference<SettingsModal>? _dotNetRef;
     private ClientSettings _editingSettings = new();
+    private List<string> _validationErrors = new();
     private string _searchTerm = string.Empty;
     private bool _moduleLoaded;
     private bool _dialogInitialized;
@@ -39,12 +40,18 @@ public partial class SettingsModal : IAsyncDisposable
         if (justOpened)
         {
             _searchTerm = string.Empty;
+            _validationErrors.Clear();
             _editingSettings = await ClientSettingsService.LoadSettingsAsync();
             _editingSettings = new ClientSettings
             {
                 ServiceStatusPollingIntervalSeconds = _editingSettings.ServiceStatusPollingIntervalSeconds,
                 RecentLogsPollingIntervalSeconds = _editingSettings.RecentLogsPollingIntervalSeconds,
-                LeasesPollingIntervalSeconds = _editingSettings.LeasesPollingIntervalSeconds
+                AppLogsPollingIntervalSeconds = _editingSettings.AppLogsPollingIntervalSeconds,
+                LeasesPollingIntervalSeconds = _editingSettings.LeasesPollingIntervalSeconds,
+                RecentLogsMaxLines = _editingSettings.RecentLogsMaxLines,
+                RecentLogsAutoScroll = _editingSettings.RecentLogsAutoScroll,
+                AppLogsMaxLines = _editingSettings.AppLogsMaxLines,
+                AppLogsAutoScroll = _editingSettings.AppLogsAutoScroll
             };
         }
     }
@@ -53,9 +60,15 @@ public partial class SettingsModal : IAsyncDisposable
     {
         if (firstRender)
         {
-            _jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/settings-modal.js");
-            _dotNetRef = DotNetObjectReference.Create(this);
-            _moduleLoaded = true;
+            try
+            {
+                _jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/settings-modal.js");
+                _dotNetRef = DotNetObjectReference.Create(this);
+                _moduleLoaded = true;
+            }
+            catch (InvalidOperationException ex) { Logger.LogDebug(ex, "SettingsModal: JS import skipped (prerender)"); }
+            catch (JSDisconnectedException ex) { Logger.LogDebug(ex, "SettingsModal: JS import skipped (circuit disconnected)"); }
+            catch (JSException ex) { Logger.LogDebug(ex, "SettingsModal: JS import failed"); }
         }
 
         if (IsVisible && _moduleLoaded && _jsModule != null)
@@ -73,31 +86,48 @@ public partial class SettingsModal : IAsyncDisposable
 
     private bool ShouldShowSection(string key)
     {
-        var focusedKey = SettingsModalSections.GetSectionKeyForContext(SettingsContext);
-        if (focusedKey != null)
-            return string.Equals(key, focusedKey, StringComparison.OrdinalIgnoreCase);
+        var keys = SettingsModalSections.GetSectionKeysForContext(SettingsContext);
+        if (keys != null)
+            return keys.Any(k => string.Equals(key, k, StringComparison.OrdinalIgnoreCase));
         return SettingsModalSections.MatchesSearch(key, _searchTerm);
+    }
+
+    private void RunValidation()
+    {
+        _validationErrors.Clear();
+        var checks = new (string Section, int Value, ClientSettingsFields.FieldBounds Bounds)[]
+        {
+            (SettingsModalSections.ServiceStatus, _editingSettings.ServiceStatusPollingIntervalSeconds, ClientSettingsFields.ServiceStatusPollingInterval),
+            (SettingsModalSections.Logs, _editingSettings.RecentLogsPollingIntervalSeconds, ClientSettingsFields.RecentLogsPollingInterval),
+            (SettingsModalSections.AppLogs, _editingSettings.AppLogsPollingIntervalSeconds, ClientSettingsFields.AppLogsPollingInterval),
+            (SettingsModalSections.Leases, _editingSettings.LeasesPollingIntervalSeconds, ClientSettingsFields.LeasesPollingInterval),
+            (SettingsModalSections.RecentLogsDisplay, _editingSettings.RecentLogsMaxLines, ClientSettingsFields.RecentLogsMaxLines),
+            (SettingsModalSections.AppLogsDisplay, _editingSettings.AppLogsMaxLines, ClientSettingsFields.AppLogsMaxLines),
+        };
+        foreach (var (section, value, bounds) in checks)
+        {
+            if (ShouldShowSection(section) && bounds.Validate(value) is { } err)
+                _validationErrors.Add(err);
+        }
     }
 
     private async Task Save()
     {
-        _editingSettings.ServiceStatusPollingIntervalSeconds = Math.Clamp(
-            _editingSettings.ServiceStatusPollingIntervalSeconds, 5, 300);
-        _editingSettings.RecentLogsPollingIntervalSeconds = Math.Clamp(
-            _editingSettings.RecentLogsPollingIntervalSeconds, 5, 300);
-        _editingSettings.LeasesPollingIntervalSeconds = Math.Clamp(
-            _editingSettings.LeasesPollingIntervalSeconds, 5, 300);
+        RunValidation();
+        if (_validationErrors.Count > 0)
+        {
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
 
         await ClientSettingsService.SaveSettingsAsync(_editingSettings);
-        if (_jsModule != null)
-            await _jsModule.InvokeVoidAsync("closeModal", _dialogRef);
+        await (_jsModule?.InvokeVoidAsync("closeModal", _dialogRef) ?? ValueTask.CompletedTask);
         await OnClose.InvokeAsync();
     }
 
     private async Task Close()
     {
-        if (_jsModule != null)
-            await _jsModule.InvokeVoidAsync("closeModal", _dialogRef);
+        await (_jsModule?.InvokeVoidAsync("closeModal", _dialogRef) ?? ValueTask.CompletedTask);
         await OnClose.InvokeAsync();
     }
 
@@ -113,13 +143,12 @@ public partial class SettingsModal : IAsyncDisposable
     /// </summary>
     public async ValueTask DisposeAsync()
     {
-        try
+        if (_jsModule != null)
         {
-            if (_jsModule != null)
-                await _jsModule.DisposeAsync();
-        }
-        finally
-        {
+            try { await _jsModule.DisposeAsync(); }
+            catch (InvalidOperationException ex) { Logger.LogDebug(ex, "SettingsModal: DisposeAsync skipped (prerender)"); }
+            catch (JSDisconnectedException ex) { Logger.LogDebug(ex, "SettingsModal: DisposeAsync skipped (circuit disconnected)"); }
+            catch (JSException ex) { Logger.LogDebug(ex, "SettingsModal: DisposeAsync failed"); }
             _jsModule = null;
         }
         _dotNetRef?.Dispose();

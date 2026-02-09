@@ -1,4 +1,5 @@
 using DnsmasqWebUI.Infrastructure.Client.Abstractions;
+using DnsmasqWebUI.Models.Client;
 using DnsmasqWebUI.Models.Dnsmasq;
 using Microsoft.AspNetCore.Components;
 
@@ -25,7 +26,7 @@ public partial class StatusSection : IDisposable
 
     protected override async Task OnInitializedAsync()
     {
-        _intervalSeconds = Math.Clamp(RefreshIntervalSeconds, 5, 300);
+        _intervalSeconds = ClientSettingsFields.ServiceStatusPollingInterval.Clamp(RefreshIntervalSeconds);
         await RefreshAsync();
         _timer = new Timer(
             _ => _ = InvokeAsync(OnRefreshTick),
@@ -36,7 +37,7 @@ public partial class StatusSection : IDisposable
 
     protected override void OnParametersSet()
     {
-        var next = Math.Clamp(RefreshIntervalSeconds, 5, 300);
+        var next = ClientSettingsFields.ServiceStatusPollingInterval.Clamp(RefreshIntervalSeconds);
         if (next == _intervalSeconds) return;
         _intervalSeconds = next;
         _timer?.Dispose();

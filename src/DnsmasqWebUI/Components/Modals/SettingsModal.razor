@@ -2,6 +2,7 @@
 @implements IAsyncDisposable
 @inject IJSRuntime JSRuntime
 @inject IClientSettingsService ClientSettingsService
+@inject ILogger<SettingsModal> Logger
 
 @if (IsVisible)
 {
@@ -12,6 +13,18 @@
                 <button type="button" class="btn-close" @onclick="Close" aria-label="Close"></button>
             </div>
             <div class="modal-body">
+                @if (_validationErrors.Count > 0)
+                {
+                    <div class="alert alert-danger mb-3" role="alert">
+                        <strong>Please fix the following:</strong>
+                        <ul class="mb-0 mt-1">
+                            @foreach (var err in _validationErrors)
+                            {
+                                <li>@err</li>
+                            }
+                        </ul>
+                    </div>
+                }
                 @if (SettingsContext == SettingsModalContext.All)
                 {
                     <div class="mb-3">
@@ -26,7 +39,7 @@
                     <section class="mb-4">
                         <h6 class="text-muted">@meta.DisplayName</h6>
                         <label for="status-interval" class="form-label">@meta.FieldLabel</label>
-                        <input id="status-interval" type="number" class="form-control" min="5" step="1"
+                        <input id="status-interval" type="number" class="form-control" min="@ClientSettingsFields.ServiceStatusPollingInterval.Min" max="@ClientSettingsFields.ServiceStatusPollingInterval.Max" step="1"
                                @bind="_editingSettings.ServiceStatusPollingIntervalSeconds" />
                     </section>
                 }
@@ -36,8 +49,18 @@
                     <section class="mb-4">
                         <h6 class="text-muted">@meta.DisplayName</h6>
                         <label for="logs-interval" class="form-label">@meta.FieldLabel</label>
-                        <input id="logs-interval" type="number" class="form-control" min="5" step="1"
+                        <input id="logs-interval" type="number" class="form-control" min="@ClientSettingsFields.RecentLogsPollingInterval.Min" max="@ClientSettingsFields.RecentLogsPollingInterval.Max" step="1"
                                @bind="_editingSettings.RecentLogsPollingIntervalSeconds" />
+                    </section>
+                }
+                @if (ShouldShowSection(SettingsModalSections.AppLogs))
+                {
+                    var meta = SettingsModalSections.All[SettingsModalSections.AppLogs];
+                    <section class="mb-4">
+                        <h6 class="text-muted">@meta.DisplayName</h6>
+                        <label for="app-logs-interval" class="form-label">@meta.FieldLabel</label>
+                        <input id="app-logs-interval" type="number" class="form-control" min="@ClientSettingsFields.AppLogsPollingInterval.Min" max="@ClientSettingsFields.AppLogsPollingInterval.Max" step="1"
+                               @bind="_editingSettings.AppLogsPollingIntervalSeconds" />
                     </section>
                 }
                 @if (ShouldShowSection(SettingsModalSections.Leases))
@@ -46,8 +69,40 @@
                     <section class="mb-4">
                         <h6 class="text-muted">@meta.DisplayName</h6>
                         <label for="leases-interval" class="form-label">@meta.FieldLabel</label>
-                        <input id="leases-interval" type="number" class="form-control" min="5" step="1"
+                        <input id="leases-interval" type="number" class="form-control" min="@ClientSettingsFields.LeasesPollingInterval.Min" max="@ClientSettingsFields.LeasesPollingInterval.Max" step="1"
                                @bind="_editingSettings.LeasesPollingIntervalSeconds" />
+                    </section>
+                }
+                @if (ShouldShowSection(SettingsModalSections.RecentLogsDisplay))
+                {
+                    var meta = SettingsModalSections.All[SettingsModalSections.RecentLogsDisplay];
+                    <section class="mb-4">
+                        <h6 class="text-muted">@meta.DisplayName</h6>
+                        <div class="mb-2">
+                            <label for="recent-logs-max-lines" class="form-label">Max lines</label>
+                            <input id="recent-logs-max-lines" type="number" class="form-control" min="@ClientSettingsFields.RecentLogsMaxLines.Min" max="@ClientSettingsFields.RecentLogsMaxLines.Max" step="1"
+                                   @bind="_editingSettings.RecentLogsMaxLines" />
+                        </div>
+                        <div class="form-check">
+                            <input id="recent-logs-auto-scroll" type="checkbox" class="form-check-input" @bind="_editingSettings.RecentLogsAutoScroll" />
+                            <label for="recent-logs-auto-scroll" class="form-check-label">Auto-scroll when new logs arrive</label>
+                        </div>
+                    </section>
+                }
+                @if (ShouldShowSection(SettingsModalSections.AppLogsDisplay))
+                {
+                    var meta = SettingsModalSections.All[SettingsModalSections.AppLogsDisplay];
+                    <section class="mb-4">
+                        <h6 class="text-muted">@meta.DisplayName</h6>
+                        <div class="mb-2">
+                            <label for="app-logs-max-lines" class="form-label">Max lines</label>
+                            <input id="app-logs-max-lines" type="number" class="form-control" min="@ClientSettingsFields.AppLogsMaxLines.Min" max="@ClientSettingsFields.AppLogsMaxLines.Max" step="1"
+                                   @bind="_editingSettings.AppLogsMaxLines" />
+                        </div>
+                        <div class="form-check">
+                            <input id="app-logs-auto-scroll" type="checkbox" class="form-check-input" @bind="_editingSettings.AppLogsAutoScroll" />
+                            <label for="app-logs-auto-scroll" class="form-check-label">Auto-scroll when new logs arrive</label>
+                        </div>
                     </section>
                 }
             </div>

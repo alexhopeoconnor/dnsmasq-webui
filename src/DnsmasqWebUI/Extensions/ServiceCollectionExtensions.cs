@@ -30,6 +30,7 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient<IHostsClient, HostsClient>(DnsmasqApiClientName);
         services.AddHttpClient<IDhcpHostsClient, DhcpHostsClient>(DnsmasqApiClientName);
         services.AddHttpClient<ILeasesClient, LeasesClient>(DnsmasqApiClientName);
+        services.AddHttpClient<ILoggingClient, LoggingClient>(DnsmasqApiClientName);
 
         return services;
     }

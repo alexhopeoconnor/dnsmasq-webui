@@ -26,6 +26,8 @@ services:
       # Simulated systemctl status + real logs (dnsmasq logs to /data/dnsmasq.log via log-facility in dnsmasq-test.conf)
       Dnsmasq__StatusShowCommand: "/app/dnsmasq-status.sh"
       Dnsmasq__LogsCommand: "tail -n 100 /data/dnsmasq.log 2>/dev/null || echo '(no log file yet)'"
+      # Persist runtime log level across container restarts
+      RuntimeOverrides__FilePath: "/data/appsettings.Overrides.json"
     volumes:
       - ${TESTDATA_MOUNT:-./testdata-mount}:/data
     networks:

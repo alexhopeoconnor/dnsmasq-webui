@@ -1,12 +1,14 @@
 using System.Text;
 using DnsmasqWebUI.Infrastructure.Helpers.Config;
+using DnsmasqWebUI.Infrastructure.Logging;
+using DnsmasqWebUI.Infrastructure.Parsers;
+using DnsmasqWebUI.Infrastructure.Services.Abstractions;
 using DnsmasqWebUI.Models.Config;
 using DnsmasqWebUI.Models.Contracts;
 using DnsmasqWebUI.Models.Dhcp;
 using DnsmasqWebUI.Models.Dnsmasq;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
-using DnsmasqWebUI.Infrastructure.Parsers;
-using DnsmasqWebUI.Infrastructure.Services.Abstractions;
+using Microsoft.Extensions.Logging;
 
 namespace DnsmasqWebUI.Infrastructure.Services;
 
@@ -34,7 +36,7 @@ public class DnsmasqConfigService : IDnsmasqConfigService
         var snapshot = await _configSetCache.GetSnapshotAsync(ct);
         if (string.IsNullOrEmpty(snapshot.Set.ManagedFilePath))
         {
-            _logger.LogDebug("No managed file path (no conf-dir in main config); returning empty dhcp hosts");
+            _logger.LogDebug(LogEvents.ConfigNoManagedFilePath, "No managed file path (no conf-dir in main config); returning empty dhcp hosts");
             return Array.Empty<DhcpHostEntry>();
         }
         var allEntries = snapshot.DhcpHostEntries.ToList();
@@ -149,7 +151,7 @@ public class DnsmasqConfigService : IDnsmasqConfigService
         EnsureManagedHostsFileExists(set.ManagedHostsFilePath);
         var effectiveHostsPathDhcp = configLines.OfType<AddnHostsLine>().FirstOrDefault()?.AddnHostsPath ?? "";
         _configSetCache.NotifyWeWroteManagedConfig(new ManagedConfigContent(configLines, effectiveHostsPathDhcp));
-        _logger.LogInformation("Wrote managed config file: {Path}", path);
+        _logger.LogInformation(LogEvents.ConfigWroteManagedFile, "Wrote managed config file: {Path}", path);
     }
 
     /// <summary>Returns MAC -> source file path for all dhcp-host MACs in non-managed config files (for duplicate validation).</summary>
@@ -204,7 +206,7 @@ public class DnsmasqConfigService : IDnsmasqConfigService
         EnsureManagedHostsFileExists(set.ManagedHostsFilePath);
         var effectiveHostsPath = list.OfType<AddnHostsLine>().FirstOrDefault()?.AddnHostsPath ?? "";
         _configSetCache.NotifyWeWroteManagedConfig(new ManagedConfigContent(list, effectiveHostsPath));
-        _logger.LogInformation("Wrote managed config file: {Path}", path);
+        _logger.LogInformation(LogEvents.ConfigWroteManagedFile, "Wrote managed config file: {Path}", path);
     }
 
 }

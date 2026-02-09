@@ -385,7 +385,7 @@ sudo ./scripts/install.sh --uninstall --purge --system
 ./scripts/publish-self-contained.sh --no-clean ubuntu.24.04-x64
 ```
 
-**Output:** `src/DnsmasqWebUI/bin/Release/net9.0/<RID>/publish/`
+**Output:** `src/DnsmasqWebUI/bin/Release/net10.0/<RID>/publish/`
 
 ---
 

@@ -3,12 +3,12 @@
 # For dnsmasq on the host, use the self-contained publish (scripts/publish-self-contained.sh)
 # or run the app on the host; see DnsmasqOptions XML doc for permissions and ReloadCommand scope.
 
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 WORKDIR /app
 EXPOSE 8080
 EXPOSE 8081
 
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY ["src/DnsmasqWebUI/DnsmasqWebUI.csproj", "src/DnsmasqWebUI/"]
 RUN dotnet restore "src/DnsmasqWebUI/DnsmasqWebUI.csproj"

@@ -12,6 +12,7 @@ namespace DnsmasqWebUI.Infrastructure.Services;
 public sealed class ClientSettingsService : IClientSettingsService, IAsyncDisposable
 {
     private readonly IJSRuntime _jsRuntime;
+    private readonly ILogger<ClientSettingsService> _logger;
     private IJSObjectReference? _module;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -20,13 +21,23 @@ public sealed class ClientSettingsService : IClientSettingsService, IAsyncDispos
         WriteIndented = false
     };
 
-    public ClientSettingsService(IJSRuntime jsRuntime) => _jsRuntime = jsRuntime;
+    public ClientSettingsService(IJSRuntime jsRuntime, ILogger<ClientSettingsService> logger)
+    {
+        _jsRuntime = jsRuntime;
+        _logger = logger;
+    }
 
-    private async Task<IJSObjectReference> GetModuleAsync()
+    private async Task<IJSObjectReference?> GetModuleAsync()
     {
         if (_module != null) return _module;
-        _module = await _jsRuntime.InvokeAsync<IJSObjectReference>(
-            "import", "./js/client-settings-storage.js");
+        try
+        {
+            _module = await _jsRuntime.InvokeAsync<IJSObjectReference>(
+                "import", "./js/client-settings-storage.js");
+        }
+        catch (InvalidOperationException ex) { _logger.LogDebug(ex, "JS import skipped: prerender (no JS available)"); return null; }
+        catch (JSDisconnectedException ex) { _logger.LogDebug(ex, "JS import skipped: circuit disconnected"); return null; }
+        catch (JSException ex) { _logger.LogDebug(ex, "JS import failed"); return null; }
         return _module;
     }
 
@@ -34,6 +45,7 @@ public sealed class ClientSettingsService : IClientSettingsService, IAsyncDispos
     public async Task<ClientSettings> LoadSettingsAsync()
     {
         var module = await GetModuleAsync();
+        if (module == null) return new ClientSettings();
         var json = await module.InvokeAsync<string?>("getItem");
         if (string.IsNullOrWhiteSpace(json)) return new ClientSettings();
         try
@@ -49,8 +61,9 @@ public sealed class ClientSettingsService : IClientSettingsService, IAsyncDispos
     /// <inheritdoc />
     public async Task SaveSettingsAsync(ClientSettings settings)
     {
-        var json = JsonSerializer.Serialize(settings, JsonOptions);
         var module = await GetModuleAsync();
+        if (module == null) return;
+        var json = JsonSerializer.Serialize(settings, JsonOptions);
         await module.InvokeVoidAsync("setItem", json);
     }
 
@@ -60,13 +73,10 @@ public sealed class ClientSettingsService : IClientSettingsService, IAsyncDispos
     public async ValueTask DisposeAsync()
     {
         if (_module == null) return;
-        try
-        {
-            await _module.DisposeAsync();
-        }
-        finally
-        {
-            _module = null;
-        }
+        try { await _module.DisposeAsync(); }
+        catch (InvalidOperationException ex) { _logger.LogDebug(ex, "JS module DisposeAsync skipped (prerender)"); }
+        catch (JSDisconnectedException ex) { _logger.LogDebug(ex, "JS module DisposeAsync skipped: circuit disconnected"); }
+        catch (JSException ex) { _logger.LogDebug(ex, "JS module DisposeAsync failed"); }
+        finally { _module = null; }
     }
 }

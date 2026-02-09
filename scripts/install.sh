@@ -346,7 +346,7 @@ do_install_from_source() {
     exit 1
   fi
   if ! command -v dotnet >/dev/null 2>&1; then
-    echo "Error: --build-from-source requires the .NET SDK. Install from https://dotnet.microsoft.com/download or your distro (e.g. apt install dotnet-sdk-9.0)." >&2
+    echo "Error: --build-from-source requires the .NET SDK. Install from https://dotnet.microsoft.com/download or your distro (e.g. apt install dotnet-sdk-10.0)." >&2
     exit 1
   fi
 
@@ -371,7 +371,7 @@ do_install_from_source() {
     echo "Error: Could not determine RID from build output." >&2
     exit 1
   fi
-  publish_dir="$repo_root/src/DnsmasqWebUI/bin/Release/net9.0/$rid/publish"
+  publish_dir="$repo_root/src/DnsmasqWebUI/bin/Release/net10.0/$rid/publish"
   if [ ! -d "$publish_dir" ] || [ ! -f "$publish_dir/DnsmasqWebUI" ]; then
     echo "Error: Build output not found at $publish_dir" >&2
     exit 1

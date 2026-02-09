@@ -3,7 +3,7 @@
 # (app + dnsmasq + DHCP client). See testdata/README.md and docker-compose.test.yml.
 #
 # What this script does:
-#   Start (default): clear mount (unless --no-clear), sync source -> mount, clean up previous test data,
+#   Start (default): sync source -> mount (preserving existing unless --clear), clean up previous test data,
 #     then docker compose up -d [--build] [--force-recreate].
 #   --stop: docker compose down (stop and remove containers/networks).
 #   --tidy: docker compose down, then clear the mount directory for a clean next run.
@@ -18,7 +18,7 @@ MOUNT_DIR=""
 PREPARE_ONLY=false
 BUILD=false
 RECREATE=false
-NO_CLEAR=false
+CLEAR=false
 STOP=false
 TIDY=false
 
@@ -26,10 +26,10 @@ usage() {
   echo "Usage: $0 [OPTIONS] [--]"
   echo ""
   echo "Prepare the testdata mount directory and optionally start or stop the Docker test harness"
-  echo "(app + dnsmasq + DHCP client). By default: clear mount, sync testdata -> mount, then up -d (no rebuild)."
+  echo "(app + dnsmasq + DHCP client). By default: sync testdata -> mount (preserving existing), then up -d (no rebuild)."
   echo ""
   echo "Steps (when starting):"
-  echo "  1. Clear mount dir (unless --no-clear), then sync source -> mount."
+  echo "  1. Optionally clear mount dir (only with --clear), then sync source -> mount."
   echo "  2. Clean up previous test data (e.g. managed config) so the harness starts clean."
   echo "  3. If not --prepare-only: docker compose -f $COMPOSE_FILE up -d [options]."
   echo ""
@@ -39,9 +39,8 @@ usage() {
   echo "                      Compose uses TESTDATA_MOUNT; script exports it if you use --mount."
   echo ""
   echo "Mount behaviour:"
-  echo "  (default)           Clear mount dir completely, then sync. Use for a clean run."
-  echo "  --no-clear          Do not clear mount dir; only sync over existing contents."
-  echo "                      Use to preserve leases or debug files between runs."
+  echo "  (default)           Preserve mount dir; sync source over existing contents."
+  echo "  --clear             Clear mount dir completely before sync. Use for a clean run."
   echo ""
   echo "Compose behaviour:"
   echo "  --prepare-only      Only prepare the mount; do not run docker compose."
@@ -62,19 +61,19 @@ usage() {
   echo ""
   echo "Examples:"
   echo "  $0"
-  echo "                      Full run: clear mount, sync testdata, start containers (no rebuild)."
+  echo "                      Sync testdata to mount (preserving existing), start containers (no rebuild)."
   echo ""
   echo "  $0 --build"
-  echo "                      Clear and sync, then rebuild images and start containers."
+  echo "                      Sync, rebuild images, and start containers."
   echo ""
   echo "  $0 --recreate"
-  echo "                      Clear and sync, then up -d --force-recreate (fresh containers)."
+  echo "                      Sync, then up -d --force-recreate (fresh containers)."
   echo ""
-  echo "  $0 --no-clear"
-  echo "                      Preserve mount contents, sync over it, start (no rebuild)."
+  echo "  $0 --clear"
+  echo "                      Clear mount, sync testdata, start (clean run, no rebuild)."
   echo ""
   echo "  $0 --prepare-only"
-  echo "                      Only clear and sync testdata -> testdata-mount; no containers."
+  echo "                      Only sync testdata -> testdata-mount; no containers."
   echo "                      Then run: docker compose -f $COMPOSE_FILE up -d [--build]"
   echo ""
   echo "  $0 --source myfixtures --mount mymount --prepare-only"
@@ -106,8 +105,8 @@ while [ $# -gt 0 ]; do
       MOUNT_DIR="$1"
       shift
       ;;
-    --no-clear)
-      NO_CLEAR=true
+    --clear)
+      CLEAR=true
       shift
       ;;
     --prepare-only)
@@ -189,7 +188,7 @@ docker compose -f "$COMPOSE_FILE" down
 
 mkdir -p "$MOUNT_DIR"
 
-if [ "$NO_CLEAR" = false ]; then
+if [ "$CLEAR" = true ]; then
   echo "Clearing mount directory: $MOUNT_DIR"
   find "$MOUNT_DIR" -mindepth 1 -delete 2>/dev/null || true
 fi
