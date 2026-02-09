@@ -5,6 +5,7 @@
 @inject IConfigSetClient ConfigSetClient
 @inject IReloadClient ReloadClient
 @inject IClientSettingsService ClientSettingsService
+@inject ISettingsModalService SettingsModalService
 @inject IOptions<ApplicationOptions> AppOptions
 @implements IDisposable
 
@@ -77,10 +78,8 @@ else if (_status != null)
             </div>
         }
 
-        <StatusSection RefreshIntervalSeconds="_serviceStatusIntervalSeconds" OnOpenSettings="OpenServiceStatusSettings" />
+        <StatusSection RefreshIntervalSeconds="_serviceStatusIntervalSeconds" IsReloading="_reloading" OnOpenSettings="OpenServiceStatusSettings" />
         <LogsSection RefreshIntervalSeconds="_recentLogsIntervalSeconds" OnOpenSettings="OpenRecentLogsSettings" />
-
-        <SettingsModal IsVisible="_settingsModalOpen" Title="@_settingsModalTitle" SettingsContext="_settingsModalContext" OnClose="CloseSettingsModal" />
     </section>
 }
 
@@ -88,10 +87,6 @@ else if (_status != null)
     private string AppTitle => AppOptions!.Value!.EffectiveTitle;
     private int _serviceStatusIntervalSeconds = 15;
     private int _recentLogsIntervalSeconds = 15;
-    private bool _settingsModalOpen;
-    private string _settingsModalTitle = "Client settings";
-    private SettingsModalContext _settingsModalContext = SettingsModalContext.All;
-    private ClientSettings _clientSettings = new();
 
     private DnsmasqServiceStatus? _status;
     private DnsmasqConfigSet? _configSet;
@@ -105,14 +100,15 @@ else if (_status != null)
 
     protected override async Task OnInitializedAsync()
     {
+        SettingsModalService.SettingsChanged += OnSettingsChanged;
         _loading = true;
         try
         {
             await Task.Delay(1, _cts.Token);
             var token = _cts.Token;
-            _clientSettings = await ClientSettingsService.LoadSettingsAsync();
-            _serviceStatusIntervalSeconds = Math.Clamp(_clientSettings.ServiceStatusPollingIntervalSeconds, 5, 300);
-            _recentLogsIntervalSeconds = Math.Clamp(_clientSettings.RecentLogsPollingIntervalSeconds, 5, 300);
+            var clientSettings = await ClientSettingsService.LoadSettingsAsync();
+            _serviceStatusIntervalSeconds = Math.Clamp(clientSettings.ServiceStatusPollingIntervalSeconds, 5, 300);
+            _recentLogsIntervalSeconds = Math.Clamp(clientSettings.RecentLogsPollingIntervalSeconds, 5, 300);
             _status = await StatusClient.GetStatusAsync(token);
             if (_status != null)
             {
@@ -140,9 +136,20 @@ else if (_status != null)
         }
     }
 
-    private void OpenServiceStatusSettings() => OpenSettingsModal(SettingsModalContext.ServicePolling, "Service status polling");
+    private void OpenServiceStatusSettings() => SettingsModalService.Open(SettingsModalContext.ServicePolling, "Service status polling");
 
-    private void OpenRecentLogsSettings() => OpenSettingsModal(SettingsModalContext.LogsPolling, "Recent logs polling");
+    private void OpenRecentLogsSettings() => SettingsModalService.Open(SettingsModalContext.LogsPolling, "Recent logs polling");
+
+    private async void OnSettingsChanged()
+    {
+        await InvokeAsync(async () =>
+        {
+            var clientSettings = await ClientSettingsService.LoadSettingsAsync();
+            _serviceStatusIntervalSeconds = Math.Clamp(clientSettings.ServiceStatusPollingIntervalSeconds, 5, 300);
+            _recentLogsIntervalSeconds = Math.Clamp(clientSettings.RecentLogsPollingIntervalSeconds, 5, 300);
+            StateHasChanged();
+        });
+    }
 
     private async Task ReloadDnsmasq()
     {
@@ -193,24 +200,9 @@ else if (_status != null)
         return parts.Count > 0 ? string.Join("\n\n", parts) : null;
     }
 
-    private void OpenSettingsModal(SettingsModalContext context, string title)
-    {
-        _settingsModalContext = context;
-        _settingsModalTitle = title;
-        _settingsModalOpen = true;
-    }
-
-    private async Task CloseSettingsModal()
-    {
-        _settingsModalOpen = false;
-        _clientSettings = await ClientSettingsService.LoadSettingsAsync();
-        _serviceStatusIntervalSeconds = Math.Clamp(_clientSettings.ServiceStatusPollingIntervalSeconds, 5, 300);
-        _recentLogsIntervalSeconds = Math.Clamp(_clientSettings.RecentLogsPollingIntervalSeconds, 5, 300);
-        StateHasChanged();
-    }
-
     public void Dispose()
     {
+        SettingsModalService.SettingsChanged -= OnSettingsChanged;
         _cts.Cancel();
         _cts.Dispose();
     }

@@ -16,33 +16,36 @@
                 {
                     <div class="mb-3">
                         <label class="form-label">Search settings</label>
-                        <input type="search" class="form-control" placeholder="Search..."
-                               @bind="_searchTerm" @bind:event="oninput" />
+                        <input type="search" class="form-control" placeholder="Search..." autocomplete="off"
+                               @bind="_searchTerm" @bind:event="oninput" @bind:after="FilterSettings" />
                     </div>
                 }
-                @if (ShouldShowSection("ServiceStatus"))
+                @if (ShouldShowSection(SettingsModalSections.ServiceStatus))
                 {
+                    var meta = SettingsModalSections.All[SettingsModalSections.ServiceStatus];
                     <section class="mb-4">
-                        <h6 class="text-muted">Service status</h6>
-                        <label for="status-interval" class="form-label">Polling interval (seconds)</label>
+                        <h6 class="text-muted">@meta.DisplayName</h6>
+                        <label for="status-interval" class="form-label">@meta.FieldLabel</label>
                         <input id="status-interval" type="number" class="form-control" min="5" step="1"
                                @bind="_editingSettings.ServiceStatusPollingIntervalSeconds" />
                     </section>
                 }
-                @if (ShouldShowSection("Logs"))
+                @if (ShouldShowSection(SettingsModalSections.Logs))
                 {
+                    var meta = SettingsModalSections.All[SettingsModalSections.Logs];
                     <section class="mb-4">
-                        <h6 class="text-muted">Recent logs</h6>
-                        <label for="logs-interval" class="form-label">Polling interval (seconds)</label>
+                        <h6 class="text-muted">@meta.DisplayName</h6>
+                        <label for="logs-interval" class="form-label">@meta.FieldLabel</label>
                         <input id="logs-interval" type="number" class="form-control" min="5" step="1"
                                @bind="_editingSettings.RecentLogsPollingIntervalSeconds" />
                     </section>
                 }
-                @if (ShouldShowSection("Leases"))
+                @if (ShouldShowSection(SettingsModalSections.Leases))
                 {
+                    var meta = SettingsModalSections.All[SettingsModalSections.Leases];
                     <section class="mb-4">
-                        <h6 class="text-muted">DHCP leases</h6>
-                        <label for="leases-interval" class="form-label">Refresh interval (seconds)</label>
+                        <h6 class="text-muted">@meta.DisplayName</h6>
+                        <label for="leases-interval" class="form-label">@meta.FieldLabel</label>
                         <input id="leases-interval" type="number" class="form-control" min="5" step="1"
                                @bind="_editingSettings.LeasesPollingIntervalSeconds" />
                     </section>

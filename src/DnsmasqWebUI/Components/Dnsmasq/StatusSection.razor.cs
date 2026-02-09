@@ -17,6 +17,8 @@ public partial class StatusSection : IDisposable
 
     [Parameter] public int RefreshIntervalSeconds { get; set; } = 15;
 
+    [Parameter] public bool IsReloading { get; set; }
+
     [Parameter] public EventCallback OnOpenSettings { get; set; }
 
     [Inject] private IStatusClient StatusClient { get; set; } = null!;
@@ -52,9 +54,13 @@ public partial class StatusSection : IDisposable
         StateHasChanged();
     }
 
+    private static readonly TimeSpan MinUpdatingDuration = TimeSpan.FromSeconds(1);
+
     private async Task RefreshAsync()
     {
+        var started = DateTime.UtcNow;
         _refreshing = true;
+        StateHasChanged();
         try
         {
             var token = _cts.Token;
@@ -67,6 +73,13 @@ public partial class StatusSection : IDisposable
         }
         finally
         {
+            var elapsed = DateTime.UtcNow - started;
+            var remaining = MinUpdatingDuration - elapsed;
+            if (remaining > TimeSpan.Zero)
+            {
+                try { await Task.Delay(remaining, _cts.Token).ConfigureAwait(false); }
+                catch (OperationCanceledException) { }
+            }
             _refreshing = false;
         }
     }

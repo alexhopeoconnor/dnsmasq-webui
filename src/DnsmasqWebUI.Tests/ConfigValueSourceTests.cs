@@ -17,25 +17,30 @@ public class ConfigValueSourceTests
     [Fact]
     public void GetReadOnlyTooltip_WhenReadOnlyWithoutLineNumber_ReturnsFileNameOnly()
     {
-        var source = new ConfigValueSource("/etc/dnsmasq.d/02.conf", "02.conf", IsManaged: false, LineNumber: null);
+        var fileName = "02.conf";
+        var fullPath = $"/etc/dnsmasq.d/{fileName}";
+        var source = new ConfigValueSource(fullPath, fileName, IsManaged: false, LineNumber: null);
         var tooltip = source.GetReadOnlyTooltip();
         Assert.NotNull(tooltip);
-        Assert.Contains("02.conf", tooltip);
+        Assert.Contains(fileName, tooltip);
         Assert.Contains("readonly", tooltip);
-        Assert.Contains("/etc/dnsmasq.d/02.conf", tooltip);
+        Assert.Contains(fullPath, tooltip);
         Assert.DoesNotContain("line", tooltip);
     }
 
     [Fact]
     public void GetReadOnlyTooltip_WhenReadOnlyWithLineNumber_IncludesLineNumber()
     {
-        var source = new ConfigValueSource("/etc/dnsmasq.d/02.conf", "02.conf", IsManaged: false, LineNumber: 3);
+        var fileName = "02.conf";
+        var fullPath = $"/etc/dnsmasq.d/{fileName}";
+        int? lineNumber = 3;
+        var source = new ConfigValueSource(fullPath, fileName, IsManaged: false, LineNumber: lineNumber);
         var tooltip = source.GetReadOnlyTooltip();
         Assert.NotNull(tooltip);
-        Assert.Contains("02.conf", tooltip);
-        Assert.Contains("line 3", tooltip);
+        Assert.Contains(fileName, tooltip);
+        Assert.Contains($"line {lineNumber}", tooltip);
         Assert.Contains("readonly", tooltip);
-        Assert.Contains("/etc/dnsmasq.d/02.conf", tooltip);
+        Assert.Contains(fullPath, tooltip);
     }
 
     [Fact]

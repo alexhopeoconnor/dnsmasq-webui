@@ -38,6 +38,7 @@ public partial class SettingsModal : IAsyncDisposable
         // Only load from storage when the modal opens; parent re-renders (e.g. refresh timer) must not overwrite in-progress edits
         if (justOpened)
         {
+            _searchTerm = string.Empty;
             _editingSettings = await ClientSettingsService.LoadSettingsAsync();
             _editingSettings = new ClientSettings
             {
@@ -68,27 +69,14 @@ public partial class SettingsModal : IAsyncDisposable
         }
     }
 
+    private void FilterSettings() => StateHasChanged();
+
     private bool ShouldShowSection(string key)
     {
-        if (SettingsContext == SettingsModalContext.ServicePolling)
-            return key == "ServiceStatus";
-        if (SettingsContext == SettingsModalContext.LogsPolling)
-            return key == "Logs";
-        if (SettingsContext == SettingsModalContext.LeasesPolling)
-            return key == "Leases";
-        if (SettingsContext == SettingsModalContext.All)
-        {
-            if (string.IsNullOrWhiteSpace(_searchTerm)) return true;
-            var term = _searchTerm.Trim();
-            return key switch
-            {
-                "ServiceStatus" => "service status polling".Contains(term, StringComparison.OrdinalIgnoreCase),
-                "Logs" => "recent logs polling".Contains(term, StringComparison.OrdinalIgnoreCase),
-                "Leases" => "dhcp leases refresh polling".Contains(term, StringComparison.OrdinalIgnoreCase),
-                _ => false
-            };
-        }
-        return false;
+        var focusedKey = SettingsModalSections.GetSectionKeyForContext(SettingsContext);
+        if (focusedKey != null)
+            return string.Equals(key, focusedKey, StringComparison.OrdinalIgnoreCase);
+        return SettingsModalSections.MatchesSearch(key, _searchTerm);
     }
 
     private async Task Save()

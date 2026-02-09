@@ -46,10 +46,11 @@ public class DnsmasqConfIncludeParserTests
         Directory.CreateDirectory(dir);
         try
         {
-            var includePath = Path.Combine(dir, "extra.conf");
+            var includeFileName = "extra.conf";
+            var includePath = Path.Combine(dir, includeFileName);
             File.WriteAllText(includePath, "# extra\n");
             var main = Path.Combine(dir, "dnsmasq.conf");
-            File.WriteAllText(main, "conf-file=extra.conf\n");
+            File.WriteAllText(main, $"conf-file={includeFileName}\n");
             var paths = DnsmasqConfIncludeParser.GetIncludedPaths(main);
             Assert.Equal(2, paths.Count);
             Assert.Equal(Path.GetFullPath(main), paths[0]);
@@ -66,19 +67,22 @@ public class DnsmasqConfIncludeParserTests
     {
         var baseDir = Path.Combine(Path.GetTempPath(), "dnsmasq-confdir-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(baseDir);
-        var subDir = Path.Combine(baseDir, "d");
+        var confDirName = "d";
+        var subDir = Path.Combine(baseDir, confDirName);
         Directory.CreateDirectory(subDir);
+        var file1 = "aa.conf";
+        var file2 = "zz.conf";
         try
         {
-            File.WriteAllText(Path.Combine(subDir, "zz.conf"), "");
-            File.WriteAllText(Path.Combine(subDir, "aa.conf"), "");
+            File.WriteAllText(Path.Combine(subDir, file2), "");
+            File.WriteAllText(Path.Combine(subDir, file1), "");
             var main = Path.Combine(baseDir, "dnsmasq.conf");
-            File.WriteAllText(main, "conf-dir=d\n");
+            File.WriteAllText(main, $"conf-dir={confDirName}\n");
             var paths = DnsmasqConfIncludeParser.GetIncludedPaths(main);
             Assert.Equal(3, paths.Count); // main + aa.conf + zz.conf (alphabetical)
             Assert.Equal(Path.GetFullPath(main), paths[0]);
-            Assert.Equal(Path.GetFullPath(Path.Combine(subDir, "aa.conf")), paths[1]);
-            Assert.Equal(Path.GetFullPath(Path.Combine(subDir, "zz.conf")), paths[2]);
+            Assert.Equal(Path.GetFullPath(Path.Combine(subDir, file1)), paths[1]);
+            Assert.Equal(Path.GetFullPath(Path.Combine(subDir, file2)), paths[2]);
         }
         finally
         {
@@ -109,12 +113,13 @@ public class DnsmasqConfIncludeParserTests
     {
         var baseDir = Path.Combine(Path.GetTempPath(), "dnsmasq-firstdir-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(baseDir);
-        var subDir = Path.Combine(baseDir, "dnsmasq.d");
+        var confDirName = "dnsmasq.d";
+        var subDir = Path.Combine(baseDir, confDirName);
         Directory.CreateDirectory(subDir);
         try
         {
             var main = Path.Combine(baseDir, "dnsmasq.conf");
-            File.WriteAllText(main, "conf-dir=dnsmasq.d\n");
+            File.WriteAllText(main, $"conf-dir={confDirName}\n");
             var first = DnsmasqConfIncludeParser.GetFirstConfDir(main);
             Assert.NotNull(first);
             Assert.Equal(Path.GetFullPath(subDir), first);
@@ -240,12 +245,14 @@ public class DnsmasqConfIncludeParserTests
         Directory.CreateDirectory(dir);
         try
         {
+            var firstLeasePath = "/var/first.leases";
+            var secondLeasePath = "/var/second.leases";
             var first = Path.Combine(dir, "first.conf");
-            File.WriteAllText(first, "dhcp-leasefile=/var/first.leases\n");
+            File.WriteAllText(first, $"dhcp-leasefile={firstLeasePath}\n");
             var second = Path.Combine(dir, "second.conf");
-            File.WriteAllText(second, "dhcp-leasefile=/var/second.leases\n");
+            File.WriteAllText(second, $"dhcp-leasefile={secondLeasePath}\n");
             var result = DnsmasqConfIncludeParser.GetDhcpLeaseFilePathFromConfigFiles(new[] { first, second });
-            Assert.Equal(Path.GetFullPath("/var/second.leases"), result);
+            Assert.Equal(Path.GetFullPath(secondLeasePath), result);
         }
         finally
         {
@@ -260,10 +267,13 @@ public class DnsmasqConfIncludeParserTests
         Directory.CreateDirectory(dir);
         try
         {
+            var subdir = "subdir";
+            var leasesFile = "leases";
+            var relativePath = $"{subdir}/{leasesFile}";
             var conf = Path.Combine(dir, "dnsmasq.conf");
-            File.WriteAllText(conf, "dhcp-leasefile=subdir/leases\n");
+            File.WriteAllText(conf, $"dhcp-leasefile={relativePath}\n");
             var result = DnsmasqConfIncludeParser.GetDhcpLeaseFilePathFromConfigFiles(new[] { conf });
-            Assert.Equal(Path.GetFullPath(Path.Combine(dir, "subdir", "leases")), result);
+            Assert.Equal(Path.GetFullPath(Path.Combine(dir, subdir, leasesFile)), result);
         }
         finally
         {
@@ -285,15 +295,18 @@ public class DnsmasqConfIncludeParserTests
         Directory.CreateDirectory(dir);
         try
         {
+            var path1 = "/etc/hosts.d/first";
+            var path2 = "/data/hosts";
+            var path3 = "/data/extra.hosts";
             var first = Path.Combine(dir, "first.conf");
-            File.WriteAllText(first, "addn-hosts=/etc/hosts.d/first\n");
+            File.WriteAllText(first, $"addn-hosts={path1}\n");
             var second = Path.Combine(dir, "second.conf");
-            File.WriteAllText(second, "addn-hosts=/data/hosts\naddn-hosts=/data/extra.hosts\n");
+            File.WriteAllText(second, $"addn-hosts={path2}\naddn-hosts={path3}\n");
             var result = DnsmasqConfIncludeParser.GetAddnHostsPathsFromConfigFiles(new[] { first, second });
             Assert.Equal(3, result.Count);
-            Assert.Equal(Path.GetFullPath("/etc/hosts.d/first"), result[0]);
-            Assert.Equal(Path.GetFullPath("/data/hosts"), result[1]);
-            Assert.Equal(Path.GetFullPath("/data/extra.hosts"), result[2]);
+            Assert.Equal(Path.GetFullPath(path1), result[0]);
+            Assert.Equal(Path.GetFullPath(path2), result[1]);
+            Assert.Equal(Path.GetFullPath(path3), result[2]);
         }
         finally
         {
@@ -308,11 +321,14 @@ public class DnsmasqConfIncludeParserTests
         Directory.CreateDirectory(dir);
         try
         {
+            var pathPart1 = "hosts.d";
+            var pathPart2 = "app.hosts";
+            var addnRelativePath = $"{pathPart1}/{pathPart2}";
             var conf = Path.Combine(dir, "dnsmasq.conf");
-            File.WriteAllText(conf, "addn-hosts=hosts.d/app.hosts\n");
+            File.WriteAllText(conf, $"addn-hosts={addnRelativePath}\n");
             var result = DnsmasqConfIncludeParser.GetAddnHostsPathsFromConfigFiles(new[] { conf });
             Assert.Single(result);
-            Assert.Equal(Path.GetFullPath(Path.Combine(dir, "hosts.d", "app.hosts")), result[0]);
+            Assert.Equal(Path.GetFullPath(Path.Combine(dir, pathPart1, pathPart2)), result[0]);
         }
         finally
         {
@@ -364,12 +380,14 @@ public class DnsmasqConfIncludeParserTests
         Directory.CreateDirectory(dir);
         var f1 = Path.Combine(dir, "01.conf");
         var f2 = Path.Combine(dir, "02.conf");
+        var firstVal = "100";
+        var secondVal = "200";
         try
         {
-            File.WriteAllText(f1, "cache-size=100\n");
-            File.WriteAllText(f2, "cache-size=200\n");
+            File.WriteAllText(f1, $"cache-size={firstVal}\n");
+            File.WriteAllText(f2, $"cache-size={secondVal}\n");
             var (value, configDir) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { f1, f2 }, DnsmasqConfKeys.CacheSize);
-            Assert.Equal("200", value);
+            Assert.Equal(secondVal, value);
             Assert.Equal(dir, configDir);
         }
         finally
@@ -385,10 +403,11 @@ public class DnsmasqConfIncludeParserTests
         Directory.CreateDirectory(dir);
         try
         {
+            var logPath = "/data/dnsmasq.log";
             var conf = Path.Combine(dir, "dnsmasq.conf");
-            File.WriteAllText(conf, "log-facility=/data/dnsmasq.log\n");
+            File.WriteAllText(conf, $"log-facility={logPath}\n");
             var (value, configDir) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.LogFacility);
-            Assert.Equal("/data/dnsmasq.log", value);
+            Assert.Equal(logPath, value);
             Assert.Equal(dir, configDir);
         }
         finally
@@ -404,12 +423,14 @@ public class DnsmasqConfIncludeParserTests
         Directory.CreateDirectory(dir);
         var f1 = Path.Combine(dir, "01.conf");
         var f2 = Path.Combine(dir, "02.conf");
+        var firstLogPath = "/var/log/dnsmasq.log";
+        var secondLogPath = "/data/dnsmasq.log";
         try
         {
-            File.WriteAllText(f1, "log-facility=/var/log/dnsmasq.log\n");
-            File.WriteAllText(f2, "log-facility=/data/dnsmasq.log\n");
+            File.WriteAllText(f1, $"log-facility={firstLogPath}\n");
+            File.WriteAllText(f2, $"log-facility={secondLogPath}\n");
             var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { f1, f2 }, DnsmasqConfKeys.LogFacility);
-            Assert.Equal("/data/dnsmasq.log", value);
+            Assert.Equal(secondLogPath, value);
         }
         finally
         {
@@ -421,16 +442,19 @@ public class DnsmasqConfIncludeParserTests
     public void ResolvePath_Relative_ResolvesAgainstDir()
     {
         var dir = Path.GetTempPath();
-        var result = DnsmasqConfIncludeParser.ResolvePath("sub/pid.pid", dir);
-        Assert.Equal(Path.GetFullPath(Path.Combine(dir, "sub", "pid.pid")), result);
+        var subDirName = "sub";
+        var fileName = "pid.pid";
+        var relativePath = $"{subDirName}/{fileName}";
+        var result = DnsmasqConfIncludeParser.ResolvePath(relativePath, dir);
+        Assert.Equal(Path.GetFullPath(Path.Combine(dir, subDirName, fileName)), result);
     }
 
     [Fact]
     public void ResolvePath_Absolute_ReturnsAsIs()
     {
-        var abs = Path.Combine(Path.GetTempPath(), "absolute.pid");
-        var result = DnsmasqConfIncludeParser.ResolvePath(abs, "/some/dir");
-        Assert.Equal(Path.GetFullPath(abs), result);
+        var absPath = Path.Combine(Path.GetTempPath(), "absolute.pid");
+        var result = DnsmasqConfIncludeParser.ResolvePath(absPath, "/some/dir");
+        Assert.Equal(Path.GetFullPath(absPath), result);
     }
 
     // --- Tests matching dnsmasq option.c semantics (ARG_ONE = last wins, flags = no value allowed) ---
@@ -443,8 +467,9 @@ public class DnsmasqConfIncludeParserTests
         Directory.CreateDirectory(dir);
         try
         {
+            var invalidValue = "1";
             var conf = Path.Combine(dir, "dnsmasq.conf");
-            File.WriteAllText(conf, "expand-hosts=1\n");
+            File.WriteAllText(conf, $"expand-hosts={invalidValue}\n");
             var result = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.ExpandHosts);
             Assert.False(result);
         }
@@ -462,10 +487,12 @@ public class DnsmasqConfIncludeParserTests
         Directory.CreateDirectory(dir);
         try
         {
+            var wrongKey = "Port";
+            var value = "53";
             var conf = Path.Combine(dir, "dnsmasq.conf");
-            File.WriteAllText(conf, "Port=53\n");
-            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.Port);
-            Assert.Null(value);
+            File.WriteAllText(conf, $"{wrongKey}={value}\n");
+            var (parsedValue, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.Port);
+            Assert.Null(parsedValue);
         }
         finally
         {
@@ -481,13 +508,16 @@ public class DnsmasqConfIncludeParserTests
         Directory.CreateDirectory(dir);
         var main = Path.Combine(dir, "dnsmasq.conf");
         var extra = Path.Combine(dir, "extra.conf");
+        var port1 = "53";
+        var port2 = "5353";
+        var port3 = "54";
         try
         {
-            File.WriteAllText(main, "port=53\nconf-file=extra.conf\nport=5353\n");
-            File.WriteAllText(extra, "port=54\n");
+            File.WriteAllText(main, $"port={port1}\nconf-file=extra.conf\nport={port2}\n");
+            File.WriteAllText(extra, $"port={port3}\n");
             var paths = DnsmasqConfIncludeParser.GetIncludedPaths(main);
             var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(paths, DnsmasqConfKeys.Port);
-            Assert.Equal("54", value);
+            Assert.Equal(port3, value);
         }
         finally
         {
@@ -502,18 +532,21 @@ public class DnsmasqConfIncludeParserTests
         var baseDir = Path.Combine(Path.GetTempPath(), "dnsmasq-match-" + Guid.NewGuid().ToString("N"));
         var subDir = Path.Combine(baseDir, "d");
         Directory.CreateDirectory(subDir);
+        var fileConf1 = "a.conf";
+        var fileTxt = "b.txt";
+        var fileConf2 = "c.conf";
         try
         {
-            File.WriteAllText(Path.Combine(subDir, "a.conf"), "");
-            File.WriteAllText(Path.Combine(subDir, "b.txt"), "");
-            File.WriteAllText(Path.Combine(subDir, "c.conf"), "");
+            File.WriteAllText(Path.Combine(subDir, fileConf1), "");
+            File.WriteAllText(Path.Combine(subDir, fileTxt), "");
+            File.WriteAllText(Path.Combine(subDir, fileConf2), "");
             var main = Path.Combine(baseDir, "dnsmasq.conf");
             File.WriteAllText(main, "conf-dir=d,*.conf\n");
             var paths = DnsmasqConfIncludeParser.GetIncludedPaths(main);
             Assert.Equal(3, paths.Count);
-            Assert.Contains(paths, p => p.EndsWith("a.conf", StringComparison.Ordinal));
-            Assert.Contains(paths, p => p.EndsWith("c.conf", StringComparison.Ordinal));
-            Assert.DoesNotContain(paths, p => p.EndsWith("b.txt", StringComparison.Ordinal));
+            Assert.Contains(paths, p => p.EndsWith(fileConf1, StringComparison.Ordinal));
+            Assert.Contains(paths, p => p.EndsWith(fileConf2, StringComparison.Ordinal));
+            Assert.DoesNotContain(paths, p => p.EndsWith(fileTxt, StringComparison.Ordinal));
         }
         finally
         {
@@ -528,16 +561,18 @@ public class DnsmasqConfIncludeParserTests
         var baseDir = Path.Combine(Path.GetTempPath(), "dnsmasq-ignore-" + Guid.NewGuid().ToString("N"));
         var subDir = Path.Combine(baseDir, "d");
         Directory.CreateDirectory(subDir);
+        var fileIncluded = "a.conf";
+        var fileExcluded = "b.conf.bak";
         try
         {
-            File.WriteAllText(Path.Combine(subDir, "a.conf"), "");
-            File.WriteAllText(Path.Combine(subDir, "b.conf.bak"), "");
+            File.WriteAllText(Path.Combine(subDir, fileIncluded), "");
+            File.WriteAllText(Path.Combine(subDir, fileExcluded), "");
             var main = Path.Combine(baseDir, "dnsmasq.conf");
             File.WriteAllText(main, "conf-dir=d,.bak\n");
             var paths = DnsmasqConfIncludeParser.GetIncludedPaths(main);
             Assert.Equal(2, paths.Count);
-            Assert.Contains(paths, p => p.EndsWith("a.conf", StringComparison.Ordinal));
-            Assert.DoesNotContain(paths, p => p.EndsWith("b.conf.bak", StringComparison.Ordinal));
+            Assert.Contains(paths, p => p.EndsWith(fileIncluded, StringComparison.Ordinal));
+            Assert.DoesNotContain(paths, p => p.EndsWith(fileExcluded, StringComparison.Ordinal));
         }
         finally
         {
@@ -553,20 +588,23 @@ public class DnsmasqConfIncludeParserTests
         var f1 = Path.Combine(dir, "01.conf");
         var f2 = Path.Combine(dir, "02.conf");
         var managedPath = Path.Combine(dir, "managed.conf");
+        var path1 = "/etc/hosts.a";
+        var path2 = "/etc/hosts.b";
+        var path3 = "/etc/hosts.c";
         try
         {
-            File.WriteAllText(f1, "addn-hosts=/etc/hosts.a\n");
-            File.WriteAllText(f2, "addn-hosts=/etc/hosts.b\naddn-hosts=/etc/hosts.c\n");
+            File.WriteAllText(f1, $"addn-hosts={path1}\n");
+            File.WriteAllText(f2, $"addn-hosts={path2}\naddn-hosts={path3}\n");
             var result = DnsmasqConfIncludeParser.GetAddnHostsPathsFromConfigFilesWithSource(new[] { f1, f2 }, managedPath);
             Assert.Equal(3, result.Count);
-            Assert.Equal(Path.GetFullPath("/etc/hosts.a"), result[0].Path);
+            Assert.Equal(Path.GetFullPath(path1), result[0].Path);
             Assert.Equal(Path.GetFileName(f1), result[0].Source.FileName);
             Assert.False(result[0].Source.IsManaged);
             Assert.Equal(1, result[0].Source.LineNumber);
-            Assert.Equal(Path.GetFullPath("/etc/hosts.b"), result[1].Path);
+            Assert.Equal(Path.GetFullPath(path2), result[1].Path);
             Assert.Equal(Path.GetFileName(f2), result[1].Source.FileName);
             Assert.Equal(1, result[1].Source.LineNumber);
-            Assert.Equal(Path.GetFullPath("/etc/hosts.c"), result[2].Path);
+            Assert.Equal(Path.GetFullPath(path3), result[2].Path);
             Assert.Equal(2, result[2].Source.LineNumber);
             Assert.True(result[2].Source.IsReadOnly == !result[2].Source.IsManaged);
         }
@@ -583,10 +621,12 @@ public class DnsmasqConfIncludeParserTests
         Directory.CreateDirectory(dir);
         var mainPath = Path.Combine(dir, "dnsmasq.conf");
         var managedPath = Path.Combine(dir, "zz-managed.conf");
+        var readOnlyPath = "/other/hosts";
+        var managedAddnPath = "/managed/hosts";
         try
         {
-            File.WriteAllText(mainPath, "addn-hosts=/other/hosts\n");
-            File.WriteAllText(managedPath, "addn-hosts=/managed/hosts\n");
+            File.WriteAllText(mainPath, $"addn-hosts={readOnlyPath}\n");
+            File.WriteAllText(managedPath, $"addn-hosts={managedAddnPath}\n");
             var result = DnsmasqConfIncludeParser.GetAddnHostsPathsFromConfigFilesWithSource(new[] { mainPath, managedPath }, managedPath);
             Assert.Equal(2, result.Count);
             Assert.False(result[0].Source.IsManaged);
@@ -607,15 +647,18 @@ public class DnsmasqConfIncludeParserTests
         Directory.CreateDirectory(dir);
         var f1 = Path.Combine(dir, "01.conf");
         var f2 = Path.Combine(dir, "02.conf");
+        var v1 = "1.1.1.1";
+        var v2 = "/local/";
+        var v3 = "/example.com/192.168.1.1";
         try
         {
-            File.WriteAllText(f1, "server=1.1.1.1\nlocal=/local/\n");
-            File.WriteAllText(f2, "server=/example.com/192.168.1.1\n");
+            File.WriteAllText(f1, $"server={v1}\nlocal={v2}\n");
+            File.WriteAllText(f2, $"server={v3}\n");
             var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { f1, f2 }, DnsmasqConfKeys.ServerLocalKeys);
             Assert.Equal(3, result.Count);
-            Assert.Equal("1.1.1.1", result[0]);
-            Assert.Equal("/local/", result[1]);
-            Assert.Equal("/example.com/192.168.1.1", result[2]);
+            Assert.Equal(v1, result[0]);
+            Assert.Equal(v2, result[1]);
+            Assert.Equal(v3, result[2]);
         }
         finally
         {
@@ -629,13 +672,15 @@ public class DnsmasqConfIncludeParserTests
         var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-dhcp-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         var conf = Path.Combine(dir, "dnsmasq.conf");
+        var range1 = "172.28.0.10,172.28.0.50,12h";
+        var range2 = "192.168.1.10,192.168.1.100,255.255.255.0,24h";
         try
         {
-            File.WriteAllText(conf, "dhcp-range=172.28.0.10,172.28.0.50,12h\ndhcp-range=192.168.1.10,192.168.1.100,255.255.255.0,24h\n");
+            File.WriteAllText(conf, $"dhcp-range={range1}\ndhcp-range={range2}\n");
             var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DhcpRange);
             Assert.Equal(2, result.Count);
-            Assert.Equal("172.28.0.10,172.28.0.50,12h", result[0]);
-            Assert.Equal("192.168.1.10,192.168.1.100,255.255.255.0,24h", result[1]);
+            Assert.Equal(range1, result[0]);
+            Assert.Equal(range2, result[1]);
         }
         finally
         {

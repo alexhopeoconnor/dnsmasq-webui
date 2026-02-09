@@ -7,6 +7,7 @@
 @inject ILeasesClient LeasesClient
 @inject IReloadClient ReloadClient
 @inject IClientSettingsService ClientSettingsService
+@inject ISettingsModalService SettingsModalService
 @inject IOptions<ApplicationOptions> AppOptions
 @implements IDisposable
 
@@ -320,7 +321,6 @@ else
                 <button class="btn btn-primary" @onclick="() => LoadLeases(showLoading: true, forceRefresh: true)" disabled="@_leasesLoading">Refresh</button>
             </div>
         }
-        <SettingsModal IsVisible="_settingsModalOpen" Title="@_settingsModalTitle" SettingsContext="_settingsModalContext" OnClose="CloseSettingsModal" />
     </section>
 }
 
@@ -336,9 +336,6 @@ else
     private Timer? _leasesRefreshTimer;
     private int _leasesRefreshIntervalSeconds = 5;
     private string? _message;
-    private bool _settingsModalOpen;
-    private string _settingsModalTitle = "Client settings";
-    private SettingsModalContext _settingsModalContext = SettingsModalContext.All;
     private bool _saving;
 
     private IEnumerable<DhcpHostEntry> _visibleStaticEntries =>
@@ -404,6 +401,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        SettingsModalService.SettingsChanged += OnSettingsChanged;
         await Load();
     }
 
@@ -428,20 +426,18 @@ else
         }
     }
 
-    private void OpenLeasesSettings()
-    {
-        _settingsModalContext = SettingsModalContext.LeasesPolling;
-        _settingsModalTitle = "Leases refresh interval";
-        _settingsModalOpen = true;
-    }
+    private void OpenLeasesSettings() => SettingsModalService.Open(SettingsModalContext.LeasesPolling, "Leases refresh interval");
 
-    private async Task CloseSettingsModal()
+    private async void OnSettingsChanged()
     {
-        _settingsModalOpen = false;
-        var clientSettings = await ClientSettingsService.LoadSettingsAsync();
-        _leasesRefreshIntervalSeconds = Math.Clamp(clientSettings.LeasesPollingIntervalSeconds, 5, 300);
-        if (_status != null && _status.LeasesPathConfigured)
-            StartLeasesRefreshTimer();
+        await InvokeAsync(async () =>
+        {
+            var clientSettings = await ClientSettingsService.LoadSettingsAsync();
+            _leasesRefreshIntervalSeconds = Math.Clamp(clientSettings.LeasesPollingIntervalSeconds, 5, 300);
+            if (_status != null && _status.LeasesPathConfigured)
+                StartLeasesRefreshTimer();
+            StateHasChanged();
+        });
     }
 
     private void StartLeasesRefreshTimer()
@@ -640,6 +636,7 @@ else
 
     public void Dispose()
     {
+        SettingsModalService.SettingsChanged -= OnSettingsChanged;
         _leasesRefreshTimer?.Dispose();
         _leasesRefreshTimer = null;
     }

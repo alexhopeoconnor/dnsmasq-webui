@@ -26,10 +26,12 @@ public class DnsmasqConfDirectiveParserTests
     [Fact]
     public void TryParseKeyValue_KeyValue_ReturnsKeyAndValue()
     {
-        var kv = DnsmasqConfDirectiveParser.TryParseKeyValue("port=53");
+        var value = "53";
+        var line = $"port={value}";
+        var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
         Assert.NotNull(kv);
         Assert.Equal(DnsmasqConfKeys.Port, kv!.Value.key);
-        Assert.Equal("53", kv.Value.value);
+        Assert.Equal(value, kv.Value.value);
     }
 
     [Fact]
@@ -50,16 +52,22 @@ public class DnsmasqConfDirectiveParserTests
     [Fact]
     public void StripComment_CommentAfterSpace_StripsToEnd()
     {
-        Assert.Equal("port=53", DnsmasqConfDirectiveParser.StripComment("port=53 # DNS port"));
-        Assert.Equal("port=53", DnsmasqConfDirectiveParser.StripComment("port=53  # comment"));
+        var before = "port=53";
+        var comment1 = " DNS port";
+        var comment2 = " comment";
+        Assert.Equal(before, DnsmasqConfDirectiveParser.StripComment(before + " #" + comment1));
+        Assert.Equal(before, DnsmasqConfDirectiveParser.StripComment(before + "  #" + comment2));
     }
 
     [Fact]
     public void TryParseKeyValue_LineWithComment_ValueExcludesComment()
     {
-        var kv = DnsmasqConfDirectiveParser.TryParseKeyValue("port=53 # DNS port");
+        var value = "53";
+        var comment = " DNS port";
+        var line = $"port={value} #{comment}";
+        var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
         Assert.NotNull(kv);
         Assert.Equal(DnsmasqConfKeys.Port, kv!.Value.key);
-        Assert.Equal("53", kv.Value.value);
+        Assert.Equal(value, kv.Value.value);
     }
 }

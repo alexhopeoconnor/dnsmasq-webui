@@ -19,63 +19,113 @@ public class DnsmasqLeasesFileLineParserTests
     [Fact]
     public void ParseLine_ValidFiveFields_Parses()
     {
-        var e = DnsmasqLeasesFileLineParser.ParseLine("946689575 00:00:00:00:00:05 192.168.1.155 wdt 01:00:00:00:00:00:05");
+        long epoch = 946689575;
+        string mac = "00:00:00:00:00:05";
+        string address = "192.168.1.155";
+        string name = "wdt";
+        string clientId = "01:00:00:00:00:00:05";
+
+        var line = $"{epoch} {mac} {address} {name} {clientId}";
+        var e = DnsmasqLeasesFileLineParser.ParseLine(line);
+
         Assert.NotNull(e);
-        Assert.Equal(946689575, e!.Epoch);
-        Assert.Equal("00:00:00:00:00:05", e.Mac);
-        Assert.Equal("192.168.1.155", e.Address);
-        Assert.Equal("wdt", e.Name);
-        Assert.Equal("01:00:00:00:00:00:05", e.ClientId);
+        Assert.Equal(epoch, e!.Epoch);
+        Assert.Equal(mac, e.Mac);
+        Assert.Equal(address, e.Address);
+        Assert.Equal(name, e.Name);
+        Assert.Equal(clientId, e.ClientId);
     }
 
     [Fact]
     public void ParseLine_UnknownHostname_Asterisk()
     {
-        var e = DnsmasqLeasesFileLineParser.ParseLine("946689522 00:00:00:00:00:04 192.168.1.237 * 01:00:00:00:00:00:04");
+        long epoch = 946689522;
+        string mac = "00:00:00:00:00:04";
+        string address = "192.168.1.237";
+        string name = "*";
+        string clientId = "01:00:00:00:00:00:04";
+
+        var line = $"{epoch} {mac} {address} {name} {clientId}";
+        var e = DnsmasqLeasesFileLineParser.ParseLine(line);
+
         Assert.NotNull(e);
-        Assert.Equal("*", e!.Name);
-        Assert.Equal("192.168.1.237", e.Address);
+        Assert.Equal(name, e!.Name);
+        Assert.Equal(address, e.Address);
     }
 
     [Fact]
     public void ParseLine_UnknownClientId_Asterisk()
     {
-        var e = DnsmasqLeasesFileLineParser.ParseLine("946689351 00:0f:b0:3a:b5:0b 192.168.1.208 colinux *");
+        long epoch = 946689351;
+        string mac = "00:0f:b0:3a:b5:0b";
+        string address = "192.168.1.208";
+        string name = "colinux";
+        string clientId = "*";
+
+        var line = $"{epoch} {mac} {address} {name} {clientId}";
+        var e = DnsmasqLeasesFileLineParser.ParseLine(line);
+
         Assert.NotNull(e);
-        Assert.Equal("colinux", e!.Name);
-        Assert.Equal("*", e.ClientId);
+        Assert.Equal(name, e!.Name);
+        Assert.Equal(clientId, e.ClientId);
     }
 
     [Fact]
     public void ParseLine_MultipleSpacesBetweenFields_Parses()
     {
-        var e = DnsmasqLeasesFileLineParser.ParseLine("  946689575   00:00:00:00:00:05   192.168.1.155   wdt   01:00:00:00:00:00:05  ");
+        long epoch = 946689575;
+        string mac = "00:00:00:00:00:05";
+        string address = "192.168.1.155";
+        string name = "wdt";
+        string clientId = "01:00:00:00:00:00:05";
+
+        var line = $"  {epoch}   {mac}   {address}   {name}   {clientId}  ";
+        var e = DnsmasqLeasesFileLineParser.ParseLine(line);
+
         Assert.NotNull(e);
-        Assert.Equal(946689575, e!.Epoch);
-        Assert.Equal("00:00:00:00:00:05", e.Mac);
-        Assert.Equal("192.168.1.155", e.Address);
-        Assert.Equal("wdt", e.Name);
-        Assert.Equal("01:00:00:00:00:00:05", e.ClientId);
+        Assert.Equal(epoch, e!.Epoch);
+        Assert.Equal(mac, e.Mac);
+        Assert.Equal(address, e.Address);
+        Assert.Equal(name, e.Name);
+        Assert.Equal(clientId, e.ClientId);
     }
 
     [Fact]
     public void ParseLine_TooFewFields_ReturnsNull()
     {
-        Assert.Null(DnsmasqLeasesFileLineParser.ParseLine("946689575 00:00:00:00:00:05 192.168.1.155"));
-        Assert.Null(DnsmasqLeasesFileLineParser.ParseLine("946689575 00:00:00:00:00:05"));
+        long epoch = 946689575;
+        string mac = "00:00:00:00:00:05";
+        string address = "192.168.1.155";
+
+        Assert.Null(DnsmasqLeasesFileLineParser.ParseLine($"{epoch} {mac} {address}"));
+        Assert.Null(DnsmasqLeasesFileLineParser.ParseLine($"{epoch} {mac}"));
     }
 
     [Fact]
     public void ParseLine_TrailingJunk_ReturnsNull()
     {
         // Parser uses .End() so extra text after fifth field fails
-        Assert.Null(DnsmasqLeasesFileLineParser.ParseLine("946689575 00:00:00:00:00:05 192.168.1.155 wdt 01:00:00:00:00:00:05 extra"));
+        long epoch = 946689575;
+        string mac = "00:00:00:00:00:05";
+        string address = "192.168.1.155";
+        string name = "wdt";
+        string clientId = "01:00:00:00:00:00:05";
+
+        var line = $"{epoch} {mac} {address} {name} {clientId} extra";
+        Assert.Null(DnsmasqLeasesFileLineParser.ParseLine(line));
     }
 
     [Fact]
     public void ParseLine_InvalidEpoch_ReturnsNull()
     {
-        Assert.Null(DnsmasqLeasesFileLineParser.ParseLine("notanum 00:00:00:00:00:05 192.168.1.155 wdt 01:00:00:00:00:00:05"));
+        string invalidEpoch = "notanum";
+        string mac = "00:00:00:00:00:05";
+        string address = "192.168.1.155";
+        string name = "wdt";
+        string clientId = "01:00:00:00:00:00:05";
+
+        var line = $"{invalidEpoch} {mac} {address} {name} {clientId}";
+        Assert.Null(DnsmasqLeasesFileLineParser.ParseLine(line));
     }
 
     /// <summary>
@@ -90,9 +140,18 @@ public class DnsmasqLeasesFileLineParserTests
     [Fact]
     public void Timestamp_ConvertsEpochToDateTime()
     {
-        var e = DnsmasqLeasesFileLineParser.ParseLine("946689575 00:00:00:00:00:05 192.168.1.155 wdt 01:00:00:00:00:00:05");
+        long epoch = 946689575;
+        string mac = "00:00:00:00:00:05";
+        string address = "192.168.1.155";
+        string name = "wdt";
+        string clientId = "01:00:00:00:00:00:05";
+
+        var line = $"{epoch} {mac} {address} {name} {clientId}";
+        var e = DnsmasqLeasesFileLineParser.ParseLine(line);
+
         Assert.NotNull(e);
-        var dt = e!.Timestamp;
+        Assert.Equal(epoch, e!.Epoch);
+        var dt = e.Timestamp;
         Assert.True(dt.Year >= 1999 && dt.Year <= 2000); // epoch 946689575 is ~1999-12
     }
 

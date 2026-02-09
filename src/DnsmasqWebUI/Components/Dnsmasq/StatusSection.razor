@@ -7,8 +7,9 @@
             <strong>Service status</strong>
             @{
                 var isActive = _status.DnsmasqStatus == "active";
+                var isUpdating = _refreshing || IsReloading;
             }
-            <span class="status-dot d-inline-block rounded-circle flex-shrink-0 @(isActive ? "bg-success" : "bg-danger")" style="width: 0.5rem; height: 0.5rem;" title="@(isActive ? "Running" : "Not running")" aria-hidden="true"></span>
+            <span class="status-dot d-inline-block rounded-circle flex-shrink-0 @(isActive ? "bg-success" : "bg-danger") @(isUpdating ? "status-dot-updating" : null)" style="width: 0.5rem; height: 0.5rem;" title="@(isUpdating ? "Updating…" : (isActive ? "Running" : "Not running"))" aria-hidden="true"></span>
         </span>
         <button type="button" class="btn btn-link btn-sm p-0 text-body" aria-label="Service status polling settings" @onclick="() => OnOpenSettings.InvokeAsync()" title="Configure service status polling interval">
             <i class="bi bi-gear-fill bi-gear-sm" aria-hidden="true"></i>

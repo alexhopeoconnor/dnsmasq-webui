@@ -1,5 +1,6 @@
 @namespace DnsmasqWebUI.Components.Layout
 @inject IOptions<ApplicationOptions> AppOptions
+@inject ISettingsModalService SettingsModalService
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid d-flex align-items-center">
@@ -7,6 +8,9 @@
             <span class="brand-logo-wrap"><img src="logo.webp" alt="" class="brand-logo" /></span>
             <span>@AppTitle</span>
         </a>
+        <button type="button" class="nav-settings-btn" aria-label="Settings" title="Settings" @onclick="OpenAllSettings">
+            <i class="bi bi-gear-fill" aria-hidden="true"></i>
+        </button>
     </div>
     <input type="checkbox" title="Navigation menu" class="navbar-toggler" id="nav-toggler" aria-label="Toggle navigation" />
 </div>
@@ -33,4 +37,6 @@
 
 @code {
     private string? AppTitle => AppOptions?.Value?.EffectiveTitle;
+
+    private void OpenAllSettings() => SettingsModalService.Open(SettingsModalContext.All, "Settings");
 }

@@ -76,35 +76,41 @@ public class EffectiveDnsmasqConfigTests
     [Fact]
     public void GetLogsPath_AbsolutePath_ReturnsPath()
     {
-        var config = CreateConfig(logFacility: "/data/dnsmasq.log");
-        Assert.Equal("/data/dnsmasq.log", EffectiveDnsmasqConfig.GetLogsPath(config));
+        var path = "/data/dnsmasq.log";
+        var config = CreateConfig(logFacility: path);
+        Assert.Equal(path, EffectiveDnsmasqConfig.GetLogsPath(config));
     }
 
     [Fact]
     public void GetLogsPath_AbsolutePathWithTrim_ReturnsPath()
     {
-        var config = CreateConfig(logFacility: "  /var/log/dnsmasq.log  ");
-        Assert.Equal("/var/log/dnsmasq.log", EffectiveDnsmasqConfig.GetLogsPath(config));
+        var path = "/var/log/dnsmasq.log";
+        var pathWithSpaces = $"  {path}  ";
+        var config = CreateConfig(logFacility: pathWithSpaces);
+        Assert.Equal(path, EffectiveDnsmasqConfig.GetLogsPath(config));
     }
 
     [Fact]
     public void GetLogsPath_RelativePathWithSlash_ReturnsPath()
     {
-        var config = CreateConfig(logFacility: "logs/dnsmasq.log");
-        Assert.Equal("logs/dnsmasq.log", EffectiveDnsmasqConfig.GetLogsPath(config));
+        var path = "logs/dnsmasq.log";
+        var config = CreateConfig(logFacility: path);
+        Assert.Equal(path, EffectiveDnsmasqConfig.GetLogsPath(config));
     }
 
     [Fact]
     public void GetLogsPath_SyslogFacilityName_ReturnsNull()
     {
-        var config = CreateConfig(logFacility: "local0");
+        var facility = "local0";
+        var config = CreateConfig(logFacility: facility);
         Assert.Null(EffectiveDnsmasqConfig.GetLogsPath(config));
     }
 
     [Fact]
     public void GetLogsPath_Stderr_ReturnsNull()
     {
-        var config = CreateConfig(logFacility: "-");
+        var facility = "-";
+        var config = CreateConfig(logFacility: facility);
         Assert.Null(EffectiveDnsmasqConfig.GetLogsPath(config));
     }
 }

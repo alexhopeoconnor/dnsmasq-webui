@@ -41,7 +41,10 @@ public class DnsmasqConfigSetServiceTests
         ConfigSetCache? cache = null;
         try
         {
-            File.WriteAllText(mainPath, "port=53\ncache-size=500\naddn-hosts=/etc/hosts.extra\n");
+            int port = 53;
+            int cacheSize = 500;
+            var addnHostsPath = "/etc/hosts.extra";
+            File.WriteAllText(mainPath, $"port={port}\ncache-size={cacheSize}\naddn-hosts={addnHostsPath}\n");
             var options = Options.Create(new DnsmasqOptions
             {
                 MainConfigPath = mainPath,
@@ -52,10 +55,10 @@ public class DnsmasqConfigSetServiceTests
             var (config, sources) = service.GetEffectiveConfigWithSources();
 
             Assert.NotNull(config);
-            Assert.Equal(53, config.Port);
-            Assert.Equal(500, config.CacheSize);
+            Assert.Equal(port, config.Port);
+            Assert.Equal(cacheSize, config.CacheSize);
             Assert.Single(config.AddnHostsPaths);
-            Assert.Equal(Path.GetFullPath("/etc/hosts.extra"), config.AddnHostsPaths[0]);
+            Assert.Equal(Path.GetFullPath(addnHostsPath), config.AddnHostsPaths[0]);
             Assert.Empty(config.ServerLocalValues);
             Assert.Empty(config.DhcpRanges);
 
@@ -64,7 +67,7 @@ public class DnsmasqConfigSetServiceTests
             Assert.Equal(Path.GetFileName(mainPath), sources.Port!.FileName);
             Assert.NotNull(sources.CacheSize);
             Assert.Single(sources.AddnHostsPaths);
-            Assert.Equal(Path.GetFullPath("/etc/hosts.extra"), sources.AddnHostsPaths[0].Path);
+            Assert.Equal(Path.GetFullPath(addnHostsPath), sources.AddnHostsPaths[0].Path);
             Assert.NotNull(sources.AddnHostsPaths[0].Source);
             Assert.Equal(Path.GetFileName(mainPath), sources.AddnHostsPaths[0].Source!.FileName);
         }

@@ -1,0 +1,13 @@
+/* Status dot pulse when fetching/updating status */
+@keyframes status-dot-pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.35;
+    }
+}
+
+.status-dot.status-dot-updating {
+    animation: status-dot-pulse 0.7s ease-in-out infinite;
+}
