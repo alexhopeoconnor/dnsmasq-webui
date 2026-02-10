@@ -417,8 +417,8 @@ else
         _message = null;
         try
         {
-            var clientSettings = await ClientSettingsService.LoadSettingsAsync();
-            _leasesRefreshIntervalSeconds = ClientSettingsFields.LeasesPollingInterval.Clamp(clientSettings.LeasesPollingIntervalSeconds);
+            await ClientSettingsService.LoadSettingsAsync();
+            _leasesRefreshIntervalSeconds = ClientSettingsFields.LeasesPollingInterval.Value;
             _status = await StatusClient.GetStatusAsync();
             var entries = await DhcpHostsClient.GetDhcpHostsAsync();
             _entries = entries?.ToList() ?? new List<DhcpHostEntry>();
@@ -436,10 +436,9 @@ else
 
     private async void OnSettingsChanged()
     {
-        await InvokeAsync(async () =>
+        await InvokeAsync(() =>
         {
-            var clientSettings = await ClientSettingsService.LoadSettingsAsync();
-            _leasesRefreshIntervalSeconds = ClientSettingsFields.LeasesPollingInterval.Clamp(clientSettings.LeasesPollingIntervalSeconds);
+            _leasesRefreshIntervalSeconds = ClientSettingsFields.LeasesPollingInterval.Value;
             if (_status != null && _status.LeasesPathConfigured)
                 StartLeasesRefreshTimer();
             StateHasChanged();

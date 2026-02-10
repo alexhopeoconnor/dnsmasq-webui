@@ -78,21 +78,14 @@ else if (_status != null)
             </div>
         }
 
-        <StatusSection RefreshIntervalSeconds="_serviceStatusIntervalSeconds" IsReloading="_reloading" OnOpenSettings="OpenServiceStatusSettings" />
-        <LogsSection Status="_status" RefreshIntervalSeconds="_recentLogsIntervalSeconds" LogsMaxLines="_recentLogsMaxLines" LogsAutoScroll="_recentLogsAutoScroll" OnOpenSettings="OpenRecentLogsSettings" />
-        <AppLogsSection RefreshIntervalSeconds="_appLogsIntervalSeconds" LogsMaxLines="_appLogsMaxLines" LogsAutoScroll="_appLogsAutoScroll" OnOpenSettings="OpenAppLogsSettings" />
+        <StatusSection RefreshIntervalSeconds="@ClientSettingsFields.ServiceStatusPollingInterval.Value" IsReloading="_reloading" OnOpenSettings="OpenServiceStatusSettings" />
+        <LogsSection Status="_status" RefreshIntervalSeconds="@ClientSettingsFields.RecentLogsPollingInterval.Value" LogsMaxLines="@ClientSettingsFields.RecentLogsMaxLines.Value" LogsAutoScroll="@ClientSettingsFields.RecentLogsAutoScroll.Value" OnOpenSettings="OpenRecentLogsSettings" />
+        <AppLogsSection RefreshIntervalSeconds="@ClientSettingsFields.AppLogsPollingInterval.Value" LogsMaxLines="@ClientSettingsFields.AppLogsMaxLines.Value" LogsAutoScroll="@ClientSettingsFields.AppLogsAutoScroll.Value" OnOpenSettings="OpenAppLogsSettings" />
     </section>
 }
 
 @code {
     private string AppTitle => AppOptions!.Value!.EffectiveTitle;
-    private int _serviceStatusIntervalSeconds = 15;
-    private int _recentLogsIntervalSeconds = 15;
-    private int _appLogsIntervalSeconds = 15;
-    private int _recentLogsMaxLines = 500;
-    private bool _recentLogsAutoScroll = true;
-    private int _appLogsMaxLines = 500;
-    private bool _appLogsAutoScroll = true;
 
     private DnsmasqServiceStatus? _status;
     private DnsmasqConfigSet? _configSet;
@@ -117,14 +110,7 @@ else if (_status != null)
         {
             await Task.Delay(1, _cts.Token);
             var token = _cts.Token;
-            var clientSettings = await ClientSettingsService.LoadSettingsAsync();
-            _serviceStatusIntervalSeconds = ClientSettingsFields.ServiceStatusPollingInterval.Clamp(clientSettings.ServiceStatusPollingIntervalSeconds);
-            _recentLogsIntervalSeconds = ClientSettingsFields.RecentLogsPollingInterval.Clamp(clientSettings.RecentLogsPollingIntervalSeconds);
-            _appLogsIntervalSeconds = ClientSettingsFields.AppLogsPollingInterval.Clamp(clientSettings.AppLogsPollingIntervalSeconds);
-            _recentLogsMaxLines = ClientSettingsFields.RecentLogsMaxLines.Clamp(clientSettings.RecentLogsMaxLines);
-            _recentLogsAutoScroll = clientSettings.RecentLogsAutoScroll;
-            _appLogsMaxLines = ClientSettingsFields.AppLogsMaxLines.Clamp(clientSettings.AppLogsMaxLines);
-            _appLogsAutoScroll = clientSettings.AppLogsAutoScroll;
+            await ClientSettingsService.LoadSettingsAsync();
             _status = await StatusClient.GetStatusAsync(token);
             if (_status != null)
             {
@@ -161,18 +147,7 @@ else if (_status != null)
 
     private async void OnSettingsChanged()
     {
-        await InvokeAsync(async () =>
-        {
-            var clientSettings = await ClientSettingsService.LoadSettingsAsync();
-            _serviceStatusIntervalSeconds = ClientSettingsFields.ServiceStatusPollingInterval.Clamp(clientSettings.ServiceStatusPollingIntervalSeconds);
-            _recentLogsIntervalSeconds = ClientSettingsFields.RecentLogsPollingInterval.Clamp(clientSettings.RecentLogsPollingIntervalSeconds);
-            _appLogsIntervalSeconds = ClientSettingsFields.AppLogsPollingInterval.Clamp(clientSettings.AppLogsPollingIntervalSeconds);
-            _recentLogsMaxLines = ClientSettingsFields.RecentLogsMaxLines.Clamp(clientSettings.RecentLogsMaxLines);
-            _recentLogsAutoScroll = clientSettings.RecentLogsAutoScroll;
-            _appLogsMaxLines = ClientSettingsFields.AppLogsMaxLines.Clamp(clientSettings.AppLogsMaxLines);
-            _appLogsAutoScroll = clientSettings.AppLogsAutoScroll;
-            StateHasChanged();
-        });
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task ReloadDnsmasq()

@@ -30,4 +30,4 @@
     </span>
 </p>
 <AppLogsFiltersModal IsVisible="_filtersModalVisible" OnClose="CloseFiltersModal" />
-<pre id="app-logs-pre" class="pre-block mb-0" style="max-height: 24rem;">@_initialPlaceholder</pre>
+<LogsPreView Id="app-logs-pre" Placeholder="@_initialPlaceholder" Freeze="_logsContentReceived" />

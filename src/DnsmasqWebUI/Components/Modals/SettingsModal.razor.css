@@ -86,6 +86,10 @@
     transform: rotate(135deg);
 }
 
+.settings-group-title-static {
+    margin-left: 0.75rem;
+}
+
 .settings-group-content {
     max-height: 0;
     overflow: hidden;

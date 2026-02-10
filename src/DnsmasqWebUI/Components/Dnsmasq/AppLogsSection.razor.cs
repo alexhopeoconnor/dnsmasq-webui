@@ -1,5 +1,4 @@
 using DnsmasqWebUI.Infrastructure.Client.Abstractions;
-using DnsmasqWebUI.Models.Client;
 using DnsmasqWebUI.Models.Logs;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.SignalR.Client;
@@ -18,6 +17,7 @@ public partial class AppLogsSection : IAsyncDisposable
     [Inject] private ILoggingClient LoggingClient { get; set; } = null!;
 
     private bool _justUpdated;
+    private bool _logsContentReceived;
     private int _intervalSeconds;
     private string _logLevel = "Information";
     private bool _logLevelDisabled;
@@ -42,16 +42,15 @@ public partial class AppLogsSection : IAsyncDisposable
 
     protected override void OnParametersSet()
     {
-        var next = ClientSettingsFields.AppLogsPollingInterval.Clamp(RefreshIntervalSeconds);
-        if (next == _intervalSeconds) return;
-        _intervalSeconds = next;
+        if (RefreshIntervalSeconds == _intervalSeconds) return;
+        _intervalSeconds = RefreshIntervalSeconds;
         RestartPollTimer();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
-        _intervalSeconds = ClientSettingsFields.AppLogsPollingInterval.Clamp(RefreshIntervalSeconds);
+        _intervalSeconds = RefreshIntervalSeconds;
         var hubUri = new Uri(new Uri(Navigation.BaseUri), "hubs/logs").ToString();
 
         _hubConnection = new HubConnectionBuilder()
@@ -144,6 +143,7 @@ public partial class AppLogsSection : IAsyncDisposable
                         await _logsJs.InvokeVoidAsync("replaceLogs", AppLogsPreId, payload.Content, LogsOptions);
                     else
                         await _logsJs.InvokeVoidAsync("appendLogs", AppLogsPreId, payload.Content, LogsOptions);
+                    _logsContentReceived = true;
                     SetJustUpdated();
                     StateHasChanged();
                 }

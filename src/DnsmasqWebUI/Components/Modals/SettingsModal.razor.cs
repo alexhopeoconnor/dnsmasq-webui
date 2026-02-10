@@ -15,7 +15,6 @@ public partial class SettingsModal : IAsyncDisposable
     private ElementReference _dialogRef;
     private IJSObjectReference? _jsModule;
     private DotNetObjectReference<SettingsModal>? _dotNetRef;
-    private ClientSettings _editingSettings = new();
     private List<string> _validationErrors = new();
     private string _searchTerm = string.Empty;
     private HashSet<string> _expandedGroupIds = new(StringComparer.OrdinalIgnoreCase);
@@ -46,18 +45,7 @@ public partial class SettingsModal : IAsyncDisposable
             if (visible.Count > 0)
                 _expandedGroupIds.Add(visible[0].Id);
             _validationErrors.Clear();
-            _editingSettings = await ClientSettingsService.LoadSettingsAsync();
-            _editingSettings = new ClientSettings
-            {
-                ServiceStatusPollingIntervalSeconds = _editingSettings.ServiceStatusPollingIntervalSeconds,
-                RecentLogsPollingIntervalSeconds = _editingSettings.RecentLogsPollingIntervalSeconds,
-                AppLogsPollingIntervalSeconds = _editingSettings.AppLogsPollingIntervalSeconds,
-                LeasesPollingIntervalSeconds = _editingSettings.LeasesPollingIntervalSeconds,
-                RecentLogsMaxLines = _editingSettings.RecentLogsMaxLines,
-                RecentLogsAutoScroll = _editingSettings.RecentLogsAutoScroll,
-                AppLogsMaxLines = _editingSettings.AppLogsMaxLines,
-                AppLogsAutoScroll = _editingSettings.AppLogsAutoScroll
-            };
+            await ClientSettingsService.LoadSettingsAsync();
         }
     }
 
@@ -120,18 +108,9 @@ public partial class SettingsModal : IAsyncDisposable
     private void RunValidation()
     {
         _validationErrors.Clear();
-        var checks = new (string Section, int Value, ClientSettingsFields.FieldBounds Bounds)[]
+        foreach (var (section, field) in ClientSettingsFields.ValidationChecks)
         {
-            (SettingsModalSections.ServiceStatus, _editingSettings.ServiceStatusPollingIntervalSeconds, ClientSettingsFields.ServiceStatusPollingInterval),
-            (SettingsModalSections.Logs, _editingSettings.RecentLogsPollingIntervalSeconds, ClientSettingsFields.RecentLogsPollingInterval),
-            (SettingsModalSections.AppLogs, _editingSettings.AppLogsPollingIntervalSeconds, ClientSettingsFields.AppLogsPollingInterval),
-            (SettingsModalSections.Leases, _editingSettings.LeasesPollingIntervalSeconds, ClientSettingsFields.LeasesPollingInterval),
-            (SettingsModalSections.RecentLogsDisplay, _editingSettings.RecentLogsMaxLines, ClientSettingsFields.RecentLogsMaxLines),
-            (SettingsModalSections.AppLogsDisplay, _editingSettings.AppLogsMaxLines, ClientSettingsFields.AppLogsMaxLines),
-        };
-        foreach (var (section, value, bounds) in checks)
-        {
-            if (ShouldShowSection(section) && bounds.Validate(value) is { } err)
+            if (ShouldShowSection(section) && field.Validate() is { } err)
                 _validationErrors.Add(err);
         }
     }
@@ -145,7 +124,7 @@ public partial class SettingsModal : IAsyncDisposable
             return;
         }
 
-        await ClientSettingsService.SaveSettingsAsync(_editingSettings);
+        await ClientSettingsService.SaveSettingsAsync(ClientSettingsFields.ToDto());
         await (_jsModule?.InvokeVoidAsync("closeModal", _dialogRef) ?? ValueTask.CompletedTask);
         await OnClose.InvokeAsync();
     }

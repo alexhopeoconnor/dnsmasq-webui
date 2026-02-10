@@ -47,14 +47,23 @@ public sealed class ClientSettingsService : IClientSettingsService, IAsyncDispos
         var module = await GetModuleAsync();
         if (module == null) return new ClientSettings();
         var json = await module.InvokeAsync<string?>("getItem");
-        if (string.IsNullOrWhiteSpace(json)) return new ClientSettings();
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            var defaults = new ClientSettings();
+            ClientSettingsFields.HydrateFrom(defaults);
+            return defaults;
+        }
         try
         {
-            return JsonSerializer.Deserialize<ClientSettings>(json, JsonOptions) ?? new ClientSettings();
+            var settings = JsonSerializer.Deserialize<ClientSettings>(json, JsonOptions) ?? new ClientSettings();
+            ClientSettingsFields.HydrateFrom(settings);
+            return settings;
         }
         catch
         {
-            return new ClientSettings();
+            var defaults = new ClientSettings();
+            ClientSettingsFields.HydrateFrom(defaults);
+            return defaults;
         }
     }
 

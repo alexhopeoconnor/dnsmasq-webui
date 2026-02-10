@@ -35,15 +35,23 @@
                 }
                 @foreach (var group in GetVisibleGroups())
                 {
-                    var isExpanded = IsGroupExpanded(group);
+                    var isAllSections = SettingsContext == SettingsModalContext.All;
+                    var isExpanded = isAllSections ? IsGroupExpanded(group) : true;
                     <div class="settings-group">
-                        <button type="button" class="settings-group-header @(isExpanded ? "expanded" : "")"
-                                @onclick="() => ToggleGroup(group.Id)"
-                                aria-expanded="@isExpanded"
-                                aria-controls="group-@group.Id">
-                            <span class="settings-group-title">@group.DisplayName</span>
-                            <span class="settings-group-chevron" aria-hidden="true"></span>
-                        </button>
+                        @if (isAllSections)
+                        {
+                            <button type="button" class="settings-group-header @(isExpanded ? "expanded" : "")"
+                                    @onclick="() => ToggleGroup(group.Id)"
+                                    aria-expanded="@isExpanded"
+                                    aria-controls="group-@group.Id">
+                                <span class="settings-group-title">@group.DisplayName</span>
+                                <span class="settings-group-chevron" aria-hidden="true"></span>
+                            </button>
+                        }
+                        else
+                        {
+                            <h6 class="settings-group-title settings-group-title-static mb-2 mt-3">@group.DisplayName</h6>
+                        }
                         <div id="group-@group.Id" class="settings-group-content @(isExpanded ? "expanded" : "")"
                              role="region" aria-label="@group.DisplayName">
                             @foreach (var key in group.SectionKeys)
@@ -56,57 +64,69 @@
                                             case SettingsModalSections.ServiceStatus:
                                                 {
                                                     var meta = SettingsModalSections.All[SettingsModalSections.ServiceStatus];
+                                                    var field = ClientSettingsFields.ServiceStatusPollingInterval;
                                                     <label for="status-interval" class="form-label">@meta.FieldLabel</label>
-                                                    <input id="status-interval" type="number" class="form-control" min="@ClientSettingsFields.ServiceStatusPollingInterval.Min" max="@ClientSettingsFields.ServiceStatusPollingInterval.Max" step="1"
-                                                           @bind="_editingSettings.ServiceStatusPollingIntervalSeconds" />
+                                                    <input id="status-interval" type="number" class="form-control" min="@field.Min" max="@field.Max" step="1"
+                                                           @bind="field.Value" />
                                                     break;
                                                 }
                                             case SettingsModalSections.Logs:
                                                 {
                                                     var meta = SettingsModalSections.All[SettingsModalSections.Logs];
+                                                    var field = ClientSettingsFields.RecentLogsPollingInterval;
                                                     <label for="logs-interval" class="form-label">@meta.FieldLabel</label>
-                                                    <input id="logs-interval" type="number" class="form-control" min="@ClientSettingsFields.RecentLogsPollingInterval.Min" max="@ClientSettingsFields.RecentLogsPollingInterval.Max" step="1"
-                                                           @bind="_editingSettings.RecentLogsPollingIntervalSeconds" />
+                                                    <input id="logs-interval" type="number" class="form-control" min="@field.Min" max="@field.Max" step="1"
+                                                           @bind="field.Value" />
                                                     break;
                                                 }
                                             case SettingsModalSections.AppLogs:
                                                 {
                                                     var meta = SettingsModalSections.All[SettingsModalSections.AppLogs];
+                                                    var field = ClientSettingsFields.AppLogsPollingInterval;
                                                     <label for="app-logs-interval" class="form-label">@meta.FieldLabel</label>
-                                                    <input id="app-logs-interval" type="number" class="form-control" min="@ClientSettingsFields.AppLogsPollingInterval.Min" max="@ClientSettingsFields.AppLogsPollingInterval.Max" step="1"
-                                                           @bind="_editingSettings.AppLogsPollingIntervalSeconds" />
+                                                    <input id="app-logs-interval" type="number" class="form-control" min="@field.Min" max="@field.Max" step="1"
+                                                           @bind="field.Value" />
                                                     break;
                                                 }
                                             case SettingsModalSections.Leases:
                                                 {
                                                     var meta = SettingsModalSections.All[SettingsModalSections.Leases];
+                                                    var field = ClientSettingsFields.LeasesPollingInterval;
                                                     <label for="leases-interval" class="form-label">@meta.FieldLabel</label>
-                                                    <input id="leases-interval" type="number" class="form-control" min="@ClientSettingsFields.LeasesPollingInterval.Min" max="@ClientSettingsFields.LeasesPollingInterval.Max" step="1"
-                                                           @bind="_editingSettings.LeasesPollingIntervalSeconds" />
+                                                    <input id="leases-interval" type="number" class="form-control" min="@field.Min" max="@field.Max" step="1"
+                                                           @bind="field.Value" />
                                                     break;
                                                 }
                                             case SettingsModalSections.RecentLogsDisplay:
-                                                <div class="mb-2">
-                                                    <label for="recent-logs-max-lines" class="form-label">Max lines</label>
-                                                    <input id="recent-logs-max-lines" type="number" class="form-control" min="@ClientSettingsFields.RecentLogsMaxLines.Min" max="@ClientSettingsFields.RecentLogsMaxLines.Max" step="1"
-                                                           @bind="_editingSettings.RecentLogsMaxLines" />
-                                                </div>
-                                                <div class="form-check">
-                                                    <input id="recent-logs-auto-scroll" type="checkbox" class="form-check-input" @bind="_editingSettings.RecentLogsAutoScroll" />
-                                                    <label for="recent-logs-auto-scroll" class="form-check-label">Auto-scroll when new logs arrive</label>
-                                                </div>
-                                                break;
+                                                {
+                                                    var maxLinesField = ClientSettingsFields.RecentLogsMaxLines;
+                                                    var autoScrollField = ClientSettingsFields.RecentLogsAutoScroll;
+                                                    <div class="mb-2">
+                                                        <label for="recent-logs-max-lines" class="form-label">Max lines</label>
+                                                        <input id="recent-logs-max-lines" type="number" class="form-control" min="@maxLinesField.Min" max="@maxLinesField.Max" step="1"
+                                                               @bind="maxLinesField.Value" />
+                                                    </div>
+                                                    <div class="form-check">
+                                                        <input id="recent-logs-auto-scroll" type="checkbox" class="form-check-input" @bind="autoScrollField.Value" />
+                                                        <label for="recent-logs-auto-scroll" class="form-check-label">Auto-scroll when new logs arrive</label>
+                                                    </div>
+                                                    break;
+                                                }
                                             case SettingsModalSections.AppLogsDisplay:
-                                                <div class="mb-2">
-                                                    <label for="app-logs-max-lines" class="form-label">Max lines</label>
-                                                    <input id="app-logs-max-lines" type="number" class="form-control" min="@ClientSettingsFields.AppLogsMaxLines.Min" max="@ClientSettingsFields.AppLogsMaxLines.Max" step="1"
-                                                           @bind="_editingSettings.AppLogsMaxLines" />
-                                                </div>
-                                                <div class="form-check">
-                                                    <input id="app-logs-auto-scroll" type="checkbox" class="form-check-input" @bind="_editingSettings.AppLogsAutoScroll" />
-                                                    <label for="app-logs-auto-scroll" class="form-check-label">Auto-scroll when new logs arrive</label>
-                                                </div>
-                                                break;
+                                                {
+                                                    var maxLinesField = ClientSettingsFields.AppLogsMaxLines;
+                                                    var autoScrollField = ClientSettingsFields.AppLogsAutoScroll;
+                                                    <div class="mb-2">
+                                                        <label for="app-logs-max-lines" class="form-label">Max lines</label>
+                                                        <input id="app-logs-max-lines" type="number" class="form-control" min="@maxLinesField.Min" max="@maxLinesField.Max" step="1"
+                                                               @bind="maxLinesField.Value" />
+                                                    </div>
+                                                    <div class="form-check">
+                                                        <input id="app-logs-auto-scroll" type="checkbox" class="form-check-input" @bind="autoScrollField.Value" />
+                                                        <label for="app-logs-auto-scroll" class="form-check-label">Auto-scroll when new logs arrive</label>
+                                                    </div>
+                                                    break;
+                                                }
                                         }
                                     </div>
                                 }
