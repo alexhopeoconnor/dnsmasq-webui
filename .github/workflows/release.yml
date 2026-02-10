@@ -30,7 +30,7 @@ jobs:
           docker run --rm \
             -v "${{ github.workspace }}:/src" -w /src \
             mcr.microsoft.com/dotnet/sdk:10.0 \
-            ./scripts/publish-self-contained.sh ${{ matrix.rid }}
+            ./scripts/publish-self-contained.sh ${{ matrix.rid }} ${{ github.ref_name }}
 
       - name: Setup .NET
         if: matrix.rid == 'linux-musl-x64' || matrix.rid == 'linux-musl-arm64'
@@ -40,7 +40,7 @@ jobs:
 
       - name: Publish for ${{ matrix.rid }} (musl on host)
         if: matrix.rid == 'linux-musl-x64' || matrix.rid == 'linux-musl-arm64'
-        run: ./scripts/publish-self-contained.sh ${{ matrix.rid }}
+        run: ./scripts/publish-self-contained.sh ${{ matrix.rid }} ${{ github.ref_name }}
 
       - name: Zip publish output
         run: |

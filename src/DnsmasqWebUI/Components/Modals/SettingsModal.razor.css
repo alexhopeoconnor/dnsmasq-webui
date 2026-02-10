@@ -33,3 +33,80 @@
     border-top: 1px solid rgba(0, 0, 0, 0.125);
     gap: 0.5rem;
 }
+
+/* Collapsible section groups */
+.settings-group {
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 0.375rem;
+    margin-bottom: 0.5rem;
+    overflow: hidden;
+}
+
+.settings-group:last-child {
+    margin-bottom: 0;
+}
+
+.settings-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0.625rem 0.75rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: #212529;
+    background: rgba(0, 0, 0, 0.03);
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 0.15s ease;
+}
+
+.settings-group-header:hover {
+    background: rgba(0, 0, 0, 0.06);
+}
+
+.settings-group-header.expanded {
+    background: rgba(0, 0, 0, 0.05);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.settings-group-chevron {
+    flex-shrink: 0;
+    width: 0.75rem;
+    height: 0.75rem;
+    margin-left: 0.5rem;
+    border-right: 2px solid #6c757d;
+    border-bottom: 2px solid #6c757d;
+    transform: rotate(-45deg);
+    transition: transform 0.2s ease;
+}
+
+.settings-group-header.expanded .settings-group-chevron {
+    transform: rotate(135deg);
+}
+
+.settings-group-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.25s ease-out;
+}
+
+.settings-group-content.expanded {
+    max-height: 500px;
+    transition: max-height 0.35s ease-in;
+}
+
+.settings-group-content > * {
+    padding: 1rem 0.75rem;
+}
+
+.settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.settings-section + .settings-section {
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+}

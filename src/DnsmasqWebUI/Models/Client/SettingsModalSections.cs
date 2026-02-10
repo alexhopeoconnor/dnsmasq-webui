@@ -69,4 +69,25 @@ public static class SettingsModalSections
         if (!All.TryGetValue(key, out var meta)) return false;
         return meta.SearchableText.Contains(searchTerm.Trim(), StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>Collapsible group: display name and the section keys it contains.</summary>
+    public sealed record CollapsibleGroup(string Id, string DisplayName, string[] SectionKeys);
+
+    /// <summary>Groups for the collapsible settings UI. Order determines display order.</summary>
+    public static readonly IReadOnlyList<CollapsibleGroup> Groups =
+    [
+        new CollapsibleGroup("service", "Service status", [ServiceStatus]),
+        new CollapsibleGroup("dnsmasq-logs", "Dnsmasq logs", [Logs, RecentLogsDisplay]),
+        new CollapsibleGroup("app-logs", "App logs", [AppLogs, AppLogsDisplay]),
+        new CollapsibleGroup("leases", "DHCP leases", [Leases]),
+    ];
+
+    /// <summary>Whether a group should be shown: for context mode, any child section matches; for All+search, any child matches search.</summary>
+    public static bool GroupMatchesContextOrSearch(CollapsibleGroup group, SettingsModalContext context, string searchTerm)
+    {
+        var keys = GetSectionKeysForContext(context);
+        if (keys != null)
+            return group.SectionKeys.Any(k => keys.Contains(k, StringComparer.OrdinalIgnoreCase));
+        return group.SectionKeys.Any(k => MatchesSearch(k, searchTerm));
+    }
 }

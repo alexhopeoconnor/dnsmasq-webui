@@ -1,3 +1,4 @@
+@using System.Reflection
 @inject IOptions<ApplicationOptions> AppOptions
 <!DOCTYPE html>
 <html lang="en">
@@ -6,16 +7,16 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
-    <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="lib/bootstrap-icons/bootstrap-icons.min.css" />
-    <link rel="stylesheet" href="app.css" />
-    <link rel="stylesheet" href="DnsmasqWebUI.styles.css" />
-    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png" />
-    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
-    <link rel="icon" type="image/png" sizes="48x48" href="favicon-48.png" />
-    <link rel="icon" type="image/png" sizes="192x192" href="favicon-192.png" />
-    <link rel="icon" type="image/png" sizes="512x512" href="favicon-512.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+    <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css?v=@_cacheBust" />
+    <link rel="stylesheet" href="lib/bootstrap-icons/bootstrap-icons.min.css?v=@_cacheBust" />
+    <link rel="stylesheet" href="app.css?v=@_cacheBust" />
+    <link rel="stylesheet" href="DnsmasqWebUI.styles.css?v=@_cacheBust" />
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png?v=@_cacheBust" />
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=@_cacheBust" />
+    <link rel="icon" type="image/png" sizes="48x48" href="favicon-48.png?v=@_cacheBust" />
+    <link rel="icon" type="image/png" sizes="192x192" href="favicon-192.png?v=@_cacheBust" />
+    <link rel="icon" type="image/png" sizes="512x512" href="favicon-512.png?v=@_cacheBust" />
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=@_cacheBust" />
     <title>@_appTitle</title>
     <HeadOutlet />
 </head>
@@ -27,5 +28,7 @@
 
 </html>
 @code {
+    private static readonly string _cacheBust = typeof(App).Assembly
+        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0";
     private string? _appTitle => AppOptions?.Value?.EffectiveTitle;
 }

@@ -1,4 +1,3 @@
-using DnsmasqWebUI.Infrastructure.Logging;
 using DnsmasqWebUI.Infrastructure.Services.Abstractions;
 using DnsmasqWebUI.Models.Dnsmasq;
 using DnsmasqWebUI.Models.Hosts;
@@ -35,7 +34,7 @@ public class HostsController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(LogEvents.HostsGetFailed, ex, "Get hosts failed");
+            _logger.LogError(ex, "Get hosts failed");
             return StatusCode(500, new { error = ex.Message });
         }
     }
@@ -52,7 +51,7 @@ public class HostsController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(LogEvents.HostsGetReadOnlyFailed, ex, "Get readonly hosts failed");
+            _logger.LogError(ex, "Get readonly hosts failed");
             return StatusCode(500, new { error = ex.Message });
         }
     }
@@ -66,17 +65,17 @@ public class HostsController : ControllerBase
         {
             await _hostsService.WriteAsync(entries, ct);
             var reload = await _reloadService.ReloadAsync(ct);
-            _logger.LogInformation(LogEvents.HostsPutSuccess, "Hosts saved, count={Count}, reload success={Success}", entries.Count, reload.Success);
+            _logger.LogInformation("Hosts saved, count={Count}, reload success={Success}", entries.Count, reload.Success);
             return Ok(new SaveWithReloadResult(true, reload));
         }
         catch (InvalidOperationException ex)
         {
-            _logger.LogWarning(LogEvents.HostsPutValidationFailed, ex, "Hosts put validation failed");
+            _logger.LogWarning(ex, "Hosts put validation failed");
             return BadRequest(new { error = ex.Message });
         }
         catch (Exception ex)
         {
-            _logger.LogError(LogEvents.HostsPutFailed, ex, "Put hosts failed");
+            _logger.LogError(ex, "Put hosts failed");
             return StatusCode(500, new { error = ex.Message });
         }
     }

@@ -59,14 +59,17 @@ default_rid() {
   esac
 }
 
+# Optional version override (e.g. v0.0.4 from CI tag). When set, passed to dotnet publish for assembly metadata.
+VERSION_OVERRIDE=""
+
 while [ $# -gt 0 ]; do
   case "$1" in
     -h|-?|--help)
-      echo "Usage: $0 [OPTIONS] [RID]"
+      echo "Usage: $0 [OPTIONS] [RID] [VERSION]"
       echo ""
       echo "Build a self-contained folder publish for Linux. If RID is omitted, the script"
       echo "auto-detects from the current OS and architecture (recommended on Ubuntu and Alpine)."
-      echo "Pass options first, then RID if desired (e.g. $0 --trim linux-x64)."
+      echo "Pass options first, then RID, then optional VERSION (e.g. v0.0.4 from a release tag)."
       echo ""
       echo "Options:"
       echo "  --trim       Enable trimming (smaller output; can cause 404/routing issues with Blazor)"
@@ -112,6 +115,10 @@ while [ $# -gt 0 ]; do
     *)
       RID="$1"
       shift
+      if [ $# -gt 0 ] && [ -n "$1" ] && [ "${1#-}" = "$1" ]; then
+        VERSION_OVERRIDE="$1"
+        shift
+      fi
       break
       ;;
   esac
@@ -148,19 +155,29 @@ if [ "$CLEAN" = true ]; then
   dotnet clean "$PROJECT" -c Release -nologo -v q
 fi
 
+VERSION_ARGS=""
+if [ -n "$VERSION_OVERRIDE" ]; then
+  # Strip leading 'v' (e.g. v0.0.4 -> 0.0.4) for assembly metadata
+  VER="${VERSION_OVERRIDE#v}"
+  VERSION_ARGS="-p:Version=$VER -p:InformationalVersion=$VER"
+  echo "Using version: $VER (from $VERSION_OVERRIDE)"
+fi
+
 if [ "$TRIM" = true ]; then
   echo "Publishing self-contained (trimmed, folder) for $RID..."
   dotnet publish "$PROJECT" \
     -c Release \
     -r "$RID" \
     --self-contained true \
-    -p:PublishTrimmed=true
+    -p:PublishTrimmed=true \
+    $VERSION_ARGS
 else
   echo "Publishing self-contained (no trim, folder) for $RID..."
   dotnet publish "$PROJECT" \
     -c Release \
     -r "$RID" \
-    --self-contained true
+    --self-contained true \
+    $VERSION_ARGS
 fi
 
 OUT_DIR="$REPO_ROOT/src/DnsmasqWebUI/bin/Release/net10.0/$RID/publish"

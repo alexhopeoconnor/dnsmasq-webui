@@ -29,6 +29,8 @@ main.main {
 }
 
 .sidebar {
+    display: flex;
+    flex-direction: column;
     background: linear-gradient(180deg, #052767 0%, #3a0647 70%);
 }
 

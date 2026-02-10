@@ -18,6 +18,7 @@ public partial class SettingsModal : IAsyncDisposable
     private ClientSettings _editingSettings = new();
     private List<string> _validationErrors = new();
     private string _searchTerm = string.Empty;
+    private HashSet<string> _expandedGroupIds = new(StringComparer.OrdinalIgnoreCase);
     private bool _moduleLoaded;
     private bool _dialogInitialized;
     private bool _wasVisible;
@@ -40,6 +41,10 @@ public partial class SettingsModal : IAsyncDisposable
         if (justOpened)
         {
             _searchTerm = string.Empty;
+            _expandedGroupIds.Clear();
+            var visible = SettingsModalSections.Groups.Where(g => SettingsModalSections.GroupMatchesContextOrSearch(g, SettingsContext, _searchTerm)).ToList();
+            if (visible.Count > 0)
+                _expandedGroupIds.Add(visible[0].Id);
             _validationErrors.Clear();
             _editingSettings = await ClientSettingsService.LoadSettingsAsync();
             _editingSettings = new ClientSettings
@@ -83,6 +88,26 @@ public partial class SettingsModal : IAsyncDisposable
     }
 
     private void FilterSettings() => StateHasChanged();
+
+    private IEnumerable<SettingsModalSections.CollapsibleGroup> GetVisibleGroups() =>
+        SettingsModalSections.Groups.Where(g => SettingsModalSections.GroupMatchesContextOrSearch(g, SettingsContext, _searchTerm));
+
+    private bool IsGroupExpanded(SettingsModalSections.CollapsibleGroup group)
+    {
+        var hasActiveFilter = SettingsContext == SettingsModalContext.All && !string.IsNullOrWhiteSpace(_searchTerm);
+        if (hasActiveFilter)
+            return true;
+        return _expandedGroupIds.Contains(group.Id);
+    }
+
+    private void ToggleGroup(string groupId)
+    {
+        if (_expandedGroupIds.Contains(groupId))
+            _expandedGroupIds.Remove(groupId);
+        else
+            _expandedGroupIds.Add(groupId);
+        StateHasChanged();
+    }
 
     private bool ShouldShowSection(string key)
     {

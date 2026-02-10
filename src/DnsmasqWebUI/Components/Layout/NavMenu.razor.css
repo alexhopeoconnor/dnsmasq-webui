@@ -131,13 +131,29 @@
     color: white;
 }
 
+.nav-footer {
+    margin-top: auto;
+    flex-shrink: 0;
+    font-size: 0.8125rem;
+}
+
+.nav-footer-link {
+    color: rgba(255, 255, 255, 0.65) !important;
+    text-decoration: none;
+}
+
+.nav-footer-link:hover {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
 .nav-scrollable {
     display: none;
+    flex-direction: column;
 }
 
 /* Toggler is inside top-row; nav-scrollable is sibling of top-row */
 .top-row:has(.navbar-toggler:checked) ~ .nav-scrollable {
-    display: block;
+    display: flex;
 }
 
 @media (min-width: 641px) {
@@ -146,11 +162,10 @@
     }
 
     .nav-scrollable {
-        /* Never collapse the sidebar for wide screens */
-        display: block;
-
-        /* Allow sidebar to scroll for tall menus */
-        height: calc(100vh - 3.5rem);
+        /* Never collapse the sidebar for wide screens; flex to fill remaining sidebar height */
+        display: flex;
+        flex: 1;
+        min-height: 0;
         overflow-y: auto;
     }
 }

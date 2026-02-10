@@ -1,4 +1,5 @@
 @namespace DnsmasqWebUI.Components.Layout
+@using System.Reflection
 @inject IOptions<ApplicationOptions> AppOptions
 @inject ISettingsModalService SettingsModalService
 
@@ -35,9 +36,27 @@
             </NavLink>
         </div>
     </nav>
+    <div class="nav-footer px-3 py-2" aria-label="Application version">
+        <a class="nav-footer-link" href="@ReleaseUrl" target="_blank" rel="noopener noreferrer" title="View release on GitHub">
+            v@(BaseVersion(Version))
+        </a>
+    </div>
 </div>
 
 @code {
+    private const string ReleasesBaseUrl = "https://github.com/alexhopeoconnor/dnsmasq-webui/releases";
+    private static readonly string Version = typeof(NavMenu).Assembly
+        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "?";
+    /// <summary>Base version without build metadata (e.g. 0.0.4+abc123 -> 0.0.4) for GitHub tag URLs.</summary>
+    private static string BaseVersion(string v)
+    {
+        if (string.IsNullOrEmpty(v) || v == "?") return v;
+        var i = v.IndexOf('+');
+        return i >= 0 ? v[..i] : v;
+    }
+    private string ReleaseUrl => Version != "?"
+        ? $"{ReleasesBaseUrl}/tag/v{BaseVersion(Version)}"
+        : ReleasesBaseUrl;
     private string? AppTitle => AppOptions?.Value?.EffectiveTitle;
 
     private void OpenAllSettings() => SettingsModalService.Open(SettingsModalContext.All, "Settings");

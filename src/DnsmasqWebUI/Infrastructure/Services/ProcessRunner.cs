@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Text;
-using DnsmasqWebUI.Infrastructure.Logging;
 using DnsmasqWebUI.Infrastructure.Services.Abstractions;
 using DnsmasqWebUI.Models.Contracts;
 using Microsoft.Extensions.Logging;
@@ -26,7 +25,7 @@ public sealed class ProcessRunner : IProcessRunner
 
         var trimmed = command!.Trim();
         var prefix = trimmed.Length <= MaxCommandPrefixLength ? trimmed : trimmed[..MaxCommandPrefixLength] + "...";
-        _logger.LogDebug(LogEvents.CommandStarted, "Running command (length={Length}, timeout={Timeout}s): {CommandPrefix}", trimmed.Length, timeout.TotalSeconds, prefix);
+        _logger.LogDebug("Running command (length={Length}, timeout={Timeout}s): {CommandPrefix}", trimmed.Length, timeout.TotalSeconds, prefix);
 
         var stdout = new StringBuilder();
         var stderr = new StringBuilder();
@@ -83,7 +82,7 @@ public sealed class ProcessRunner : IProcessRunner
             }
             catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
             {
-                _logger.LogWarning(LogEvents.CommandTimeout, "Command timed out after {Timeout}s", timeout.TotalSeconds);
+                _logger.LogWarning("Command timed out after {Timeout}s", timeout.TotalSeconds);
                 try { process.Kill(); } catch { /* best effort */ }
                 var err = stderr.ToString();
                 if (!string.IsNullOrEmpty(err)) err += "\n";
@@ -92,7 +91,7 @@ public sealed class ProcessRunner : IProcessRunner
             }
 
             var exitCode = process.HasExited ? process.ExitCode : -1;
-            _logger.LogDebug(LogEvents.CommandCompleted, "Command completed, exit code={ExitCode}", exitCode);
+            _logger.LogDebug("Command completed, exit code={ExitCode}", exitCode);
             return new ProcessRunResult(
                 exitCode,
                 stdout.ToString(),
@@ -101,7 +100,7 @@ public sealed class ProcessRunner : IProcessRunner
         }
         catch (Exception ex)
         {
-            _logger.LogError(LogEvents.CommandFailed, ex, "Failed to run command");
+            _logger.LogError(ex, "Failed to run command");
             return new ProcessRunResult(null, "", "", false, ex.Message);
         }
     }

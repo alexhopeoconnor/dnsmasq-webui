@@ -1,5 +1,4 @@
 using System.Text;
-using DnsmasqWebUI.Infrastructure.Logging;
 using DnsmasqWebUI.Infrastructure.Services.Abstractions;
 using DnsmasqWebUI.Models.Config;
 using DnsmasqWebUI.Models.Logs;
@@ -77,7 +76,7 @@ public sealed class LogsService : ILogsService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(LogEvents.DnsmasqLogsPushFailed, ex, "Failed to run or push dnsmasq logs");
+            _logger.LogWarning(ex, "Failed to run or push dnsmasq logs");
             await PushChunkedAsync("DnsmasqLogsUpdate", "replace", $"(Error: {ex.Message})\n", ct);
         }
     }

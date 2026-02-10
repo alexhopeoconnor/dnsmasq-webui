@@ -1,5 +1,4 @@
 using DnsmasqWebUI.Infrastructure.Helpers.Config;
-using DnsmasqWebUI.Infrastructure.Logging;
 using DnsmasqWebUI.Infrastructure.Parsers;
 using DnsmasqWebUI.Infrastructure.Services.Abstractions;
 using DnsmasqWebUI.Models.Hosts;
@@ -41,6 +40,6 @@ public class HostsFileService : IHostsFileService
         await File.WriteAllLinesAsync(tmpPath, lines, DnsmasqFileEncoding.Utf8NoBom, ct);
         File.Move(tmpPath, path, overwrite: true);
         _hostsCache.NotifyWeWroteManagedHosts(entries);
-        _logger.LogInformation(LogEvents.HostsWroteManagedFile, "Wrote managed hosts file: {Path}", path);
+        _logger.LogInformation("Wrote managed hosts file: {Path}", path);
     }
 }

@@ -1,4 +1,3 @@
-using DnsmasqWebUI.Infrastructure.Logging;
 using DnsmasqWebUI.Infrastructure.Services.Abstractions;
 using DnsmasqWebUI.Models.Dhcp;
 using Microsoft.AspNetCore.Mvc;
@@ -38,7 +37,7 @@ public class LeasesController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(LogEvents.LeasesGetFailed, ex, "Get leases failed");
+            _logger.LogError(ex, "Get leases failed");
             return StatusCode(500, new { error = ex.Message });
         }
     }

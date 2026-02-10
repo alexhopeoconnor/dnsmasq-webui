@@ -1,4 +1,3 @@
-using DnsmasqWebUI.Infrastructure.Logging;
 using DnsmasqWebUI.Infrastructure.Services.Abstractions;
 using DnsmasqWebUI.Models.Dhcp;
 using Microsoft.Extensions.Logging;
@@ -26,7 +25,7 @@ public class LeasesFileService : ILeasesFileService
     {
         var (available, entries) = await _cache.GetOrRefreshAsync(ct);
         if (available && entries != null)
-            _logger.LogInformation(LogEvents.LeasesReadSuccess, "Leases read, count={Count}", entries.Count);
+            _logger.LogInformation("Leases read, count={Count}", entries.Count);
         return (available, entries);
     }
 }

@@ -43,19 +43,19 @@ public class LoggingController : ControllerBase
         var level = ParseLevel(request?.LogLevel);
         if (level == null)
         {
-            _logger.LogWarning(LogEvents.LogLevelSetBadRequest, "Set log level failed: invalid level requested");
+            _logger.LogWarning("Set log level failed: invalid level requested");
             return BadRequest(new { error = "Invalid LogLevel. Use Trace, Debug, Information, Warning, Error, or Critical." });
         }
 
         var path = GetOverridesPath();
         if (!TryUpdateOverrides(path, logLevel: level.Value, excludedPrefixes: null))
         {
-            _logger.LogError(LogEvents.LogLevelSetFailed, "Failed to write log level overrides file to {Path}", path);
+            _logger.LogError("Failed to write log level overrides file to {Path}", path);
             return StatusCode(500, new { error = "Failed to write overrides file." });
         }
 
         _configurationRoot.Reload();
-        _logger.LogInformation(LogEvents.LogLevelChanged, "Log level changed to {Level}", LevelName(level.Value));
+        _logger.LogInformation("Log level changed to {Level}", LevelName(level.Value));
         return Ok(new LogLevelResponse(LevelName(level.Value)));
     }
 
@@ -75,12 +75,12 @@ public class LoggingController : ControllerBase
         var path = GetOverridesPath();
         if (!TryUpdateOverrides(path, logLevel: null, excludedPrefixes: prefixes))
         {
-            _logger.LogError(LogEvents.FiltersSetFailed, "Failed to write filters overrides file to {Path}", path);
+            _logger.LogError("Failed to write filters overrides file to {Path}", path);
             return StatusCode(500, new { error = "Failed to write overrides file." });
         }
 
         _configurationRoot.Reload();
-        _logger.LogInformation(LogEvents.FiltersChanged, "App logs filters updated, count={Count}", prefixes.Count);
+        _logger.LogInformation("App logs filters updated, count={Count}", prefixes.Count);
         return Ok(new FiltersResponse(prefixes));
     }
 
@@ -91,13 +91,13 @@ public class LoggingController : ControllerBase
         var path = GetOverridesPath();
         if (!TryRemoveFilterOverrides(path))
         {
-            _logger.LogError(LogEvents.FiltersSetFailed, "Failed to remove filter overrides from {Path}", path);
+            _logger.LogError("Failed to remove filter overrides from {Path}", path);
             return StatusCode(500, new { error = "Failed to update overrides file." });
         }
 
         _configurationRoot.Reload();
         var defaults = AppLogsConfigHelper.GetDefaultExcludedPrefixes(_configuration);
-        _logger.LogInformation(LogEvents.FiltersChanged, "App logs filters restored to defaults, count={Count}", defaults.Count);
+        _logger.LogInformation("App logs filters restored to defaults, count={Count}", defaults.Count);
         return Ok(new FiltersResponse(defaults));
     }
 

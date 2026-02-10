@@ -1,4 +1,3 @@
-using DnsmasqWebUI.Infrastructure.Logging;
 using DnsmasqWebUI.Infrastructure.Services.Abstractions;
 using DnsmasqWebUI.Models.Dhcp;
 using DnsmasqWebUI.Models.Dnsmasq;
@@ -33,7 +32,7 @@ public class DhcpController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(LogEvents.DhcpGetHostsFailed, ex, "Get DHCP hosts failed");
+            _logger.LogError(ex, "Get DHCP hosts failed");
             return StatusCode(500, new { error = ex.Message });
         }
     }
@@ -47,17 +46,17 @@ public class DhcpController : ControllerBase
         {
             await _configService.WriteDhcpHostsAsync(entries, ct);
             var reload = await _reloadService.ReloadAsync(ct);
-            _logger.LogInformation(LogEvents.DhcpPutHostsSuccess, "DHCP hosts saved, count={Count}, reload success={Success}", entries.Count, reload.Success);
+            _logger.LogInformation("DHCP hosts saved, count={Count}, reload success={Success}", entries.Count, reload.Success);
             return Ok(new SaveWithReloadResult(true, reload));
         }
         catch (ArgumentException ex)
         {
-            _logger.LogWarning(LogEvents.DhcpPutHostsValidationFailed, ex, "DHCP hosts put validation failed");
+            _logger.LogWarning(ex, "DHCP hosts put validation failed");
             return BadRequest(new { error = ex.Message });
         }
         catch (Exception ex)
         {
-            _logger.LogError(LogEvents.DhcpPutHostsFailed, ex, "Put DHCP hosts failed");
+            _logger.LogError(ex, "Put DHCP hosts failed");
             return StatusCode(500, new { error = ex.Message });
         }
     }

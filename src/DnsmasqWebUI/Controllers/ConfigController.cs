@@ -1,4 +1,3 @@
-using DnsmasqWebUI.Infrastructure.Logging;
 using DnsmasqWebUI.Infrastructure.Services.Abstractions;
 using DnsmasqWebUI.Models.Config;
 using DnsmasqWebUI.Models.Contracts;
@@ -38,7 +37,7 @@ public class ConfigController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(LogEvents.ConfigGetSetFailed, ex, "Get config set failed");
+            _logger.LogError(ex, "Get config set failed");
             return StatusCode(500, new { error = ex.Message });
         }
     }
@@ -55,7 +54,7 @@ public class ConfigController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(LogEvents.ConfigGetManagedFailed, ex, "Get managed config failed");
+            _logger.LogError(ex, "Get managed config failed");
             return StatusCode(500, new { error = ex.Message });
         }
     }
@@ -70,12 +69,12 @@ public class ConfigController : ControllerBase
         {
             await _configService.WriteManagedConfigAsync(lines, ct);
             var reload = await _reloadService.ReloadAsync(ct);
-            _logger.LogInformation(LogEvents.ConfigPutManagedSuccess, "Config managed updated, reload success={Success}", reload.Success);
+            _logger.LogInformation("Config managed updated, reload success={Success}", reload.Success);
             return Ok(new { saved = true, reload = new { reload.Success, reload.ExitCode, reload.StdErr } });
         }
         catch (Exception ex)
         {
-            _logger.LogError(LogEvents.ConfigPutManagedFailed, ex, "Put managed config failed");
+            _logger.LogError(ex, "Put managed config failed");
             return StatusCode(500, new { error = ex.Message });
         }
     }

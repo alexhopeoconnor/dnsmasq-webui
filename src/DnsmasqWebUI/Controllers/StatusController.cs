@@ -1,4 +1,3 @@
-using DnsmasqWebUI.Infrastructure.Logging;
 using DnsmasqWebUI.Infrastructure.Services.Abstractions;
 using DnsmasqWebUI.Models.Config;
 using DnsmasqWebUI.Models.Contracts;
@@ -104,7 +103,7 @@ public class StatusController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(LogEvents.StatusGetFailed, ex, "Get status failed");
+            _logger.LogError(ex, "Get status failed");
             return StatusCode(500, new { error = ex.Message });
         }
     }
@@ -162,7 +161,7 @@ public class StatusController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(LogEvents.StatusLogsDownloadFailed, ex, "Status logs download failed");
+            _logger.LogError(ex, "Status logs download failed");
             return StatusCode(500, new { error = ex.Message });
         }
     }
