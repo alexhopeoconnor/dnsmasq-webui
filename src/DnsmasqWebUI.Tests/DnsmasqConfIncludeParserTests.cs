@@ -687,4 +687,62 @@ public class DnsmasqConfIncludeParserTests
             Directory.Delete(dir, recursive: true);
         }
     }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_AllServers_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-allsrv-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "all-servers\n");
+            var result = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.AllServers);
+            Assert.True(result);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_LogQueries_ReturnsValue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-logq-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "log-queries=extra\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.LogQueries);
+            Assert.Equal("extra", value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_RevServer_ReturnsAllValues()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-rev-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var v1 = "1.2.3.0/24,192.168.0.1";
+        var v2 = "10.0.0.0/8,10.0.0.1";
+        try
+        {
+            File.WriteAllText(conf, $"rev-server={v1}\nrev-server={v2}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.RevServer);
+            Assert.Equal(2, result.Count);
+            Assert.Equal(v1, result[0]);
+            Assert.Equal(v2, result[1]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
 }

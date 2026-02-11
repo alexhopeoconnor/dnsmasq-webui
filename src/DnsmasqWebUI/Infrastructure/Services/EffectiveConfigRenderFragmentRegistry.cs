@@ -25,11 +25,22 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
         RegisterFlag(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.ExpandHosts);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.BogusPriv);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.StrictOrder);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.AllServers);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.NoResolv);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.DomainNeeded);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.NoNegcache);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.NoPoll);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.BindInterfaces);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.BindDynamic);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.LogDebug);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.DnsLoopDetect);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.StopDnsRebind);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.RebindLocalhostOk);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.ClearOnReload);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.Filterwin2k);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.FilterA);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.FilterAaaa);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.LocaliseQueries);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpAuthoritative);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.LeasefileRo);
     }

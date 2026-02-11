@@ -219,6 +219,7 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
         var noHosts = DnsmasqConfIncludeParser.GetNoHostsFromConfigFiles(paths, pathToLines);
         var addnHosts = DnsmasqConfIncludeParser.GetAddnHostsPathsFromConfigFiles(paths, pathToLines);
         var serverLocal = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.ServerLocalKeys);
+        var revServer = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.RevServer);
         var addressValues = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.Address);
         var interfaces = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.Interface);
         var listenAddresses = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.ListenAddress);
@@ -227,15 +228,36 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
         var dhcpHostLines = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.DhcpHost);
         var dhcpOptionLines = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.DhcpOption);
         var resolvFiles = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.ResolvFile);
+        var rebindDomainOk = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.RebindDomainOk);
+        var bogusNxdomain = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.BogusNxdomain);
+        var ignoreAddress = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.IgnoreAddress);
+        var alias = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.Alias);
+        var filterRr = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.FilterRr);
+        var cacheRr = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.CacheRr);
+        var authServer = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.AuthServer);
+        var noDhcpInterface = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.NoDhcpInterface);
+        var noDhcpv4Interface = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.NoDhcpv4Interface);
+        var noDhcpv6Interface = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.NoDhcpv6Interface);
 
         var expandHosts = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.ExpandHosts);
         var bogusPriv = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.BogusPriv);
         var strictOrder = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.StrictOrder);
+        var allServers = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.AllServers);
         var noResolv = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.NoResolv);
         var domainNeeded = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.DomainNeeded);
         var noPoll = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.NoPoll);
         var bindInterfaces = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.BindInterfaces);
+        var bindDynamic = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.BindDynamic);
         var noNegcache = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.NoNegcache);
+        var dnsLoopDetect = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.DnsLoopDetect);
+        var stopDnsRebind = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.StopDnsRebind);
+        var rebindLocalhostOk = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.RebindLocalhostOk);
+        var clearOnReload = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.ClearOnReload);
+        var filterwin2k = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.Filterwin2k);
+        var filterA = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.FilterA);
+        var filterAaaa = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.FilterAaaa);
+        var localiseQueries = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.LocaliseQueries);
+        var logDebug = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.LogDebug);
         var dhcpAuthoritative = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.DhcpAuthoritative);
         var leasefileRo = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.LeasefileRo);
 
@@ -255,6 +277,24 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
         var group = string.IsNullOrWhiteSpace(groupVal) ? null : groupVal.Trim();
         var (logFacVal, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.LogFacility);
         var logFacility = string.IsNullOrWhiteSpace(logFacVal) ? null : logFacVal.Trim();
+        var (logQueriesVal, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.LogQueries);
+        var logQueries = string.IsNullOrWhiteSpace(logQueriesVal) ? null : logQueriesVal.Trim();
+        var (authTtlVal, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.AuthTtl);
+        var authTtl = TryParseInt(authTtlVal);
+        var (ednsPacketMaxVal, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.EdnsPacketMax);
+        var ednsPacketMax = TryParseInt(ednsPacketMaxVal);
+        var (queryPortVal, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.QueryPort);
+        var queryPort = TryParseInt(queryPortVal);
+        var (portLimitVal, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.PortLimit);
+        var portLimit = TryParseInt(portLimitVal);
+        var (minPortVal, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.MinPort);
+        var minPort = TryParseInt(minPortVal);
+        var (maxPortVal, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.MaxPort);
+        var maxPort = TryParseInt(maxPortVal);
+        var (logAsyncVal, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.LogAsync);
+        var logAsync = string.IsNullOrWhiteSpace(logAsyncVal) ? null : logAsyncVal.Trim();
+        var (localServiceVal, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.LocalService);
+        var localService = string.IsNullOrWhiteSpace(localServiceVal) ? null : localServiceVal.Trim();
         var (leaseMaxVal, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.DhcpLeaseMax);
         var dhcpLeaseMax = TryParseInt(leaseMaxVal);
         var (negTtlVal, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.NegTtl);
@@ -270,9 +310,12 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
 
         return new EffectiveDnsmasqConfig(
             noHosts, addnHosts,
-            serverLocal, addressValues, interfaces, listenAddresses, exceptInterfaces, dhcpRanges, dhcpHostLines, dhcpOptionLines, resolvFiles,
-            expandHosts, bogusPriv, strictOrder, noResolv, domainNeeded, noPoll, bindInterfaces, noNegcache, dhcpAuthoritative, leasefileRo,
-            dhcpLeaseFilePath, cacheSize, port, localTtl, pidFilePath, user, group, logFacility, dhcpLeaseMax,
+            serverLocal, revServer, addressValues, interfaces, listenAddresses, exceptInterfaces, dhcpRanges, dhcpHostLines, dhcpOptionLines, resolvFiles,
+            rebindDomainOk, bogusNxdomain, ignoreAddress, alias, filterRr, cacheRr, authServer, noDhcpInterface, noDhcpv4Interface, noDhcpv6Interface,
+            expandHosts, bogusPriv, strictOrder, allServers, noResolv, domainNeeded, noPoll, bindInterfaces, bindDynamic, noNegcache,
+            dnsLoopDetect, stopDnsRebind, rebindLocalhostOk, clearOnReload, filterwin2k, filterA, filterAaaa, localiseQueries, logDebug, dhcpAuthoritative, leasefileRo,
+            dhcpLeaseFilePath, cacheSize, port, localTtl, pidFilePath, user, group, logFacility, logQueries,
+            authTtl, ednsPacketMax, queryPort, portLimit, minPort, maxPort, logAsync, localService, dhcpLeaseMax,
             negTtl, maxTtl, maxCacheTtl, minCacheTtl, dhcpTtl
         );
     }
@@ -282,6 +325,7 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
         var (_, noHostsSource) = DnsmasqConfIncludeParser.GetFlagFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.NoHosts, managedFilePath);
         var addnHostsWithSource = DnsmasqConfIncludeParser.GetAddnHostsPathsFromConfigFilesWithSource(paths, pathToLines, managedFilePath);
         var serverLocalWithSource = DnsmasqConfIncludeParser.GetMultiValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.ServerLocalKeys, managedFilePath);
+        var revServerWithSource = DnsmasqConfIncludeParser.GetMultiValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.RevServer, managedFilePath);
         var addressWithSource = DnsmasqConfIncludeParser.GetMultiValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.Address, managedFilePath);
         var interfacesWithSource = DnsmasqConfIncludeParser.GetMultiValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.Interface, managedFilePath);
         var listenAddressesWithSource = DnsmasqConfIncludeParser.GetMultiValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.ListenAddress, managedFilePath);
@@ -290,15 +334,36 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
         var dhcpHostLinesWithSource = DnsmasqConfIncludeParser.GetMultiValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpHost, managedFilePath);
         var dhcpOptionLinesWithSource = DnsmasqConfIncludeParser.GetMultiValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpOption, managedFilePath);
         var resolvFilesWithSource = DnsmasqConfIncludeParser.GetMultiValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.ResolvFile, managedFilePath);
+        var rebindDomainOkWithSource = DnsmasqConfIncludeParser.GetMultiValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.RebindDomainOk, managedFilePath);
+        var bogusNxdomainWithSource = DnsmasqConfIncludeParser.GetMultiValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.BogusNxdomain, managedFilePath);
+        var ignoreAddressWithSource = DnsmasqConfIncludeParser.GetMultiValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.IgnoreAddress, managedFilePath);
+        var aliasWithSource = DnsmasqConfIncludeParser.GetMultiValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.Alias, managedFilePath);
+        var filterRrWithSource = DnsmasqConfIncludeParser.GetMultiValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.FilterRr, managedFilePath);
+        var cacheRrWithSource = DnsmasqConfIncludeParser.GetMultiValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.CacheRr, managedFilePath);
+        var authServerWithSource = DnsmasqConfIncludeParser.GetMultiValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.AuthServer, managedFilePath);
+        var noDhcpInterfaceWithSource = DnsmasqConfIncludeParser.GetMultiValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.NoDhcpInterface, managedFilePath);
+        var noDhcpv4InterfaceWithSource = DnsmasqConfIncludeParser.GetMultiValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.NoDhcpv4Interface, managedFilePath);
+        var noDhcpv6InterfaceWithSource = DnsmasqConfIncludeParser.GetMultiValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.NoDhcpv6Interface, managedFilePath);
 
         var (_, expandHostsSource) = DnsmasqConfIncludeParser.GetFlagFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.ExpandHosts, managedFilePath);
         var (_, bogusPrivSource) = DnsmasqConfIncludeParser.GetFlagFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.BogusPriv, managedFilePath);
         var (_, strictOrderSource) = DnsmasqConfIncludeParser.GetFlagFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.StrictOrder, managedFilePath);
+        var (_, allServersSource) = DnsmasqConfIncludeParser.GetFlagFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.AllServers, managedFilePath);
         var (_, noResolvSource) = DnsmasqConfIncludeParser.GetFlagFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.NoResolv, managedFilePath);
         var (_, domainNeededSource) = DnsmasqConfIncludeParser.GetFlagFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.DomainNeeded, managedFilePath);
         var (_, noPollSource) = DnsmasqConfIncludeParser.GetFlagFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.NoPoll, managedFilePath);
         var (_, bindInterfacesSource) = DnsmasqConfIncludeParser.GetFlagFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.BindInterfaces, managedFilePath);
+        var (_, bindDynamicSource) = DnsmasqConfIncludeParser.GetFlagFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.BindDynamic, managedFilePath);
         var (_, noNegcacheSource) = DnsmasqConfIncludeParser.GetFlagFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.NoNegcache, managedFilePath);
+        var (_, dnsLoopDetectSource) = DnsmasqConfIncludeParser.GetFlagFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.DnsLoopDetect, managedFilePath);
+        var (_, stopDnsRebindSource) = DnsmasqConfIncludeParser.GetFlagFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.StopDnsRebind, managedFilePath);
+        var (_, rebindLocalhostOkSource) = DnsmasqConfIncludeParser.GetFlagFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.RebindLocalhostOk, managedFilePath);
+        var (_, clearOnReloadSource) = DnsmasqConfIncludeParser.GetFlagFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.ClearOnReload, managedFilePath);
+        var (_, filterwin2kSource) = DnsmasqConfIncludeParser.GetFlagFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.Filterwin2k, managedFilePath);
+        var (_, filterASource) = DnsmasqConfIncludeParser.GetFlagFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.FilterA, managedFilePath);
+        var (_, filterAaaaSource) = DnsmasqConfIncludeParser.GetFlagFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.FilterAaaa, managedFilePath);
+        var (_, localiseQueriesSource) = DnsmasqConfIncludeParser.GetFlagFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.LocaliseQueries, managedFilePath);
+        var (_, logDebugSource) = DnsmasqConfIncludeParser.GetFlagFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.LogDebug, managedFilePath);
         var (_, dhcpAuthoritativeSource) = DnsmasqConfIncludeParser.GetFlagFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpAuthoritative, managedFilePath);
         var (_, leasefileRoSource) = DnsmasqConfIncludeParser.GetFlagFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.LeasefileRo, managedFilePath);
 
@@ -310,6 +375,15 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
         var (_, userSource) = DnsmasqConfIncludeParser.GetLastValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.User, managedFilePath);
         var (_, groupSource) = DnsmasqConfIncludeParser.GetLastValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.Group, managedFilePath);
         var (_, logFacilitySource) = DnsmasqConfIncludeParser.GetLastValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.LogFacility, managedFilePath);
+        var (_, logQueriesSource) = DnsmasqConfIncludeParser.GetLastValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.LogQueries, managedFilePath);
+        var (_, authTtlSource) = DnsmasqConfIncludeParser.GetLastValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.AuthTtl, managedFilePath);
+        var (_, ednsPacketMaxSource) = DnsmasqConfIncludeParser.GetLastValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.EdnsPacketMax, managedFilePath);
+        var (_, queryPortSource) = DnsmasqConfIncludeParser.GetLastValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.QueryPort, managedFilePath);
+        var (_, portLimitSource) = DnsmasqConfIncludeParser.GetLastValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.PortLimit, managedFilePath);
+        var (_, minPortSource) = DnsmasqConfIncludeParser.GetLastValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.MinPort, managedFilePath);
+        var (_, maxPortSource) = DnsmasqConfIncludeParser.GetLastValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.MaxPort, managedFilePath);
+        var (_, logAsyncSource) = DnsmasqConfIncludeParser.GetLastValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.LogAsync, managedFilePath);
+        var (_, localServiceSource) = DnsmasqConfIncludeParser.GetLastValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.LocalService, managedFilePath);
         var (_, dhcpLeaseMaxSource) = DnsmasqConfIncludeParser.GetLastValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpLeaseMax, managedFilePath);
         var (_, negTtlSource) = DnsmasqConfIncludeParser.GetLastValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.NegTtl, managedFilePath);
         var (_, maxTtlSource) = DnsmasqConfIncludeParser.GetLastValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.MaxTtl, managedFilePath);
@@ -320,6 +394,7 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
         return new EffectiveConfigSources(
             noHostsSource, addnHostsWithSource.Select(t => new PathWithSource(t.Path, t.Source)).ToList(),
             serverLocalWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            revServerWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
             addressWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
             interfacesWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
             listenAddressesWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
@@ -328,10 +403,22 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
             dhcpHostLinesWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
             dhcpOptionLinesWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
             resolvFilesWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
-            expandHostsSource, bogusPrivSource, strictOrderSource, noResolvSource, domainNeededSource, noPollSource,
-            bindInterfacesSource, noNegcacheSource, dhcpAuthoritativeSource, leasefileRoSource,
+            rebindDomainOkWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            bogusNxdomainWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            ignoreAddressWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            aliasWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            filterRrWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            cacheRrWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            authServerWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            noDhcpInterfaceWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            noDhcpv4InterfaceWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            noDhcpv6InterfaceWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            expandHostsSource, bogusPrivSource, strictOrderSource, allServersSource, noResolvSource, domainNeededSource, noPollSource,
+            bindInterfacesSource, bindDynamicSource, noNegcacheSource, dnsLoopDetectSource, stopDnsRebindSource, rebindLocalhostOkSource, clearOnReloadSource,
+            filterwin2kSource, filterASource, filterAaaaSource, localiseQueriesSource, logDebugSource, dhcpAuthoritativeSource, leasefileRoSource,
             dhcpLeaseFilePathSource, cacheSizeSource, portSource, localTtlSource, pidFilePathSource, userSource, groupSource,
-            logFacilitySource, dhcpLeaseMaxSource, negTtlSource, maxTtlSource, maxCacheTtlSource, minCacheTtlSource, dhcpTtlSource
+            logFacilitySource, logQueriesSource, authTtlSource, ednsPacketMaxSource, queryPortSource, portLimitSource, minPortSource, maxPortSource, logAsyncSource, localServiceSource,
+            dhcpLeaseMaxSource, negTtlSource, maxTtlSource, maxCacheTtlSource, minCacheTtlSource, dhcpTtlSource
         );
     }
 
@@ -370,27 +457,37 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
     private static EffectiveDnsmasqConfig CreateDefaultEffectiveConfig() =>
         new(
             NoHosts: false, AddnHostsPaths: Array.Empty<string>(),
-            ServerLocalValues: Array.Empty<string>(), AddressValues: Array.Empty<string>(), Interfaces: Array.Empty<string>(),
+            ServerLocalValues: Array.Empty<string>(), RevServerValues: Array.Empty<string>(), AddressValues: Array.Empty<string>(), Interfaces: Array.Empty<string>(),
             ListenAddresses: Array.Empty<string>(), ExceptInterfaces: Array.Empty<string>(), DhcpRanges: Array.Empty<string>(),
             DhcpHostLines: Array.Empty<string>(), DhcpOptionLines: Array.Empty<string>(), ResolvFiles: Array.Empty<string>(),
-            ExpandHosts: false, BogusPriv: false, StrictOrder: false, NoResolv: false, DomainNeeded: false, NoPoll: false,
-            BindInterfaces: false, NoNegcache: false, DhcpAuthoritative: false, LeasefileRo: false,
+            RebindDomainOkValues: Array.Empty<string>(), BogusNxdomainValues: Array.Empty<string>(), IgnoreAddressValues: Array.Empty<string>(),
+            AliasValues: Array.Empty<string>(), FilterRrValues: Array.Empty<string>(), CacheRrValues: Array.Empty<string>(),
+            AuthServerValues: Array.Empty<string>(), NoDhcpInterfaceValues: Array.Empty<string>(), NoDhcpv4InterfaceValues: Array.Empty<string>(), NoDhcpv6InterfaceValues: Array.Empty<string>(),
+            ExpandHosts: false, BogusPriv: false, StrictOrder: false, AllServers: false, NoResolv: false, DomainNeeded: false, NoPoll: false,
+            BindInterfaces: false, BindDynamic: false, NoNegcache: false, DnsLoopDetect: false, StopDnsRebind: false, RebindLocalhostOk: false, ClearOnReload: false,
+            Filterwin2k: false, FilterA: false, FilterAaaa: false, LocaliseQueries: false, LogDebug: false, DhcpAuthoritative: false, LeasefileRo: false,
             DhcpLeaseFilePath: null, CacheSize: null, Port: null, LocalTtl: null, PidFilePath: null, User: null, Group: null,
-            LogFacility: null, DhcpLeaseMax: null, NegTtl: null, MaxTtl: null, MaxCacheTtl: null, MinCacheTtl: null, DhcpTtl: null
+            LogFacility: null, LogQueries: null, AuthTtl: null, EdnsPacketMax: null, QueryPort: null, PortLimit: null, MinPort: null, MaxPort: null, LogAsync: null, LocalService: null,
+            DhcpLeaseMax: null, NegTtl: null, MaxTtl: null, MaxCacheTtl: null, MinCacheTtl: null, DhcpTtl: null
         );
 
     private static EffectiveConfigSources CreateDefaultEffectiveConfigSources() =>
         new(
             NoHosts: null, AddnHostsPaths: Array.Empty<PathWithSource>(),
-            ServerLocalValues: Array.Empty<ValueWithSource>(), AddressValues: Array.Empty<ValueWithSource>(),
+            ServerLocalValues: Array.Empty<ValueWithSource>(), RevServerValues: Array.Empty<ValueWithSource>(), AddressValues: Array.Empty<ValueWithSource>(),
             Interfaces: Array.Empty<ValueWithSource>(), ListenAddresses: Array.Empty<ValueWithSource>(),
             ExceptInterfaces: Array.Empty<ValueWithSource>(), DhcpRanges: Array.Empty<ValueWithSource>(),
             DhcpHostLines: Array.Empty<ValueWithSource>(), DhcpOptionLines: Array.Empty<ValueWithSource>(),
             ResolvFiles: Array.Empty<ValueWithSource>(),
-            ExpandHosts: null, BogusPriv: null, StrictOrder: null, NoResolv: null, DomainNeeded: null, NoPoll: null,
-            BindInterfaces: null, NoNegcache: null, DhcpAuthoritative: null, LeasefileRo: null,
+            RebindDomainOkValues: Array.Empty<ValueWithSource>(), BogusNxdomainValues: Array.Empty<ValueWithSource>(), IgnoreAddressValues: Array.Empty<ValueWithSource>(),
+            AliasValues: Array.Empty<ValueWithSource>(), FilterRrValues: Array.Empty<ValueWithSource>(), CacheRrValues: Array.Empty<ValueWithSource>(),
+            AuthServerValues: Array.Empty<ValueWithSource>(), NoDhcpInterfaceValues: Array.Empty<ValueWithSource>(), NoDhcpv4InterfaceValues: Array.Empty<ValueWithSource>(), NoDhcpv6InterfaceValues: Array.Empty<ValueWithSource>(),
+            ExpandHosts: null, BogusPriv: null, StrictOrder: null, AllServers: null, NoResolv: null, DomainNeeded: null, NoPoll: null,
+            BindInterfaces: null, BindDynamic: null, NoNegcache: null, DnsLoopDetect: null, StopDnsRebind: null, RebindLocalhostOk: null, ClearOnReload: null,
+            Filterwin2k: null, FilterA: null, FilterAaaa: null, LocaliseQueries: null, LogDebug: null, DhcpAuthoritative: null, LeasefileRo: null,
             DhcpLeaseFilePath: null, CacheSize: null, Port: null, LocalTtl: null, PidFilePath: null, User: null, Group: null,
-            LogFacility: null, DhcpLeaseMax: null, NegTtl: null, MaxTtl: null, MaxCacheTtl: null, MinCacheTtl: null, DhcpTtl: null
+            LogFacility: null, LogQueries: null, AuthTtl: null, EdnsPacketMax: null, QueryPort: null, PortLimit: null, MinPort: null, MaxPort: null, LogAsync: null, LocalService: null,
+            DhcpLeaseMax: null, NegTtl: null, MaxTtl: null, MaxCacheTtl: null, MinCacheTtl: null, DhcpTtl: null
         );
 
     private static int? TryParseInt(string? value)
