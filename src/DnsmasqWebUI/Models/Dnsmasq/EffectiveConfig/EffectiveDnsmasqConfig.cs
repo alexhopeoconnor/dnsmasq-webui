@@ -17,6 +17,7 @@ public record EffectiveDnsmasqConfig(
     // --- Hosts (already used by Hosts UI) ---
     bool NoHosts,
     IReadOnlyList<string> AddnHostsPaths,
+    string? HostsdirPath,
 
     // --- Multi-value (ARG_DUP): all occurrences in order ---
     IReadOnlyList<string> ServerLocalValues,
@@ -28,6 +29,15 @@ public record EffectiveDnsmasqConfig(
     IReadOnlyList<string> DhcpRanges,
     IReadOnlyList<string> DhcpHostLines,
     IReadOnlyList<string> DhcpOptionLines,
+    IReadOnlyList<string> DhcpMatchValues,
+    IReadOnlyList<string> DhcpBootValues,
+    IReadOnlyList<string> DhcpIgnoreValues,
+    IReadOnlyList<string> DhcpVendorclassValues,
+    IReadOnlyList<string> DhcpUserclassValues,
+    IReadOnlyList<string> RaParamValues,
+    IReadOnlyList<string> SlaacValues,
+    IReadOnlyList<string> PxeServiceValues,
+    IReadOnlyList<string> TrustAnchorValues,
     IReadOnlyList<string> ResolvFiles,
     IReadOnlyList<string> RebindDomainOkValues,
     IReadOnlyList<string> BogusNxdomainValues,
@@ -39,6 +49,16 @@ public record EffectiveDnsmasqConfig(
     IReadOnlyList<string> NoDhcpInterfaceValues,
     IReadOnlyList<string> NoDhcpv4InterfaceValues,
     IReadOnlyList<string> NoDhcpv6InterfaceValues,
+    IReadOnlyList<string> DomainValues,
+    IReadOnlyList<string> CnameValues,
+    IReadOnlyList<string> MxHostValues,
+    IReadOnlyList<string> SrvValues,
+    IReadOnlyList<string> PtrRecordValues,
+    IReadOnlyList<string> TxtRecordValues,
+    IReadOnlyList<string> NaptrRecordValues,
+    IReadOnlyList<string> HostRecordValues,
+    IReadOnlyList<string> DynamicHostValues,
+    IReadOnlyList<string> InterfaceNameValues,
 
     // --- Boolean flags (set if any file contains the option) ---
     bool ExpandHosts,
@@ -62,6 +82,10 @@ public record EffectiveDnsmasqConfig(
     bool LogDebug,
     bool DhcpAuthoritative,
     bool LeasefileRo,
+    bool EnableTftp,
+    bool TftpSecure,
+    bool Dnssec,
+    bool DnssecCheckUnsigned,
 
     // --- Single-value options (last occurrence wins; null = not set, dnsmasq default) ---
     string? DhcpLeaseFilePath,
@@ -86,7 +110,12 @@ public record EffectiveDnsmasqConfig(
     int? MaxTtl,
     int? MaxCacheTtl,
     int? MinCacheTtl,
-    int? DhcpTtl
+    int? DhcpTtl,
+    string? TftpRootPath,
+    string? PxePrompt,
+    string? EnableDbus,
+    string? EnableUbus,
+    string? FastDnsRetry
 )
 {
     /// <summary>

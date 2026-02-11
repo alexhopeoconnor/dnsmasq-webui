@@ -43,6 +43,10 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
         RegisterFlag(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.LocaliseQueries);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpAuthoritative);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.LeasefileRo);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionTftpPxe, DnsmasqConfKeys.EnableTftp);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionTftpPxe, DnsmasqConfKeys.TftpSecure);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.Dnssec);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.DnssecCheckUnsigned);
     }
 
     private void RegisterFlag(string sectionId, string optionName)

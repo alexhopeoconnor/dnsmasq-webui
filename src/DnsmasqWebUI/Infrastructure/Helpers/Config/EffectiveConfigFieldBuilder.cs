@@ -29,7 +29,10 @@ public static class EffectiveConfigFieldBuilder
 
     public const string SectionHosts = "hosts";
     public const string SectionResolver = "resolver";
+    public const string SectionDnsRecords = "dns-records";
     public const string SectionDhcp = "dhcp";
+    public const string SectionTftpPxe = "tftp-pxe";
+    public const string SectionDnssec = "dnssec";
     public const string SectionCache = "cache";
     public const string SectionProcess = "process";
 
@@ -44,16 +47,19 @@ public static class EffectiveConfigFieldBuilder
         list.Add(Single(SectionHosts, DnsmasqConfKeys.NoHosts, status, s => Config(s)?.NoHosts, s => Sources(s)?.NoHosts, null));
         list.Add(Multi(SectionHosts, DnsmasqConfKeys.AddnHosts, status,
             s => ToValueWithSourceList(s?.AddnHostsPaths, Sources(s)?.AddnHostsPaths)));
+        list.Add(Single(SectionHosts, DnsmasqConfKeys.Hostsdir, status, s => Config(s)?.HostsdirPath, s => Sources(s)?.HostsdirPath, null));
 
-        // --- Resolver / DNS ---
-        list.Add(Single(SectionResolver, DnsmasqConfKeys.ExpandHosts, status, s => Config(s)?.ExpandHosts, s => Sources(s)?.ExpandHosts, null));
-        list.Add(Single(SectionResolver, DnsmasqConfKeys.BogusPriv, status, s => Config(s)?.BogusPriv, s => Sources(s)?.BogusPriv, null));
-        list.Add(Single(SectionResolver, DnsmasqConfKeys.StrictOrder, status, s => Config(s)?.StrictOrder, s => Sources(s)?.StrictOrder, null));
+        // --- Resolver / DNS (most-used first: server/local, rev-server, address, resolv-file) ---
+        list.Add(Multi(SectionResolver, "server / local", status, Items(ec => ec?.ServerLocalValues, src => src?.ServerLocalValues)));
+        list.Add(Multi(SectionResolver, DnsmasqConfKeys.RevServer, status, Items(ec => ec?.RevServerValues, src => src?.RevServerValues)));
+        list.Add(Multi(SectionResolver, DnsmasqConfKeys.Address, status, Items(ec => ec?.AddressValues, src => src?.AddressValues)));
+        list.Add(Multi(SectionResolver, DnsmasqConfKeys.ResolvFile, status, Items(ec => ec?.ResolvFiles, src => src?.ResolvFiles)));
         list.Add(Single(SectionResolver, DnsmasqConfKeys.NoResolv, status, s => Config(s)?.NoResolv, s => Sources(s)?.NoResolv, null));
         list.Add(Single(SectionResolver, DnsmasqConfKeys.DomainNeeded, status, s => Config(s)?.DomainNeeded, s => Sources(s)?.DomainNeeded, null));
-        list.Add(Single(SectionResolver, DnsmasqConfKeys.AllServers, status, s => Config(s)?.AllServers, s => Sources(s)?.AllServers, null));
         list.Add(Single(SectionResolver, DnsmasqConfKeys.Port, status, s => Config(s)?.Port, s => Sources(s)?.Port, null));
         list.Add(Single(SectionResolver, DnsmasqConfKeys.LogQueries, status, s => Config(s)?.LogQueries, s => Sources(s)?.LogQueries, null));
+        list.Add(Single(SectionResolver, DnsmasqConfKeys.StrictOrder, status, s => Config(s)?.StrictOrder, s => Sources(s)?.StrictOrder, null));
+        list.Add(Single(SectionResolver, DnsmasqConfKeys.AllServers, status, s => Config(s)?.AllServers, s => Sources(s)?.AllServers, null));
         list.Add(Single(SectionResolver, DnsmasqConfKeys.AuthTtl, status, s => Config(s)?.AuthTtl, s => Sources(s)?.AuthTtl, null));
         list.Add(Single(SectionResolver, DnsmasqConfKeys.EdnsPacketMax, status, s => Config(s)?.EdnsPacketMax, s => Sources(s)?.EdnsPacketMax, null));
         list.Add(Single(SectionResolver, DnsmasqConfKeys.QueryPort, status, s => Config(s)?.QueryPort, s => Sources(s)?.QueryPort, null));
@@ -64,19 +70,30 @@ public static class EffectiveConfigFieldBuilder
         list.Add(Single(SectionResolver, DnsmasqConfKeys.StopDnsRebind, status, s => Config(s)?.StopDnsRebind, s => Sources(s)?.StopDnsRebind, null));
         list.Add(Single(SectionResolver, DnsmasqConfKeys.RebindLocalhostOk, status, s => Config(s)?.RebindLocalhostOk, s => Sources(s)?.RebindLocalhostOk, null));
         list.Add(Single(SectionResolver, DnsmasqConfKeys.ClearOnReload, status, s => Config(s)?.ClearOnReload, s => Sources(s)?.ClearOnReload, null));
-        list.Add(Single(SectionResolver, DnsmasqConfKeys.Filterwin2k, status, s => Config(s)?.Filterwin2k, s => Sources(s)?.Filterwin2k, null));
-        list.Add(Single(SectionResolver, DnsmasqConfKeys.FilterA, status, s => Config(s)?.FilterA, s => Sources(s)?.FilterA, null));
-        list.Add(Single(SectionResolver, DnsmasqConfKeys.FilterAaaa, status, s => Config(s)?.FilterAaaa, s => Sources(s)?.FilterAaaa, null));
-        list.Add(Single(SectionResolver, DnsmasqConfKeys.LocaliseQueries, status, s => Config(s)?.LocaliseQueries, s => Sources(s)?.LocaliseQueries, null));
-        list.Add(Multi(SectionResolver, "server / local", status, Items(ec => ec?.ServerLocalValues, src => src?.ServerLocalValues)));
-        list.Add(Multi(SectionResolver, DnsmasqConfKeys.RevServer, status, Items(ec => ec?.RevServerValues, src => src?.RevServerValues)));
-        list.Add(Multi(SectionResolver, DnsmasqConfKeys.Address, status, Items(ec => ec?.AddressValues, src => src?.AddressValues)));
-        list.Add(Multi(SectionResolver, DnsmasqConfKeys.ResolvFile, status, Items(ec => ec?.ResolvFiles, src => src?.ResolvFiles)));
+        list.Add(Single(SectionResolver, DnsmasqConfKeys.ExpandHosts, status, s => Config(s)?.ExpandHosts, s => Sources(s)?.ExpandHosts, null));
+        list.Add(Single(SectionResolver, DnsmasqConfKeys.BogusPriv, status, s => Config(s)?.BogusPriv, s => Sources(s)?.BogusPriv, null));
         list.Add(Multi(SectionResolver, DnsmasqConfKeys.RebindDomainOk, status, Items(ec => ec?.RebindDomainOkValues, src => src?.RebindDomainOkValues)));
         list.Add(Multi(SectionResolver, DnsmasqConfKeys.BogusNxdomain, status, Items(ec => ec?.BogusNxdomainValues, src => src?.BogusNxdomainValues)));
         list.Add(Multi(SectionResolver, DnsmasqConfKeys.IgnoreAddress, status, Items(ec => ec?.IgnoreAddressValues, src => src?.IgnoreAddressValues)));
         list.Add(Multi(SectionResolver, DnsmasqConfKeys.Alias, status, Items(ec => ec?.AliasValues, src => src?.AliasValues)));
         list.Add(Multi(SectionResolver, DnsmasqConfKeys.FilterRr, status, Items(ec => ec?.FilterRrValues, src => src?.FilterRrValues)));
+        list.Add(Single(SectionResolver, DnsmasqConfKeys.Filterwin2k, status, s => Config(s)?.Filterwin2k, s => Sources(s)?.Filterwin2k, null));
+        list.Add(Single(SectionResolver, DnsmasqConfKeys.FilterA, status, s => Config(s)?.FilterA, s => Sources(s)?.FilterA, null));
+        list.Add(Single(SectionResolver, DnsmasqConfKeys.FilterAaaa, status, s => Config(s)?.FilterAaaa, s => Sources(s)?.FilterAaaa, null));
+        list.Add(Single(SectionResolver, DnsmasqConfKeys.LocaliseQueries, status, s => Config(s)?.LocaliseQueries, s => Sources(s)?.LocaliseQueries, null));
+        list.Add(Single(SectionResolver, DnsmasqConfKeys.FastDnsRetry, status, s => Config(s)?.FastDnsRetry, s => Sources(s)?.FastDnsRetry, null));
+
+        // --- DNS records (authoritative / local) ---
+        list.Add(Multi(SectionDnsRecords, DnsmasqConfKeys.Domain, status, Items(ec => ec?.DomainValues, src => src?.DomainValues)));
+        list.Add(Multi(SectionDnsRecords, DnsmasqConfKeys.Cname, status, Items(ec => ec?.CnameValues, src => src?.CnameValues)));
+        list.Add(Multi(SectionDnsRecords, DnsmasqConfKeys.MxHost, status, Items(ec => ec?.MxHostValues, src => src?.MxHostValues)));
+        list.Add(Multi(SectionDnsRecords, DnsmasqConfKeys.Srv, status, Items(ec => ec?.SrvValues, src => src?.SrvValues)));
+        list.Add(Multi(SectionDnsRecords, DnsmasqConfKeys.PtrRecord, status, Items(ec => ec?.PtrRecordValues, src => src?.PtrRecordValues)));
+        list.Add(Multi(SectionDnsRecords, DnsmasqConfKeys.TxtRecord, status, Items(ec => ec?.TxtRecordValues, src => src?.TxtRecordValues)));
+        list.Add(Multi(SectionDnsRecords, DnsmasqConfKeys.NaptrRecord, status, Items(ec => ec?.NaptrRecordValues, src => src?.NaptrRecordValues)));
+        list.Add(Multi(SectionDnsRecords, DnsmasqConfKeys.HostRecord, status, Items(ec => ec?.HostRecordValues, src => src?.HostRecordValues)));
+        list.Add(Multi(SectionDnsRecords, DnsmasqConfKeys.DynamicHost, status, Items(ec => ec?.DynamicHostValues, src => src?.DynamicHostValues)));
+        list.Add(Multi(SectionDnsRecords, DnsmasqConfKeys.InterfaceName, status, Items(ec => ec?.InterfaceNameValues, src => src?.InterfaceNameValues)));
 
         // --- DHCP ---
         list.Add(Single(SectionDhcp, DnsmasqConfKeys.DhcpAuthoritative, status, s => Config(s)?.DhcpAuthoritative, s => Sources(s)?.DhcpAuthoritative, null));
@@ -87,6 +104,25 @@ public static class EffectiveConfigFieldBuilder
         list.Add(Multi(SectionDhcp, DnsmasqConfKeys.DhcpRange, status, Items(ec => ec?.DhcpRanges, src => src?.DhcpRanges)));
         list.Add(Multi(SectionDhcp, DnsmasqConfKeys.DhcpHost, status, Items(ec => ec?.DhcpHostLines, src => src?.DhcpHostLines)));
         list.Add(Multi(SectionDhcp, DnsmasqConfKeys.DhcpOption, status, Items(ec => ec?.DhcpOptionLines, src => src?.DhcpOptionLines)));
+        list.Add(Multi(SectionDhcp, DnsmasqConfKeys.DhcpMatch, status, Items(ec => ec?.DhcpMatchValues, src => src?.DhcpMatchValues)));
+        list.Add(Multi(SectionDhcp, DnsmasqConfKeys.DhcpBoot, status, Items(ec => ec?.DhcpBootValues, src => src?.DhcpBootValues)));
+        list.Add(Multi(SectionDhcp, DnsmasqConfKeys.DhcpIgnore, status, Items(ec => ec?.DhcpIgnoreValues, src => src?.DhcpIgnoreValues)));
+        list.Add(Multi(SectionDhcp, DnsmasqConfKeys.DhcpVendorclass, status, Items(ec => ec?.DhcpVendorclassValues, src => src?.DhcpVendorclassValues)));
+        list.Add(Multi(SectionDhcp, DnsmasqConfKeys.DhcpUserclass, status, Items(ec => ec?.DhcpUserclassValues, src => src?.DhcpUserclassValues)));
+        list.Add(Multi(SectionDhcp, DnsmasqConfKeys.RaParam, status, Items(ec => ec?.RaParamValues, src => src?.RaParamValues)));
+        list.Add(Multi(SectionDhcp, DnsmasqConfKeys.Slaac, status, Items(ec => ec?.SlaacValues, src => src?.SlaacValues)));
+
+        // --- TFTP / PXE ---
+        list.Add(Single(SectionTftpPxe, DnsmasqConfKeys.EnableTftp, status, s => Config(s)?.EnableTftp, s => Sources(s)?.EnableTftp, null));
+        list.Add(Single(SectionTftpPxe, DnsmasqConfKeys.TftpSecure, status, s => Config(s)?.TftpSecure, s => Sources(s)?.TftpSecure, null));
+        list.Add(Single(SectionTftpPxe, DnsmasqConfKeys.TftpRoot, status, s => Config(s)?.TftpRootPath, s => Sources(s)?.TftpRootPath, null));
+        list.Add(Single(SectionTftpPxe, DnsmasqConfKeys.PxePrompt, status, s => Config(s)?.PxePrompt, s => Sources(s)?.PxePrompt, null));
+        list.Add(Multi(SectionTftpPxe, DnsmasqConfKeys.PxeService, status, Items(ec => ec?.PxeServiceValues, src => src?.PxeServiceValues)));
+
+        // --- DNSSEC ---
+        list.Add(Single(SectionDnssec, DnsmasqConfKeys.Dnssec, status, s => Config(s)?.Dnssec, s => Sources(s)?.Dnssec, null));
+        list.Add(Single(SectionDnssec, DnsmasqConfKeys.DnssecCheckUnsigned, status, s => Config(s)?.DnssecCheckUnsigned, s => Sources(s)?.DnssecCheckUnsigned, null));
+        list.Add(Multi(SectionDnssec, DnsmasqConfKeys.TrustAnchor, status, Items(ec => ec?.TrustAnchorValues, src => src?.TrustAnchorValues)));
 
         // --- Cache ---
         list.Add(Multi(SectionCache, DnsmasqConfKeys.CacheRr, status, Items(ec => ec?.CacheRrValues, src => src?.CacheRrValues)));
@@ -116,6 +152,8 @@ public static class EffectiveConfigFieldBuilder
         list.Add(Single(SectionProcess, DnsmasqConfKeys.User, status, s => Config(s)?.User, s => Sources(s)?.User, null));
         list.Add(Single(SectionProcess, DnsmasqConfKeys.Group, status, s => Config(s)?.Group, s => Sources(s)?.Group, null));
         list.Add(Single(SectionProcess, DnsmasqConfKeys.LogFacility, status, s => Config(s)?.LogFacility, s => Sources(s)?.LogFacility, null));
+        list.Add(Single(SectionProcess, DnsmasqConfKeys.EnableDbus, status, s => Config(s)?.EnableDbus, s => Sources(s)?.EnableDbus, null));
+        list.Add(Single(SectionProcess, DnsmasqConfKeys.EnableUbus, status, s => Config(s)?.EnableUbus, s => Sources(s)?.EnableUbus, null));
 
         return list;
     }

@@ -13,6 +13,7 @@ public record EffectiveConfigSources(
     // --- Hosts ---
     ConfigValueSource? NoHosts,
     IReadOnlyList<PathWithSource> AddnHostsPaths,
+    ConfigValueSource? HostsdirPath,
 
     // --- Multi-value (ARG_DUP): source per value ---
     IReadOnlyList<ValueWithSource> ServerLocalValues,
@@ -24,6 +25,15 @@ public record EffectiveConfigSources(
     IReadOnlyList<ValueWithSource> DhcpRanges,
     IReadOnlyList<ValueWithSource> DhcpHostLines,
     IReadOnlyList<ValueWithSource> DhcpOptionLines,
+    IReadOnlyList<ValueWithSource> DhcpMatchValues,
+    IReadOnlyList<ValueWithSource> DhcpBootValues,
+    IReadOnlyList<ValueWithSource> DhcpIgnoreValues,
+    IReadOnlyList<ValueWithSource> DhcpVendorclassValues,
+    IReadOnlyList<ValueWithSource> DhcpUserclassValues,
+    IReadOnlyList<ValueWithSource> RaParamValues,
+    IReadOnlyList<ValueWithSource> SlaacValues,
+    IReadOnlyList<ValueWithSource> PxeServiceValues,
+    IReadOnlyList<ValueWithSource> TrustAnchorValues,
     IReadOnlyList<ValueWithSource> ResolvFiles,
     IReadOnlyList<ValueWithSource> RebindDomainOkValues,
     IReadOnlyList<ValueWithSource> BogusNxdomainValues,
@@ -35,6 +45,16 @@ public record EffectiveConfigSources(
     IReadOnlyList<ValueWithSource> NoDhcpInterfaceValues,
     IReadOnlyList<ValueWithSource> NoDhcpv4InterfaceValues,
     IReadOnlyList<ValueWithSource> NoDhcpv6InterfaceValues,
+    IReadOnlyList<ValueWithSource> DomainValues,
+    IReadOnlyList<ValueWithSource> CnameValues,
+    IReadOnlyList<ValueWithSource> MxHostValues,
+    IReadOnlyList<ValueWithSource> SrvValues,
+    IReadOnlyList<ValueWithSource> PtrRecordValues,
+    IReadOnlyList<ValueWithSource> TxtRecordValues,
+    IReadOnlyList<ValueWithSource> NaptrRecordValues,
+    IReadOnlyList<ValueWithSource> HostRecordValues,
+    IReadOnlyList<ValueWithSource> DynamicHostValues,
+    IReadOnlyList<ValueWithSource> InterfaceNameValues,
 
     // --- Flags (set if any occurrence; source = first file that set it, so we know if readonly) ---
     ConfigValueSource? ExpandHosts,
@@ -58,6 +78,10 @@ public record EffectiveConfigSources(
     ConfigValueSource? LogDebug,
     ConfigValueSource? DhcpAuthoritative,
     ConfigValueSource? LeasefileRo,
+    ConfigValueSource? EnableTftp,
+    ConfigValueSource? TftpSecure,
+    ConfigValueSource? Dnssec,
+    ConfigValueSource? DnssecCheckUnsigned,
 
     // --- Single-value (last occurrence wins; source = file that set the last value) ---
     ConfigValueSource? DhcpLeaseFilePath,
@@ -82,5 +106,10 @@ public record EffectiveConfigSources(
     ConfigValueSource? MaxTtl,
     ConfigValueSource? MaxCacheTtl,
     ConfigValueSource? MinCacheTtl,
-    ConfigValueSource? DhcpTtl
+    ConfigValueSource? DhcpTtl,
+    ConfigValueSource? TftpRootPath,
+    ConfigValueSource? PxePrompt,
+    ConfigValueSource? EnableDbus,
+    ConfigValueSource? EnableUbus,
+    ConfigValueSource? FastDnsRetry
 );

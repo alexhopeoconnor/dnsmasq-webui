@@ -11,6 +11,7 @@ public class EffectiveDnsmasqConfigTests
         new(
             NoHosts: false,
             AddnHostsPaths: Array.Empty<string>(),
+            HostsdirPath: null,
             ServerLocalValues: Array.Empty<string>(),
             RevServerValues: Array.Empty<string>(),
             AddressValues: Array.Empty<string>(),
@@ -20,6 +21,15 @@ public class EffectiveDnsmasqConfigTests
             DhcpRanges: Array.Empty<string>(),
             DhcpHostLines: Array.Empty<string>(),
             DhcpOptionLines: Array.Empty<string>(),
+            DhcpMatchValues: Array.Empty<string>(),
+            DhcpBootValues: Array.Empty<string>(),
+            DhcpIgnoreValues: Array.Empty<string>(),
+            DhcpVendorclassValues: Array.Empty<string>(),
+            DhcpUserclassValues: Array.Empty<string>(),
+            RaParamValues: Array.Empty<string>(),
+            SlaacValues: Array.Empty<string>(),
+            PxeServiceValues: Array.Empty<string>(),
+            TrustAnchorValues: Array.Empty<string>(),
             ResolvFiles: Array.Empty<string>(),
             RebindDomainOkValues: Array.Empty<string>(),
             BogusNxdomainValues: Array.Empty<string>(),
@@ -31,6 +41,9 @@ public class EffectiveDnsmasqConfigTests
             NoDhcpInterfaceValues: Array.Empty<string>(),
             NoDhcpv4InterfaceValues: Array.Empty<string>(),
             NoDhcpv6InterfaceValues: Array.Empty<string>(),
+            DomainValues: Array.Empty<string>(), CnameValues: Array.Empty<string>(), MxHostValues: Array.Empty<string>(), SrvValues: Array.Empty<string>(),
+            PtrRecordValues: Array.Empty<string>(), TxtRecordValues: Array.Empty<string>(), NaptrRecordValues: Array.Empty<string>(),
+            HostRecordValues: Array.Empty<string>(), DynamicHostValues: Array.Empty<string>(), InterfaceNameValues: Array.Empty<string>(),
             ExpandHosts: false,
             BogusPriv: false,
             StrictOrder: false,
@@ -52,6 +65,10 @@ public class EffectiveDnsmasqConfigTests
             LogDebug: false,
             DhcpAuthoritative: false,
             LeasefileRo: false,
+            EnableTftp: false,
+            TftpSecure: false,
+            Dnssec: false,
+            DnssecCheckUnsigned: false,
             DhcpLeaseFilePath: null,
             CacheSize: null,
             Port: null,
@@ -74,7 +91,12 @@ public class EffectiveDnsmasqConfigTests
             MaxTtl: null,
             MaxCacheTtl: null,
             MinCacheTtl: null,
-            DhcpTtl: null
+            DhcpTtl: null,
+            TftpRootPath: null,
+            PxePrompt: null,
+            EnableDbus: null,
+            EnableUbus: null,
+            FastDnsRetry: null
         );
 
     [Fact]

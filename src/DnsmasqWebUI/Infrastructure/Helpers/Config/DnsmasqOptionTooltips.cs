@@ -16,6 +16,7 @@ public static class DnsmasqOptionTooltips
         // --- Hosts ---
         [DnsmasqConfKeys.NoHosts] = "Do not read /etc/hosts; only use addn-hosts and DHCP/hosts.",
         [DnsmasqConfKeys.AddnHosts] = "Additional hosts files (one per line).",
+        [DnsmasqConfKeys.Hostsdir] = "Directory of hosts files; new/changed files are read automatically.",
 
         // --- Resolver / DNS ---
         [DnsmasqConfKeys.ExpandHosts] = "Expand simple names in /etc/hosts with the local domain.",
@@ -44,6 +45,7 @@ public static class DnsmasqOptionTooltips
         [DnsmasqConfKeys.FilterA] = "Remove A (IPv4) records from answers.",
         [DnsmasqConfKeys.FilterAaaa] = "Remove AAAA (IPv6) records from answers.",
         [DnsmasqConfKeys.LocaliseQueries] = "Return interface-specific answers from hosts/DHCP.",
+        [DnsmasqConfKeys.FastDnsRetry] = "DNS retry parameters: initial delay (ms) and optional continue time (ms).",
         [DnsmasqConfKeys.RebindDomainOk] = "Domains exempt from rebind checks. Can repeat.",
         [DnsmasqConfKeys.BogusNxdomain] = "Transform replies containing these IPs to NXDOMAIN. Can repeat.",
         [DnsmasqConfKeys.IgnoreAddress] = "Ignore A/AAAA replies containing these IPs. Can repeat.",
@@ -55,6 +57,18 @@ public static class DnsmasqOptionTooltips
         [DnsmasqConfKeys.NoDhcpv4Interface] = "No DHCPv4 on these interfaces. Can repeat.",
         [DnsmasqConfKeys.NoDhcpv6Interface] = "No DHCPv6/RA on these interfaces. Can repeat.",
 
+        // --- DNS records ---
+        [DnsmasqConfKeys.Domain] = "Local domain(s); optional IP. Can repeat (e.g. domain=home,192.168.1.1).",
+        [DnsmasqConfKeys.Cname] = "CNAME records (alias, target). Can repeat.",
+        [DnsmasqConfKeys.MxHost] = "MX records (domain, host, priority). Can repeat.",
+        [DnsmasqConfKeys.Srv] = "SRV records. Can repeat.",
+        [DnsmasqConfKeys.PtrRecord] = "PTR records for reverse DNS. Can repeat.",
+        [DnsmasqConfKeys.TxtRecord] = "TXT records. Can repeat.",
+        [DnsmasqConfKeys.NaptrRecord] = "NAPTR records. Can repeat.",
+        [DnsmasqConfKeys.HostRecord] = "A/AAAA host records (name, IP). Can repeat.",
+        [DnsmasqConfKeys.DynamicHost] = "Dynamic host entries. Can repeat.",
+        [DnsmasqConfKeys.InterfaceName] = "Name per interface (for localise-queries). Can repeat.",
+
         // --- DHCP ---
         [DnsmasqConfKeys.DhcpAuthoritative] = "DHCP server is authoritative; required for DHCP to work.",
         [DnsmasqConfKeys.LeasefileRo] = "Do not create or truncate the DHCP lease file.",
@@ -64,6 +78,25 @@ public static class DnsmasqOptionTooltips
         [DnsmasqConfKeys.DhcpRange] = "DHCP address range(s) and lease time. Can repeat.",
         [DnsmasqConfKeys.DhcpHost] = "DHCP host entries (reservations by MAC or client-id). Can repeat.",
         [DnsmasqConfKeys.DhcpOption] = "DHCP option lines sent to clients. Can repeat.",
+        [DnsmasqConfKeys.DhcpMatch] = "Match DHCP clients (e.g. set tag from option). Can repeat.",
+        [DnsmasqConfKeys.DhcpBoot] = "Boot file and server for PXE. Can repeat.",
+        [DnsmasqConfKeys.DhcpIgnore] = "Ignore DHCP clients (e.g. by tag). Can repeat.",
+        [DnsmasqConfKeys.DhcpVendorclass] = "Match by DHCP vendor class. Can repeat.",
+        [DnsmasqConfKeys.DhcpUserclass] = "Match by DHCP user class. Can repeat.",
+        [DnsmasqConfKeys.RaParam] = "Router advertisement parameters (DHCPv6/RA). Can repeat.",
+        [DnsmasqConfKeys.Slaac] = "SLAAC host part for DHCPv6/RA. Can repeat.",
+
+        // --- TFTP / PXE ---
+        [DnsmasqConfKeys.EnableTftp] = "Enable the built-in TFTP server.",
+        [DnsmasqConfKeys.TftpSecure] = "Only allow TFTP access from DHCP-assigned clients.",
+        [DnsmasqConfKeys.TftpRoot] = "Root directory for TFTP files.",
+        [DnsmasqConfKeys.PxePrompt] = "PXE boot prompt (e.g. timeout,0 to disable).",
+        [DnsmasqConfKeys.PxeService] = "PXE service definitions. Can repeat.",
+
+        // --- DNSSEC ---
+        [DnsmasqConfKeys.Dnssec] = "Validate DNSSEC on replies from upstream.",
+        [DnsmasqConfKeys.DnssecCheckUnsigned] = "Treat unsigned zones as bogus.",
+        [DnsmasqConfKeys.TrustAnchor] = "DNSSEC trust anchors. Can repeat.",
 
         // --- Cache ---
         [DnsmasqConfKeys.CacheSize] = "Maximum number of DNS cache entries (0 to disable).",
@@ -88,6 +121,8 @@ public static class DnsmasqOptionTooltips
         [DnsmasqConfKeys.LogAsync] = "Asynchronous logging; optional queue size.",
         [DnsmasqConfKeys.BindDynamic] = "Bind per-interface; auto-add new interfaces (Linux).",
         [DnsmasqConfKeys.LocalService] = "Restrict to local network or localhost (net|host).",
+        [DnsmasqConfKeys.EnableDbus] = "Enable DBus interface (optional service name).",
+        [DnsmasqConfKeys.EnableUbus] = "Enable UBus interface (optional service name).",
     }.ToFrozenDictionary();
 
     /// <summary>Returns a short tooltip for the option, or null if none is defined.</summary>

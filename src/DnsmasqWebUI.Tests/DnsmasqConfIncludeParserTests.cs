@@ -745,4 +745,1522 @@ public class DnsmasqConfIncludeParserTests
             Directory.Delete(dir, recursive: true);
         }
     }
+
+    // --- Phase 4: one test per new option with a real dnsmasq example ---
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_Hostsdir_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-hostsdir-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var path = "/etc/dnsmasq.d/hosts";
+        try
+        {
+            File.WriteAllText(conf, $"hostsdir={path}\n");
+            var (value, configDir) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.Hostsdir);
+            Assert.Equal(path, value);
+            Assert.Equal(dir, configDir);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_Domain_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-domain-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "home,192.168.1.1";
+        try
+        {
+            File.WriteAllText(conf, $"domain={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.Domain);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_Cname_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-cname-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "mail.example.com,real.example.com";
+        try
+        {
+            File.WriteAllText(conf, $"cname={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.Cname);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_MxHost_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-mx-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "example.com,mail.example.com,50";
+        try
+        {
+            File.WriteAllText(conf, $"mx-host={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.MxHost);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_Srv_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-srv-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "_http._tcp.example.com,server.example.com,80";
+        try
+        {
+            File.WriteAllText(conf, $"srv={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.Srv);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_PtrRecord_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-ptr-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "1.168.192.in-addr.arpa,host.example.com";
+        try
+        {
+            File.WriteAllText(conf, $"ptr-record={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.PtrRecord);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_TxtRecord_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-txt-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "example.com,v=spf1 include:_spf.example.com";
+        try
+        {
+            File.WriteAllText(conf, $"txt-record={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.TxtRecord);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_NaptrRecord_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-naptr-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "example.com,100,10,u,sip+E2U,sips:.*@example.com,.";
+        try
+        {
+            File.WriteAllText(conf, $"naptr-record={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.NaptrRecord);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_HostRecord_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-hostrecord-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "router.example.com,192.168.1.1";
+        try
+        {
+            File.WriteAllText(conf, $"host-record={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.HostRecord);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_DynamicHost_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-dynamichost-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "hostname,example.com,192.168.1.50";
+        try
+        {
+            File.WriteAllText(conf, $"dynamic-host={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DynamicHost);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_InterfaceName_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-ifname-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "eth0,router.local";
+        try
+        {
+            File.WriteAllText(conf, $"interface-name={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.InterfaceName);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    // --- Remaining options: one test per new option with a real dnsmasq example ---
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_DhcpMatch_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-dhcpmatch-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "set:bios,option:client-arch,0";
+        try
+        {
+            File.WriteAllText(conf, $"dhcp-match={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DhcpMatch);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_DhcpBoot_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-dhcpboot-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "tag:bios-x86,firmware/ipxe.pxe,192.168.1.1";
+        try
+        {
+            File.WriteAllText(conf, $"dhcp-boot={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DhcpBoot);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_DhcpIgnore_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-dhcpignore-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "tag:!known";
+        try
+        {
+            File.WriteAllText(conf, $"dhcp-ignore={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DhcpIgnore);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_DhcpVendorclass_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-dhcpvc-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "set:pxe,option:vendor-class-identifier,PXEClient";
+        try
+        {
+            File.WriteAllText(conf, $"dhcp-vendorclass={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DhcpVendorclass);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_DhcpUserclass_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-dhcpuc-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "set:ipxe,iPXE";
+        try
+        {
+            File.WriteAllText(conf, $"dhcp-userclass={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DhcpUserclass);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_RaParam_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-raparam-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "eth0,high,0";
+        try
+        {
+            File.WriteAllText(conf, $"ra-param={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.RaParam);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_Slaac_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-slaac-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "eth0,0";
+        try
+        {
+            File.WriteAllText(conf, $"slaac={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.Slaac);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_EnableTftp_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-tftp-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "enable-tftp\n");
+            var result = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.EnableTftp);
+            Assert.True(result);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_TftpRoot_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-tftproot-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var path = "/var/lib/tftpboot";
+        try
+        {
+            File.WriteAllText(conf, $"tftp-root={path}\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.TftpRoot);
+            Assert.Equal(path, value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_TftpSecure_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-tftpsec-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "tftp-secure\n");
+            var result = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.TftpSecure);
+            Assert.True(result);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_PxeService_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-pxe-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "x86PC,pxelinux.0";
+        try
+        {
+            File.WriteAllText(conf, $"pxe-service={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.PxeService);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_PxePrompt_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-pxeprompt-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "timeout,0";
+        try
+        {
+            File.WriteAllText(conf, $"pxe-prompt={line}\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.PxePrompt);
+            Assert.Equal(line, value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_Dnssec_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-dnssec-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "dnssec\n");
+            var result = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.Dnssec);
+            Assert.True(result);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_TrustAnchor_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-trust-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = ". IN DS 19036 8 2 49AAC11D7B6F6446702E54A1607371607A1A41855200FD2CE1CDE32F024E8FC5";
+        try
+        {
+            File.WriteAllText(conf, $"trust-anchor={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.TrustAnchor);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_DnssecCheckUnsigned_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-dnsseccu-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "dnssec-check-unsigned\n");
+            var result = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DnssecCheckUnsigned);
+            Assert.True(result);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_EnableDbus_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-dbus-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var svc = "org.freedesktop.NetworkManager";
+        try
+        {
+            File.WriteAllText(conf, $"enable-dbus={svc}\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.EnableDbus);
+            Assert.Equal(svc, value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_EnableUbus_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-ubus-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var svc = "com.example.dnsmasq";
+        try
+        {
+            File.WriteAllText(conf, $"enable-ubus={svc}\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.EnableUbus);
+            Assert.Equal(svc, value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_FastDnsRetry_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-fastretry-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "500,5000";
+        try
+        {
+            File.WriteAllText(conf, $"fast-dns-retry={line}\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.FastDnsRetry);
+            Assert.Equal(line, value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    // --- Additional tests: one per conf field so every option has a documented example test ---
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_Interface_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-if-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "interface=eth0\ninterface=wlan0\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.Interface);
+            Assert.Equal(2, result.Count);
+            Assert.Equal("eth0", result[0]);
+            Assert.Equal("wlan0", result[1]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_ExceptInterface_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-except-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "except-interface=eth1\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.ExceptInterface);
+            Assert.Single(result);
+            Assert.Equal("eth1", result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_NoDhcpInterface_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-nodhcpi-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "no-dhcp-interface=eth2\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.NoDhcpInterface);
+            Assert.Single(result);
+            Assert.Equal("eth2", result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_NoDhcpv4Interface_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-nodhcp4-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "no-dhcpv4-interface=eth0\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.NoDhcpv4Interface);
+            Assert.Single(result);
+            Assert.Equal("eth0", result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_NoDhcpv6Interface_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-nodhcp6-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "no-dhcpv6-interface=eth0\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.NoDhcpv6Interface);
+            Assert.Single(result);
+            Assert.Equal("eth0", result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_AuthServer_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-auth-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "lan,eth0";
+        try
+        {
+            File.WriteAllText(conf, $"auth-server={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.AuthServer);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_DhcpHost_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-dhcphost-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "00:11:22:33:44:55,192.168.1.100,router,12h";
+        try
+        {
+            File.WriteAllText(conf, $"dhcp-host={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DhcpHost);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_DhcpOption_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-dhcpopt-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "option:router,192.168.1.1";
+        try
+        {
+            File.WriteAllText(conf, $"dhcp-option={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DhcpOption);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_ResolvFile_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-resolv-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var path = "/etc/resolv.dnsmasq";
+        try
+        {
+            File.WriteAllText(conf, $"resolv-file={path}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.ResolvFile);
+            Assert.Single(result);
+            Assert.Equal(path, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_RebindDomainOk_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-rebind-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "/local.lan/";
+        try
+        {
+            File.WriteAllText(conf, $"rebind-domain-ok={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.RebindDomainOk);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_BogusNxdomain_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-bogusnx-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "64.94.110.11";
+        try
+        {
+            File.WriteAllText(conf, $"bogus-nxdomain={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.BogusNxdomain);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_IgnoreAddress_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-ignoreaddr-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "192.168.1.0/24";
+        try
+        {
+            File.WriteAllText(conf, $"ignore-address={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.IgnoreAddress);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_Alias_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-alias-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "1.2.3.0,6.7.8.0,255.255.255.0";
+        try
+        {
+            File.WriteAllText(conf, $"alias={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.Alias);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_FilterRr_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-filterrr-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "TXT,MX";
+        try
+        {
+            File.WriteAllText(conf, $"filter-rr={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.FilterRr);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_CacheRr_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-cacherr-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var line = "TXT";
+        try
+        {
+            File.WriteAllText(conf, $"cache-rr={line}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.CacheRr);
+            Assert.Single(result);
+            Assert.Equal(line, result[0]);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_NoHosts_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-nohosts-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "no-hosts\n");
+            var result = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.NoHosts);
+            Assert.True(result);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_BogusPriv_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-boguspriv-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "bogus-priv\n");
+            Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.BogusPriv));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_StrictOrder_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-strict-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "strict-order\n");
+            Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.StrictOrder));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_DomainNeeded_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-domainneed-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "domain-needed\n");
+            Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DomainNeeded));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_NoPoll_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-nopoll-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "no-poll\n");
+            Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.NoPoll));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_BindInterfaces_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-bindif-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "bind-interfaces\n");
+            Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.BindInterfaces));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_BindDynamic_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-binddyn-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "bind-dynamic\n");
+            Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.BindDynamic));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_NoNegcache_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-noneg-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "no-negcache\n");
+            Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.NoNegcache));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_DnsLoopDetect_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-loop-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "dns-loop-detect\n");
+            Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DnsLoopDetect));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_StopDnsRebind_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-rebind-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "stop-dns-rebind\n");
+            Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.StopDnsRebind));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_RebindLocalhostOk_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-rebindlo-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "rebind-localhost-ok\n");
+            Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.RebindLocalhostOk));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_ClearOnReload_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-clear-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "clear-on-reload\n");
+            Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.ClearOnReload));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_Filterwin2k_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-filtw2k-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "filterwin2k\n");
+            Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.Filterwin2k));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_FilterA_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-filta-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "filter-A\n");
+            Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.FilterA));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_FilterAaaa_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-filtaaaa-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "filter-AAAA\n");
+            Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.FilterAaaa));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_LocaliseQueries_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-localise-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "localise-queries\n");
+            Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.LocaliseQueries));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_LogDebug_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-logdbg-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "log-debug\n");
+            Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.LogDebug));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_DhcpAuthoritative_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-dhcpauth-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "dhcp-authoritative\n");
+            Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DhcpAuthoritative));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_LeasefileRo_WhenPresent_ReturnsTrue()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-leasero-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "leasefile-ro\n");
+            Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.LeasefileRo));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_LocalTtl_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-localttl-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "local-ttl=300\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.LocalTtl);
+            Assert.Equal("300", value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_PidFile_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-pid-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var path = "/var/run/dnsmasq.pid";
+        try
+        {
+            File.WriteAllText(conf, $"pid-file={path}\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.PidFile);
+            Assert.Equal(path, value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_User_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-user-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "user=nobody\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.User);
+            Assert.Equal("nobody", value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_Group_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-group-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "group=dip\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.Group);
+            Assert.Equal("dip", value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_AuthTtl_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-authttl-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "auth-ttl=60\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.AuthTtl);
+            Assert.Equal("60", value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_EdnsPacketMax_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-edns-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "edns-packet-max=1232\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.EdnsPacketMax);
+            Assert.Equal("1232", value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_QueryPort_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-qport-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "query-port=0\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.QueryPort);
+            Assert.Equal("0", value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_PortLimit_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-portlimit-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "port-limit=3\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.PortLimit);
+            Assert.Equal("3", value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_MinPort_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-minport-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "min-port=1024\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.MinPort);
+            Assert.Equal("1024", value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_MaxPort_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-maxport-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "max-port=65535\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.MaxPort);
+            Assert.Equal("65535", value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_LogAsync_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-logasync-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "log-async=25\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.LogAsync);
+            Assert.Equal("25", value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_LocalService_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-localsvc-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "local-service=host\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.LocalService);
+            Assert.Equal("host", value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_DhcpLeaseMax_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-leasemax-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "dhcp-lease-max=150\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DhcpLeaseMax);
+            Assert.Equal("150", value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_NegTtl_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-negttl-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "neg-ttl=60\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.NegTtl);
+            Assert.Equal("60", value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_MaxTtl_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-maxttl-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "max-ttl=3600\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.MaxTtl);
+            Assert.Equal("3600", value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_MaxCacheTtl_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-maxcttl-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "max-cache-ttl=86400\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.MaxCacheTtl);
+            Assert.Equal("86400", value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_MinCacheTtl_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-mincttl-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "min-cache-ttl=60\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.MinCacheTtl);
+            Assert.Equal("60", value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_DhcpTtl_ParsesRealExample()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-dhcpttl-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "dhcp-ttl=0\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DhcpTtl);
+            Assert.Equal("0", value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
 }

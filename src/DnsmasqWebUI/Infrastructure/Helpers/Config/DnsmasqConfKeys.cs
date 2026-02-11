@@ -14,6 +14,7 @@ public static class DnsmasqConfKeys
     // --- Hosts ---
     public const string NoHosts = "no-hosts";
     public const string AddnHosts = "addn-hosts";
+    public const string Hostsdir = "hostsdir";
 
     // --- DHCP lease file (last wins) ---
     public const string DhcpLeasefile = "dhcp-leasefile";
@@ -34,6 +35,15 @@ public static class DnsmasqConfKeys
     public const string DhcpRange = "dhcp-range";
     public const string DhcpHost = "dhcp-host";
     public const string DhcpOption = "dhcp-option";
+    public const string DhcpMatch = "dhcp-match";
+    public const string DhcpBoot = "dhcp-boot";
+    public const string DhcpIgnore = "dhcp-ignore";
+    public const string DhcpVendorclass = "dhcp-vendorclass";
+    public const string DhcpUserclass = "dhcp-userclass";
+    public const string RaParam = "ra-param";
+    public const string Slaac = "slaac";
+    public const string PxeService = "pxe-service";
+    public const string TrustAnchor = "trust-anchor";
     public const string ResolvFile = "resolv-file";
     public const string RebindDomainOk = "rebind-domain-ok";
     public const string BogusNxdomain = "bogus-nxdomain";
@@ -41,6 +51,17 @@ public static class DnsmasqConfKeys
     public const string Alias = "alias";
     public const string FilterRr = "filter-rr";
     public const string CacheRr = "cache-rr";
+    // --- DNS records (authoritative / local) ---
+    public const string Domain = "domain";
+    public const string Cname = "cname";
+    public const string MxHost = "mx-host";
+    public const string Srv = "srv";
+    public const string PtrRecord = "ptr-record";
+    public const string TxtRecord = "txt-record";
+    public const string NaptrRecord = "naptr-record";
+    public const string HostRecord = "host-record";
+    public const string DynamicHost = "dynamic-host";
+    public const string InterfaceName = "interface-name";
 
     // --- Flags (no value) ---
     public const string ExpandHosts = "expand-hosts";
@@ -64,6 +85,10 @@ public static class DnsmasqConfKeys
     public const string LogDebug = "log-debug";
     public const string DhcpAuthoritative = "dhcp-authoritative";
     public const string LeasefileRo = "leasefile-ro";
+    public const string EnableTftp = "enable-tftp";
+    public const string TftpSecure = "tftp-secure";
+    public const string Dnssec = "dnssec";
+    public const string DnssecCheckUnsigned = "dnssec-check-unsigned";
 
     // --- Single-value (last wins) ---
     public const string CacheSize = "cache-size";
@@ -88,6 +113,11 @@ public static class DnsmasqConfKeys
     public const string MaxCacheTtl = "max-cache-ttl";
     public const string MinCacheTtl = "min-cache-ttl";
     public const string DhcpTtl = "dhcp-ttl";
+    public const string TftpRoot = "tftp-root";
+    public const string PxePrompt = "pxe-prompt";
+    public const string EnableDbus = "enable-dbus";
+    public const string EnableUbus = "enable-ubus";
+    public const string FastDnsRetry = "fast-dns-retry";
 
     /// <summary>Keys collected for effective config "server/local" multi-value (order preserved).</summary>
     public static readonly string[] ServerLocalKeys = { Server, Local };
