@@ -42,11 +42,19 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
         RegisterFlag(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.FilterAaaa);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.LocaliseQueries);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpAuthoritative);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionHosts, DnsmasqConfKeys.ReadEthers);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpRapidCommit);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.LeasefileRo);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionTftpPxe, DnsmasqConfKeys.EnableTftp);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionTftpPxe, DnsmasqConfKeys.TftpSecure);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionTftpPxe, DnsmasqConfKeys.TftpNoFail);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionTftpPxe, DnsmasqConfKeys.TftpNoBlocksize);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.Localmx);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.Selfmx);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.Dnssec);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.DnssecCheckUnsigned);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.EnableRa);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.LogDhcp);
     }
 
     private void RegisterFlag(string sectionId, string optionName)

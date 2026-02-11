@@ -8,7 +8,8 @@ Source for the Docker test harness: `scripts/prepare-test-mount.sh` syncs this d
 |------------|--------|
 | **dnsmasq-test.conf** | Harness main config (`/data/dnsmasq-test.conf`). DNS + DHCP; `conf-dir=/data/dnsmasq.d`, multiple server/addn-hosts/address/dhcp-range. |
 | **dnsmasq.conf** | Minimal main (conf-dir only). Used by unit tests when conf-dir is absent. |
-| **dnsmasq.conf.example** | Commented example; not used by harness or tests. |
+| **dnsmasq.conf.example** | Short commented reference (option categories). Not used by harness. |
+| **dnsmasq.official.conf.example** | Official example from [imp/dnsmasq](https://github.com/imp/dnsmasq); all options commented. Used by unit tests to assert parser handles full example. |
 | **dnsmasq.d/** | Included configs (conf-dir; alphabetical order). In the harness, "Config files (load order)" should list main, then these, then zz-dnsmasq-webui.conf. |
 | **dnsmasq.d/01-other.conf** | `domain=local`. Not managed. |
 | **dnsmasq.d/02-servers.conf** | Extra `server=` / `local=` (readonly in UI). |

@@ -44,6 +44,12 @@ public class EffectiveDnsmasqConfigTests
             DomainValues: Array.Empty<string>(), CnameValues: Array.Empty<string>(), MxHostValues: Array.Empty<string>(), SrvValues: Array.Empty<string>(),
             PtrRecordValues: Array.Empty<string>(), TxtRecordValues: Array.Empty<string>(), NaptrRecordValues: Array.Empty<string>(),
             HostRecordValues: Array.Empty<string>(), DynamicHostValues: Array.Empty<string>(), InterfaceNameValues: Array.Empty<string>(),
+            DhcpOptionForceLines: Array.Empty<string>(),
+            IpsetValues: Array.Empty<string>(),
+            NftsetValues: Array.Empty<string>(),
+            DhcpMacValues: Array.Empty<string>(),
+            DhcpNameMatchValues: Array.Empty<string>(),
+            DhcpIgnoreNamesValues: Array.Empty<string>(),
             ExpandHosts: false,
             BogusPriv: false,
             StrictOrder: false,
@@ -67,8 +73,16 @@ public class EffectiveDnsmasqConfigTests
             LeasefileRo: false,
             EnableTftp: false,
             TftpSecure: false,
+            TftpNoFail: false,
+            TftpNoBlocksize: false,
             Dnssec: false,
             DnssecCheckUnsigned: false,
+            ReadEthers: false,
+            DhcpRapidCommit: false,
+            Localmx: false,
+            Selfmx: false,
+            EnableRa: false,
+            LogDhcp: false,
             DhcpLeaseFilePath: null,
             CacheSize: null,
             Port: null,
@@ -96,7 +110,9 @@ public class EffectiveDnsmasqConfigTests
             PxePrompt: null,
             EnableDbus: null,
             EnableUbus: null,
-            FastDnsRetry: null
+            FastDnsRetry: null,
+            DhcpScriptPath: null,
+            MxTarget: null
         );
 
     [Fact]

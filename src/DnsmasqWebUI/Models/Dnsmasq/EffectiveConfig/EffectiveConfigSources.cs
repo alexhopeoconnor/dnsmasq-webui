@@ -55,6 +55,12 @@ public record EffectiveConfigSources(
     IReadOnlyList<ValueWithSource> HostRecordValues,
     IReadOnlyList<ValueWithSource> DynamicHostValues,
     IReadOnlyList<ValueWithSource> InterfaceNameValues,
+    IReadOnlyList<ValueWithSource> DhcpOptionForceLines,
+    IReadOnlyList<ValueWithSource> IpsetValues,
+    IReadOnlyList<ValueWithSource> NftsetValues,
+    IReadOnlyList<ValueWithSource> DhcpMacValues,
+    IReadOnlyList<ValueWithSource> DhcpNameMatchValues,
+    IReadOnlyList<ValueWithSource> DhcpIgnoreNamesValues,
 
     // --- Flags (set if any occurrence; source = first file that set it, so we know if readonly) ---
     ConfigValueSource? ExpandHosts,
@@ -80,8 +86,16 @@ public record EffectiveConfigSources(
     ConfigValueSource? LeasefileRo,
     ConfigValueSource? EnableTftp,
     ConfigValueSource? TftpSecure,
+    ConfigValueSource? TftpNoFail,
+    ConfigValueSource? TftpNoBlocksize,
     ConfigValueSource? Dnssec,
     ConfigValueSource? DnssecCheckUnsigned,
+    ConfigValueSource? ReadEthers,
+    ConfigValueSource? DhcpRapidCommit,
+    ConfigValueSource? Localmx,
+    ConfigValueSource? Selfmx,
+    ConfigValueSource? EnableRa,
+    ConfigValueSource? LogDhcp,
 
     // --- Single-value (last occurrence wins; source = file that set the last value) ---
     ConfigValueSource? DhcpLeaseFilePath,
@@ -111,5 +125,7 @@ public record EffectiveConfigSources(
     ConfigValueSource? PxePrompt,
     ConfigValueSource? EnableDbus,
     ConfigValueSource? EnableUbus,
-    ConfigValueSource? FastDnsRetry
+    ConfigValueSource? FastDnsRetry,
+    ConfigValueSource? DhcpScriptPath,
+    ConfigValueSource? MxTarget
 );

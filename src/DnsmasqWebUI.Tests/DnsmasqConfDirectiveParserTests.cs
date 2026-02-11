@@ -70,4 +70,24 @@ public class DnsmasqConfDirectiveParserTests
         Assert.Equal(DnsmasqConfKeys.Port, kv!.Value.key);
         Assert.Equal(value, kv.Value.value);
     }
+
+    [Fact]
+    public void TryParseKeyValue_ValueContainsEquals_ParsesFirstEqualsAsKeyValueSeparator()
+    {
+        var line = "server=/local/1.2.3.4";
+        var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
+        Assert.NotNull(kv);
+        Assert.Equal("server", kv!.Value.key);
+        Assert.Equal("/local/1.2.3.4", kv.Value.value);
+    }
+
+    [Fact]
+    public void TryParseKeyValue_ErrorOverload_InvalidLine_ReturnsFalseAndSetsError()
+    {
+        // KeyValueLine requires at least one key character before '='; "=no-key" has no key and fails.
+        var ok = DnsmasqConfDirectiveParser.TryParseKeyValue("=no-key", out var kv, out var error, out var errorPosition);
+        Assert.False(ok);
+        Assert.NotNull(error);
+        Assert.True(errorPosition.Absolute >= 0);
+    }
 }

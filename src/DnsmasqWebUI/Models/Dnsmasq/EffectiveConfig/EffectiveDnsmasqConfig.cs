@@ -59,6 +59,12 @@ public record EffectiveDnsmasqConfig(
     IReadOnlyList<string> HostRecordValues,
     IReadOnlyList<string> DynamicHostValues,
     IReadOnlyList<string> InterfaceNameValues,
+    IReadOnlyList<string> DhcpOptionForceLines,
+    IReadOnlyList<string> IpsetValues,
+    IReadOnlyList<string> NftsetValues,
+    IReadOnlyList<string> DhcpMacValues,
+    IReadOnlyList<string> DhcpNameMatchValues,
+    IReadOnlyList<string> DhcpIgnoreNamesValues,
 
     // --- Boolean flags (set if any file contains the option) ---
     bool ExpandHosts,
@@ -84,8 +90,16 @@ public record EffectiveDnsmasqConfig(
     bool LeasefileRo,
     bool EnableTftp,
     bool TftpSecure,
+    bool TftpNoFail,
+    bool TftpNoBlocksize,
     bool Dnssec,
     bool DnssecCheckUnsigned,
+    bool ReadEthers,
+    bool DhcpRapidCommit,
+    bool Localmx,
+    bool Selfmx,
+    bool EnableRa,
+    bool LogDhcp,
 
     // --- Single-value options (last occurrence wins; null = not set, dnsmasq default) ---
     string? DhcpLeaseFilePath,
@@ -115,7 +129,9 @@ public record EffectiveDnsmasqConfig(
     string? PxePrompt,
     string? EnableDbus,
     string? EnableUbus,
-    string? FastDnsRetry
+    string? FastDnsRetry,
+    string? DhcpScriptPath,
+    string? MxTarget
 )
 {
     /// <summary>
