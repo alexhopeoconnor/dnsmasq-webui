@@ -1,0 +1,6 @@
+<dt><b>--dhcp-rapid-commit</b></dt>
+<dd>Enable DHCPv4 Rapid Commit Option specified in RFC 4039. When enabled, dnsmasq
+will respond to a DHCPDISCOVER message including a Rapid Commit
+option with a DHCPACK including a Rapid Commit option and fully committed
+address and configuration information. Should only be enabled if either the
+server is  the only server for the subnet, or multiple servers are present and they each commit a binding for all clients.</dd>

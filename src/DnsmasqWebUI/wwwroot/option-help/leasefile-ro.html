@@ -1,0 +1,14 @@
+<dt><b>-9, --leasefile-ro</b></dt>
+<dd>Completely suppress use of the lease database file. The file will not
+be created, read, or written. Change the way the lease-change
+script (if one is provided) is called, so that the lease database may
+be maintained in external storage by the script. In addition to the
+invocations  given in 
+<b>--dhcp-script</b>
+
+the lease-change script is called once, at dnsmasq startup, with the
+single argument "init". When called like this the script should write
+the saved state of the lease database, in dnsmasq leasefile format, to
+stdout and exit with zero exit code. Setting this
+option also forces the leasechange script to be called on changes
+to the client-id and lease length and expiry time.</dd>

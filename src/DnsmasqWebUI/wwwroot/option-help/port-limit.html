@@ -1,0 +1,7 @@
+<dt><b>--port-limit=&lt;#ports&gt;</b></dt>
+<dd>By default, when sending a query via random ports to multiple upstream servers or
+retrying a query dnsmasq will use a single random port for all the tries/retries.
+This option allows a larger number of ports to be used, which can increase robustness
+in certain network configurations. Note that increasing this to more than
+two or three can have security and resource implications and should only
+be done with understanding of those.</dd>

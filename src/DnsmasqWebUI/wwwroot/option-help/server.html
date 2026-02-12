@@ -1,0 +1,78 @@
+<dt><b>-S, --local, --server=[/[&lt;domain&gt;]/[domain/]][&lt;server&gt;[#&lt;port&gt;]][@&lt;interface&gt;][@&lt;source-ip&gt;[#&lt;port&gt;]]</b></dt>
+<dd>Specify upstream servers directly. Setting this flag does
+not suppress reading of /etc/resolv.conf, use <b>--no-resolv</b> to do that. If one or more
+optional domains are given, that server is used only for those domains
+and they are queried only using the specified server. This is
+intended for private nameservers: if you have a nameserver on your
+network which deals with names of the form
+xxx.internal.thekelleys.org.uk at 192.168.1.1 then giving  the flag 
+<b>--server=/internal.thekelleys.org.uk/192.168.1.1</b>
+
+will send all queries for
+internal machines to that nameserver, everything else will go to the
+servers in /etc/resolv.conf. An empty domain specification,
+<b>// </b>
+
+has the special meaning of "unqualified names only" ie names without any
+dots in them. A non-standard port may be specified as 
+part of the IP
+address using a # character.
+More than one <b>--server</b> flag is allowed, with
+repeated domain or ipaddr parts as required.
+<p>
+More specific domains take precedence over less specific domains, so:
+<b>--server=/google.com/1.2.3.4</b>
+<b>--server=/<a href="http://www.google.com">www.google.com</a>/2.3.4.5</b>
+
+will send queries for google.com and gmail.google.com to 1.2.3.4, but <a href="http://www.google.com">www.google.com</a>
+will go to 2.3.4.5
+<p>
+Matching of domains is normally done on complete labels, so /google.com/ matches google.com and <a href="http://www.google.com">www.google.com</a>
+but NOT supergoogle.com. This can be overridden with a * at the start of a pattern only: /*google.com/
+will match google.com and <a href="http://www.google.com">www.google.com</a> AND supergoogle.com. The non-wildcard form has priority, so
+if /google.com/ and /*google.com/ are both specified then google.com and <a href="http://www.google.com">www.google.com</a> will match /google.com/
+and /*google.com/ will only match supergoogle.com.
+<p>
+For historical reasons, the pattern /.google.com/ is equivalent to /google.com/ if you wish to match any subdomain
+of google.com but NOT google.com itself, use /*.google.com/
+<p>
+The special server address '#' means, "use the standard servers", so
+<b>--server=/google.com/1.2.3.4</b>
+<b>--server=/<a href="http://www.google.com">www.google.com</a>/#</b>
+
+will send queries for google.com and its subdomains to 1.2.3.4, except <a href="http://www.google.com">www.google.com</a> (and its subdomains) which will
+be forwarded as usual.
+<p>
+Also permitted is a -S
+flag which gives a domain but no IP address; this tells dnsmasq that
+a domain is local and it may answer queries from /etc/hosts or DHCP
+but should never forward queries on that domain to any upstream
+servers.
+<b>--local</b>
+
+is a synonym for
+<b>--server</b>
+
+to make configuration files clearer in this case.
+<p>
+IPv6 addresses may include an %interface scope-id, eg
+fe80::202:a412:4512:7bbf%eth0.
+<p>
+The optional string after the @ character tells dnsmasq how to set the source of
+the queries to this nameserver. It can either be an ip-address, an interface
+name or both. The ip-address should belong to the machine on which dnsmasq is
+running, otherwise this server line will be logged and then ignored. If an
+interface name is given, then queries to the server will be forced via that
+interface; if an ip-address is given then the source address of the queries will
+be set to that address; and if both are given then a combination of ip-address
+and interface name will be used to steer requests to the server.
+The query-port flag is ignored for any servers which have a
+source address specified but the port may be specified directly as
+part of the source address. Forcing queries to an interface is not
+implemented on all platforms supported by dnsmasq.
+<p>
+Upstream servers may be specified with a hostname rather than an IP address.
+In this case, dnsmasq will try to use the system resolver to get the IP address
+of a server during startup. If name resolution fails, starting dnsmasq fails, too.
+If the system's configuration is such that the system resolver sends DNS queries
+through the dnsmasq instance which is starting up then this will time-out and fail.</dd>

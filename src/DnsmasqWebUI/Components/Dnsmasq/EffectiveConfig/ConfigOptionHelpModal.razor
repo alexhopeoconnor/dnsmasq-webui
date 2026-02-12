@@ -1,0 +1,173 @@
+@namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Extensions
+@using Microsoft.AspNetCore.Components
+@using Microsoft.JSInterop
+@using System.Text.Json.Serialization
+@inject IHttpClientFactory HttpFactory
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
+
+@if (Visible)
+{
+    <div class="config-option-help-popover" id="@_popoverId" style="@_positionStyle" @onmouseenter="OnModalMouseEnter" @onmouseleave="OnModalMouseLeave">
+        <div class="config-option-help-popover-content">
+            <div class="config-option-help-popover-header">
+                <span class="config-option-help-popover-title">@Title</span>
+            </div>
+            <div class="config-option-help-popover-body">
+                @if (_loading)
+                {
+                    <p class="text-muted small mb-0">Loading…</p>
+                }
+                else if (_error != null)
+                {
+                    <p class="text-danger small mb-0">@_error</p>
+                }
+                else if (_helpHtml != null)
+                {
+                    <div class="option-help">@((MarkupString)_helpHtml)</div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string? HelpKey { get; set; }
+    [Parameter] public string? AnchorId { get; set; }
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public string Title { get; set; } = "Option help";
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnMouseEnterModal { get; set; }
+    [Parameter] public EventCallback OnMouseLeaveModal { get; set; }
+
+    private string? _helpHtml;
+    private string? _error;
+    private bool _loading;
+    private string? _lastKey;
+    private string _positionStyle = "";
+    private readonly string _popoverId = "config-option-help-popover-" + Guid.NewGuid().ToString("N")[..8];
+    private DotNetObjectReference<ConfigOptionHelpModal>? _dotNetRef;
+    private bool _scrollListenerAdded;
+    private bool _mouseOverModal;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Visible && !_scrollListenerAdded)
+        {
+            _scrollListenerAdded = true;
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("addConfigOptionHelpScrollCloseListener", _dotNetRef);
+        }
+        else if (!Visible && _scrollListenerAdded)
+        {
+            _scrollListenerAdded = false;
+            await JSRuntime.InvokeVoidAsync("removeConfigOptionHelpScrollCloseListener");
+            _dotNetRef?.Dispose();
+            _dotNetRef = null;
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnScrollClose()
+    {
+        await PositionUnderAnchorAsync();
+        StateHasChanged();
+        if (!_mouseOverModal)
+            await OnClose.InvokeAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_scrollListenerAdded)
+        {
+            _scrollListenerAdded = false;
+            try { await JSRuntime.InvokeVoidAsync("removeConfigOptionHelpScrollCloseListener"); } catch { /* best effort */ }
+            _dotNetRef?.Dispose();
+            _dotNetRef = null;
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Visible || string.IsNullOrEmpty(HelpKey))
+        {
+            _helpHtml = null;
+            _error = null;
+            _loading = false;
+            _positionStyle = "";
+            _mouseOverModal = false;
+            return;
+        }
+        if (HelpKey == _lastKey && _helpHtml != null)
+        {
+            await PositionUnderAnchorAsync();
+            return;
+        }
+        _lastKey = HelpKey;
+        _loading = true;
+        _error = null;
+        _helpHtml = null;
+        _positionStyle = "visibility: hidden;"; // avoid flash before position is set
+        StateHasChanged();
+
+        try
+        {
+            var http = HttpFactory.CreateClient(ServiceCollectionExtensions.DnsmasqApiClientName);
+            var response = await http.GetAsync($"option-help/{HelpKey}.html");
+            if (response.IsSuccessStatusCode)
+                _helpHtml = await response.Content.ReadAsStringAsync();
+            else
+                _error = "Help not available for this option.";
+        }
+        catch
+        {
+            _error = "Could not load help.";
+        }
+        finally
+        {
+            _loading = false;
+            await PositionUnderAnchorAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async Task PositionUnderAnchorAsync()
+    {
+        if (string.IsNullOrEmpty(AnchorId)) return;
+        try
+        {
+            var rect = await JSRuntime.InvokeAsync<BoundingRect?>("getConfigOptionHelpAnchorRect", AnchorId);
+            if (rect is { } r)
+            {
+                var gap = 4;
+                var topPx = r.Bottom + gap;
+                var leftPx = r.Left;
+                _positionStyle = $"position: fixed; top: {topPx}px; left: {leftPx}px; visibility: visible;";
+            }
+        }
+        catch
+        {
+            _positionStyle = "visibility: visible;";
+        }
+    }
+
+    private async Task OnModalMouseEnter()
+    {
+        _mouseOverModal = true;
+        await OnMouseEnterModal.InvokeAsync();
+    }
+
+    private async Task OnModalMouseLeave()
+    {
+        _mouseOverModal = false;
+        await OnMouseLeaveModal.InvokeAsync();
+    }
+
+    private sealed record BoundingRect(
+        [property: JsonPropertyName("top")] double Top,
+        [property: JsonPropertyName("left")] double Left,
+        [property: JsonPropertyName("bottom")] double Bottom,
+        [property: JsonPropertyName("width")] double Width,
+        [property: JsonPropertyName("height")] double Height);
+}

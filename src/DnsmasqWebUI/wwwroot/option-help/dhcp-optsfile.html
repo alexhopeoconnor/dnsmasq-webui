@@ -1,0 +1,11 @@
+<dt><b>--dhcp-optsfile=&lt;path&gt;</b></dt>
+<dd>Read DHCP option information from the specified file.  If a directory
+is given, then read all the files contained in that directory in alphabetical order. The advantage of 
+using this option is the same as for <b>--dhcp-hostsfile</b>: the
+<b>--dhcp-optsfile</b> will be re-read when dnsmasq receives SIGHUP. Note that
+it is possible to encode the information in a
+<b>--dhcp-boot</b>
+
+flag as DHCP options, using the options names bootfile-name,
+server-ip-address and tftp-server. This allows these to be included
+in a <b>--dhcp-optsfile</b>.</dd>

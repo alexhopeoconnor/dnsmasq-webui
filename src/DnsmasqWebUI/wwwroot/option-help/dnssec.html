@@ -1,0 +1,16 @@
+<dt><b>--dnssec</b></dt>
+<dd>Validate DNS replies and cache DNSSEC data. When forwarding DNS queries, dnsmasq requests the 
+DNSSEC records needed to validate the replies. The replies are validated and the result returned as 
+the Authenticated Data bit in the DNS packet. In addition the DNSSEC records are stored in the cache, making 
+validation by clients more efficient. Note that validation by clients is the most secure DNSSEC mode, but for
+clients unable to do validation, use of the AD bit set by dnsmasq is useful, provided that the network between 
+the dnsmasq server and the client is trusted. Dnsmasq must be compiled with HAVE_DNSSEC enabled, and DNSSEC
+trust anchors provided, see 
+<b>--trust-anchor.</b>
+
+Because the DNSSEC validation process uses the cache, it is not
+permitted to reduce the cache size below the default when DNSSEC is
+enabled. The nameservers upstream of dnsmasq must be DNSSEC-capable,
+ie capable of returning DNSSEC records with data. If they are not,
+then dnsmasq will not be able to determine the trusted status of
+answers and this means that DNS service will be entirely broken.</dd>

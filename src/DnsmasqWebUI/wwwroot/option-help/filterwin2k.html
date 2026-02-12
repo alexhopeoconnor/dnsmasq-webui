@@ -1,0 +1,6 @@
+<dt><b>-f, --filterwin2k</b></dt>
+<dd>Later versions of windows make periodic DNS requests which don't get sensible answers from
+the public DNS and can cause problems by triggering dial-on-demand links. This flag turns on an option
+to filter such requests. The requests blocked are for records of type ANY
+where the requested name has underscores, to catch LDAP requests, and for
+<b>all</b> records of types SOA and SRV.</dd>

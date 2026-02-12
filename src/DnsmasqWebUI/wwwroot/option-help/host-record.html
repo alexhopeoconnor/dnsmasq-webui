@@ -1,0 +1,25 @@
+<dt><b>--host-record=&lt;name&gt;[,&lt;name&gt;....],[&lt;IPv4-address&gt;],[&lt;IPv6-address&gt;][,&lt;TTL&gt;]</b></dt>
+<dd>Add A, AAAA and PTR records to the DNS. This adds one or more names to
+the DNS with associated IPv4 (A) and IPv6 (AAAA) records. A name may
+appear in more than one 
+<b>--host-record</b>
+
+and therefore be assigned more than one address. Only the first
+address creates a PTR record linking the address to the name. This is
+the same rule as is used reading hosts-files. 
+<b>--host-record</b>
+
+options are considered to be read before host-files, so a name
+appearing there inhibits PTR-record creation if it appears in
+hosts-file also. Unlike hosts-files, names are not expanded, even when
+<b>--expand-hosts</b>
+
+is in effect. Short and long names may appear in the same 
+<b>--host-record,</b>
+
+eg. 
+<b>--host-record=laptop,laptop.thekelleys.org,192.168.0.1,1234::100</b>
+<p>
+If the time-to-live is given, it overrides the default, which is zero
+or the value of <b>--local-ttl</b>. The value is a positive integer and gives
+the time-to-live in seconds.</dd>

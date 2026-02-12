@@ -11,6 +11,10 @@ public static class DnsmasqOptionTooltips
     /// <summary>Display label used in EffectiveConfigFieldBuilder for server/local multi-value.</summary>
     public const string ServerLocalLabel = "server / local";
 
+    /// <summary>Option name to option-help file key. "server / local" → "server"; others unchanged.</summary>
+    public static string GetOptionHelpKey(string optionName) =>
+        string.Equals(optionName, ServerLocalLabel, StringComparison.Ordinal) ? "server" : optionName;
+
     private static readonly FrozenDictionary<string, string> Tooltips = new Dictionary<string, string>(StringComparer.Ordinal)
     {
         // --- Hosts ---
@@ -91,6 +95,9 @@ public static class DnsmasqOptionTooltips
         [DnsmasqConfKeys.DhcpMac] = "Set tag when client MAC matches pattern. Can repeat.",
         [DnsmasqConfKeys.DhcpNameMatch] = "Set tag when client name matches. Can repeat.",
         [DnsmasqConfKeys.DhcpIgnoreNames] = "Ignore client names when tag set. Can repeat.",
+        [DnsmasqConfKeys.DhcpHostsfile] = "File(s) containing dhcp-host-style lines. Can repeat.",
+        [DnsmasqConfKeys.DhcpOptsfile] = "File containing dhcp-option-style lines.",
+        [DnsmasqConfKeys.DhcpHostsdir] = "Directory of files read like dhcp-hostsfile (watched for changes). Can repeat.",
         [DnsmasqConfKeys.DhcpBoot] = "Boot file and server for PXE. Can repeat.",
         [DnsmasqConfKeys.DhcpIgnore] = "Ignore DHCP clients (e.g. by tag). Can repeat.",
         [DnsmasqConfKeys.DhcpVendorclass] = "Match by DHCP vendor class. Can repeat.",
@@ -139,6 +146,9 @@ public static class DnsmasqOptionTooltips
         [DnsmasqConfKeys.EnableUbus] = "Enable UBus interface (optional service name).",
         [DnsmasqConfKeys.EnableRa] = "Enable router advertisements for DHCPv6 subnets.",
         [DnsmasqConfKeys.LogDhcp] = "Log DHCP transactions (leases, options).",
+        [DnsmasqConfKeys.KeepInForeground] = "Do not daemonise; stay in foreground (e.g. under systemd).",
+        [DnsmasqConfKeys.NoDaemon] = "Debug mode: no fork, no pid file, log to stderr.",
+        [DnsmasqConfKeys.Conntrack] = "Linux connection-tracking mark for UBus/query filtering (platform-dependent).",
     }.ToFrozenDictionary();
 
     /// <summary>Returns a short tooltip for the option, or null if none is defined.</summary>

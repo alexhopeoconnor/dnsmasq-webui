@@ -1,0 +1,144 @@
+<dt><b>-G, --dhcp-host=[&lt;hwaddr&gt;][,id:&lt;client_id&gt;|*][,set:&lt;tag&gt;][,tag:&lt;tag&gt;][,&lt;ipaddr&gt;][,&lt;hostname&gt;][,&lt;lease_time&gt;][,ignore]</b></dt>
+<dd>Specify per host parameters for the DHCP server. This allows a machine
+with a particular hardware address to be always allocated the same
+hostname, IP address and lease time. A hostname specified like this
+overrides any supplied by the DHCP client on the machine. It is also
+allowable to omit the hardware address and include the hostname, in
+which case the IP address and lease times will apply to any machine
+claiming that name. For example 
+<b>--dhcp-host=00:20:e0:3b:13:af,wap,infinite </b>
+
+tells dnsmasq to give
+the machine with hardware address 00:20:e0:3b:13:af the name wap, and
+an infinite DHCP lease. 
+<b>--dhcp-host=lap,192.168.0.199 </b>
+
+tells
+dnsmasq to always allocate the machine lap the IP address
+192.168.0.199. 
+<p>
+Addresses allocated like this are not constrained to be
+in the range given by the <b>--dhcp-range</b> option, but they must be in
+the same subnet as some valid dhcp-range.  For
+subnets which don't need a pool of dynamically allocated addresses,
+use the "static" keyword in the <b>--dhcp-range</b> declaration.
+<p>
+It is allowed to use client identifiers (called client
+DUID in IPv6-land) rather than
+hardware addresses to identify hosts by prefixing with 'id:'. Thus: 
+<b>--dhcp-host=id:01:02:03:04,..... </b>
+
+refers to the host with client identifier 01:02:03:04. It is also
+allowed to specify the client ID as text, like this:
+<b>--dhcp-host=id:clientidastext,..... </b>
+<p>
+A single
+<b>--dhcp-host</b>
+
+may contain an IPv4 address or one or more IPv6 addresses, or both. IPv6 addresses must be bracketed by square brackets thus:
+<b>--dhcp-host=laptop,[1234::56]</b>
+
+IPv6 addresses may contain only the host-identifier part:
+<b>--dhcp-host=laptop,[::56]</b>
+
+in which case they act as wildcards in constructed DHCP ranges, with
+the appropriate network part inserted. For IPv6, an address may include a prefix length:
+<b>--dhcp-host=laptop,[1234:50/126]</b>
+
+which (in this case) specifies four addresses, 1234::50 to 1234::53. This (an the ability
+to specify multiple addresses) is useful
+when a host presents either a consistent name or hardware-ID, but varying DUIDs, since it allows
+dnsmasq to honour the static address allocation but assign a different address for each DUID. This
+typically occurs when chain netbooting, as each stage of the chain gets in turn allocates an address.
+<p>
+Note that in IPv6 DHCP, the hardware address may not be
+available, though it normally is for direct-connected clients, or
+clients using DHCP relays which support RFC 6939.
+<p>
+<p>
+For DHCPv4, the special option <b>id:*</b> means "ignore any client-id 
+and use MAC addresses only." This is useful when a client presents a client-id sometimes 
+but not others.
+<p>
+If a name appears in /etc/hosts, the associated address can be
+allocated to a DHCP lease, but only if a 
+<b>--dhcp-host</b>
+
+option specifying the name also exists. Only one hostname can be
+given in a 
+<b>--dhcp-host</b>
+
+option, but aliases are possible by using CNAMEs. (See 
+<b>--cname</b>
+
+). Note that /etc/hosts is NOT used when the DNS server side of dnsmasq
+is disabled by setting the DNS server port to zero.
+<p>
+More than one
+<b>--dhcp-host</b>
+
+can be associated (by name, hardware address or UID) with a host. Which one is used
+(and therefore which address is allocated by DHCP and appears in the DNS) depends
+on the subnet on which the host last obtained a DHCP lease:
+the
+<b>--dhcp-host</b>
+
+with an address within the subnet is used. If more than one address is within the subnet,
+the result is undefined. A corollary to this is that the name associated with a host using
+<b>--dhcp-host</b>
+
+does not appear in the DNS until the host obtains a DHCP lease.
+<p>
+<p>
+The special keyword <b>ignore</b> tells dnsmasq never to offer a DHCP lease
+to a machine. The machine
+can be specified by hardware address, client ID or hostname. For
+example: <b>--dhcp-host=00:20:e0:3b:13:af,ignore</b>. 
+This can be useful when there is another DHCP server on the network which should
+be used by some machines.
+<p>
+The <b>set:&lt;tag&gt;</b> construct sets the tag
+whenever this <b>--dhcp-host</b> directive is in use. This can be used to
+selectively send DHCP options just for this host. More than one tag
+can be set in a <b>--dhcp-host</b> directive (but not in other places where
+<b>set:&lt;tag&gt;</b> is allowed). When a host matches any
+<b>--dhcp-host</b> directive (or one implied by /etc/ethers) then the special
+tag <b>known</b> is set. This allows dnsmasq to be configured to
+ignore requests from unknown machines using
+<b>--dhcp-ignore=tag:!known</b>.
+If the host matches only a <b>--dhcp-host</b> directive which cannot
+be used because it specifies an address on a different subnet, the tag <b>known-othernet</b> is set.
+<p>
+The <b>tag:&lt;tag&gt;</b> construct filters which dhcp-host directives are used. More than
+one tag can be provided. In this case, the request must match all tags. Tagged
+directives are used in preference to untagged ones. Note that one of &lt;hwaddr&gt;,
+&lt;client_id&gt; or &lt;hostname&gt; still must be specified (can be a wildcard).
+<p>
+Ethernet addresses (but not client-ids) may have
+wildcard bytes, so for example 
+<b>--dhcp-host=00:20:e0:3b:13:*,ignore </b>
+
+will cause dnsmasq to ignore the given range of hardware addresses. Note that
+the "*" will need to be escaped or quoted on a command line, but not
+in the configuration file.
+<p>
+Hardware addresses normally match any
+network (ARP) type, but it is possible to restrict them to a single
+ARP type by preceding them with the ARP-type (in HEX) and "-". so 
+<b>--dhcp-host=06-00:20:e0:3b:13:af,1.2.3.4 </b>
+
+will only match a
+Token-Ring hardware address, since the ARP-address type for token ring
+is 6. 
+<p>
+As a special case, in DHCPv4, it is possible to include more than one
+hardware address. eg:
+<b>--dhcp-host=11:22:33:44:55:66,12:34:56:78:90:12,192.168.0.2</b>.
+This allows an IP address to be associated with
+multiple hardware addresses, and gives dnsmasq permission to abandon a
+DHCP lease to one of the hardware addresses when another one asks for
+a lease. Beware that this is a dangerous thing to do: it will only
+work reliably if only one of the hardware addresses is active at any
+time and there is no way for dnsmasq to enforce this. It is, for instance,
+useful to allocate a stable IP address to a laptop which
+has both wired and wireless interfaces.</dd>

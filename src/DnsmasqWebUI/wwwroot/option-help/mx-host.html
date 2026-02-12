@@ -1,0 +1,8 @@
+<dt><b>-m, --mx-host=&lt;mx name&gt;[[,&lt;hostname&gt;],&lt;preference&gt;]</b></dt>
+<dd>Return an MX record named &lt;mx name&gt; pointing to the given hostname (if
+given), or
+the host specified in the <b>--mx-target</b> switch
+or, if that switch is not given, the host on which dnsmasq 
+is running. The default is useful for directing mail from systems on a LAN
+to a central server. The preference value is optional, and defaults to
+1 if not given. More than one MX record may be given for a host.</dd>

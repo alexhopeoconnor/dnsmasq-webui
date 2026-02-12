@@ -1,6 +1,8 @@
 @namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig
 @using DnsmasqWebUI.Models.Dnsmasq
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 @using DnsmasqWebUI.Models.Config
+@using DnsmasqWebUI.Infrastructure.Helpers.Config
 @using DnsmasqWebUI.Infrastructure.Services.Abstractions
 @inject IEffectiveConfigRenderFragmentRegistry RenderFragmentRegistry
 
@@ -9,36 +11,50 @@
 {
     var labelTooltip = DnsmasqOptionTooltips.Get(Descriptor.OptionName);
     <li class="ec-field" title="@(Descriptor.GetSource()?.GetReadOnlyTooltip())">
-        <span class="ec-field-label" title="@(labelTooltip ?? Descriptor.GetSource()?.GetReadOnlyTooltip())"><strong>@Descriptor.OptionName:</strong></span>
-        <span class="ec-field-value">@fragment(Descriptor)</span>
-        @if (Descriptor.GetSource()?.IsReadOnly == true)
-        {
-            <span class="badge bg-secondary ms-1">readonly</span>
-        }
+        <span id="@_anchorId" class="ec-field-label @(_optionHelpKey != null ? "ec-field-label-help" : null)" title="@(labelTooltip ?? Descriptor.GetSource()?.GetReadOnlyTooltip())" @onclick="RaiseOptionHelpRequested" @onmouseleave="RaiseLabelMouseLeave"><strong>@Descriptor.OptionName:</strong></span>
+        <span class="ec-field-value">
+            @fragment(Descriptor)
+            @if (Descriptor.GetSource()?.IsReadOnly == true)
+            {
+                <span class="badge bg-secondary ec-badge-inline">readonly</span>
+            }
+        </span>
     </li>
 }
 else if (Descriptor.IsMultiValue)
 {
     var items = Descriptor.GetItems();
-    <EffectiveConfigMultiValueRow Label="@Descriptor.OptionName" Items="@items" LabelTooltip="@_labelTooltip" />
+    <EffectiveConfigMultiValueRow Label="@Descriptor.OptionName" Items="@items" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId" OnOptionHelpRequested="@OnOptionHelpRequested" />
 }
 else
 {
     var value = Descriptor.GetValue();
     var displayValue = value == null ? "(not set)" : (value is IReadOnlyList<string> list ? (list.Count == 0 ? "(none)" : string.Join(", ", list)) : value.ToString());
-    <EffectiveConfigOptionItem Label="@Descriptor.OptionName" DisplayValue="@(displayValue ?? "(not set)")" Source="@Descriptor.GetSource()" LabelTooltip="@_labelTooltip" />
+    <EffectiveConfigOptionItem Label="@Descriptor.OptionName" DisplayValue="@(displayValue ?? "(not set)")" Source="@Descriptor.GetSource()" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId" OnOptionHelpRequested="@OnOptionHelpRequested" />
 }
 
 @code {
     [Parameter] public EffectiveConfigFieldDescriptor Descriptor { get; set; } = null!;
     [CascadingParameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
+    [Parameter] public EventCallback<ConfigOptionHelpRequestEventArgs> OnOptionHelpRequested { get; set; }
 
+    private readonly string _anchorId = "ec-help-" + Guid.NewGuid().ToString("N")[..8];
     private RenderFragment<EffectiveConfigFieldDescriptor>? _customFragment;
     private string? _labelTooltip;
+    private string? _optionHelpKey;
 
     protected override void OnParametersSet()
     {
         _customFragment = RenderFragmentRegistry.GetDisplayFragment(Descriptor.SectionId, Descriptor.OptionName);
         _labelTooltip = DnsmasqOptionTooltips.Get(Descriptor.OptionName);
+        _optionHelpKey = DnsmasqOptionTooltips.GetOptionHelpKey(Descriptor.OptionName);
     }
+
+    private async Task RaiseOptionHelpRequested()
+    {
+        if (string.IsNullOrEmpty(_optionHelpKey)) return;
+        await OnOptionHelpRequested.InvokeAsync(new ConfigOptionHelpRequestEventArgs { HelpKey = _optionHelpKey, OptionLabel = Descriptor.OptionName, AnchorId = _anchorId });
+    }
+
+    private async Task RaiseLabelMouseLeave() => await OnOptionHelpRequested.InvokeAsync(new ConfigOptionHelpRequestEventArgs { AnchorId = _anchorId, IsLabelMouseLeave = true });
 }

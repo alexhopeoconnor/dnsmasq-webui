@@ -1,0 +1,7 @@
+<dt><b>--neg-ttl=&lt;time&gt;</b></dt>
+<dd>Negative replies from upstream servers normally contain time-to-live
+information in SOA records which dnsmasq uses for caching. If the
+replies from upstream servers omit this information, dnsmasq does not
+cache the reply. This option gives a default value for time-to-live
+(in seconds) which dnsmasq uses to cache negative replies even in 
+the absence of an SOA record.</dd>

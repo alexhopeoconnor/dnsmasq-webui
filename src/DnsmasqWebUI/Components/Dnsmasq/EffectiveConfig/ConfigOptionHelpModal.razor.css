@@ -1,0 +1,66 @@
+/* Popover anchored under the label (position set in code from anchor rect) */
+.config-option-help-popover {
+    position: fixed;
+    z-index: 1060;
+    max-width: min(420px, calc(100vw - 1rem));
+    max-height: min(70vh, 400px);
+    overflow: auto;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 0.375rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    background: var(--bs-body-bg, #fff);
+}
+
+.config-option-help-popover-content {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.config-option-help-popover-header {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--bs-border-color-translucent, rgba(0, 0, 0, 0.075));
+    flex-shrink: 0;
+}
+
+.config-option-help-popover-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.config-option-help-popover-body {
+    padding: 0.75rem;
+    overflow: auto;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Option help content: man-page fragments (dt/dd, b, p, a) */
+.config-option-help-popover-body .option-help dt {
+    font-weight: 600;
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+}
+.config-option-help-popover-body .option-help dt:first-child {
+    margin-top: 0;
+}
+.config-option-help-popover-body .option-help dd {
+    margin-left: 0;
+    margin-bottom: 0.5rem;
+    padding-left: 0.75rem;
+    border-left: 2px solid var(--bs-border-color-translucent, rgba(0, 0, 0, 0.1));
+    font-size: 0.8rem;
+}
+.config-option-help-popover-body .option-help dd p {
+    margin-bottom: 0.35rem;
+}
+.config-option-help-popover-body .option-help dd p:last-child {
+    margin-bottom: 0;
+}
+.config-option-help-popover-body .option-help b {
+    font-weight: 600;
+}
+.config-option-help-popover-body .option-help a {
+    color: var(--bs-link-color, #0d6efd);
+    text-decoration: underline;
+}

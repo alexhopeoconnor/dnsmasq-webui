@@ -1,0 +1,13 @@
+<dt><b>--interface-name=&lt;name&gt;,&lt;interface&gt;[/4|/6]</b></dt>
+<dd>Return DNS records associating the name with the address(es) of
+the given interface. This flag specifies an A or AAAA record for the given
+name in the same way as an /etc/hosts line, except that the address is
+not constant, but taken from the given interface. The interface may be
+followed by "/4" or "/6" to specify that only IPv4 or IPv6 addresses
+of the interface should be used. If the interface is
+down, not configured or non-existent, an empty record is returned. The
+matching PTR record is also created, mapping the interface address to
+the name. More than one name may be associated with an interface
+address by repeating the flag; in that case the first instance is used
+for the reverse address-to-name mapping. Note that a name used in 
+<b>--interface-name</b> may not appear in /etc/hosts.</dd>

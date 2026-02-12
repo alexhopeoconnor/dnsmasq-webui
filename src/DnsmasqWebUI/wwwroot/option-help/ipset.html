@@ -1,0 +1,11 @@
+<dt><b>--ipset=/&lt;domain&gt;[/&lt;domain&gt;...]/&lt;ipset&gt;[,&lt;ipset&gt;...]</b></dt>
+<dd>Places the resolved IP addresses of queries for one or more domains in
+the specified Netfilter IP set. If multiple setnames are given, then the
+addresses are placed in each of them, subject to the limitations of an
+IP set (IPv4 addresses cannot be stored in an IPv6 IP set and vice
+versa).  Domains and subdomains are matched in the same way as
+<b>--address</b>.
+These IP sets must already exist. See
+<b>ipset</b>(8)
+
+for more details.</dd>

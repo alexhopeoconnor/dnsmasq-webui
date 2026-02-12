@@ -1,0 +1,18 @@
+<dt><b>--enable-ra</b></dt>
+<dd>Enable dnsmasq's IPv6 Router Advertisement feature. DHCPv6 doesn't
+handle complete network configuration in the same way as DHCPv4. Router
+discovery and (possibly) prefix discovery for autonomous address
+creation are handled by a different protocol. When DHCP is in use,
+only a subset of this is needed, and dnsmasq can handle it, using
+existing DHCP configuration to provide most data. When RA is enabled,
+dnsmasq will advertise a prefix for each <b>--dhcp-range</b>, with default
+router  as the relevant link-local address on 
+the machine running dnsmasq. By default, the "managed address" bits are set, and
+the "use SLAAC" bit is reset. This can be changed for individual
+subnets with the mode keywords described in
+<b>--dhcp-range.</b>
+
+RFC6106 DNS parameters are included in the advertisements. By default,
+the relevant link-local address of the machine running dnsmasq is sent
+as recursive DNS server. If provided, the DHCPv6 options dns-server and
+domain-search are used for the DNS server (RDNSS) and the domain search list (DNSSL).</dd>

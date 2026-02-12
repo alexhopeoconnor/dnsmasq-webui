@@ -12,6 +12,9 @@ public static class ServiceCollectionExtensions
     /// <summary>Name of the HttpClient used for same-host API calls (status, config, reload, hosts, etc.).</summary>
     public const string DnsmasqApiClientName = "DnsmasqWebUI.Api";
 
+    /// <summary>Name of the HttpClient used for GitHub API (e.g. latest release check).</summary>
+    public const string GitHubClientName = "DnsmasqWebUI.GitHub";
+
     /// <summary>
     /// Registers the named HttpClient for same-host API calls and all typed API clients
     /// (IStatusClient, IConfigSetClient, IReloadClient, IHostsClient, IDhcpHostsClient, ILeasesClient).
@@ -31,6 +34,13 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient<IDhcpHostsClient, DhcpHostsClient>(DnsmasqApiClientName);
         services.AddHttpClient<ILeasesClient, LeasesClient>(DnsmasqApiClientName);
         services.AddHttpClient<ILoggingClient, LoggingClient>(DnsmasqApiClientName);
+
+        services.AddHttpClient(GitHubClientName, client =>
+        {
+            client.BaseAddress = new Uri("https://api.github.com/", UriKind.Absolute);
+            client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "dnsmasq-webui");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/vnd.github.v3+json");
+        });
 
         return services;
     }

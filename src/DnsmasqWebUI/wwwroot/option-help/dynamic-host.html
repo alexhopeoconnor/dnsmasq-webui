@@ -1,0 +1,6 @@
+<dt><b>--dynamic-host=&lt;name&gt;,[IPv4-address],[IPv6-address],&lt;interface&gt;</b></dt>
+<dd>Add A, AAAA and PTR records to the DNS in the same subnet as the specified interface. The address is derived from the network part of each address associated with the interface, and the host part from the specified address. For example
+<b>--dynamic-host=example.com,0.0.0.8,eth0</b>
+
+will, when eth0 has the address 192.168.78.x and netmask 255.255.255.0 give the
+name example.com an A record for 192.168.78.8. The same principle applies to IPv6 addresses. Note that if an interface has more than one address, more than one A or AAAA record will be created. The TTL of the records is always zero, and any changes to interface addresses will be immediately reflected in them.</dd>

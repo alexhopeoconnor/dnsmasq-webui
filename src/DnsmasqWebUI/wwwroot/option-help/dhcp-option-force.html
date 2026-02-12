@@ -1,0 +1,7 @@
+<dt><b>--dhcp-option-force=[tag:&lt;tag&gt;,[tag:&lt;tag&gt;,]][encap:&lt;opt&gt;,][vi-encap:&lt;enterprise&gt;,][vendor:[&lt;vendor-class&gt;],]&lt;opt&gt;,[&lt;value&gt;[,&lt;value&gt;]]</b></dt>
+<dd>This works in exactly the same way as
+<b>--dhcp-option</b>
+
+except that the option will always be sent, even if the client does
+not ask for it in the parameter request list. This is sometimes
+needed, for example when sending options to PXELinux.</dd>

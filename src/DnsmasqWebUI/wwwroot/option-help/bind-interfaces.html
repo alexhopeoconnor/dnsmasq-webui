@@ -1,0 +1,10 @@
+<dt><b>-z, --bind-interfaces</b></dt>
+<dd>On systems which support it, dnsmasq binds the wildcard address,
+even when it is listening on only some interfaces. It then discards
+requests that it shouldn't reply to. This has the advantage of 
+working even when interfaces come and go and change address. This
+option forces dnsmasq to really bind only the interfaces it is
+listening on. About the only time when this is useful is when 
+running another nameserver (or another instance of dnsmasq) on the
+same machine. Setting this option also enables multiple instances of
+dnsmasq which provide DHCP service to run in the same machine.</dd>

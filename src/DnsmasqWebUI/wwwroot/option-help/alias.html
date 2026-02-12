@@ -1,0 +1,13 @@
+<dt><b>-V, --alias=[&lt;old-ip&gt;]|[&lt;start-ip&gt;-&lt;end-ip&gt;],&lt;new-ip&gt;[,&lt;mask&gt;]</b></dt>
+<dd>Modify IPv4 addresses returned from upstream nameservers; old-ip is
+replaced by new-ip. If the optional mask is given then any address
+which matches the masked old-ip will be re-written. So, for instance
+<b>--alias=1.2.3.0,6.7.8.0,255.255.255.0 </b>
+
+will map 1.2.3.56 to 6.7.8.56 and 1.2.3.67 to 6.7.8.67. This is what
+Cisco PIX routers call "DNS doctoring". If the old IP is given as
+range, then only addresses in the range, rather than a whole subnet,
+are re-written. So 
+<b>--alias=192.168.0.10-192.168.0.40,10.0.0.0,255.255.255.0</b>
+
+maps 192.168.0.10-&gt;192.168.0.40 to 10.0.0.10-&gt;10.0.0.40</dd>

@@ -135,6 +135,7 @@
     margin-top: auto;
     flex-shrink: 0;
     font-size: 0.8125rem;
+    text-align: right;
 }
 
 .nav-footer-link {
@@ -144,6 +145,58 @@
 
 .nav-footer-link:hover {
     color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.nav-footer-sep {
+    color: rgba(255, 255, 255, 0.45);
+    margin: 0 0.35rem;
+    user-select: none;
+}
+
+.nav-footer-version-actions {
+    margin-left: 0.15rem;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.nav-footer-version-actions .nav-footer-link,
+.nav-footer-version-actions .nav-footer-check-btn {
+    color: inherit;
+}
+
+.nav-footer-new-release {
+    display: inline-flex;
+    align-items: center;
+}
+
+.nav-footer-new-release:hover {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.nav-footer-check-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+}
+
+.nav-footer-check-btn:disabled {
+    cursor: default;
+    opacity: 0.8;
+}
+
+.nav-footer-check-btn:hover:not(:disabled) {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.nav-footer-spin {
+    animation: nav-footer-spin 0.8s linear infinite;
+}
+
+@keyframes nav-footer-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 .nav-scrollable {

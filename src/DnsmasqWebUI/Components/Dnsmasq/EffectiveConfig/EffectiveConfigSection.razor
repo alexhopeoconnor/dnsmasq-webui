@@ -1,42 +1,117 @@
 @namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig
 @using DnsmasqWebUI.Models.Dnsmasq
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+@implements IAsyncDisposable
 
 @if (Status != null)
 {
-<div class="ec-sections small">
-    @{
-        var descriptors = EffectiveConfigFieldBuilder.BuildFieldDescriptors(Status);
-        var sections = new[]
-        {
-            (EffectiveConfigFieldBuilder.SectionHosts, "Hosts"),
-            (EffectiveConfigFieldBuilder.SectionResolver, "Resolver / DNS"),
-            (EffectiveConfigFieldBuilder.SectionDnsRecords, "DNS records"),
-            (EffectiveConfigFieldBuilder.SectionDhcp, "DHCP"),
-            (EffectiveConfigFieldBuilder.SectionTftpPxe, "TFTP / PXE"),
-            (EffectiveConfigFieldBuilder.SectionDnssec, "DNSSEC"),
-            (EffectiveConfigFieldBuilder.SectionCache, "Cache"),
-            (EffectiveConfigFieldBuilder.SectionProcess, "Process & networking")
-        };
-    }
-    @foreach (var (sectionId, title) in sections)
+<div class="ec-container">
+    <ConfigOptionHelpModal HelpKey="@_optionHelpKey" AnchorId="@_optionHelpAnchorId" Visible="@_showOptionHelp" Title="@_optionHelpTitle"
+        OnClose="CloseOptionHelp" OnMouseEnterModal="CancelCloseTimerAsync" OnMouseLeaveModal="ScheduleCloseAsync" />
+    @if (ShowSearchBox)
     {
-        var sectionDescriptors = descriptors.Where(d => d.SectionId == sectionId).ToList();
-        if (sectionDescriptors.Count > 0)
-        {
-            <EffectiveConfigSectionPanel SectionId="@sectionId" Title="@title" Descriptors="@sectionDescriptors" IsOpen="@IsOpen(sectionId)" OnToggle="@OnSectionToggle" DisplayMode="@DisplayMode" />
-        }
+        <div class="ec-toolbar">
+            <input type="search" id="ec-search-input" class="form-control form-control-sm" placeholder="Search..." autocomplete="off"
+                   @bind="_searchTerm" @bind:event="oninput" @bind:after="StateHasChanged" />
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CollapseAll" title="Collapse all sections" aria-label="Collapse all sections">
+                <i class="bi bi-arrows-collapse" aria-hidden="true"></i>
+            </button>
+        </div>
     }
+    <div class="ec-sections small">
+        @{
+            var views = EffectiveConfigViews.GetViewsForContext(Context);
+            var descriptorsBySection = EffectiveConfigViews.GetDescriptorsBySection(Status, views);
+            var hasSearch = !string.IsNullOrWhiteSpace(_searchTerm);
+            var term = _searchTerm?.Trim() ?? "";
+        }
+        @foreach (var view in views)
+        {
+            if (!descriptorsBySection.TryGetValue(view.SectionId, out var contextDescriptors))
+                continue;
+            var sectionDescriptors = hasSearch
+                ? contextDescriptors.Where(d => DescriptorMatchesSearch(d, term)).ToList()
+                : contextDescriptors.ToList();
+            if (sectionDescriptors.Count == 0)
+                continue;
+            var isOpen = hasSearch ? true : IsOpen(view.SectionId);
+            <EffectiveConfigSectionPanel SectionId="@view.SectionId" Title="@view.Title" Descriptors="@sectionDescriptors" IsOpen="@isOpen" OnToggle="@OnSectionToggle" DisplayMode="@DisplayMode" OnOptionHelpRequested="@HandleOptionHelpRequested" />
+        }
+    </div>
 </div>
 }
 
 @code {
     [Parameter] public DnsmasqServiceStatus? Status { get; set; }
+    [Parameter] public EffectiveConfigContext Context { get; set; } = EffectiveConfigContext.All;
+    [Parameter] public bool ShowSearchBox { get; set; } = true;
     /// <summary>View = read-only; Edit = editable (future). Cascaded to field displays.</summary>
     [Parameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
 
+    private string _searchTerm = "";
     private HashSet<string> _openPanels = new();
+    private string? _optionHelpKey;
+    private string? _optionHelpAnchorId;
+    private string _optionHelpTitle = "Option help";
+    private bool _showOptionHelp;
+    private CancellationTokenSource? _closeCts;
 
     private bool IsOpen(string id) => _openPanels.Contains(id);
+
+    private async Task HandleOptionHelpRequested(ConfigOptionHelpRequestEventArgs args)
+    {
+        if (args.IsLabelMouseLeave)
+        {
+            if (args.AnchorId == _optionHelpAnchorId)
+                ScheduleClose();
+            return;
+        }
+        _optionHelpKey = args.HelpKey;
+        _optionHelpTitle = args.OptionLabel;
+        _optionHelpAnchorId = args.AnchorId;
+        _showOptionHelp = true;
+        CancelCloseTimer();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void CancelCloseTimer()
+    {
+        _closeCts?.Cancel();
+        _closeCts = null;
+    }
+
+    private Task CancelCloseTimerAsync() { CancelCloseTimer(); return Task.CompletedTask; }
+
+    private void ScheduleClose()
+    {
+        _closeCts?.Cancel();
+        _closeCts = new CancellationTokenSource();
+        var token = _closeCts.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(300, token);
+            }
+            catch (OperationCanceledException) { return; }
+            await InvokeAsync(() =>
+            {
+                if (token.IsCancellationRequested) return;
+                _showOptionHelp = false;
+                _closeCts = null;
+                StateHasChanged();
+            });
+        }, token);
+    }
+
+    private Task ScheduleCloseAsync() { ScheduleClose(); return Task.CompletedTask; }
+
+    private void CloseOptionHelp()
+    {
+        CancelCloseTimer();
+        _showOptionHelp = false;
+        StateHasChanged();
+    }
 
     private void OnSectionToggle(string id)
     {
@@ -44,5 +119,26 @@
             _openPanels.Remove(id);
         else
             _openPanels.Add(id);
+    }
+
+    private void CollapseAll()
+    {
+        _openPanels.Clear();
+        StateHasChanged();
+    }
+
+    private static bool DescriptorMatchesSearch(EffectiveConfigFieldDescriptor d, string term)
+    {
+        if (string.IsNullOrEmpty(term)) return true;
+        var searchable = (d.OptionName + " " + (DnsmasqOptionTooltips.Get(d.OptionName) ?? "")).Trim();
+        return searchable.Contains(term, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _closeCts?.Cancel();
+        _closeCts?.Dispose();
+        _closeCts = null;
+        return ValueTask.CompletedTask;
     }
 }

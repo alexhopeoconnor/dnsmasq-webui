@@ -1,0 +1,11 @@
+<dt><b>--rev-server=&lt;ip-address&gt;[/&lt;prefix-len&gt;][,&lt;server&gt;][#&lt;port&gt;][@&lt;interface&gt;][@&lt;source-ip&gt;[#&lt;port&gt;]]</b></dt>
+<dd>This is functionally the same as 
+<b>--server, </b>
+
+but provides some syntactic sugar to make specifying address-to-name queries easier. For example
+<b>--rev-server=1.2.3.0/24,192.168.0.1</b>
+
+is exactly equivalent to 
+<b>--server=/3.2.1.in-addr.arpa/192.168.0.1</b>
+
+Allowed prefix lengths are 1-32 (IPv4) and 1-128 (IPv6). If the prefix length is omitted, dnsmasq substitutes either 32 (IPv4) or 128 (IPv6).</dd>

@@ -1,0 +1,19 @@
+<dt><b>-U, --dhcp-vendorclass=set:&lt;tag&gt;,[enterprise:&lt;IANA-enterprise number&gt;,]&lt;vendor-class&gt;</b></dt>
+<dd>Map from a vendor-class string to a tag. Most DHCP clients provide a 
+"vendor class" which represents, in some sense, the type of host. This option 
+maps vendor classes to tags, so that DHCP options may be selectively delivered
+to different classes of hosts. For example 
+<b>--dhcp-vendorclass=set:printers,Hewlett-Packard JetDirect</b>
+
+will allow options to be set only for HP printers like so:
+<b>--dhcp-option=tag:printers,3,192.168.4.4 </b>
+
+The vendor-class string is
+substring matched against the vendor-class supplied by the client, to
+allow fuzzy matching. The set: prefix is optional but allowed for
+consistency. 
+<p>
+Note that in IPv6 only, vendorclasses are namespaced with an 
+IANA-allocated enterprise number. This is given with enterprise:
+keyword and specifies that only vendorclasses matching the specified
+number should be searched.</dd>

@@ -1,0 +1,8 @@
+<dt><b>--dhcp-hostsdir=&lt;path&gt;</b></dt>
+<dd>This is equivalent to <b>--dhcp-hostsfile</b>, except for the following. The path MUST be a
+directory, and not an individual file. Changed or new files within
+the directory are read automatically, without the need to send SIGHUP.
+If a file is deleted or changed after it has been read by dnsmasq, then the
+host record it contained will remain until dnsmasq receives a SIGHUP, or 
+is restarted; ie host records are only added dynamically. The order in which the
+files in a directory are read is not defined.</dd>

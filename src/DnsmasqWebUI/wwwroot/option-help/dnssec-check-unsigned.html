@@ -1,0 +1,15 @@
+<dt><b>--dnssec-check-unsigned[=no]</b></dt>
+<dd>As a default, dnsmasq checks that unsigned DNS replies are
+legitimate: this entails possible extra queries even for the majority of DNS
+zones which are not, at the moment, signed. If
+<b>--dnssec-check-unsigned=no</b>
+
+appears in the configuration, then such replies they are assumed to be valid and passed on (without the
+"authentic data" bit set, of course). This does not protect against an
+attacker forging unsigned replies for signed DNS zones, but it is
+fast.
+<p>
+Versions of dnsmasq prior to 2.80 defaulted to not checking unsigned replies, and used 
+<b>--dnssec-check-unsigned</b>
+
+to switch this on. Such configurations will continue to work as before, but those which used the default of no checking will need to be altered to explicitly select no checking. The new default is because switching off checking for unsigned replies is inherently dangerous. Not only does it open the possibility of forged replies, but it allows everything to appear to be working even when the upstream namesevers do not support DNSSEC, and in this case no DNSSEC validation at all is occurring.</dd>

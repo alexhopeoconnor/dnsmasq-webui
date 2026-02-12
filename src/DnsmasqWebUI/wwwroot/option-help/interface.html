@@ -1,0 +1,36 @@
+<dt><b>-i, --interface=&lt;interface name&gt;</b></dt>
+<dd>Listen only on the specified interface(s). Dnsmasq automatically adds
+the loopback (local) interface to the list of interfaces to use when
+the
+<b>--interface</b>
+
+option  is used. If no
+<b>--interface</b>
+
+or
+<b>--listen-address</b>
+
+options are given dnsmasq listens on all available interfaces except any
+given in
+<b>--except-interface</b>
+
+options. On Linux, when
+<b>--bind-interfaces</b>
+
+or
+<b>--bind-dynamic</b>
+
+are in effect, IP alias interface labels (eg "eth1:0") are checked, rather than
+interface names. In the degenerate case when an interface has one address, this amounts to the same thing but when an interface has multiple addresses it
+allows control over which of those addresses are accepted.
+The same effect is achievable in default mode by using
+<b>--listen-address.</b>
+
+A simple wildcard, consisting of a trailing '*',
+can be used in
+<b>--interface </b>
+
+and
+<b>--except-interface</b>
+
+options.</dd>

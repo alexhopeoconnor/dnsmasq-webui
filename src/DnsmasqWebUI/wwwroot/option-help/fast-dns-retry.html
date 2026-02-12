@@ -1,0 +1,10 @@
+<dt><b>--fast-dns-retry=[&lt;initial retry delay in ms&gt;[,&lt;time to continue retries in ms&gt;]]</b></dt>
+<dd>Under normal circumstances, dnsmasq relies on DNS clients to do retries; it
+does not generate timeouts itself. Setting this option
+instructs dnsmasq to generate its own retries starting after a delay
+which defaults to 1000ms. If the second parameter is given this controls
+how long the retries will continue for
+otherwise this defaults to 10000ms. Retries are repeated with exponential
+backoff. Using this option increases memory usage and
+network bandwidth. If not otherwise configured, this option is activated
+with the default parameters when <b>--dnssec</b> is set.</dd>

@@ -1,0 +1,20 @@
+<dt><b>--ra-param=&lt;interface&gt;,[mtu:&lt;integer&gt;|&lt;interface&gt;|off,][high,|low,]&lt;ra-interval&gt;[,&lt;router lifetime&gt;]</b></dt>
+<dd>Set non-default values for router advertisements sent via an
+interface. The priority field for the router may be altered from the
+default of medium with eg
+<b>--ra-param=eth0,high.</b>
+
+The interval between router advertisements may be set (in seconds) with 
+<b>--ra-param=eth0,60.</b>
+
+The lifetime of the route may be changed or set to zero, which allows
+a router to advertise prefixes but not a route via itself. 
+<b>--ra-param=eth0,0,0</b>
+
+(A value of zero for the interval means the default value.) All four parameters may be set at once.
+<b>--ra-param=eth0,mtu:1280,low,60,1200</b>
+<p>
+The interface field may include a wildcard.
+<p>
+The mtu: parameter may be an arbitrary interface name, in which case the MTU value for that interface is used. This is useful
+for (eg) advertising the MTU of a WAN interface on the other interfaces of a router.</dd>

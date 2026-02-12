@@ -1,0 +1,22 @@
+<dt><b>--dhcp-match=set:&lt;tag&gt;,&lt;option number&gt;|option:&lt;option name&gt;|vi-encap:&lt;enterprise&gt;[,&lt;value&gt;]</b></dt>
+<dd>Without <b>&lt;value&gt;</b>, set <b>&lt;tag&gt;</b> if the client sends a DHCP
+<b>option</b> of the given number or name. With <b>&lt;value&gt;</b>, set <b>&lt;tag&gt;</b> only if
+the client sends the <b>option</b> matching or containing <b>&lt;value&gt;</b>. 
+<p>
+The value may be of the form
+"01:ff:*:02" in which case the value must match (apart from wildcards)
+but the option sent may have unmatched data past the end of the
+value. The value may also be of the same form as in 
+<b>--dhcp-option</b>
+
+in which case the option sent is treated as an array, and one element
+must match.
+<b>--dhcp-match=set:efi-ia32,option:client-arch,6</b>
+
+sets the tag <b>efi-ia32</b> if the number <b>6</b> appears in the list of
+architectures sent by the client in option 93. (See RFC 4578 for
+details.) If the value is a string, substring matching is used.
+<p>
+The special form with vi-encap:&lt;enterprise number&gt; matches against
+vendor-identifying vendor classes for the specified enterprise. Please
+see RFC 3925 for more details of these rare and interesting beasts.</dd>

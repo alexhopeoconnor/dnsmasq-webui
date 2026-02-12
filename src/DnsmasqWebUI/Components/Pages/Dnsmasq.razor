@@ -56,7 +56,7 @@ else if (_status != null)
                 <li><strong>Managed file:</strong> @(_status.ManagedFilePath ?? "—") @(_status.ManagedFilePathExists ? "✓" : "(not created yet)")</li>
             }
         </ul>
-        <EffectiveConfigSection Status="_status" />
+        <EffectiveConfigSection Status="_status" Context="EffectiveConfigContext.All" ShowSearchBox="true" />
         @if (_status.ReloadCommandConfigured)
         {
             <div class="d-flex align-items-center gap-2 flex-wrap mt-3">

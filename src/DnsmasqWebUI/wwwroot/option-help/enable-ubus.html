@@ -1,0 +1,10 @@
+<dt><b>--enable-ubus[=&lt;service-name&gt;]</b></dt>
+<dd>Enable dnsmasq UBus interface. It sends notifications via UBus on
+DHCPACK and DHCPRELEASE events. Furthermore it offers metrics
+and allows configuration of Linux connection track mark based filtering.
+When DNS query filtering based on Linux connection track marks is enabled
+UBus notifications are generated for each resolved or filtered DNS query.
+Requires that dnsmasq has been built with UBus support. If the service
+name is given, dnsmasq provides service at that namespace, rather than
+the default which is
+<b>dnsmasq</b></dd>

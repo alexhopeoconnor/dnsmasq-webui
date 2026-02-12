@@ -1,0 +1,9 @@
+<dt><b>--local-service[=net|host]</b></dt>
+<dd>Without parameter or with net parameter, restricts service to connected network.
+Accept DNS queries only from hosts whose address is on a local subnet,
+ie a subnet for which an interface exists on the server. With host parameter, listens
+only on lo interface and accepts queries from localhost only. This option
+only has effect if there are no <b>--interface</b>, <b>--except-interface</b>,
+<b>--listen-address</b> or <b>--auth-server</b> options. It is intended to be set as
+a default on installation, to allow unconfigured installations to be
+useful but also safe from being used for DNS amplification attacks.</dd>

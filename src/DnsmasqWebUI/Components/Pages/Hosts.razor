@@ -15,37 +15,44 @@
         Loading...
     </p>
 }
-else if (string.IsNullOrEmpty(_status.ManagedHostsFilePath))
-{
-    <p class="text-muted">Hosts editing is unavailable: managed hosts path is not configured. Set <strong>Dnsmasq:MainConfigPath</strong> (and optionally <strong>Dnsmasq:ManagedHostsFileName</strong>) so the app can create and edit the managed hosts file.</p>
-    @if (_status.AddnHostsPaths?.Count > 0)
-    {
-        <p class="text-muted small">Dnsmasq loads these addn-hosts files: @RenderAddnHostsList()</p>
-    }
-}
 else
 {
-    @if (_status.DnsmasqStatus == "inactive" || _status.DnsmasqStatus == "unknown")
+    <section class="page-section mb-4">
+        <h2 class="page-section-title">Config affecting hosts</h2>
+        <EffectiveConfigSection Status="_status" Context="EffectiveConfigContext.Hosts" ShowSearchBox="true" />
+    </section>
+    @if (string.IsNullOrEmpty(_status.ManagedHostsFilePath))
     {
-        <div class="alert alert-warning">Dnsmasq service appears to be <strong>@_status.DnsmasqStatus</strong>. Save will update the file but reload may fail until the service is fixed.</div>
-    }
-    @if (_error != null)
-    {
-        <div class="alert alert-danger">@_error</div>
-    }
-    @if (_message != null)
-    {
-        <div class="alert alert-success">@_message</div>
-    }
-
-    <HostsFileSection Path="@(_status.ManagedHostsFilePath ?? "")" Entries="_entries" IsEditable="true" IsFirst="true" />
-    <button class="btn btn-primary mt-2" @onclick="Save" disabled="@_saving">Save</button>
-
-    @if (_readOnlyHosts?.Count > 0)
-    {
-        @foreach (var ro in _readOnlyHosts)
+        <p class="text-muted">Hosts editing is unavailable: managed hosts path is not configured. Set <strong>Dnsmasq:MainConfigPath</strong> (and optionally <strong>Dnsmasq:ManagedHostsFileName</strong>) so the app can create and edit the managed hosts file.</p>
+        @if (_status.AddnHostsPaths?.Count > 0)
         {
-            <HostsFileSection Path="@ro.Path" Entries="@ro.Entries" IsEditable="false" IsFirst="false" @key="@ro.Path" />
+            <p class="text-muted small">Dnsmasq loads these addn-hosts files: @RenderAddnHostsList()</p>
+        }
+    }
+    else
+    {
+        @if (_status.DnsmasqStatus == "inactive" || _status.DnsmasqStatus == "unknown")
+        {
+            <div class="alert alert-warning">Dnsmasq service appears to be <strong>@_status.DnsmasqStatus</strong>. Save will update the file but reload may fail until the service is fixed.</div>
+        }
+        @if (_error != null)
+        {
+            <div class="alert alert-danger">@_error</div>
+        }
+        @if (_message != null)
+        {
+            <div class="alert alert-success">@_message</div>
+        }
+
+        <HostsFileSection Path="@(_status.ManagedHostsFilePath ?? "")" Entries="_entries" IsEditable="true" IsFirst="true" />
+        <button class="btn btn-primary mt-2" @onclick="Save" disabled="@_saving">Save</button>
+
+        @if (_readOnlyHosts?.Count > 0)
+        {
+            @foreach (var ro in _readOnlyHosts)
+            {
+                <HostsFileSection Path="@ro.Path" Entries="@ro.Entries" IsEditable="false" IsFirst="false" @key="@ro.Path" />
+            }
         }
     }
 }

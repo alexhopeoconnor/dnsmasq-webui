@@ -1,0 +1,9 @@
+<dt><b>-Z, --read-ethers</b></dt>
+<dd>Read /etc/ethers for information about hosts for the DHCP server. The
+format of /etc/ethers is a hardware address, followed by either a
+hostname or dotted-quad IP address. When read by dnsmasq these lines
+have exactly the same effect as
+<b>--dhcp-host</b>
+
+options containing the same information. /etc/ethers is re-read when 
+dnsmasq receives SIGHUP. IPv6 addresses are NOT read from /etc/ethers.</dd>

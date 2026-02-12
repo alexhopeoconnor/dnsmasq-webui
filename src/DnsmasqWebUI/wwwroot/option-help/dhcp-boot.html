@@ -1,0 +1,14 @@
+<dt><b>-M, --dhcp-boot=[tag:&lt;tag&gt;,]&lt;filename&gt;,[&lt;servername&gt;[,&lt;server address&gt;|&lt;tftp_servername&gt;]]</b></dt>
+<dd>(IPv4 only) Set BOOTP options to be returned by the DHCP server. Server name and
+address are optional: if not provided, the name is left empty, and the
+address set to the address of the machine running dnsmasq. If dnsmasq
+is providing a TFTP service (see 
+<b>--enable-tftp</b>
+
+) then only the filename is required here to enable network booting.
+If the optional tag(s) are given,
+they must match for this configuration to be sent. 
+Instead of an IP address, the TFTP server address can be given as a domain
+name which is looked up in /etc/hosts. This name can be associated in
+/etc/hosts with multiple IP addresses, which are used round-robin.
+This facility can be used to load balance the tftp load among a set of servers.</dd>

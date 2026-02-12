@@ -1,0 +1,27 @@
+<dt><b>-A, --address=/&lt;domain&gt;[/&lt;domain&gt;...]/[&lt;ipaddr&gt;]</b></dt>
+<dd>Specify an IP address to return for any host in the given domains.
+A (or AAAA) queries in the domains are never forwarded and always replied to
+with the specified IP address which may be IPv4 or IPv6. To give
+multiple addresses or both IPv4 and IPv6 addresses for a domain, use repeated <b>--address</b> flags.
+Note that /etc/hosts and DHCP leases override this for individual
+names. A common use of this is to redirect the entire doubleclick.net
+domain to some friendly local web server to avoid banner ads. The
+domain specification works in the same way as for <b>--server</b>, with
+the additional facility that <b>/#/</b> matches any domain. Thus
+<b>--address=/#/1.2.3.4</b> will always return <b>1.2.3.4</b> for any
+query not answered from <b>/etc/hosts</b> or DHCP and not sent to an
+upstream nameserver by a more specific <b>--server</b> directive. As for
+<b>--server</b>, one or more domains with no address returns a
+no-such-domain answer, so <b>--address=/example.com/</b> is equivalent to
+<b>--server=/example.com/</b> and returns NXDOMAIN for example.com and
+all its subdomains. An address specified as '#' translates to the NULL
+address of 0.0.0.0 and its IPv6 equivalent of :: so
+<b>--address=/example.com/#</b> will return NULL addresses for example.com and
+its subdomains. This is partly syntactic sugar for <b>--address=/example.com/0.0.0.0</b>
+and <b>--address=/example.com/::</b> but is also more efficient than including both
+as separate configuration lines. Note that NULL addresses normally work in the same way as localhost, so beware that clients looking up these names are likely to end up talking to themselves.
+<p>
+Note that the behaviour for queries which don't match the specified address literal changed in version 2.86.
+Previous versions, configured with (eg) --address=/example.com/1.2.3.4 and then queried for a RR type other than
+A would return a NoData answer. From  2.86, the query is sent upstream. To restore the pre-2.86 behaviour,
+use the configuration --address=/example.com/1.2.3.4 --local=/example.com/</dd>

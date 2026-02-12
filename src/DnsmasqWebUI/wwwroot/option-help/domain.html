@@ -1,0 +1,43 @@
+<dt><b>-s, --domain=&lt;domain&gt;[[,&lt;address range&gt;[,local]]|&lt;interface&gt;]</b></dt>
+<dd>Specifies DNS domains for the DHCP server. Domains may be be given 
+unconditionally (without the IP range) or for limited IP ranges. This has two effects;
+firstly it causes the DHCP server to return the domain to any hosts
+which request it, and secondly it sets the domain which it is legal
+for DHCP-configured hosts to claim. The intention is to constrain
+hostnames so that an untrusted host on the LAN cannot advertise 
+its name via DHCP as e.g. "microsoft.com" and capture traffic not 
+meant for it. If no domain suffix is specified, then any DHCP
+hostname with a domain part (ie with a period) will be disallowed 
+and logged. If suffix is specified, then hostnames with a domain 
+part are allowed, provided the domain part matches the suffix. In
+addition, when a suffix is set then hostnames without a domain
+part have the suffix added as an optional domain part. Eg on my network I can set 
+<b>--domain=thekelleys.org.uk</b>
+
+and have a machine whose DHCP hostname is "laptop". The IP address for that machine is available from 
+<b>dnsmasq</b>
+
+both as "laptop" and "laptop.thekelleys.org.uk". If the domain is
+given as "#" then the domain is read from the first "search" directive
+in /etc/resolv.conf (or equivalent).
+<p>
+The address range can be of the form
+&lt;ip address&gt;,&lt;ip address&gt; or &lt;ip address&gt;/&lt;netmask&gt; or just a single
+&lt;ip address&gt;. See 
+<b>--dhcp-fqdn</b>
+
+which can change the behaviour of dnsmasq with domains.
+<p>
+If the address range is given as ip-address/network-size, then a
+additional flag "local" may be supplied which has the effect of adding
+<b>--local</b> declarations for forward and reverse DNS queries. Eg.
+<b>--domain=thekelleys.org.uk,192.168.0.0/24,local</b>
+
+is identical to
+<b>--domain=thekelleys.org.uk,192.168.0.0/24</b>
+<b>--local=/thekelleys.org.uk/ --local=/0.168.192.in-addr.arpa/</b>
+<p>
+The address range can also be given as a network interface name, in which case
+all of the subnets currently assigned to the interface are used in matching the
+address. This allows hosts on different physical subnets to be given different
+domains in a way which updates automatically as the interface addresses change.</dd>

@@ -65,6 +65,9 @@ public record EffectiveDnsmasqConfig(
     IReadOnlyList<string> DhcpMacValues,
     IReadOnlyList<string> DhcpNameMatchValues,
     IReadOnlyList<string> DhcpIgnoreNamesValues,
+    IReadOnlyList<string> DhcpHostsfilePaths,
+    IReadOnlyList<string> DhcpOptsfilePaths,
+    IReadOnlyList<string> DhcpHostsdirPaths,
 
     // --- Boolean flags (set if any file contains the option) ---
     bool ExpandHosts,
@@ -100,6 +103,9 @@ public record EffectiveDnsmasqConfig(
     bool Selfmx,
     bool EnableRa,
     bool LogDhcp,
+    bool KeepInForeground,
+    bool NoDaemon,
+    bool ProxyDnssec,
 
     // --- Single-value options (last occurrence wins; null = not set, dnsmasq default) ---
     string? DhcpLeaseFilePath,
@@ -131,7 +137,8 @@ public record EffectiveDnsmasqConfig(
     string? EnableUbus,
     string? FastDnsRetry,
     string? DhcpScriptPath,
-    string? MxTarget
+    string? MxTarget,
+    string? Conntrack
 )
 {
     /// <summary>

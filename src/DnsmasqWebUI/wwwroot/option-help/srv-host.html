@@ -1,0 +1,11 @@
+<dt><b>-W, --srv-host=&lt;_service&gt;.&lt;_prot&gt;[.&lt;domain&gt;],[&lt;target&gt;[,&lt;port&gt;[,&lt;priority&gt;[,&lt;weight&gt;]]]]</b></dt>
+<dd>Return a SRV DNS record. See RFC2782 for details. If not supplied, the
+domain defaults to that given by
+<b>--domain.</b>
+
+The default for the target domain is empty, and the default for port
+is one and the defaults for 
+weight and priority are zero. Be careful if transposing data from BIND
+zone files: the port, weight and priority numbers are in a different
+order. More than one SRV record for a given service/domain is allowed,
+all that match are returned.</dd>

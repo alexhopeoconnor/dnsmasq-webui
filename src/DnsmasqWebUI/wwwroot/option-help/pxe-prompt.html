@@ -1,0 +1,35 @@
+<dt><b>--pxe-prompt=[tag:&lt;tag&gt;,]&lt;prompt&gt;[,&lt;timeout&gt;]</b></dt>
+<dd>Setting this provides a prompt to be displayed after PXE boot. If the
+timeout is given then after the
+timeout has elapsed with no keyboard input, the first available menu
+option will be automatically executed. If the timeout is zero then the first available menu
+item will be executed immediately. If 
+<b>--pxe-prompt</b>
+
+is omitted the system will wait for user input if there are multiple
+items in the menu, but boot immediately if
+there is only one. See
+<b>--pxe-service</b>
+
+for details of menu items.
+<p>
+Dnsmasq supports PXE "proxy-DHCP", in this case another DHCP server on
+the network is responsible for allocating IP addresses, and dnsmasq
+simply provides the information given in 
+<b>--pxe-prompt</b>
+
+and
+<b>--pxe-service</b>
+
+to allow netbooting. This mode is enabled using the
+<b>proxy</b>
+
+keyword in
+<b>--dhcp-range.</b>
+
+If the "other" DHCP server is on a remote network, it is
+possible, and useful, to configure dnsmasq as both a PXE proxy-DHCP server
+and a DHCP relay to the remote DHCP server. See
+<b>--dhcp-relay</b>
+
+for details. PXE is only supported over IPv4 at this time.</dd>

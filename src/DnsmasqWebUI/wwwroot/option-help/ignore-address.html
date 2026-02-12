@@ -1,0 +1,5 @@
+<dt><b>--ignore-address=&lt;ipaddr&gt;[/prefix]</b></dt>
+<dd>Ignore replies to A or AAAA queries which include the specified address or subnet. 
+No error is generated, dnsmasq simply continues to listen for another reply. 
+This is useful to defeat blocking strategies which rely on quickly supplying a
+forged answer to a DNS request for certain domain, before the correct answer can arrive.</dd>

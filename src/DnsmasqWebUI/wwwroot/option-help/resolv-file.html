@@ -1,0 +1,10 @@
+<dt><b>-r, --resolv-file=&lt;file&gt;</b></dt>
+<dd>Read the IP addresses of the upstream nameservers from &lt;file&gt;, instead of
+/etc/resolv.conf. For the format of this file see
+<b>resolv.conf</b>(5).
+
+The only lines relevant to dnsmasq are nameserver ones. Dnsmasq can
+be told to poll more than one resolv.conf file, the first file name  specified
+overrides the default, subsequent ones add to the list. This is only
+allowed when polling; the file with the currently latest modification
+time is the one used.</dd>

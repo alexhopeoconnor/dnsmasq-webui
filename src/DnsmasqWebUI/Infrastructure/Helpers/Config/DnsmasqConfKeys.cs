@@ -21,6 +21,11 @@ public static class DnsmasqConfKeys
     public const string DhcpLeasefile = "dhcp-leasefile";
     public const string DhcpLease = "dhcp-lease";
 
+    // --- DHCP include files/dirs (multi-value paths; lines still come from conf only, we just show paths) ---
+    public const string DhcpHostsfile = "dhcp-hostsfile";
+    public const string DhcpOptsfile = "dhcp-optsfile";
+    public const string DhcpHostsdir = "dhcp-hostsdir";
+
     // --- Multi-value (ARG_DUP) ---
     public const string Server = "server";
     public const string Local = "local";
@@ -104,6 +109,11 @@ public static class DnsmasqConfKeys
     public const string TftpNoBlocksize = "tftp-no-blocksize";
     public const string Dnssec = "dnssec";
     public const string DnssecCheckUnsigned = "dnssec-check-unsigned";
+    public const string ProxyDnssec = "proxy-dnssec";
+
+    // --- Process / daemon behaviour (flags) ---
+    public const string KeepInForeground = "keep-in-foreground";
+    public const string NoDaemon = "no-daemon";
 
     // --- Single-value (last wins) ---
     public const string CacheSize = "cache-size";
@@ -134,6 +144,9 @@ public static class DnsmasqConfKeys
     public const string EnableUbus = "enable-ubus";
     public const string FastDnsRetry = "fast-dns-retry";
     public const string DhcpScript = "dhcp-script";
+
+    // --- Niche / platform (Linux conntrack mark for UBus/query filtering) ---
+    public const string Conntrack = "conntrack";
 
     /// <summary>Keys collected for effective config "server/local" multi-value (order preserved).</summary>
     public static readonly string[] ServerLocalKeys = { Server, Local };

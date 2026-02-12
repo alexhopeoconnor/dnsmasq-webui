@@ -1,0 +1,11 @@
+<dt><b>--bind-dynamic</b></dt>
+<dd>Enable a network mode which is a hybrid between 
+<b>--bind-interfaces</b>
+
+and the default. Dnsmasq binds the address of individual interfaces,
+allowing multiple dnsmasq instances, but if new interfaces or
+addresses appear, it automatically listens on those (subject to any
+access-control configuration). This makes dynamically created
+interfaces work in the same way as the default. Implementing this
+option requires non-standard networking APIs and it is only available
+under Linux. On other platforms it falls-back to <b>--bind-interfaces</b> mode.</dd>

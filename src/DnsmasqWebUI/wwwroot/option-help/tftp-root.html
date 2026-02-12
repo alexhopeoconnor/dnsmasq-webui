@@ -1,0 +1,7 @@
+<dt><b>--tftp-root=&lt;directory&gt;[,&lt;interface&gt;]</b></dt>
+<dd>Look for files to transfer using TFTP relative to the given
+directory. When this is set, TFTP paths which include ".." are
+rejected, to stop clients getting outside the specified root.
+Absolute paths (starting with /) are allowed, but they must be within
+the tftp-root. If the optional interface argument is given, the
+directory is only used for TFTP requests via that interface.</dd>

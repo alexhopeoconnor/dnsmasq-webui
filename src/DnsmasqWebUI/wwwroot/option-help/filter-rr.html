@@ -1,0 +1,6 @@
+<dt><b>--filter-rr=&lt;rrtype&gt;[,&lt;rrtype&gt;...]</b></dt>
+<dd>Remove records of the specified type(s) from answers. The otherwise-nonsensical --filter-rr=ANY has
+a special meaning: it filters replies to queries for type ANY. Everything other than A, AAAA, MX and CNAME
+records are removed. Since ANY queries with forged source addresses can be used in DNS amplification attacks
+(replies to ANY queries can be large) this defangs such attacks, whilst still supporting the
+one remaining possible use of ANY queries. See RFC 8482 para 4.3 for details.</dd>

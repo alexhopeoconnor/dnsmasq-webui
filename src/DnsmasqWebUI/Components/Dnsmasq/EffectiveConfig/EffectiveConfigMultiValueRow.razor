@@ -1,8 +1,9 @@
 @namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig
 @using DnsmasqWebUI.Models.Dnsmasq
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 
 <li class="ec-field">
-    <span class="ec-field-label" title="@LabelTooltip"><strong>@Label:</strong></span>
+    <span id="@OptionHelpAnchorId" class="ec-field-label @(OptionHelpKey != null ? "ec-field-label-help" : null)" title="@LabelTooltip" @onclick="RaiseOptionHelpRequested" @onmouseleave="RaiseLabelMouseLeave"><strong>@Label:</strong></span>
     @if (DisplayMode == EffectiveConfigDisplayMode.Edit)
     {
         <span class="ec-field-value ec-field-value-multi">
@@ -34,9 +35,24 @@
     [Parameter] public IReadOnlyList<ValueWithSource>? Items { get; set; }
     [Parameter] public EventCallback<IReadOnlyList<string>> ItemsChanged { get; set; }
     [Parameter] public string? LabelTooltip { get; set; }
+    [Parameter] public string? OptionHelpKey { get; set; }
+    [Parameter] public string? OptionHelpAnchorId { get; set; }
     [CascadingParameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
+    [Parameter] public EventCallback<ConfigOptionHelpRequestEventArgs> OnOptionHelpRequested { get; set; }
 
     private string _editLines = "";
+
+    private async Task RaiseOptionHelpRequested()
+    {
+        if (string.IsNullOrEmpty(OptionHelpKey) || string.IsNullOrEmpty(OptionHelpAnchorId)) return;
+        await OnOptionHelpRequested.InvokeAsync(new ConfigOptionHelpRequestEventArgs { HelpKey = OptionHelpKey, OptionLabel = Label, AnchorId = OptionHelpAnchorId });
+    }
+
+    private async Task RaiseLabelMouseLeave()
+    {
+        if (string.IsNullOrEmpty(OptionHelpAnchorId)) return;
+        await OnOptionHelpRequested.InvokeAsync(new ConfigOptionHelpRequestEventArgs { AnchorId = OptionHelpAnchorId, IsLabelMouseLeave = true });
+    }
 
     protected override void OnParametersSet()
     {

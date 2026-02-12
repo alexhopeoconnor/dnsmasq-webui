@@ -26,6 +26,8 @@ builder.Services.AddOptions<AppLogsOptions>()
     .Bind(builder.Configuration.GetSection(AppLogsOptions.SectionName));
 builder.Services.AddOptions<RuntimeOverridesOptions>()
     .Bind(builder.Configuration.GetSection(RuntimeOverridesOptions.SectionName));
+builder.Services.AddOptions<UpdateCheckOptions>()
+    .Bind(builder.Configuration.GetSection(UpdateCheckOptions.SectionName));
 
 // ---- Dnsmasq options (required paths validated at startup) ----
 builder.Services.AddOptions<DnsmasqOptions>()
@@ -36,6 +38,7 @@ builder.Services.AddSingleton<IValidateOptions<DnsmasqOptions>, DnsmasqOptionsVa
 // ---- Application services ----
 builder.Services.AddApplicationServices();
 builder.Services.AddScoped<ISettingsModalService, SettingsModalService>();
+builder.Services.AddSingleton<IUpdateCheckService, UpdateCheckService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddDnsmasqApiHttpClients();
 

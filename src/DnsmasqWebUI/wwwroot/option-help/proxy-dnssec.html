@@ -1,0 +1,7 @@
+<dt><b>--proxy-dnssec</b></dt>
+<dd>Copy the DNSSEC Authenticated Data bit from upstream servers to downstream clients.  This is an 
+alternative to having dnsmasq validate DNSSEC, but it depends on the security of the network between 
+dnsmasq and the upstream servers, and the trustworthiness of the upstream servers. Note that caching the
+Authenticated Data bit correctly in all cases is not technically possible. If the AD bit is to be relied upon
+when using this option, then the cache should be disabled using --cache-size=0. In most cases, enabling DNSSEC validation
+within dnsmasq is a better option. See --dnssec for details.</dd>

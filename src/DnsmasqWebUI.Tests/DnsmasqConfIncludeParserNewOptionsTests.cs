@@ -5,8 +5,9 @@ using DnsmasqWebUI.Infrastructure.Parsers;
 namespace DnsmasqWebUI.Tests;
 
 /// <summary>
-/// Positive parser tests for the 16 added options: key wired and "option present" behaviour.
+/// Positive parser tests for added options: key wired and "option present" behaviour.
 /// Ensures key names in DnsmasqConfKeys match what the parser expects (complement to OfficialExampleTests which assert "all commented → false/empty").
+/// Covers process flags (keep-in-foreground, no-daemon), DHCP include paths (dhcp-hostsfile, dhcp-optsfile, dhcp-hostsdir), proxy-dnssec, conntrack.
 /// </summary>
 public class DnsmasqConfIncludeParserNewOptionsTests
 {
@@ -58,6 +59,24 @@ public class DnsmasqConfIncludeParserNewOptionsTests
     public void GetFlagFromConfigFiles_LogDhcp_WhenPresent_ReturnsTrue()
     {
         WriteFlagAndAssertTrue(DnsmasqConfKeys.LogDhcp);
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_KeepInForeground_WhenPresent_ReturnsTrue()
+    {
+        WriteFlagAndAssertTrue(DnsmasqConfKeys.KeepInForeground);
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_NoDaemon_WhenPresent_ReturnsTrue()
+    {
+        WriteFlagAndAssertTrue(DnsmasqConfKeys.NoDaemon);
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_ProxyDnssec_WhenPresent_ReturnsTrue()
+    {
+        WriteFlagAndAssertTrue(DnsmasqConfKeys.ProxyDnssec);
     }
 
     // --- Multi-value (6): key=value line(s) → GetMultiValue returns value(s) ---
@@ -158,6 +177,54 @@ public class DnsmasqConfIncludeParserNewOptionsTests
         finally { Directory.Delete(dir, recursive: true); }
     }
 
+    [Fact]
+    public void GetMultiValueFromConfigFiles_DhcpHostsfile_WhenSet_ReturnsValues()
+    {
+        var dir = CreateTempDir();
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var path = "/etc/dnsmasq.d/hosts.d";
+        try
+        {
+            File.WriteAllText(conf, $"dhcp-hostsfile={path}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DhcpHostsfile);
+            Assert.Single(result);
+            Assert.Equal(path, result[0]);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_DhcpOptsfile_WhenSet_ReturnsValues()
+    {
+        var dir = CreateTempDir();
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var path = "/etc/dnsmasq.d/opts.conf";
+        try
+        {
+            File.WriteAllText(conf, $"dhcp-optsfile={path}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DhcpOptsfile);
+            Assert.Single(result);
+            Assert.Equal(path, result[0]);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_DhcpHostsdir_WhenSet_ReturnsValues()
+    {
+        var dir = CreateTempDir();
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var path = "/etc/dnsmasq.d/hosts.d";
+        try
+        {
+            File.WriteAllText(conf, $"dhcp-hostsdir={path}\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DhcpHostsdir);
+            Assert.Single(result);
+            Assert.Equal(path, result[0]);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
     // --- Single-value (2): key=value → GetLastValue returns value ---
 
     [Fact]
@@ -185,6 +252,21 @@ public class DnsmasqConfIncludeParserNewOptionsTests
         {
             File.WriteAllText(conf, $"dhcp-script={value}\n");
             var (result, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DhcpScript);
+            Assert.Equal(value, result);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_Conntrack_WhenSet_ReturnsValue()
+    {
+        var dir = CreateTempDir();
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        var value = "42";
+        try
+        {
+            File.WriteAllText(conf, $"conntrack={value}\n");
+            var (result, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.Conntrack);
             Assert.Equal(value, result);
         }
         finally { Directory.Delete(dir, recursive: true); }

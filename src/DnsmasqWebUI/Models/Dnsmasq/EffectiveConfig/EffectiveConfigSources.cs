@@ -61,6 +61,9 @@ public record EffectiveConfigSources(
     IReadOnlyList<ValueWithSource> DhcpMacValues,
     IReadOnlyList<ValueWithSource> DhcpNameMatchValues,
     IReadOnlyList<ValueWithSource> DhcpIgnoreNamesValues,
+    IReadOnlyList<ValueWithSource> DhcpHostsfilePaths,
+    IReadOnlyList<ValueWithSource> DhcpOptsfilePaths,
+    IReadOnlyList<ValueWithSource> DhcpHostsdirPaths,
 
     // --- Flags (set if any occurrence; source = first file that set it, so we know if readonly) ---
     ConfigValueSource? ExpandHosts,
@@ -96,6 +99,9 @@ public record EffectiveConfigSources(
     ConfigValueSource? Selfmx,
     ConfigValueSource? EnableRa,
     ConfigValueSource? LogDhcp,
+    ConfigValueSource? KeepInForeground,
+    ConfigValueSource? NoDaemon,
+    ConfigValueSource? ProxyDnssec,
 
     // --- Single-value (last occurrence wins; source = file that set the last value) ---
     ConfigValueSource? DhcpLeaseFilePath,
@@ -127,5 +133,6 @@ public record EffectiveConfigSources(
     ConfigValueSource? EnableUbus,
     ConfigValueSource? FastDnsRetry,
     ConfigValueSource? DhcpScriptPath,
-    ConfigValueSource? MxTarget
+    ConfigValueSource? MxTarget,
+    ConfigValueSource? Conntrack
 );

@@ -1,0 +1,7 @@
+<dt><b>--dhcp-ignore-names[=tag:&lt;tag&gt;[,tag:&lt;tag&gt;]]</b></dt>
+<dd>When all the given tags appear in the tag set, ignore any hostname
+provided by the host. Note that, unlike <b>--dhcp-ignore</b>, it is permissible
+to supply no tags, in which case DHCP-client supplied hostnames
+are always ignored, and DHCP hosts are added to the DNS using only
+<b>--dhcp-host</b> configuration in dnsmasq and the contents of /etc/hosts and
+/etc/ethers.</dd>

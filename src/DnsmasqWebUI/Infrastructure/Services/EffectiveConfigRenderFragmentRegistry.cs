@@ -55,6 +55,9 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
         RegisterFlag(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.DnssecCheckUnsigned);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.EnableRa);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.LogDhcp);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.KeepInForeground);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.NoDaemon);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.ProxyDnssec);
     }
 
     private void RegisterFlag(string sectionId, string optionName)

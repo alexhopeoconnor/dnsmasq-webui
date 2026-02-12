@@ -50,6 +50,9 @@ public class EffectiveDnsmasqConfigTests
             DhcpMacValues: Array.Empty<string>(),
             DhcpNameMatchValues: Array.Empty<string>(),
             DhcpIgnoreNamesValues: Array.Empty<string>(),
+            DhcpHostsfilePaths: Array.Empty<string>(),
+            DhcpOptsfilePaths: Array.Empty<string>(),
+            DhcpHostsdirPaths: Array.Empty<string>(),
             ExpandHosts: false,
             BogusPriv: false,
             StrictOrder: false,
@@ -83,6 +86,9 @@ public class EffectiveDnsmasqConfigTests
             Selfmx: false,
             EnableRa: false,
             LogDhcp: false,
+            KeepInForeground: false,
+            NoDaemon: false,
+            ProxyDnssec: false,
             DhcpLeaseFilePath: null,
             CacheSize: null,
             Port: null,
@@ -112,7 +118,8 @@ public class EffectiveDnsmasqConfigTests
             EnableUbus: null,
             FastDnsRetry: null,
             DhcpScriptPath: null,
-            MxTarget: null
+            MxTarget: null,
+            Conntrack: null
         );
 
     [Fact]

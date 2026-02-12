@@ -1,0 +1,99 @@
+<dt><b>-O, --dhcp-option=[tag:&lt;tag&gt;,[tag:&lt;tag&gt;,]][encap:&lt;opt&gt;,][vi-encap:&lt;enterprise&gt;,][vendor:[&lt;vendor-class&gt;],][&lt;opt&gt;|option:&lt;opt-name&gt;|option6:&lt;opt&gt;|option6:&lt;opt-name&gt;],[&lt;value&gt;[,&lt;value&gt;]]</b></dt>
+<dd>Send various extra options to DHCP clients. By default,
+dnsmasq sends some standard options to DHCP clients, the netmask and
+broadcast address are set to the same as the host running dnsmasq, and
+the DNS server and default route are set to the address of the machine
+running dnsmasq. (Equivalent rules apply for IPv6.) If the domain name option has been set, that is sent.
+This configuration allows these defaults to be overridden,
+or other options specified. The option to be sent may be given as a
+decimal number or as <b>option:&lt;option-name&gt;</b>. 
+<p>
+Option numbers are
+specified in RFC2132 and subsequent RFCs. The set of option-names
+known by dnsmasq can be discovered by running <b>dnsmasq --help dhcp</b>.
+For example, to set the default route option to 192.168.4.4, use 
+<b>--dhcp-option=3,192.168.4.4</b> or 
+<b>--dhcp-option=option:router,192.168.4.4</b> 
+and to set the time-server address to 192.168.0.4, use
+<b>--dhcp-option=42,192.168.0.4</b> or
+<b>--dhcp-option=option:ntp-server,192.168.0.4</b>.
+The special address 0.0.0.0 means "the address of the system running dnsmasq".
+<p>
+An option without data is valid, and includes just the option without data.
+(There is only one option with a zero length data field currently defined for DHCPv4, 80:rapid commit, so this feature is not very useful in practice). Options for which dnsmasq normally
+provides default values can be omitted by defining the option with no data. These are
+netmask, broadcast, router, DNS server, domainname and hostname. Thus, for DHCPv4
+<b>--dhcp-option = option:router</b>
+
+will result in no router option being sent, rather than the default of the host on which dnsmasq is running. For DHCPv6, the same is true of the options DNS server and refresh time.
+<p>
+<p>
+Data types allowed are comma separated
+dotted-quad IPv4 addresses, []-wrapped IPv6 addresses, a decimal number, colon-separated hex digits
+and a text string. If the optional tags are given then
+this option is only sent when all the tags are matched.
+<p>
+Special processing is done on a text argument for option 119, to
+conform with RFC 3397. Text or dotted-quad IP addresses as arguments
+to option 120 are handled as per RFC 3361. Dotted-quad IP addresses 
+which are followed by a slash and then a netmask size are encoded as
+described in RFC 3442.
+<p>
+IPv6 options are specified using the <b>option6:</b>
+keyword, followed by the option number or option name. The IPv6 option
+name space is disjoint from the IPv4 option name space. IPv6 addresses
+in options must be bracketed with square brackets, eg. 
+<b> --dhcp-option=option6:ntp-server,[1234::56]</b>. 
+For IPv6, [::] means "the global address of
+the machine running dnsmasq", whilst [fd00::] is replaced with the
+ULA, if it exists, and [fe80::] with the link-local address.
+<p>
+Be careful: data-type suitability for the option number sent is not checked.
+It is quite possible to persuade dnsmasq to generate illegal DHCP packets with
+injudicious use of this flag. 
+When the value is a decimal number, dnsmasq must determine how 
+large the data item is. It does this by examining the option number and/or the
+value, but can be overridden by appending a single letter flag as follows:
+b = one byte, s = two bytes, i = four bytes. This is mainly useful with 
+encapsulated vendor class options (see below) where dnsmasq cannot
+determine data size from the option number. Option data which
+consists solely of periods and digits will be interpreted by dnsmasq
+as an IP address, and inserted into an option as such. To force a
+literal string, use quotes. For instance when using option 66 to send
+a literal IP address as TFTP server name, it is necessary to do 
+<b>--dhcp-option=66,"1.2.3.4"</b>.
+<p>
+Encapsulated Vendor-class options may also be specified (IPv4 only) using
+<b>--dhcp-option</b>: for instance
+<b>--dhcp-option=vendor:PXEClient,1,0.0.0.0 </b>
+
+sends the encapsulated vendor
+class-specific option "mftp-address=0.0.0.0" to any client whose
+vendor-class matches "PXEClient". The vendor-class matching is
+substring based (see <b>--dhcp-vendorclass</b> for details). If a
+vendor-class option (number 60) is sent by dnsmasq, then that is used 
+for selecting encapsulated options in preference to any sent by the
+client. It is
+possible to omit the vendorclass completely;
+<b>--dhcp-option=vendor:,1,0.0.0.0</b>
+
+in which case the encapsulated option is always sent. 
+<p>
+Options may be encapsulated (IPv4 only) within other options: for instance
+<b>--dhcp-option=encap:175, 190, iscsi-client0</b>
+
+will send option 175, within which is the option 190. If multiple
+options are given which are encapsulated with the same option number
+then they will be correctly combined into one encapsulated option.
+encap: and vendor: may not both be set in the same <b>--dhcp-option</b>.
+<p>
+The final variant on encapsulated options is "Vendor-Identifying
+Vendor Options" as specified by RFC3925. These are denoted like this: 
+<b>--dhcp-option=vi-encap:2, 10, text</b>
+
+The number in the vi-encap: section is the IANA enterprise number
+used to identify this option. This form of encapsulation is supported
+in IPv6.
+<p>
+The address 0.0.0.0 is not treated specially in
+encapsulated options.</dd>

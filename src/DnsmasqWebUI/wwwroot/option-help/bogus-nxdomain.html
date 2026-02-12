@@ -1,0 +1,8 @@
+<dt><b>-B, --bogus-nxdomain=&lt;ipaddr&gt;[/prefix]</b></dt>
+<dd>Transform replies which contain the specified address or subnet into "No such
+domain" replies. IPv4 and IPv6 are supported. This is intended to counteract a devious move made by
+Verisign in September 2003 when they started returning the address of
+an advertising web page in response to queries for unregistered names,
+instead of the correct NXDOMAIN response. This option tells dnsmasq to
+fake the correct response when it sees this behaviour. As at Sept 2003
+the IP address being returned by Verisign is 64.94.110.11</dd>

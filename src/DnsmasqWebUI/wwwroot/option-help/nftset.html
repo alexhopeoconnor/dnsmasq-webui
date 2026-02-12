@@ -1,0 +1,9 @@
+<dt><b>--nftset=/&lt;domain&gt;[/&lt;domain&gt;...]/[(6|4)#[&lt;family&gt;#]&lt;table&gt;#&lt;set&gt;[,[(6|4)#[&lt;family&gt;#]&lt;table&gt;#&lt;set&gt;]...]</b></dt>
+<dd>Similar to the <b>--ipset</b> option, but accepts one or more nftables 
+sets to add IP addresses into.
+These sets must already exist. See
+<b>nft</b>(8)
+
+for more details. The family, table and set are passed directly to the nft. If the spec starts with 4# or 6# then
+only A or AAAA records respectively are added to the set. Since an nftset can hold only IPv4 or IPv6 addresses, this
+avoids errors being logged for addresses of the wrong type.</dd>

@@ -1,0 +1,10 @@
+<dt><b>--tftp-secure</b></dt>
+<dd>Enable TFTP secure mode: without this, any file which is readable by
+the dnsmasq process under normal unix access-control rules is
+available via TFTP. When the <b>--tftp-secure</b> flag is given, only files
+owned by the user running the dnsmasq process are accessible. If
+dnsmasq is being run as root, different rules apply: <b>--tftp-secure</b>
+has no effect, but only files which have the world-readable bit set
+are accessible. It is not recommended to run dnsmasq as root with TFTP
+enabled, and certainly not without specifying <b>--tftp-root</b>. Doing so
+can expose any world-readable file on the server to any host on the net.</dd>

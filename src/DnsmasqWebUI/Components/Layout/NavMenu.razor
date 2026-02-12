@@ -2,6 +2,8 @@
 @using System.Reflection
 @inject IOptions<ApplicationOptions> AppOptions
 @inject ISettingsModalService SettingsModalService
+@inject IUpdateCheckService UpdateCheckService
+@implements IDisposable
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="top-row-inner">
@@ -36,10 +38,33 @@
             </NavLink>
         </div>
     </nav>
-    <div class="nav-footer px-3 py-2" aria-label="Application version">
-        <a class="nav-footer-link" href="@ReleaseUrl" target="_blank" rel="noopener noreferrer" title="View release on GitHub">
-            v@(BaseVersion(Version))
-        </a>
+    <div class="nav-footer px-3 py-2" aria-label="Links and version">
+        <a class="nav-footer-link" href="https://github.com/alexhopeoconnor/dnsmasq-webui" target="_blank" rel="noopener noreferrer" title="dnsmasq-webui project on GitHub">Project</a>
+        <span class="nav-footer-sep" aria-hidden="true">·</span>
+        <a class="nav-footer-link" href="https://thekelleys.org.uk/dnsmasq/doc.html" target="_blank" rel="noopener noreferrer" title="Official dnsmasq documentation">Docs</a>
+        <span class="nav-footer-sep" aria-hidden="true">·</span>
+        <a class="nav-footer-link" href="@ReleaseUrl" target="_blank" rel="noopener noreferrer" title="View release on GitHub">v@(BaseVersion(Version))</a>
+        <span class="nav-footer-version-actions" aria-hidden="true">[
+        @if (UpdateCheckService.NewerVersionAvailable)
+        {
+            <a class="nav-footer-link nav-footer-new-release" href="@UpdateCheckService.NewerVersionUrl" target="_blank" rel="noopener noreferrer" title="New version @(UpdateCheckService.NewerVersionTag ?? "") is available" aria-label="New version @(UpdateCheckService.NewerVersionTag ?? "") is available">
+                <i class="bi bi-download" aria-hidden="true"></i>
+            </a>
+        }
+        else
+        {
+            <button type="button" class="nav-footer-link nav-footer-check-btn" @onclick="ForceCheckAsync" disabled="@UpdateCheckService.CheckInProgress" title="@GetCheckButtonTooltip()" aria-label="@GetCheckButtonTooltip()">
+                @if (UpdateCheckService.CheckInProgress)
+                {
+                    <i class="bi bi-arrow-repeat nav-footer-spin" aria-hidden="true"></i>
+                }
+                else
+                {
+                    <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+                }
+            </button>
+        }
+        ]</span>
     </div>
 </div>
 
@@ -47,6 +72,7 @@
     private const string ReleasesBaseUrl = "https://github.com/alexhopeoconnor/dnsmasq-webui/releases";
     private static readonly string Version = typeof(NavMenu).Assembly
         .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "?";
+
     /// <summary>Base version without build metadata (e.g. 0.0.4+abc123 -> 0.0.4) for GitHub tag URLs.</summary>
     private static string BaseVersion(string v)
     {
@@ -58,6 +84,36 @@
         ? $"{ReleasesBaseUrl}/tag/v{BaseVersion(Version)}"
         : ReleasesBaseUrl;
     private string? AppTitle => AppOptions?.Value?.EffectiveTitle;
+
+    protected override void OnInitialized()
+    {
+        UpdateCheckService.ResultChanged += OnUpdateCheckResultChanged;
+    }
+
+    public void Dispose()
+    {
+        UpdateCheckService.ResultChanged -= OnUpdateCheckResultChanged;
+    }
+
+    private void OnUpdateCheckResultChanged(object? sender, EventArgs e)
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private string GetCheckButtonTooltip()
+    {
+        if (UpdateCheckService.CheckInProgress)
+            return "Checking…";
+        var last = UpdateCheckService.LastCheckTime;
+        if (last.HasValue)
+            return $"No new update available. Checked at {last.Value.ToLocalTime():t}. Check again.";
+        return "Check for updates";
+    }
+
+    private async Task ForceCheckAsync()
+    {
+        await UpdateCheckService.CheckNowAsync();
+    }
 
     private void OpenAllSettings() => SettingsModalService.Open(SettingsModalContext.All, "Settings");
 }

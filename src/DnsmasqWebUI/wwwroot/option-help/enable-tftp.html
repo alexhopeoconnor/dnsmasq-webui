@@ -1,0 +1,6 @@
+<dt><b>--enable-tftp[=&lt;interface&gt;[,&lt;interface&gt;]]</b></dt>
+<dd>Enable the TFTP server function. This is deliberately limited to that
+needed to net-boot a client. Only reading is allowed; the tsize and
+blksize extensions are supported (tsize is only supported in octet
+mode). Without an argument, the TFTP service is provided to the same set of interfaces as DHCP service. 
+If the list of interfaces is provided, that defines which interfaces receive TFTP service.</dd>

@@ -1,0 +1,7 @@
+<dt><b>-Q, --query-port=&lt;query_port&gt;</b></dt>
+<dd>Send outbound DNS queries from, and listen for their replies on, the
+specific UDP port &lt;query_port&gt; instead of using random ports. NOTE
+that using this option will make dnsmasq less secure against DNS
+spoofing attacks but it may be faster and use less resources.  Setting this option
+to zero makes dnsmasq use a single port allocated to it by the
+OS: this was the default behaviour in versions prior to 2.43.</dd>

@@ -1,5 +1,6 @@
 @namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig
 @using DnsmasqWebUI.Models.Dnsmasq
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 
 <CascadingValue Value="DisplayMode">
     <div class="ec-section @(IsOpen ? "ec-section-open" : "")">
@@ -12,7 +13,7 @@
                 <ul class="list-unstyled mb-0">
                     @foreach (var f in Descriptors)
                     {
-                        <EffectiveConfigFieldDisplay Descriptor="@f" />
+                        <EffectiveConfigFieldDisplay Descriptor="@f" OnOptionHelpRequested="@OnOptionHelpRequested" />
                     }
                 </ul>
             </div>
@@ -26,6 +27,8 @@
     [Parameter] public IReadOnlyList<EffectiveConfigFieldDescriptor> Descriptors { get; set; } = null!;
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback<string> OnToggle { get; set; }
+    /// <summary>Raised when user requests option help (click or mouse leave from label). Passed through from Section.</summary>
+    [Parameter] public EventCallback<ConfigOptionHelpRequestEventArgs> OnOptionHelpRequested { get; set; }
     /// <summary>Cascaded from EffectiveConfigSection. View = read-only; Edit = editable (future).</summary>
     [Parameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
 

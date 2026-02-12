@@ -1,9 +1,35 @@
 /* Effective config sections – mobile-first, touch-friendly.
    Use ::deep so styles apply to EffectiveConfigSectionPanel (child component) markup. */
+
+/* Wrapper: border and grouping around all sections. Margin-top separates from config files list above. */
+.ec-container {
+    margin-top: 0.75rem;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    background-color: var(--bs-secondary-bg, #f8f9fa);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    min-width: 0;
+    overflow: visible;
+}
+
+.ec-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.ec-toolbar input[type="search"] {
+    flex: 1;
+    min-width: 0;
+}
+
 .ec-sections {
     display: flex;
     flex-direction: column;
     gap: 0;
+    min-width: 0;
 }
 
 ::deep .ec-section {
@@ -14,7 +40,7 @@
     border-bottom: none;
 }
 
-/* Touch-friendly header: min 44px tap target (WCAG 2.5.5), breathing room from edges */
+/* Section header: clear separation from background, touch-friendly (min 44px), distinct so search jumps are obvious */
 ::deep .ec-section-header {
     display: flex;
     align-items: center;
@@ -24,20 +50,22 @@
     padding: 0.625rem 1rem;
     margin: 0;
     border: none;
+    border-left: 3px solid var(--bs-border-color, #dee2e6);
     border-radius: 0.25rem;
-    background: transparent;
+    background-color: var(--bs-body-bg, #fff);
     color: inherit;
     text-align: left;
     cursor: pointer;
     font-size: inherit;
     line-height: 1.3;
     -webkit-tap-highlight-color: transparent;
-    transition: background-color 0.15s ease, color 0.15s ease;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 ::deep .ec-section-header:hover {
     color: var(--bs-primary, #0d6efd);
     background-color: var(--bs-secondary-bg, rgba(0, 0, 0, 0.04));
+    border-left-color: var(--bs-primary, #0d6efd);
 }
 
 ::deep .ec-section-header:focus-visible {
@@ -45,15 +73,17 @@
     outline-offset: 2px;
 }
 
-/* Open state: header reads as "active" and clearly separates from body */
+/* Open state: header reads as "active", left border accent */
 ::deep .ec-section-open .ec-section-header {
-    background-color: var(--bs-secondary-bg, rgba(0, 0, 0, 0.05));
+    background-color: var(--bs-body-bg, #fff);
     color: var(--bs-emphasis-color, inherit);
     font-weight: 600;
+    border-left-color: var(--bs-primary, #0d6efd);
+    box-shadow: 0 1px 0 var(--bs-border-color, #dee2e6);
 }
 
 ::deep .ec-section-open .ec-section-header:hover {
-    background-color: var(--bs-tertiary-bg, rgba(0, 0, 0, 0.08));
+    background-color: var(--bs-secondary-bg, rgba(0, 0, 0, 0.04));
     color: var(--bs-primary, #0d6efd);
 }
 
@@ -79,6 +109,8 @@
     padding-left: 1rem;
     border-left: 2px solid var(--bs-border-color-translucent, rgba(0, 0, 0, 0.075));
     margin-left: 0;
+    min-width: 0;
+    overflow: visible;
     overflow-wrap: break-word;
     word-break: break-word;
 }
@@ -112,6 +144,17 @@
     min-width: 0;
 }
 
+/* Clickable label: open full option help on click (hover tooltip unchanged) */
+::deep .ec-field-label-help {
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
+}
+::deep .ec-field-label-help:hover {
+    color: var(--bs-primary, #0d6efd);
+}
+
 ::deep .ec-field-value {
     flex: 1 1 auto;
     min-width: 0;
@@ -119,21 +162,26 @@
     word-break: break-word;
 }
 
-/* Multi-value: full width below label, indented ordered list */
+/* Multi-value: full width below label, indented ordered list. min-width: 0 so flex doesn't prevent wrapping. */
 ::deep .ec-field-value-multi {
     flex-basis: 100%;
+    min-width: 0;
     padding-left: 1.25rem;
     margin-top: 0.15rem;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 ::deep .ec-field-value-list {
     margin: 0;
     padding-left: 1.25rem;
     list-style-type: decimal;
+    min-width: 0;
 }
 
 ::deep .ec-field-value-list li {
     margin-bottom: 0.2rem;
+    min-width: 0;
     overflow-wrap: break-word;
     word-break: break-word;
 }
@@ -142,12 +190,29 @@
     margin-bottom: 0;
 }
 
+/* Long paths/URLs wrap; allow break anywhere so nothing is clipped */
 ::deep .ec-field-value-item {
     display: inline;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 ::deep .ec-field-value-sep {
     margin-right: 0.25rem;
+}
+
+/* Badge: vertically centered, inline with value so when it wraps it stays part of the value flow */
+::deep .ec-field .badge,
+::deep .ec-field-value-item .badge {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+}
+
+/* Inline badge (inside value): gap from text; when it wraps to own line the margin gives a subtle indent */
+::deep .ec-badge-inline {
+    margin-left: 0.35rem;
+    white-space: nowrap;
 }
 
 @media (max-width: 767.98px) {

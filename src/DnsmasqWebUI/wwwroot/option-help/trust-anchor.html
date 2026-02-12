@@ -1,0 +1,9 @@
+<dt><b>--trust-anchor=&lt;domain&gt;,[&lt;class&gt;,][&lt;key-tag&gt;,&lt;algorithm&gt;,&lt;digest-type&gt;,&lt;digest&gt;]</b></dt>
+<dd>Provide DS records to act a trust anchors for DNSSEC
+validation. The class defaults to IN. Typically these will be the DS record(s) for Key Signing
+key(s) (KSK) of the root zone,
+but trust anchors for limited domains are also possible.
+A negative trust anchor (ie. proof that a DS record doesn't exist) may be configured be specifying
+only the name or only the name and class. This can be useful for forcing dnsmasq to treat zones delegated
+using <b>--server=/&lt;domain&gt;/&lt;ip-address&gt;</b> as unsigned. The current
+root-zone trust anchors may be downloaded from <a href="https://data.iana.org/root-anchors/root-anchors.xml">https://data.iana.org/root-anchors/root-anchors.xml</a></dd>

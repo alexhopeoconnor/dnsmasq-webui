@@ -1,0 +1,7 @@
+<dt><b>--dhcp-hostsfile=&lt;path&gt;</b></dt>
+<dd>Read DHCP host information from the specified file. If a directory
+is given, then read all the files contained in that directory in alphabetical order. The file contains 
+information about one host per line. The format of a line is the same
+as text to the right of '=' in <b>--dhcp-host</b>. The advantage of storing DHCP host information
+in this file is that it can be changed without re-starting dnsmasq:
+the file will be re-read when dnsmasq receives SIGHUP.</dd>

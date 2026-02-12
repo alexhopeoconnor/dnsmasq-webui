@@ -1,0 +1,12 @@
+<dt><b>--cname=&lt;cname&gt;,[&lt;cname&gt;,]&lt;target&gt;[,&lt;TTL&gt;]</b></dt>
+<dd>Return a CNAME record which indicates that &lt;cname&gt; is really
+&lt;target&gt;. There is a significant limitation on the target; it must be a
+DNS record which is known to dnsmasq and NOT a DNS record which comes from
+an upstream server. The cname must be unique, but it
+is permissible to have more than one cname pointing to the same target. Indeed
+it's possible to declare multiple cnames to a target in a single line, like so:
+<b>--cname=cname1,cname2,target</b>
+<p>
+If the time-to-live is given, it overrides the default, which is zero
+or the value of <b>--local-ttl</b>. The value is a positive integer and gives
+the time-to-live in seconds.</dd>
