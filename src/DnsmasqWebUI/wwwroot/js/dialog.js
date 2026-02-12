@@ -1,7 +1,6 @@
 /**
- * Native HTML <dialog> helpers for the client settings modal.
- * Uses HTMLDialogElement.showModal() / close() — no Bootstrap or other framework.
- * Loaded as ES module for IJSObjectReference disposal.
+ * Native HTML <dialog> helpers (showModal / close / close event).
+ * Used by SettingsModal and AppLogsFiltersModal. Loaded as ES module for IJSObjectReference disposal.
  */
 
 export function initDialog(dialogElement, dotNetRef) {

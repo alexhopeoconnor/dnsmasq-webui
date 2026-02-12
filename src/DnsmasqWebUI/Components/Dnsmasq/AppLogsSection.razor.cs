@@ -1,3 +1,4 @@
+using DnsmasqWebUI.Extensions;
 using DnsmasqWebUI.Infrastructure.Client.Abstractions;
 using DnsmasqWebUI.Models.Logs;
 using Microsoft.AspNetCore.Components;
@@ -137,19 +138,13 @@ public partial class AppLogsSection : IAsyncDisposable
             await InvokeAsync(async () =>
             {
                 if (_logsJs == null) return;
-                try
-                {
-                    if (payload.Mode == "replace")
-                        await _logsJs.InvokeVoidAsync("replaceLogs", AppLogsPreId, payload.Content, LogsOptions);
-                    else
-                        await _logsJs.InvokeVoidAsync("appendLogs", AppLogsPreId, payload.Content, LogsOptions);
-                    _logsContentReceived = true;
-                    SetJustUpdated();
-                    StateHasChanged();
-                }
-                catch (JSDisconnectedException) { /* Circuit disconnected; ignore */ }
-                catch (InvalidOperationException) { /* Prerender or circuit disposed; ignore */ }
-                catch (JSException) { /* JS error; ignore */ }
+                if (payload.Mode == "replace")
+                    await _logsJs.InvokeVoidAsyncSafe("replaceLogs", AppLogsPreId, payload.Content, LogsOptions);
+                else
+                    await _logsJs.InvokeVoidAsyncSafe("appendLogs", AppLogsPreId, payload.Content, LogsOptions);
+                _logsContentReceived = true;
+                SetJustUpdated();
+                StateHasChanged();
             });
         }
         catch (ObjectDisposedException) { /* Component disposed; ignore */ }
@@ -183,13 +178,7 @@ public partial class AppLogsSection : IAsyncDisposable
             await _hubConnection.DisposeAsync();
             _hubConnection = null;
         }
-        if (_logsJs != null)
-        {
-            try { await _logsJs.DisposeAsync(); }
-            catch (InvalidOperationException ex) { Logger.LogDebug(ex, "AppLogsSection: DisposeAsync skipped (prerender)"); }
-            catch (JSDisconnectedException ex) { Logger.LogDebug(ex, "AppLogsSection: DisposeAsync skipped (circuit disconnected)"); }
-            catch (JSException ex) { Logger.LogDebug(ex, "AppLogsSection: DisposeAsync failed"); }
-            _logsJs = null;
-        }
+        await _logsJs.DisposeAsyncSafe();
+        _logsJs = null;
     }
 }

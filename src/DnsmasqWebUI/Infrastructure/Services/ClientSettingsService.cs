@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DnsmasqWebUI.Extensions;
 using DnsmasqWebUI.Models.Client;
 using DnsmasqWebUI.Infrastructure.Services.Abstractions;
 using Microsoft.JSInterop;
@@ -46,7 +47,7 @@ public sealed class ClientSettingsService : IClientSettingsService, IAsyncDispos
     {
         var module = await GetModuleAsync();
         if (module == null) return new ClientSettings();
-        var json = await module.InvokeAsync<string?>("getItem");
+        var json = await module.InvokeAsyncSafe<string?>("getItem");
         if (string.IsNullOrWhiteSpace(json))
         {
             var defaults = new ClientSettings();
@@ -73,7 +74,7 @@ public sealed class ClientSettingsService : IClientSettingsService, IAsyncDispos
         var module = await GetModuleAsync();
         if (module == null) return;
         var json = JsonSerializer.Serialize(settings, JsonOptions);
-        await module.InvokeVoidAsync("setItem", json);
+        await module.InvokeVoidAsyncSafe("setItem", json);
     }
 
     /// <summary>
@@ -81,11 +82,7 @@ public sealed class ClientSettingsService : IClientSettingsService, IAsyncDispos
     /// </summary>
     public async ValueTask DisposeAsync()
     {
-        if (_module == null) return;
-        try { await _module.DisposeAsync(); }
-        catch (InvalidOperationException ex) { _logger.LogDebug(ex, "JS module DisposeAsync skipped (prerender)"); }
-        catch (JSDisconnectedException ex) { _logger.LogDebug(ex, "JS module DisposeAsync skipped: circuit disconnected"); }
-        catch (JSException ex) { _logger.LogDebug(ex, "JS module DisposeAsync failed"); }
-        finally { _module = null; }
+        await _module.DisposeAsyncSafe();
+        _module = null;
     }
 }

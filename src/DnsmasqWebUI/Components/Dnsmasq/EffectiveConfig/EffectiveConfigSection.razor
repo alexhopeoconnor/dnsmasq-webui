@@ -13,6 +13,9 @@
         <div class="ec-toolbar">
             <input type="search" id="ec-search-input" class="form-control form-control-sm" placeholder="Search..." autocomplete="off"
                    @bind="_searchTerm" @bind:event="oninput" @bind:after="StateHasChanged" />
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExpandAll" title="Expand all sections" aria-label="Expand all sections">
+                <i class="bi bi-arrows-expand" aria-hidden="true"></i>
+            </button>
             <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CollapseAll" title="Collapse all sections" aria-label="Collapse all sections">
                 <i class="bi bi-arrows-collapse" aria-hidden="true"></i>
             </button>
@@ -119,6 +122,13 @@
             _openPanels.Remove(id);
         else
             _openPanels.Add(id);
+    }
+
+    private void ExpandAll()
+    {
+        foreach (var view in EffectiveConfigViews.GetViewsForContext(Context))
+            _openPanels.Add(view.SectionId);
+        StateHasChanged();
     }
 
     private void CollapseAll()

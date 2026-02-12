@@ -50,19 +50,33 @@
     private DotNetObjectReference<ConfigOptionHelpModal>? _dotNetRef;
     private bool _scrollListenerAdded;
     private bool _mouseOverModal;
+    private IJSObjectReference? _jsModule;
+    private bool _moduleLoaded;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (Visible && !_scrollListenerAdded)
+        if (firstRender)
+        {
+            try
+            {
+                _jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/config-option-help.js");
+                _moduleLoaded = true;
+            }
+            catch (InvalidOperationException) { /* prerender */ }
+            catch (JSDisconnectedException) { /* circuit disconnected */ }
+            catch (JSException) { /* import failed */ }
+        }
+
+        if (Visible && !_scrollListenerAdded && _moduleLoaded && _jsModule != null)
         {
             _scrollListenerAdded = true;
             _dotNetRef = DotNetObjectReference.Create(this);
-            await JSRuntime.InvokeVoidAsync("addConfigOptionHelpScrollCloseListener", _dotNetRef);
+            await _jsModule.InvokeVoidAsyncSafe("addScrollCloseListener", _dotNetRef);
         }
-        else if (!Visible && _scrollListenerAdded)
+        else if (!Visible && _scrollListenerAdded && _jsModule != null)
         {
             _scrollListenerAdded = false;
-            await JSRuntime.InvokeVoidAsync("removeConfigOptionHelpScrollCloseListener");
+            await _jsModule.InvokeVoidAsyncSafe("removeScrollCloseListener");
             _dotNetRef?.Dispose();
             _dotNetRef = null;
         }
@@ -79,13 +93,15 @@
 
     public async ValueTask DisposeAsync()
     {
-        if (_scrollListenerAdded)
+        if (_scrollListenerAdded && _jsModule != null)
         {
             _scrollListenerAdded = false;
-            try { await JSRuntime.InvokeVoidAsync("removeConfigOptionHelpScrollCloseListener"); } catch { /* best effort */ }
+            await _jsModule.InvokeVoidAsyncSafe("removeScrollCloseListener");
             _dotNetRef?.Dispose();
             _dotNetRef = null;
         }
+        await _jsModule.DisposeAsyncSafe();
+        _jsModule = null;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -134,19 +150,16 @@
 
     private async Task PositionUnderAnchorAsync()
     {
-        if (string.IsNullOrEmpty(AnchorId)) return;
-        try
+        if (string.IsNullOrEmpty(AnchorId) || _jsModule == null) return;
+        var rect = await _jsModule.InvokeAsyncSafe<BoundingRect?>("getAnchorRect", AnchorId);
+        if (rect is { } r)
         {
-            var rect = await JSRuntime.InvokeAsync<BoundingRect?>("getConfigOptionHelpAnchorRect", AnchorId);
-            if (rect is { } r)
-            {
-                var gap = 4;
-                var topPx = r.Bottom + gap;
-                var leftPx = r.Left;
-                _positionStyle = $"position: fixed; top: {topPx}px; left: {leftPx}px; visibility: visible;";
-            }
+            var gap = 4;
+            var topPx = r.Bottom + gap;
+            var leftPx = r.Left;
+            _positionStyle = $"position: fixed; top: {topPx}px; left: {leftPx}px; visibility: visible;";
         }
-        catch
+        else
         {
             _positionStyle = "visibility: visible;";
         }

@@ -106,7 +106,11 @@
             return "Checking…";
         var last = UpdateCheckService.LastCheckTime;
         if (last.HasValue)
-            return $"No new update available. Checked at {last.Value.ToLocalTime():t}. Check again.";
+        {
+            var local = last.Value.ToLocalTime();
+            var format = local.Date == DateTime.Now.Date ? "t" : "g"; // time only today, short date+time otherwise
+            return $"No new update available. Checked at {local.ToString(format)}. Check again.";
+        }
         return "Check for updates";
     }
 

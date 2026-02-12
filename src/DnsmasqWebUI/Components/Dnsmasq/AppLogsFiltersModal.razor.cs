@@ -1,3 +1,4 @@
+using DnsmasqWebUI.Extensions;
 using DnsmasqWebUI.Infrastructure.Client.Abstractions;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -53,7 +54,7 @@ public partial class AppLogsFiltersModal : IAsyncDisposable
         {
             try
             {
-                _jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/settings-modal.js");
+                _jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/dialog.js");
                 _dotNetRef = DotNetObjectReference.Create(this);
                 _moduleLoaded = true;
             }
@@ -66,17 +67,17 @@ public partial class AppLogsFiltersModal : IAsyncDisposable
         {
             if (!_dialogInitialized)
             {
-                await _jsModule.InvokeVoidAsync("initDialog", _dialogRef, _dotNetRef);
+                await _jsModule.InvokeVoidAsyncSafe("initDialog", _dialogRef, _dotNetRef);
                 _dialogInitialized = true;
             }
-            await _jsModule.InvokeVoidAsync("showModal", _dialogRef);
+            await _jsModule.InvokeVoidAsyncSafe("showModal", _dialogRef);
         }
     }
 
     private async Task Close()
     {
         if (_jsModule != null)
-            await _jsModule.InvokeVoidAsync("closeModal", _dialogRef);
+            await _jsModule.InvokeVoidAsyncSafe("closeModal", _dialogRef);
         await OnClose.InvokeAsync();
     }
 
@@ -145,10 +146,6 @@ public partial class AppLogsFiltersModal : IAsyncDisposable
         _cts.Cancel();
         _cts.Dispose();
         _dotNetRef?.Dispose();
-        if (_jsModule != null)
-        {
-            try { await _jsModule.DisposeAsync(); }
-            catch { /* ignore */ }
-        }
+        await _jsModule.DisposeAsyncSafe();
     }
 }

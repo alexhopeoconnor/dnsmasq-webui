@@ -1,3 +1,4 @@
+using DnsmasqWebUI.Extensions;
 using DnsmasqWebUI.Models.Dnsmasq;
 using DnsmasqWebUI.Models.Logs;
 using Microsoft.AspNetCore.Components;
@@ -123,19 +124,13 @@ public partial class LogsSection : IAsyncDisposable
             await InvokeAsync(async () =>
             {
                 if (_logsJs == null) return;
-                try
-                {
-                    if (payload.Mode == "replace")
-                        await _logsJs.InvokeVoidAsync("replaceLogs", LogsPreId, payload.Content, LogsOptions);
-                    else
-                        await _logsJs.InvokeVoidAsync("appendLogs", LogsPreId, payload.Content, LogsOptions);
-                    _logsContentReceived = true;
-                    SetJustUpdated();
-                    StateHasChanged();
-                }
-                catch (JSDisconnectedException) { /* Circuit disconnected; ignore */ }
-                catch (InvalidOperationException) { /* Prerender or circuit disposed; ignore */ }
-                catch (JSException) { /* JS error; ignore */ }
+                if (payload.Mode == "replace")
+                    await _logsJs.InvokeVoidAsyncSafe("replaceLogs", LogsPreId, payload.Content, LogsOptions);
+                else
+                    await _logsJs.InvokeVoidAsyncSafe("appendLogs", LogsPreId, payload.Content, LogsOptions);
+                _logsContentReceived = true;
+                SetJustUpdated();
+                StateHasChanged();
             });
         }
         catch (ObjectDisposedException) { /* Component disposed; ignore */ }
@@ -169,13 +164,7 @@ public partial class LogsSection : IAsyncDisposable
             await _hubConnection.DisposeAsync();
             _hubConnection = null;
         }
-        if (_logsJs != null)
-        {
-            try { await _logsJs.DisposeAsync(); }
-            catch (InvalidOperationException ex) { Logger.LogDebug(ex, "LogsSection: DisposeAsync skipped (prerender)"); }
-            catch (JSDisconnectedException ex) { Logger.LogDebug(ex, "LogsSection: DisposeAsync skipped (circuit disconnected)"); }
-            catch (JSException ex) { Logger.LogDebug(ex, "LogsSection: DisposeAsync failed"); }
-            _logsJs = null;
-        }
+        await _logsJs.DisposeAsyncSafe();
+        _logsJs = null;
     }
 }

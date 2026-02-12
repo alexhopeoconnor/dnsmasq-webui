@@ -1,3 +1,4 @@
+using DnsmasqWebUI.Extensions;
 using DnsmasqWebUI.Models.Client;
 using DnsmasqWebUI.Infrastructure.Services.Abstractions;
 using Microsoft.AspNetCore.Components;
@@ -55,7 +56,7 @@ public partial class SettingsModal : IAsyncDisposable
         {
             try
             {
-                _jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/settings-modal.js");
+                _jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/dialog.js");
                 _dotNetRef = DotNetObjectReference.Create(this);
                 _moduleLoaded = true;
             }
@@ -68,10 +69,10 @@ public partial class SettingsModal : IAsyncDisposable
         {
             if (!_dialogInitialized)
             {
-                await _jsModule.InvokeVoidAsync("initDialog", _dialogRef, _dotNetRef);
+                await _jsModule.InvokeVoidAsyncSafe("initDialog", _dialogRef, _dotNetRef);
                 _dialogInitialized = true;
             }
-            await _jsModule.InvokeVoidAsync("showModal", _dialogRef);
+            await _jsModule.InvokeVoidAsyncSafe("showModal", _dialogRef);
         }
     }
 
@@ -94,6 +95,19 @@ public partial class SettingsModal : IAsyncDisposable
             _expandedGroupIds.Remove(groupId);
         else
             _expandedGroupIds.Add(groupId);
+        StateHasChanged();
+    }
+
+    private void ExpandAllGroups()
+    {
+        foreach (var g in GetVisibleGroups())
+            _expandedGroupIds.Add(g.Id);
+        StateHasChanged();
+    }
+
+    private void CollapseAllGroups()
+    {
+        _expandedGroupIds.Clear();
         StateHasChanged();
     }
 
@@ -125,13 +139,15 @@ public partial class SettingsModal : IAsyncDisposable
         }
 
         await ClientSettingsService.SaveSettingsAsync(ClientSettingsFields.ToDto());
-        await (_jsModule?.InvokeVoidAsync("closeModal", _dialogRef) ?? ValueTask.CompletedTask);
+        if (_jsModule != null)
+            await _jsModule.InvokeVoidAsyncSafe("closeModal", _dialogRef);
         await OnClose.InvokeAsync();
     }
 
     private async Task Close()
     {
-        await (_jsModule?.InvokeVoidAsync("closeModal", _dialogRef) ?? ValueTask.CompletedTask);
+        if (_jsModule != null)
+            await _jsModule.InvokeVoidAsyncSafe("closeModal", _dialogRef);
         await OnClose.InvokeAsync();
     }
 
@@ -147,14 +163,8 @@ public partial class SettingsModal : IAsyncDisposable
     /// </summary>
     public async ValueTask DisposeAsync()
     {
-        if (_jsModule != null)
-        {
-            try { await _jsModule.DisposeAsync(); }
-            catch (InvalidOperationException ex) { Logger.LogDebug(ex, "SettingsModal: DisposeAsync skipped (prerender)"); }
-            catch (JSDisconnectedException ex) { Logger.LogDebug(ex, "SettingsModal: DisposeAsync skipped (circuit disconnected)"); }
-            catch (JSException ex) { Logger.LogDebug(ex, "SettingsModal: DisposeAsync failed"); }
-            _jsModule = null;
-        }
+        await _jsModule.DisposeAsyncSafe();
+        _jsModule = null;
         _dotNetRef?.Dispose();
         _dotNetRef = null;
     }
