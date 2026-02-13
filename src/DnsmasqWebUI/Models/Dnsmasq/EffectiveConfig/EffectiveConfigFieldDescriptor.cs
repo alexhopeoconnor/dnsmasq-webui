@@ -1,4 +1,5 @@
 using DnsmasqWebUI.Models.Dnsmasq;
+using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig.Abstractions;
 
 namespace DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 
@@ -13,7 +14,7 @@ public record EffectiveConfigFieldDescriptor(
     Func<DnsmasqServiceStatus?, object?>? ResolveValue,
     Func<DnsmasqServiceStatus?, ConfigValueSource?>? ResolveSource,
     Func<DnsmasqServiceStatus?, IReadOnlyList<ValueWithSource>?>? ResolveItems
-)
+) : IEffectiveConfigFieldDescriptor
 {
     public object? GetValue() => ResolveValue?.Invoke(Status);
     public ConfigValueSource? GetSource() => ResolveSource?.Invoke(Status);

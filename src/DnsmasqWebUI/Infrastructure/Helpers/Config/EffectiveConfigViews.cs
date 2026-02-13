@@ -1,5 +1,6 @@
 using DnsmasqWebUI.Models.Dnsmasq;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
+using DnsmasqWebUI.Infrastructure.Services.Abstractions;
 
 namespace DnsmasqWebUI.Infrastructure.Helpers.Config;
 
@@ -50,14 +51,16 @@ public static class EffectiveConfigViews
     /// For each section in the view, returns the context-visible descriptors for that section.
     /// Does not apply search; component applies search to each section's list and hides sections with no matches.
     /// </summary>
+    /// <param name="registry">When provided, used to create the correct descriptor type per field (e.g. integer options).</param>
     public static IReadOnlyDictionary<string, IReadOnlyList<EffectiveConfigFieldDescriptor>> GetDescriptorsBySection(
         DnsmasqServiceStatus? status,
-        IReadOnlyList<EffectiveConfigSectionView> views)
+        IReadOnlyList<EffectiveConfigSectionView> views,
+        IEffectiveConfigRenderFragmentRegistry? registry = null)
     {
         if (status == null || views.Count == 0)
             return new Dictionary<string, IReadOnlyList<EffectiveConfigFieldDescriptor>>();
 
-        var allDescriptors = EffectiveConfigFieldBuilder.BuildFieldDescriptors(status);
+        var allDescriptors = EffectiveConfigFieldBuilder.BuildFieldDescriptors(status, registry);
         var result = new Dictionary<string, List<EffectiveConfigFieldDescriptor>>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var view in views)

@@ -1,0 +1,31 @@
+@namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig.CustomDisplays
+@using DnsmasqWebUI.Models.Dnsmasq
+
+@* local-service: net | host. View: (not set) / net / host. Edit: dropdown. *@
+@if (DisplayMode == EffectiveConfigDisplayMode.Edit && Descriptor.GetSource()?.IsReadOnly != true)
+{
+    <select class="form-select form-select-sm" style="max-width: 10rem;" value="@(Descriptor.GetValue() as string ?? "")" @onchange="OnChange">
+        <option value="">(not set)</option>
+        <option value="net">net</option>
+        <option value="host">host</option>
+    </select>
+}
+else
+{
+    var v = Descriptor.GetValue() as string;
+    @(string.IsNullOrEmpty(v) ? "(not set)" : (v.Trim().ToLowerInvariant() is "net" or "host" ? v.Trim() : v))
+}
+
+@code {
+    [Parameter] public EffectiveConfigFieldDescriptor Descriptor { get; set; } = null!;
+    [CascadingParameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
+
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+
+    private async Task OnChange(ChangeEventArgs e)
+    {
+        var v = e.Value?.ToString()?.Trim();
+        var value = string.IsNullOrEmpty(v) ? null : (v == "net" || v == "host" ? v : null);
+        await ValueChanged.InvokeAsync(value);
+    }
+}

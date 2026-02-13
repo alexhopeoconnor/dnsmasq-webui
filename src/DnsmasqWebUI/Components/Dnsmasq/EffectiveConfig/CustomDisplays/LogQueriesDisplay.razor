@@ -1,0 +1,63 @@
+@namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig.CustomDisplays
+@using DnsmasqWebUI.Models.Dnsmasq
+
+@* log-queries: optional value extra|proto|auth. View: Off / On / On (extra|proto|auth). Edit: dropdown. *@
+@if (DisplayMode == EffectiveConfigDisplayMode.Edit && Descriptor.GetSource()?.IsReadOnly != true)
+{
+    <select class="form-select form-select-sm" style="max-width: 12rem;" value="@GetEditValue()" @onchange="OnChange">
+        <option value="">Off</option>
+        <option value="on">On</option>
+        <option value="extra">On (extra)</option>
+        <option value="proto">On (proto)</option>
+        <option value="auth">On (auth)</option>
+    </select>
+}
+else
+{
+    @GetViewText()
+}
+
+@code {
+    [Parameter] public EffectiveConfigFieldDescriptor Descriptor { get; set; } = null!;
+    [CascadingParameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
+
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+
+    private string GetEditValue()
+    {
+        var v = Descriptor.GetValue() as string;
+        if (string.IsNullOrEmpty(v)) return "";
+        var lower = v.Trim().ToLowerInvariant();
+        if (lower is "extra" or "proto" or "auth") return lower;
+        return "on";
+    }
+
+    private string GetViewText()
+    {
+        var v = Descriptor.GetValue() as string;
+        if (string.IsNullOrEmpty(v)) return "Off";
+        var lower = v.Trim().ToLowerInvariant();
+        return lower switch
+        {
+            "extra" => "On (extra)",
+            "proto" => "On (proto)",
+            "auth" => "On (auth)",
+            _ => "On"
+        };
+    }
+
+    private async Task OnChange(ChangeEventArgs e)
+    {
+        var sel = e.Value?.ToString()?.Trim().ToLowerInvariant();
+        string? newValue = sel switch
+        {
+            "" or "off" => null,
+            "on" => "",
+            "extra" => "extra",
+            "proto" => "proto",
+            "auth" => "auth",
+            _ => null
+        };
+        await ValueChanged.InvokeAsync(newValue);
+    }
+}

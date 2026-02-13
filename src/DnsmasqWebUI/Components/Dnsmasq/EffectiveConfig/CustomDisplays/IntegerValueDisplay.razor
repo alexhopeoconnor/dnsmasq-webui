@@ -1,0 +1,46 @@
+@namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig.CustomDisplays
+@using DnsmasqWebUI.Models.Dnsmasq
+
+@* Value-only display for int? options. Edit: number input (unless readonly); View: value + optional suffix/unit. Metadata from EffectiveIntegerConfigFieldDescriptor. *@
+@if (DisplayMode == EffectiveConfigDisplayMode.Edit && Descriptor.GetSource()?.IsReadOnly != true)
+{
+    var current = Descriptor.GetValue() is int i ? i : DefaultValue;
+    <input type="number" class="form-control form-control-sm" style="max-width: 8rem;"
+           min="@Min" max="@Max" value="@(current?.ToString() ?? "")" @oninput="OnInput" />
+}
+else
+{
+    var v = Descriptor.GetValue() is int n ? n : (int?)null;
+    if (v is null)
+    {
+        @("(not set)")
+    }
+    else
+    {
+        @v
+        @if (!string.IsNullOrEmpty(ViewSuffix)) { <text> @ViewSuffix</text> }
+        @if (!string.IsNullOrEmpty(Unit)) { <text> @Unit</text> }
+    }
+}
+
+@code {
+    [Parameter] public EffectiveConfigFieldDescriptor Descriptor { get; set; } = null!;
+    [CascadingParameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
+
+    [Parameter] public EventCallback<int?> ValueChanged { get; set; }
+
+    private EffectiveIntegerConfigFieldDescriptor? IntDescriptor => Descriptor as EffectiveIntegerConfigFieldDescriptor;
+    private string? ViewSuffix => IntDescriptor?.ViewSuffix;
+    private string? Unit => IntDescriptor?.Unit;
+    private int Min => IntDescriptor?.Min ?? 0;
+    private int Max => IntDescriptor?.Max ?? int.MaxValue;
+    private int? DefaultValue => IntDescriptor?.DefaultValue;
+
+    private async Task OnInput(ChangeEventArgs e)
+    {
+        int? value = null;
+        if (int.TryParse(e.Value?.ToString(), out var num) && num >= Min && num <= Max)
+            value = num;
+        await ValueChanged.InvokeAsync(value);
+    }
+}

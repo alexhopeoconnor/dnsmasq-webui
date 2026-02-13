@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using DnsmasqWebUI.Models.Dnsmasq;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
+using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig.Abstractions;
 
 namespace DnsmasqWebUI.Infrastructure.Services.Abstractions;
 
@@ -12,7 +13,12 @@ namespace DnsmasqWebUI.Infrastructure.Services.Abstractions;
 public interface IEffectiveConfigRenderFragmentRegistry : IApplicationSingleton
 {
     /// <summary>
-    /// Returns a fragment that renders the custom value UI for this field, or null to use default rendering.
+    /// Builds a fragment that renders the custom value component for this field, or null to use default rendering.
     /// </summary>
-    RenderFragment<EffectiveConfigFieldDescriptor>? GetDisplayFragment(string sectionId, string optionName);
+    RenderFragment<EffectiveConfigFieldDescriptor>? BuildFieldComponentFragment(string sectionId, string optionName);
+
+    /// <summary>
+    /// Returns a factory that creates the correct descriptor type for this field (e.g. <see cref="EffectiveIntegerConfigFieldDescriptor"/>), or null to use the default.
+    /// </summary>
+    EffectiveConfigDescriptorFactory? GetDescriptorFactory(string sectionId, string optionName);
 }

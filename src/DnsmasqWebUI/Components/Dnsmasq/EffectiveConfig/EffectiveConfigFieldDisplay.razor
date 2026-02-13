@@ -45,7 +45,7 @@ else
 
     protected override void OnParametersSet()
     {
-        _customFragment = RenderFragmentRegistry.GetDisplayFragment(Descriptor.SectionId, Descriptor.OptionName);
+        _customFragment = RenderFragmentRegistry.BuildFieldComponentFragment(Descriptor.SectionId, Descriptor.OptionName);
         _labelTooltip = DnsmasqOptionTooltips.Get(Descriptor.OptionName);
         _optionHelpKey = DnsmasqOptionTooltips.GetOptionHelpKey(Descriptor.OptionName);
     }

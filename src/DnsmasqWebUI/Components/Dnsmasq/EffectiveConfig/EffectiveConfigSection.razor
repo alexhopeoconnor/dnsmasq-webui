@@ -1,6 +1,9 @@
 @namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig
 @using DnsmasqWebUI.Models.Dnsmasq
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Infrastructure.Helpers.Config
+@using DnsmasqWebUI.Infrastructure.Services.Abstractions
+@inject IEffectiveConfigRenderFragmentRegistry RenderFragmentRegistry
 @implements IAsyncDisposable
 
 @if (Status != null)
@@ -24,7 +27,7 @@
     <div class="ec-sections small">
         @{
             var views = EffectiveConfigViews.GetViewsForContext(Context);
-            var descriptorsBySection = EffectiveConfigViews.GetDescriptorsBySection(Status, views);
+            var descriptorsBySection = EffectiveConfigViews.GetDescriptorsBySection(Status, views, RenderFragmentRegistry);
             var hasSearch = !string.IsNullOrWhiteSpace(_searchTerm);
             var term = _searchTerm?.Trim() ?? "";
         }
@@ -48,7 +51,6 @@
     [Parameter] public DnsmasqServiceStatus? Status { get; set; }
     [Parameter] public EffectiveConfigContext Context { get; set; } = EffectiveConfigContext.All;
     [Parameter] public bool ShowSearchBox { get; set; } = true;
-    /// <summary>View = read-only; Edit = editable (future). Cascaded to field displays.</summary>
     [Parameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
 
     private string _searchTerm = "";
