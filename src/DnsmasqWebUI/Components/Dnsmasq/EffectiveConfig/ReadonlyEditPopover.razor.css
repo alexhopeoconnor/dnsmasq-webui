@@ -1,0 +1,36 @@
+/* Readonly edit popover: anchored under the badge; same look as option help popover */
+.ec-readonly-popover {
+    position: fixed;
+    z-index: 1060;
+    max-width: min(420px, calc(100vw - 1rem));
+    max-height: min(70vh, 400px);
+    overflow: auto;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 0.375rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    background: var(--bs-body-bg, #fff);
+}
+
+.ec-readonly-popover-content {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.ec-readonly-popover-header {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--bs-border-color-translucent, rgba(0, 0, 0, 0.075));
+    flex-shrink: 0;
+}
+
+.ec-readonly-popover-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.ec-readonly-popover-body {
+    padding: 0.75rem;
+    overflow: auto;
+    flex: 1;
+    min-height: 0;
+}

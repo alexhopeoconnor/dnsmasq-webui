@@ -325,7 +325,7 @@ else
 
     <section class="page-section">
         <h2 class="page-section-title">Config affecting DHCP</h2>
-        <EffectiveConfigSection Status="_status" Context="EffectiveConfigContext.Dhcp" ShowSearchBox="true" />
+        <EffectiveConfigSection Status="_status" Context="EffectiveConfigContext.Dhcp" ShowSearchBox="true" OnSaveCompleted="RefreshStatusAsync" />
     </section>
 }
 
@@ -414,6 +414,16 @@ else
         if (!firstRender) return;
         await Load();
         StateHasChanged();
+    }
+
+    private async Task RefreshStatusAsync()
+    {
+        try
+        {
+            _status = await StatusClient.GetStatusAsync();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch { /* ignore */ }
     }
 
     private async Task Load()

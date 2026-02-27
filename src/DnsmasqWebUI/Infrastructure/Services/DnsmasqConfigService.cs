@@ -184,6 +184,96 @@ public class DnsmasqConfigService : IDnsmasqConfigService
         return snapshot.ManagedContent;
     }
 
+    public async Task ApplyEffectiveConfigChangesAsync(IReadOnlyList<PendingEffectiveConfigChange> changes, CancellationToken ct = default)
+    {
+        if (changes.Count == 0) return;
+        var content = await ReadManagedConfigAsync(ct);
+        var list = content.Lines.ToList();
+        var maxLineNumber = list.Count > 0 ? list.Max(l => l.LineNumber) : 0;
+        foreach (var c in changes)
+        {
+            var behavior = EffectiveConfigParserBehaviorMap.GetBehavior(c.OptionName);
+            var isFlag = behavior == EffectiveConfigParserBehavior.Flag;
+            bool MatchesOption(DnsmasqConfLine line)
+            {
+                if (line is not OtherLine o) return false;
+                var raw = o.RawLine.Trim();
+                return raw == c.OptionName || raw.StartsWith(c.OptionName + "=", StringComparison.Ordinal);
+            }
+
+            if (behavior == EffectiveConfigParserBehavior.Multi && TryGetMultiValues(c.NewValue, out var values))
+            {
+                var matchingIndices = new List<int>();
+                for (var i = 0; i < list.Count; i++)
+                {
+                    if (MatchesOption(list[i])) matchingIndices.Add(i);
+                }
+                for (var i = matchingIndices.Count - 1; i >= 0; i--)
+                    list.RemoveAt(matchingIndices[i]);
+                var insertIdx = matchingIndices.Count > 0 ? matchingIndices[0] : list.Count;
+                for (var i = 0; i < values.Count; i++)
+                {
+                    var lineText = string.IsNullOrEmpty(values[i]) ? c.OptionName : c.OptionName + "=" + values[i];
+                    var lineObj = new OtherLine { LineNumber = maxLineNumber + 1, RawLine = lineText };
+                    maxLineNumber++;
+                    list.Insert(insertIdx + i, lineObj);
+                }
+                continue;
+            }
+
+            var idx = list.FindIndex(MatchesOption);
+            if (isFlag && c.NewValue is bool b && !b)
+            {
+                if (idx >= 0) list.RemoveAt(idx);
+                continue;
+            }
+            string rawLine;
+            if (isFlag)
+                rawLine = c.OptionName;
+            else
+            {
+                var v = ToConfValue(c.NewValue);
+                rawLine = string.IsNullOrEmpty(v) ? c.OptionName : c.OptionName + "=" + v;
+            }
+            var newLine = new OtherLine { LineNumber = maxLineNumber + 1, RawLine = rawLine };
+            maxLineNumber++;
+            if (idx >= 0)
+                list[idx] = newLine;
+            else
+                list.Add(newLine);
+        }
+        await WriteManagedConfigAsync(list, ct);
+    }
+
+    private static bool TryGetMultiValues(object? value, out IReadOnlyList<string> values)
+    {
+        values = null!;
+        if (value == null) return false;
+        if (value is IReadOnlyList<string> list)
+        {
+            values = list;
+            return true;
+        }
+        if (value is string[] arr)
+        {
+            values = arr;
+            return true;
+        }
+        if (value is List<string> listMut)
+        {
+            values = listMut;
+            return true;
+        }
+        return false;
+    }
+
+    private static string ToConfValue(object? value)
+    {
+        if (value == null) return "";
+        if (value is bool b) return b ? "1" : "0";
+        return value.ToString() ?? "";
+    }
+
     public async Task WriteManagedConfigAsync(IReadOnlyList<DnsmasqConfLine> lines, CancellationToken ct = default)
     {
         var set = await _configSetService.GetConfigSetAsync(ct);

@@ -15,14 +15,27 @@
 
 .ec-toolbar {
     display: flex;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 0.75rem;
+    min-width: 0;
 }
 
-.ec-toolbar input[type="search"] {
-    flex: 1;
+/* Search uses available space; actions stay on the right */
+.ec-toolbar-search {
+    flex: 1 1 auto;
     min-width: 0;
+    max-width: 24rem;
+}
+
+.ec-toolbar-actions {
+    display: flex;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto;
 }
 
 .ec-sections {
@@ -156,10 +169,28 @@
 }
 
 ::deep .ec-field-value {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     flex: 1 1 auto;
     min-width: 0;
     overflow-wrap: break-word;
     word-break: break-word;
+    gap: 0.25rem;
+}
+
+/* Edit wrapper (checkbox/input) shrinks to content so the editable badge stays on the same line */
+::deep .ec-field-edit-wrapper {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* Input/select in value area can shrink so the editable badge stays on the same line */
+::deep .ec-field-value > .form-control,
+::deep .ec-field-value > .form-select {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 /* Multi-value: full width below label, indented ordered list. min-width: 0 so flex doesn't prevent wrapping. */

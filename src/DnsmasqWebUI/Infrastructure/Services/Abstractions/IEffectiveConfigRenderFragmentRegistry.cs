@@ -18,6 +18,11 @@ public interface IEffectiveConfigRenderFragmentRegistry : IApplicationSingleton
     RenderFragment<EffectiveConfigFieldDescriptor>? BuildFieldComponentFragment(string sectionId, string optionName);
 
     /// <summary>
+    /// Builds a fragment that renders the custom value component and wires the given callback so the row can receive value changes (for commit-on-blur).
+    /// </summary>
+    RenderFragment<EffectiveConfigFieldDescriptor>? BuildFieldComponentFragment(string sectionId, string optionName, EventCallback<object?> onValueChanged);
+
+    /// <summary>
     /// Returns a factory that creates the correct descriptor type for this field (e.g. <see cref="EffectiveIntegerConfigFieldDescriptor"/>), or null to use the default.
     /// </summary>
     EffectiveConfigDescriptorFactory? GetDescriptorFactory(string sectionId, string optionName);

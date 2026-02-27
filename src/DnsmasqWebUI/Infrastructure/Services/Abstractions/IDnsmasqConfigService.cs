@@ -9,6 +9,9 @@ namespace DnsmasqWebUI.Infrastructure.Services.Abstractions;
 /// <summary>Reads and writes the managed dnsmasq config file and DHCP hosts entries (the app-managed config and dhcp-host= lines).</summary>
 public interface IDnsmasqConfigService : IApplicationScopedService
 {
+    /// <summary>Applies pending effective-config changes to the managed config file (add/replace/remove option lines), then writes and notifies cache.</summary>
+    Task ApplyEffectiveConfigChangesAsync(IReadOnlyList<PendingEffectiveConfigChange> changes, CancellationToken ct = default);
+
     /// <summary>Reads DHCP host entries from the managed config (dhcp-host= lines).</summary>
     Task<IReadOnlyList<DhcpHostEntry>> ReadDhcpHostsAsync(CancellationToken ct = default);
 

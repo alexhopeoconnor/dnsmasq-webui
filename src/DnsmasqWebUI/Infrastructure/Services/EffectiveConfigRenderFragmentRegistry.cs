@@ -111,13 +111,23 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
     /// <inheritdoc />
     public RenderFragment<EffectiveConfigFieldDescriptor>? BuildFieldComponentFragment(string sectionId, string optionName)
     {
+        return BuildFieldComponentFragment(sectionId, optionName, default);
+    }
+
+    /// <inheritdoc />
+    public RenderFragment<EffectiveConfigFieldDescriptor>? BuildFieldComponentFragment(string sectionId, string optionName, EventCallback<object?> onValueChanged)
+    {
         if (!_displayComponents.TryGetValue((sectionId, optionName), out var componentType))
             return null;
+
+        var hasCallback = onValueChanged.HasDelegate;
 
         return descriptor => builder =>
         {
             builder.OpenComponent(0, componentType);
             builder.AddAttribute(1, "Descriptor", descriptor);
+            if (hasCallback)
+                builder.AddAttribute(2, "ValueChanged", onValueChanged);
             builder.CloseComponent();
         };
     }

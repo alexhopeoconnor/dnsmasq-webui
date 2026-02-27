@@ -10,13 +10,44 @@
 @if (_customFragment is { } fragment)
 {
     var labelTooltip = DnsmasqOptionTooltips.Get(Descriptor.OptionName);
-    <li class="ec-field" title="@(Descriptor.GetSource()?.GetReadOnlyTooltip())">
+    var isReadonly = Descriptor.GetSource()?.IsReadOnly == true;
+    var showEditableBadge = !isReadonly;
+    var isActiveEditor = IsEditMode && IsActive;
+    var fragmentWithCallback = isActiveEditor ? _fragmentWithCallback : null;
+    <li class="ec-field @(isActiveEditor ? "ec-field-editing" : "")" title="@(Descriptor.GetSource()?.GetReadOnlyTooltip())">
         <span id="@_anchorId" class="ec-field-label @(_optionHelpKey != null ? "ec-field-label-help" : null)" title="@(labelTooltip ?? Descriptor.GetSource()?.GetReadOnlyTooltip())" @onclick="RaiseOptionHelpRequested" @onmouseleave="RaiseLabelMouseLeave"><strong>@Descriptor.OptionName:</strong></span>
         <span class="ec-field-value">
-            @fragment(Descriptor)
-            @if (Descriptor.GetSource()?.IsReadOnly == true)
+            @* IsActiveEditor: cascaded from here (true only for this field when it's the active editor). Section cascades IsEditMode + ActiveFieldKey; Panel passes IsActive=(ActiveFieldKey==fieldKey); we derive isActiveEditor = IsEditMode && IsActive and cascade that bool so fragment children (e.g. PortValueDisplay) know whether to show the input. *@
+            @if (isActiveEditor)
             {
-                <span class="badge bg-secondary ec-badge-inline">readonly</span>
+                <div class="ec-field-edit-wrapper" @onfocusout="OnBlur" @onclick:stopPropagation="true">
+                    <CascadingValue Value="@true">
+                        <CascadingValue Value="@(EventCallback.Factory.Create<FocusEventArgs>(this, OnBlur))">
+                            @((fragmentWithCallback ?? fragment)(Descriptor))
+                        </CascadingValue>
+                    </CascadingValue>
+                </div>
+            }
+            else
+            {
+                <CascadingValue Value="@false">
+                    @fragment(Descriptor)
+                </CascadingValue>
+            }
+            @if (isReadonly)
+            {
+                @if (IsEditMode)
+                {
+                    <button type="button" id="@_readonlyBadgeAnchorId" class="badge bg-secondary ec-badge-inline border-0 ms-1" title="@(Descriptor.GetSource()?.GetReadOnlyTooltip())" @onclick="RaiseReadonlyBadgeClicked" @onmouseleave="OnReadonlyBadgeMouseLeave">readonly</button>
+                }
+                else
+                {
+                    <span class="badge bg-secondary ec-badge-inline ms-1" title="@(Descriptor.GetSource()?.GetReadOnlyTooltip())">readonly</span>
+                }
+            }
+            @if (showEditableBadge)
+            {
+                <button type="button" class="badge bg-primary ec-badge-inline border-0 ms-1" @onclick="OnActivateEdit" @onclick:stopPropagation="true" title="Edit this field" aria-label="Edit">editable</button>
             }
         </span>
     </li>
@@ -24,30 +55,105 @@
 else if (Descriptor.IsMultiValue)
 {
     var items = Descriptor.GetItems();
-    <EffectiveConfigMultiValueRow Label="@Descriptor.OptionName" Items="@items" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId" OnOptionHelpRequested="@OnOptionHelpRequested" />
+    <EffectiveConfigMultiValueRow Label="@Descriptor.OptionName" Items="@items" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId" OnOptionHelpRequested="@OnOptionHelpRequested" IsActiveEditor="@(IsEditMode && IsActive)" IsEditMode="@IsEditMode" ReadonlyBadgeAnchorIdBase="@_readonlyBadgeAnchorId" OnReadonlyBadgeClicked="@OnReadonlyBadgeClicked" OnReadonlyBadgeMouseLeave="@OnReadonlyBadgeMouseLeave" />
 }
 else
 {
     var value = Descriptor.GetValue();
     var displayValue = value == null ? "(not set)" : (value is IReadOnlyList<string> list ? (list.Count == 0 ? "(none)" : string.Join(", ", list)) : value.ToString());
-    <EffectiveConfigOptionItem Label="@Descriptor.OptionName" DisplayValue="@(displayValue ?? "(not set)")" Source="@Descriptor.GetSource()" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId" OnOptionHelpRequested="@OnOptionHelpRequested" />
+    var isReadonly = Descriptor.GetSource()?.IsReadOnly == true;
+    var showReadonlyHint = IsEditMode && isReadonly;
+    var isActiveEditor = IsEditMode && IsActive;
+    @if (showReadonlyHint)
+    {
+        <li class="ec-field" title="@(Descriptor.GetSource()?.GetReadOnlyTooltip())">
+            <EffectiveConfigOptionItem Label="@Descriptor.OptionName" DisplayValue="@(displayValue ?? "(not set)")" Source="@Descriptor.GetSource()" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId" OnOptionHelpRequested="@OnOptionHelpRequested" SuppressOuterLi="true"
+                ReadonlyBadgeAnchorId="@_readonlyBadgeAnchorId" OnReadonlyBadgeClick="@RaiseReadonlyBadgeClicked" OnReadonlyBadgeMouseLeave="@OnReadonlyBadgeMouseLeave" />
+        </li>
+    }
+    else
+    {
+        <EffectiveConfigOptionItem Label="@Descriptor.OptionName" DisplayValue="@(displayValue ?? "(not set)")" Source="@Descriptor.GetSource()" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId" OnOptionHelpRequested="@OnOptionHelpRequested"
+            ShowEditableBadge="true" OnActivateEdit="@OnActivateEdit" IsActive="@IsActive"
+            ReadonlyBadgeAnchorId="@_readonlyBadgeAnchorId" OnReadonlyBadgeClick="@RaiseReadonlyBadgeClicked" OnReadonlyBadgeMouseLeave="@OnReadonlyBadgeMouseLeave"
+            DisplayValueChanged="@HandleDefaultValueChanged" OnBlur="@HandleDefaultBlur" />
+    }
 }
 
 @code {
     [Parameter] public EffectiveConfigFieldDescriptor Descriptor { get; set; } = null!;
-    [CascadingParameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
+    [Parameter] public bool IsEditMode { get; set; }
+    [Parameter] public bool IsActive { get; set; }
+    [Parameter] public string? ActiveFieldKey { get; set; }
+    [Parameter] public EventCallback OnActivateEdit { get; set; }
+    [Parameter] public EventCallback<EffectiveConfigEditCommittedArgs> OnEditCommitted { get; set; }
+    [Parameter] public EventCallback<ReadonlyBadgeClickedEventArgs> OnReadonlyBadgeClicked { get; set; }
+    [Parameter] public EventCallback OnReadonlyBadgeMouseLeave { get; set; }
     [Parameter] public EventCallback<ConfigOptionHelpRequestEventArgs> OnOptionHelpRequested { get; set; }
+    [CascadingParameter] public string? ManagedFilePath { get; set; }
 
     private readonly string _anchorId = "ec-help-" + Guid.NewGuid().ToString("N")[..8];
+    private readonly string _readonlyBadgeAnchorId = "ec-readonly-" + Guid.NewGuid().ToString("N")[..8];
     private RenderFragment<EffectiveConfigFieldDescriptor>? _customFragment;
+    private RenderFragment<EffectiveConfigFieldDescriptor>? _fragmentWithCallback;
     private string? _labelTooltip;
     private string? _optionHelpKey;
+    private object? _valueAtActivation;
+    private object? _draftValue;
+    private bool _wasActive;
 
     protected override void OnParametersSet()
     {
         _customFragment = RenderFragmentRegistry.BuildFieldComponentFragment(Descriptor.SectionId, Descriptor.OptionName);
+        _fragmentWithCallback = RenderFragmentRegistry.BuildFieldComponentFragment(Descriptor.SectionId, Descriptor.OptionName, EventCallback.Factory.Create<object?>(this, HandleValueChanged));
         _labelTooltip = DnsmasqOptionTooltips.Get(Descriptor.OptionName);
         _optionHelpKey = DnsmasqOptionTooltips.GetOptionHelpKey(Descriptor.OptionName);
+        if (!_wasActive && IsActive)
+            _valueAtActivation = Descriptor.GetValue();
+        if (_wasActive && !IsActive)
+            _ = InvokeAsync(CommitIfChangedAsync);
+        _wasActive = IsActive;
+    }
+
+    private void HandleValueChanged(object? value)
+    {
+        _draftValue = value;
+    }
+
+    private async Task OnBlur(FocusEventArgs _)
+    {
+        if (!IsActive) return;
+        await CommitIfChangedAsync();
+    }
+
+    private async Task CommitIfChangedAsync()
+    {
+        var newValue = _draftValue ?? Descriptor.GetValue();
+        if (!Equals(_valueAtActivation, newValue))
+        {
+            var source = Descriptor.GetSource();
+            await OnEditCommitted.InvokeAsync(new EffectiveConfigEditCommittedArgs(Descriptor.SectionId, Descriptor.OptionName, _valueAtActivation, newValue, source?.FilePath));
+        }
+        _draftValue = null;
+    }
+
+    private async Task RaiseReadonlyBadgeClicked()
+    {
+        var source = Descriptor.GetSource();
+        if (source == null) return;
+        await OnReadonlyBadgeClicked.InvokeAsync(new ReadonlyBadgeClickedEventArgs(_readonlyBadgeAnchorId, source, Descriptor.OptionName, Descriptor.GetValue()));
+    }
+
+    private void HandleDefaultValueChanged(string value)
+    {
+        _draftValue = value;
+    }
+
+    private async Task HandleDefaultBlur(string? value)
+    {
+        if (!IsActive) return;
+        _draftValue = value;
+        await CommitIfChangedAsync();
     }
 
     private async Task RaiseOptionHelpRequested()

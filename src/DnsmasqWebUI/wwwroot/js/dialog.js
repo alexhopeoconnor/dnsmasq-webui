@@ -22,3 +22,8 @@ export function closeModal(dialogElement) {
     dialogElement.close();
   }
 }
+
+/** Returns true if the user clicked OK, false if Cancel. */
+export function confirmMessage(message) {
+  return window.confirm(message);
+}

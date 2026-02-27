@@ -19,7 +19,7 @@ else
 {
     <section class="page-section mb-4">
         <h2 class="page-section-title">Config affecting hosts</h2>
-        <EffectiveConfigSection Status="_status" Context="EffectiveConfigContext.Hosts" ShowSearchBox="true" />
+        <EffectiveConfigSection Status="_status" Context="EffectiveConfigContext.Hosts" ShowSearchBox="true" OnSaveCompleted="RefreshStatusAsync" />
     </section>
     @if (string.IsNullOrEmpty(_status.ManagedHostsFilePath))
     {
@@ -88,6 +88,16 @@ else
     protected override async Task OnInitializedAsync()
     {
         await Load();
+    }
+
+    private async Task RefreshStatusAsync()
+    {
+        try
+        {
+            _status = await StatusClient.GetStatusAsync();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch { /* ignore */ }
     }
 
     private async Task Load()

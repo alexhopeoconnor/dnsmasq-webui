@@ -4,26 +4,54 @@
 @using DnsmasqWebUI.Infrastructure.Helpers.Config
 @using DnsmasqWebUI.Infrastructure.Services.Abstractions
 @inject IEffectiveConfigRenderFragmentRegistry RenderFragmentRegistry
+@inject DnsmasqWebUI.Infrastructure.Services.Abstractions.IDnsmasqConfigService ConfigService
+@inject IJSRuntime JSRuntime
 @implements IAsyncDisposable
 
 @if (Status != null)
 {
-<div class="ec-container">
+<div class="ec-container" @onclick="DeactivateActiveFieldIfClicked">
     <ConfigOptionHelpModal HelpKey="@_optionHelpKey" AnchorId="@_optionHelpAnchorId" Visible="@_showOptionHelp" Title="@_optionHelpTitle"
         OnClose="CloseOptionHelp" OnMouseEnterModal="CancelCloseTimerAsync" OnMouseLeaveModal="ScheduleCloseAsync" />
-    @if (ShowSearchBox)
-    {
-        <div class="ec-toolbar">
-            <input type="search" id="ec-search-input" class="form-control form-control-sm" placeholder="Search..." autocomplete="off"
-                   @bind="_searchTerm" @bind:event="oninput" @bind:after="StateHasChanged" />
+    <ReadonlyEditPopover Visible="@_showReadonlyPopover" AnchorId="@_readonlyPopoverAnchorId" Source="@_readonlyPopoverSource" OptionName="@(_readonlyPopoverOptionName ?? "")" Value="@_readonlyPopoverValue" ManagedFilePath="@(Status?.ManagedFilePath)"
+        OnClose="CloseReadonlyPopover" OnMouseEnterPopover="CancelReadonlyCloseTimerAsync" OnMouseLeavePopover="ScheduleReadonlyCloseAsync" />
+    <div class="ec-toolbar @(_isEditMode ? "ec-edit-toolbar" : "")">
+            @if (ShowSearchBox)
+            {
+                <input type="search" id="ec-search-input" class="form-control form-control-sm ec-toolbar-search" placeholder="Search..." autocomplete="off"
+                       @bind="_searchTerm" @bind:event="oninput" @bind:after="StateHasChanged" />
+            }
+            <div class="ec-toolbar-actions">
             <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExpandAll" title="Expand all sections" aria-label="Expand all sections">
                 <i class="bi bi-arrows-expand" aria-hidden="true"></i>
             </button>
             <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CollapseAll" title="Collapse all sections" aria-label="Collapse all sections">
                 <i class="bi bi-arrows-collapse" aria-hidden="true"></i>
             </button>
-        </div>
-    }
+            @if (_isEditMode)
+            {
+                <button type="button" class="btn btn-sm btn-primary" @onclick="OpenSaveModal" disabled="@(_pendingChanges.Count == 0)" title="Save changes to managed config" aria-label="Save">
+                    <i class="bi bi-floppy-fill" aria-hidden="true"></i>
+                </button>
+                @if (_pendingChanges.Count > 0)
+                {
+                    <span class="text-muted small">@_pendingChanges.Count change(s)</span>
+                }
+                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExitEditModeWithConfirmAsync" title="Exit edit mode" aria-label="Exit edit mode">
+                    <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+                </button>
+            }
+            else
+            {
+                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="EnterEditMode" title="Edit effective config" aria-label="Edit">
+                    <i class="bi bi-pencil" aria-hidden="true"></i>
+                </button>
+            }
+            </div>
+    </div>
+    <CascadingValue Name="IsEditMode" Value="@_isEditMode">
+    <CascadingValue Name="ActiveFieldKey" Value="@_activeFieldKey">
+    <CascadingValue Name="ManagedFilePath" Value="@(Status?.ManagedFilePath)">
     <div class="ec-sections small">
         @{
             var views = EffectiveConfigViews.GetViewsForContext(Context);
@@ -41,9 +69,22 @@
             if (sectionDescriptors.Count == 0)
                 continue;
             var isOpen = hasSearch ? true : IsOpen(view.SectionId);
-            <EffectiveConfigSectionPanel SectionId="@view.SectionId" Title="@view.Title" Descriptors="@sectionDescriptors" IsOpen="@isOpen" OnToggle="@OnSectionToggle" DisplayMode="@DisplayMode" OnOptionHelpRequested="@HandleOptionHelpRequested" />
+            <EffectiveConfigSectionPanel SectionId="@view.SectionId" Title="@view.Title" Descriptors="@sectionDescriptors" IsOpen="@isOpen" OnToggle="@OnSectionToggle"
+                DisplayMode="@( _isEditMode ? EffectiveConfigDisplayMode.Edit : EffectiveConfigDisplayMode.View )"
+                IsEditMode="@_isEditMode" ActiveFieldKey="@_activeFieldKey"
+                OnActivateField="ActivateField" OnFieldEditCommitted="HandleFieldEditCommitted"
+                OnReadonlyBadgeClicked="HandleReadonlyBadgeClicked"
+                OnReadonlyBadgeMouseLeave="ScheduleReadonlyCloseAsync"
+                OnOptionHelpRequested="@HandleOptionHelpRequested" />
         }
     </div>
+    </CascadingValue>
+    </CascadingValue>
+    </CascadingValue>
+    @if (_showSaveModal)
+    {
+        <EffectiveConfigSaveModal PendingChanges="_pendingChanges" Status="@Status" OnClose="CloseSaveModal" OnSave="ConfirmSave" />
+    }
 </div>
 }
 
@@ -51,7 +92,8 @@
     [Parameter] public DnsmasqServiceStatus? Status { get; set; }
     [Parameter] public EffectiveConfigContext Context { get; set; } = EffectiveConfigContext.All;
     [Parameter] public bool ShowSearchBox { get; set; } = true;
-    [Parameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
+    /// <summary>Raised after pending changes were successfully written to managed config (so the page can refresh status).</summary>
+    [Parameter] public EventCallback OnSaveCompleted { get; set; }
 
     private string _searchTerm = "";
     private HashSet<string> _openPanels = new();
@@ -60,6 +102,18 @@
     private string _optionHelpTitle = "Option help";
     private bool _showOptionHelp;
     private CancellationTokenSource? _closeCts;
+
+    private bool _isEditMode;
+    private string? _activeFieldKey;
+    private readonly List<PendingEffectiveConfigChange> _pendingChanges = new();
+    private bool _showSaveModal;
+
+    private bool _showReadonlyPopover;
+    private string? _readonlyPopoverAnchorId;
+    private ConfigValueSource? _readonlyPopoverSource;
+    private string? _readonlyPopoverOptionName;
+    private object? _readonlyPopoverValue;
+    private CancellationTokenSource? _readonlyCloseCts;
 
     private bool IsOpen(string id) => _openPanels.Contains(id);
 
@@ -118,6 +172,53 @@
         StateHasChanged();
     }
 
+    private async Task HandleReadonlyBadgeClicked(ReadonlyBadgeClickedEventArgs args)
+    {
+        _readonlyPopoverAnchorId = args.AnchorId;
+        _readonlyPopoverSource = args.Source;
+        _readonlyPopoverOptionName = args.OptionName;
+        _readonlyPopoverValue = args.Value;
+        _showReadonlyPopover = true;
+        CancelReadonlyCloseTimer();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void CancelReadonlyCloseTimer()
+    {
+        _readonlyCloseCts?.Cancel();
+        _readonlyCloseCts = null;
+    }
+
+    private Task CancelReadonlyCloseTimerAsync() { CancelReadonlyCloseTimer(); return Task.CompletedTask; }
+
+    private void ScheduleReadonlyClose()
+    {
+        _readonlyCloseCts?.Cancel();
+        _readonlyCloseCts = new CancellationTokenSource();
+        var token = _readonlyCloseCts.Token;
+        _ = Task.Run(async () =>
+        {
+            try { await Task.Delay(300, token); }
+            catch (OperationCanceledException) { return; }
+            await InvokeAsync(() =>
+            {
+                if (token.IsCancellationRequested) return;
+                _showReadonlyPopover = false;
+                _readonlyCloseCts = null;
+                StateHasChanged();
+            });
+        }, token);
+    }
+
+    private Task ScheduleReadonlyCloseAsync() { ScheduleReadonlyClose(); return Task.CompletedTask; }
+
+    private void CloseReadonlyPopover()
+    {
+        CancelReadonlyCloseTimer();
+        _showReadonlyPopover = false;
+        StateHasChanged();
+    }
+
     private void OnSectionToggle(string id)
     {
         if (_openPanels.Contains(id))
@@ -144,6 +245,96 @@
         if (string.IsNullOrEmpty(term)) return true;
         var searchable = (d.OptionName + " " + (DnsmasqOptionTooltips.Get(d.OptionName) ?? "")).Trim();
         return searchable.Contains(term, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void EnterEditMode()
+    {
+        _isEditMode = true;
+        _activeFieldKey = null;
+        _pendingChanges.Clear();
+        StateHasChanged();
+    }
+
+    private async Task ExitEditModeWithConfirmAsync()
+    {
+        if (_pendingChanges.Count > 0)
+        {
+            var module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/dialog.js");
+            try
+            {
+                var confirmed = await module.InvokeAsync<bool>("confirmMessage", "Discard unsaved changes and exit edit mode?");
+                if (!confirmed) return;
+            }
+            finally
+            {
+                await module.DisposeAsync();
+            }
+        }
+        _pendingChanges.Clear();
+        _activeFieldKey = null;
+        _isEditMode = false;
+        StateHasChanged();
+    }
+
+    private void DeactivateActiveFieldIfClicked()
+    {
+        if (_isEditMode && _activeFieldKey != null)
+        {
+            _activeFieldKey = null;
+            StateHasChanged();
+        }
+    }
+
+    private void ActivateField(string fieldKey)
+    {
+        _isEditMode = true;
+        _activeFieldKey = fieldKey;
+        StateHasChanged();
+    }
+
+    private void HandleFieldEditCommitted(EffectiveConfigEditCommittedArgs args)
+    {
+        var existing = _pendingChanges.FirstOrDefault(c => c.SectionId == args.SectionId && c.OptionName == args.OptionName);
+        if (existing != null)
+            _pendingChanges.Remove(existing);
+        if (!Equals(args.OldValue, args.NewValue))
+            _pendingChanges.Add(new PendingEffectiveConfigChange(args.SectionId, args.OptionName, args.OldValue, args.NewValue, args.CurrentSourceFilePath));
+        _activeFieldKey = null;
+        StateHasChanged();
+    }
+
+    private void OpenSaveModal()
+    {
+        if (_pendingChanges.Count == 0) return;
+        _showSaveModal = true;
+        StateHasChanged();
+    }
+
+    private void CloseSaveModal()
+    {
+        _showSaveModal = false;
+        StateHasChanged();
+    }
+
+    private async Task ConfirmSave()
+    {
+        if (_pendingChanges.Count == 0) return;
+        var changes = _pendingChanges.ToList();
+        try
+        {
+            await ConfigService.ApplyEffectiveConfigChangesAsync(changes);
+            CloseSaveModal();
+            _pendingChanges.Clear();
+            _activeFieldKey = null;
+            _isEditMode = false;
+            StateHasChanged();
+            await OnSaveCompleted.InvokeAsync();
+        }
+        catch (Exception)
+        {
+            // TODO: show error to user (e.g. toast or modal message)
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     public ValueTask DisposeAsync()

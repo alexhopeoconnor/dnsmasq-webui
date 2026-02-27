@@ -1,0 +1,76 @@
+@namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Infrastructure.Helpers.Config
+@inject IJSRuntime JSRuntime
+
+@if (Source is { IsReadOnly: true })
+{
+    <div class="ec-readonly-hint small text-muted mt-1">
+        <span class="d-block">@ReadonlyConfigCommandGenerator.GetEditFileHint(Source)</span>
+        @if (!string.IsNullOrEmpty(_removeCommand))
+        {
+            <div class="d-flex align-items-center gap-1 mt-1">
+                <code class="flex-grow-1 small text-break">@_removeCommand</code>
+                <button type="button" class="btn btn-sm btn-outline-secondary py-0" @onclick="CopyRemoveCommand" title="Copy command">Copy</button>
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(_overrideLine))
+        {
+            <span class="d-block mt-1">@ReadonlyConfigCommandGenerator.GetOverrideHint(OptionName, Value, ManagedFilePath)</span>
+            <div class="d-flex align-items-center gap-1 mt-1">
+                <code class="flex-grow-1 small">@_overrideLine</code>
+                <button type="button" class="btn btn-sm btn-outline-secondary py-0" @onclick="CopyOverrideLine" title="Copy line">Copy</button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public ConfigValueSource? Source { get; set; }
+    [Parameter] public string OptionName { get; set; } = "";
+    [Parameter] public object? Value { get; set; }
+    [Parameter] public string? ManagedFilePath { get; set; }
+
+    private string _removeCommand = "";
+    private string _overrideLine = "";
+
+    protected override void OnParametersSet()
+    {
+        if (Source is { IsReadOnly: true })
+        {
+            _removeCommand = ReadonlyConfigCommandGenerator.GetRemoveLineCommand(Source, OptionName);
+            _overrideLine = ReadonlyConfigCommandGenerator.GetOverrideLine(OptionName, Value, ManagedFilePath);
+        }
+        else
+        {
+            _removeCommand = "";
+            _overrideLine = "";
+        }
+    }
+
+    private async Task CopyRemoveCommand()
+    {
+        if (string.IsNullOrEmpty(_removeCommand)) return;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("copyToClipboard", _removeCommand);
+        }
+        catch
+        {
+            // Copy not supported or failed
+        }
+    }
+
+    private async Task CopyOverrideLine()
+    {
+        if (string.IsNullOrEmpty(_overrideLine)) return;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("copyToClipboard", _overrideLine);
+        }
+        catch
+        {
+            // Copy not supported or failed
+        }
+    }
+}

@@ -660,11 +660,12 @@ public static class DnsmasqConfIncludeParser
         return result;
     }
 
-    /// <summary>Same as <see cref="GetAddnHostsPathsFromConfigFilesWithSource(IReadOnlyList{string}, string?)"/> but uses pre-read content.</summary>
+    /// <summary>Same as <see cref="GetAddnHostsPathsFromConfigFilesWithSource(IReadOnlyList{string}, string?)"/> but uses pre-read content. When resolved path equals <paramref name="managedHostsFilePath"/>, the source is readonly (managed hosts file; edit on Hosts page).</summary>
     public static IReadOnlyList<(string Path, ConfigValueSource Source)> GetAddnHostsPathsFromConfigFilesWithSource(
-        IReadOnlyList<string> configFilePathsInOrder, IReadOnlyDictionary<string, string[]> pathToLines, string? managedFilePath)
+        IReadOnlyList<string> configFilePathsInOrder, IReadOnlyDictionary<string, string[]> pathToLines, string? managedFilePath, string? managedHostsFilePath = null)
     {
         var result = new List<(string Path, ConfigValueSource Source)>();
+        var managedHostsFull = string.IsNullOrEmpty(managedHostsFilePath) ? null : Path.GetFullPath(managedHostsFilePath);
         foreach (var configPath in configFilePathsInOrder)
         {
             var dir = Path.GetDirectoryName(configPath) ?? "";
@@ -681,7 +682,11 @@ public static class DnsmasqConfIncludeParser
                 var path = value.Trim();
                 if (string.IsNullOrEmpty(path))
                     continue;
-                result.Add((Path.GetFullPath(Path.Combine(dir, path)), MakeSource(configPath, managedFilePath, i + 1)));
+                var resolvedPath = Path.GetFullPath(Path.Combine(dir, path));
+                var source = managedHostsFull != null && string.Equals(resolvedPath, managedHostsFull, StringComparison.Ordinal)
+                    ? new ConfigValueSource(resolvedPath, "managed hosts", IsManaged: false, i + 1, ReadOnlyTooltipOverride: "Managed hosts file reference (readonly). Edit entries on the Hosts page.")
+                    : MakeSource(configPath, managedFilePath, i + 1);
+                result.Add((resolvedPath, source));
             }
         }
         return result;

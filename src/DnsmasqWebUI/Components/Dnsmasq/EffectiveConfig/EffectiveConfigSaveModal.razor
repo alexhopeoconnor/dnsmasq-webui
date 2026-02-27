@@ -1,0 +1,65 @@
+@namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Models.Dnsmasq
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+
+<div class="modal fade show" style="display: block;" tabindex="-1" role="dialog" aria-labelledby="ec-save-modal-title" aria-modal="true">
+    <div class="modal-dialog modal-dialog-scrollable" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="ec-save-modal-title">Save effective config changes</h5>
+                <button type="button" class="btn-close" @onclick="Close" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted">The following changes will be written to your managed config file. Values set in other files will be overridden by these entries.</p>
+                @if (ManagedFilePath != null)
+                {
+                    <p class="small mb-2"><strong>Target file:</strong> <code>@ManagedFilePath</code></p>
+                }
+                <ul class="list-unstyled mb-0">
+                    @foreach (var c in PendingChanges)
+                    {
+                        <li class="small py-1 border-bottom border-light">
+                            <strong>@c.OptionName:</strong>
+                            @FormatValue(c.OldValue) → @FormatValue(c.NewValue)
+                            @if (c.CurrentSourceFilePath != null)
+                            {
+                                <br /><span class="text-muted">(overrides value from @System.IO.Path.GetFileName(c.CurrentSourceFilePath))</span>
+                            }
+                        </li>
+                    }
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="Close">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="Save">Save</button>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show" style="display: block;" @onclick="Close"></div>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<PendingEffectiveConfigChange> PendingChanges { get; set; } = null!;
+    [Parameter] public DnsmasqServiceStatus? Status { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+
+    private string? ManagedFilePath => Status?.ManagedFilePath;
+
+    private static string FormatValue(object? v)
+    {
+        if (v == null) return "(not set)";
+        if (v is bool b) return b ? "on" : "off";
+        return v.ToString() ?? "(not set)";
+    }
+
+    private async Task Close()
+    {
+        await OnClose.InvokeAsync();
+    }
+
+    private async Task Save()
+    {
+        await OnSave.InvokeAsync();
+    }
+}

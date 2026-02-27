@@ -149,7 +149,7 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
             var paths = set.Files.Select(f => f.Path).ToList();
             var pathToLines = ReadAllPaths(paths, ct);
             var config = BuildEffectiveConfig(paths, pathToLines);
-            var sources = BuildEffectiveConfigSources(paths, pathToLines, set.ManagedFilePath);
+            var sources = BuildEffectiveConfigSources(paths, pathToLines, set.ManagedFilePath, set.ManagedHostsFilePath);
             var managedContent = BuildManagedContent(pathToLines, set.ManagedFilePath);
             var dhcpHostEntries = BuildDhcpHostEntries(set, pathToLines);
 
@@ -412,10 +412,10 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
         );
     }
 
-    private static EffectiveConfigSources BuildEffectiveConfigSources(IReadOnlyList<string> paths, IReadOnlyDictionary<string, string[]> pathToLines, string? managedFilePath)
+    private static EffectiveConfigSources BuildEffectiveConfigSources(IReadOnlyList<string> paths, IReadOnlyDictionary<string, string[]> pathToLines, string? managedFilePath, string? managedHostsFilePath)
     {
         var (_, noHostsSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.NoHosts, managedFilePath);
-        var addnHostsWithSource = DnsmasqConfIncludeParser.GetAddnHostsPathsFromConfigFilesWithSource(paths, pathToLines, managedFilePath);
+        var addnHostsWithSource = DnsmasqConfIncludeParser.GetAddnHostsPathsFromConfigFilesWithSource(paths, pathToLines, managedFilePath, managedHostsFilePath);
         var (_, hostsdirPathSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.Hostsdir, managedFilePath);
         var serverLocalWithSource = DnsmasqConfIncludeParser.GetMultiValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.ServerLocalKeys, managedFilePath);
         var revServerWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.RevServer, managedFilePath);

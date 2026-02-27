@@ -13,7 +13,16 @@
                 <ul class="list-unstyled mb-0">
                     @foreach (var f in Descriptors)
                     {
-                        <EffectiveConfigFieldDisplay Descriptor="@f" OnOptionHelpRequested="@OnOptionHelpRequested" />
+                        var fieldKey = $"{SectionId}:{f.OptionName}";
+                        <EffectiveConfigFieldDisplay Descriptor="@f"
+                            IsEditMode="@IsEditMode"
+                            IsActive="@(ActiveFieldKey == fieldKey)"
+                            ActiveFieldKey="@ActiveFieldKey"
+                            OnActivateEdit="@(() => OnActivateField.InvokeAsync(fieldKey))"
+                            OnEditCommitted="@OnFieldEditCommitted"
+                            OnReadonlyBadgeClicked="@OnReadonlyBadgeClicked"
+                            OnReadonlyBadgeMouseLeave="@OnReadonlyBadgeMouseLeave"
+                            OnOptionHelpRequested="@OnOptionHelpRequested" />
                     }
                 </ul>
             </div>
@@ -29,8 +38,14 @@
     [Parameter] public EventCallback<string> OnToggle { get; set; }
     /// <summary>Raised when user requests option help (click or mouse leave from label). Passed through from Section.</summary>
     [Parameter] public EventCallback<ConfigOptionHelpRequestEventArgs> OnOptionHelpRequested { get; set; }
-    /// <summary>Cascaded from EffectiveConfigSection. View = read-only; Edit = editable (future).</summary>
+    /// <summary>Cascaded from EffectiveConfigSection. View = read-only; Edit = editable.</summary>
     [Parameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
+    [Parameter] public bool IsEditMode { get; set; }
+    [Parameter] public string? ActiveFieldKey { get; set; }
+    [Parameter] public EventCallback<string> OnActivateField { get; set; }
+    [Parameter] public EventCallback<EffectiveConfigEditCommittedArgs> OnFieldEditCommitted { get; set; }
+    [Parameter] public EventCallback<ReadonlyBadgeClickedEventArgs> OnReadonlyBadgeClicked { get; set; }
+    [Parameter] public EventCallback OnReadonlyBadgeMouseLeave { get; set; }
 
     private async Task ToggleSection() => await OnToggle.InvokeAsync(SectionId);
 }

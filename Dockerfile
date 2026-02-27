@@ -19,15 +19,14 @@ RUN dotnet build "DnsmasqWebUI.csproj" -c Release -o /app/build
 FROM build AS publish
 RUN dotnet publish "DnsmasqWebUI.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
-FROM base AS app
+FROM base AS final
 WORKDIR /app
 ENV ASPNETCORE_URLS=http://+:8080
-COPY --from=publish /app/publish .
-
-FROM app AS final
+# Slow, rarely-changing steps first (stay cached when only .NET code changes)
 RUN apt-get update && apt-get install -y --no-install-recommends dnsmasq procps \
     && rm -rf /var/lib/apt/lists/*
-COPY scripts/entrypoint.sh .
-COPY scripts/dnsmasq-status.sh .
+COPY scripts/entrypoint.sh scripts/dnsmasq-status.sh .
 RUN chmod +x entrypoint.sh dnsmasq-status.sh
+# .NET publish last - only this layer invalidates when code changes
+COPY --from=publish /app/publish .
 ENTRYPOINT ["./entrypoint.sh"]

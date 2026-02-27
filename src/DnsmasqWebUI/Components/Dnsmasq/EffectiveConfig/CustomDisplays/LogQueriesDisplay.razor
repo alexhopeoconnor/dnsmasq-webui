@@ -1,10 +1,10 @@
 @namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig.CustomDisplays
 @using DnsmasqWebUI.Models.Dnsmasq
 
-@* log-queries: optional value extra|proto|auth. View: Off / On / On (extra|proto|auth). Edit: dropdown. *@
-@if (DisplayMode == EffectiveConfigDisplayMode.Edit && Descriptor.GetSource()?.IsReadOnly != true)
+@* log-queries: optional value extra|proto|auth. View: Off / On / On (extra|proto|auth). When active editor: dropdown. *@
+@if (IsActiveEditor && Descriptor.GetSource()?.IsReadOnly != true)
 {
-    <select class="form-select form-select-sm" style="max-width: 12rem;" value="@GetEditValue()" @onchange="OnChange">
+    <select class="form-select form-select-sm" style="max-width: 12rem;" value="@GetEditValue()" @onchange="OnChange" @onfocusout="OnCommitRequested">
         <option value="">Off</option>
         <option value="on">On</option>
         <option value="extra">On (extra)</option>
@@ -19,9 +19,9 @@ else
 
 @code {
     [Parameter] public EffectiveConfigFieldDescriptor Descriptor { get; set; } = null!;
-    [CascadingParameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
-
-    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [CascadingParameter] public bool IsActiveEditor { get; set; }
+    [CascadingParameter] public EventCallback<FocusEventArgs> OnCommitRequested { get; set; }
+    [Parameter] public EventCallback<object?> ValueChanged { get; set; }
 
     private string GetEditValue()
     {

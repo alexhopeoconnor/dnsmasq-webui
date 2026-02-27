@@ -4,9 +4,9 @@
 
 <li class="ec-field">
     <span id="@OptionHelpAnchorId" class="ec-field-label @(OptionHelpKey != null ? "ec-field-label-help" : null)" title="@LabelTooltip" @onclick="RaiseOptionHelpRequested" @onmouseleave="RaiseLabelMouseLeave"><strong>@Label:</strong></span>
-    @if (DisplayMode == EffectiveConfigDisplayMode.Edit)
+    @if (IsActiveEditor)
     {
-        <span class="ec-field-value ec-field-value-multi">
+        <span class="ec-field-value ec-field-value-multi" @onclick:stopPropagation="true">
             <textarea class="form-control form-control-sm" rows="@(Math.Max(2, (Items?.Count ?? 0) + 1))" @oninput="OnLinesInput" placeholder="One value per line">@_editLines</textarea>
         </span>
     }
@@ -16,9 +16,11 @@
             @if (Items?.Count > 0)
             {
                 <ol class="ec-field-value-list">
-                    @foreach (var item in Items!)
+                    @foreach (var (item, index) in Items!.Select((item, index) => (item, index)))
                     {
-                        <li><EffectiveConfigMultiValueItem Value="@item.Value" Source="@item.Source" /></li>
+                        var anchorId = ReadonlyBadgeAnchorIdBase != null ? ReadonlyBadgeAnchorIdBase + "-" + index : null;
+                        var args = new ReadonlyBadgeClickedEventArgs(anchorId ?? "", item.Source!, Label, item.Value);
+                        <li><EffectiveConfigMultiValueItem Value="@item.Value" Source="@item.Source" IsEditMode="@IsEditMode" ReadonlyBadgeAnchorId="@anchorId" OnReadonlyBadgeClick="@(() => _ = OnReadonlyBadgeClicked.InvokeAsync(args))" OnReadonlyBadgeMouseLeave="@OnReadonlyBadgeMouseLeave" /></li>
                     }
                 </ol>
             }
@@ -37,7 +39,11 @@
     [Parameter] public string? LabelTooltip { get; set; }
     [Parameter] public string? OptionHelpKey { get; set; }
     [Parameter] public string? OptionHelpAnchorId { get; set; }
-    [CascadingParameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
+    [Parameter] public bool IsActiveEditor { get; set; }
+    [Parameter] public bool IsEditMode { get; set; }
+    [Parameter] public string? ReadonlyBadgeAnchorIdBase { get; set; }
+    [Parameter] public EventCallback<ReadonlyBadgeClickedEventArgs> OnReadonlyBadgeClicked { get; set; }
+    [Parameter] public EventCallback OnReadonlyBadgeMouseLeave { get; set; }
     [Parameter] public EventCallback<ConfigOptionHelpRequestEventArgs> OnOptionHelpRequested { get; set; }
 
     private string _editLines = "";

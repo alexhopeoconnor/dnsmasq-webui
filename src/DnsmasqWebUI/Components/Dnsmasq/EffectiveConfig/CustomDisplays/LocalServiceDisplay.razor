@@ -1,10 +1,10 @@
 @namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig.CustomDisplays
 @using DnsmasqWebUI.Models.Dnsmasq
 
-@* local-service: net | host. View: (not set) / net / host. Edit: dropdown. *@
-@if (DisplayMode == EffectiveConfigDisplayMode.Edit && Descriptor.GetSource()?.IsReadOnly != true)
+@* local-service: net | host. View: (not set) / net / host. When active editor: dropdown. *@
+@if (IsActiveEditor && Descriptor.GetSource()?.IsReadOnly != true)
 {
-    <select class="form-select form-select-sm" style="max-width: 10rem;" value="@(Descriptor.GetValue() as string ?? "")" @onchange="OnChange">
+    <select class="form-select form-select-sm" style="max-width: 10rem;" value="@(Descriptor.GetValue() as string ?? "")" @onchange="OnChange" @onfocusout="OnCommitRequested">
         <option value="">(not set)</option>
         <option value="net">net</option>
         <option value="host">host</option>
@@ -18,9 +18,9 @@ else
 
 @code {
     [Parameter] public EffectiveConfigFieldDescriptor Descriptor { get; set; } = null!;
-    [CascadingParameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
-
-    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [CascadingParameter] public bool IsActiveEditor { get; set; }
+    [CascadingParameter] public EventCallback<FocusEventArgs> OnCommitRequested { get; set; }
+    [Parameter] public EventCallback<object?> ValueChanged { get; set; }
 
     private async Task OnChange(ChangeEventArgs e)
     {

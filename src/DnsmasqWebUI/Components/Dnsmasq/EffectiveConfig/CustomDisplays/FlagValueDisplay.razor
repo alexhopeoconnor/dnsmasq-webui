@@ -1,11 +1,11 @@
 @namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig.CustomDisplays
 @using DnsmasqWebUI.Models.Dnsmasq
 
-@* Reusable value-only display for boolean/flag options. Edit mode: checkbox (unless readonly); View: "Enabled" / "Disabled". *@
-@if (DisplayMode == EffectiveConfigDisplayMode.Edit && Descriptor.GetSource()?.IsReadOnly != true)
+@* Reusable value-only display for boolean/flag options. When active editor: checkbox (unless readonly); View: "Enabled" / "Disabled". *@
+@if (IsActiveEditor && Descriptor.GetSource()?.IsReadOnly != true)
 {
     var isSet = Descriptor.GetValue() is bool b && b;
-    <input type="checkbox" class="form-check-input" checked="@isSet" @onchange="OnCheckedChange" />
+    <input type="checkbox" class="form-check-input" checked="@isSet" @onchange="OnCheckedChange" @onfocusout="OnCommitRequested" />
 }
 else
 {
@@ -14,11 +14,12 @@ else
 
 @code {
     [Parameter] public EffectiveConfigFieldDescriptor Descriptor { get; set; } = null!;
-    [CascadingParameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
-    [Parameter] public EventCallback<bool> CheckedChanged { get; set; }
+    [CascadingParameter] public bool IsActiveEditor { get; set; }
+    [CascadingParameter] public EventCallback<FocusEventArgs> OnCommitRequested { get; set; }
+    [Parameter] public EventCallback<object?> ValueChanged { get; set; }
 
     private async Task OnCheckedChange(ChangeEventArgs e)
     {
-        await CheckedChanged.InvokeAsync(e.Value is true);
+        await ValueChanged.InvokeAsync(e.Value is true);
     }
 }
