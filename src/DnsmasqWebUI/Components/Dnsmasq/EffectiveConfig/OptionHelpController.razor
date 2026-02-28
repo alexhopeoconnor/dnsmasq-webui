@@ -48,4 +48,10 @@
     {
         ScheduleClose();
     }
+
+    /// <summary>Called when opening or switching help (e.g. user clicked another label); cancels any pending 300ms close so the timer from a previous label leave does not dismiss the new help.</summary>
+    public void CancelCloseFromLabelEnter()
+    {
+        CancelCloseTimer();
+    }
 }

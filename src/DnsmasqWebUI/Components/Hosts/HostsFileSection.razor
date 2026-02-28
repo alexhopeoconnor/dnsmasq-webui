@@ -4,11 +4,11 @@
         @Path
         @if (IsEditable)
         {
-            <span class="badge bg-primary ms-1">editable</span>
+            <StatusBadge Kind="StatusBadgeKind.Editable" Text="editable" Class="ms-1" />
         }
         else
         {
-            <span class="badge bg-secondary ms-1"> read-only</span>
+            <StatusBadge Kind="StatusBadgeKind.ReadOnly" Text="read-only" Class="ms-1" />
         }
     </h3>
     <div class="table-responsive-cards">

@@ -34,7 +34,7 @@
                     @fragment(Descriptor)
                 </CascadingValue>
             }
-            <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@Descriptor.GetSource()" OptionName="@Descriptor.OptionName" Value="@effectiveValue" IsInteractive="@IsEditMode" ShowEditableBadge="@showEditableBadge" HasPendingChange="@_hasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@isActiveEditor" OnCancelRequested="@HandleCancelEdit" />
+            <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@Descriptor.GetSource()" OptionName="@Descriptor.OptionName" Value="@effectiveValue" IsInteractive="@IsEditMode" ShowEditableBadge="@showEditableBadge" HasPendingChange="@_hasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@isActiveEditor" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
         </span>
     </li>
 }
@@ -63,7 +63,7 @@ else
             <EffectiveConfigOptionItem Label="@Descriptor.OptionName" DisplayValue="@(displayValue ?? "(not set)")" Source="@Descriptor.GetSource()" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId"
                 ShowEditableBadge="true" FieldKey="@FieldKey" IsActive="@IsActive"
                 ReadonlyBadgeAnchorId="@_readonlyBadgeAnchorId" RawValue="@value" HasPendingChange="@_hasPendingChange"
-                DisplayValueChanged="@HandleDefaultValueChanged" OnBlur="@HandleDefaultBlur" OnCancelRequested="@HandleCancelEdit" />
+                DisplayValueChanged="@HandleDefaultValueChanged" OnBlur="@HandleDefaultBlur" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
         </li>
     }
 }
@@ -86,7 +86,7 @@ else
     private object? _valueAtActivation;
     private object? _draftValue;
     private bool _wasActive;
-    private bool _cancelRequested;
+    private ExitAction _exitAction = ExitAction.None;
 
     protected override void OnParametersSet()
     {
@@ -100,11 +100,11 @@ else
         _hasPendingChange = pending != null;
         _effectiveValue = pending != null ? pending.NewValue : Descriptor.GetValue();
         if (!_wasActive && IsActive)
-            _valueAtActivation = _effectiveValue;
-        if (_wasActive && !IsActive && !_cancelRequested)
+            _valueAtActivation = Descriptor.GetValue();
+        if (_wasActive && !IsActive && _exitAction == ExitAction.None)
             _ = InvokeAsync(CommitIfChangedAsync);
         if (_wasActive && !IsActive)
-            _cancelRequested = false;
+            _exitAction = ExitAction.None;
         _wasActive = IsActive;
     }
 
@@ -146,12 +146,30 @@ else
         await CommitIfChangedAsync();
     }
 
-    private async Task HandleCancelEdit()
+    private async Task HandleConfirmEdit()
     {
-        _cancelRequested = true;
-        _draftValue = null;
+        await CommitIfChangedAsync();
+        _exitAction = ExitAction.Confirm;
         if (Ui != null)
             await Ui.DeactivateFieldAsync();
     }
 
+    private async Task HandleCancelEdit()
+    {
+        _draftValue = null;
+        _exitAction = ExitAction.Cancel;
+        if (Ui != null)
+            await Ui.DeactivateFieldAsync();
+    }
+
+    private async Task HandleRevertEdit()
+    {
+        _draftValue = null;
+        Session?.RevertChange(Descriptor.SectionId, Descriptor.OptionName);
+        _exitAction = ExitAction.Revert;
+        if (Ui != null)
+            await Ui.DeactivateFieldAsync();
+    }
+
+    private enum ExitAction { None, Confirm, Cancel, Revert }
 }

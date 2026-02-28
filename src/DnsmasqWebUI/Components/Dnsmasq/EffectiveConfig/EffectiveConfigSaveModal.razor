@@ -32,7 +32,7 @@
                             var change = c;
                             <div class="list-group-item ec-save-modal-item d-flex align-items-center gap-3 py-3 px-0 border-0 border-bottom">
                                 <div class="ec-save-modal-item-body flex-grow-1 min-width-0">
-                                    <span class="ec-save-modal-option badge rounded-pill bg-light text-dark border me-2">@change.OptionName</span>
+                                    <StatusBadge Kind="StatusBadgeKind.NeutralPill" Text="@change.OptionName" Class="ec-save-modal-option me-2" />
                                     <span class="ec-save-modal-diff text-body">
                                         <span class="text-muted text-decoration-line-through">@FormatValue(change.OldValue)</span>
                                         <span class="text-muted mx-1" aria-hidden="true">→</span>

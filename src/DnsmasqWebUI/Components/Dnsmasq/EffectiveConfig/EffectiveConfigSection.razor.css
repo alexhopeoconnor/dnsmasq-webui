@@ -232,18 +232,12 @@
     margin-right: 0.25rem;
 }
 
-/* Badge: vertically centered, inline with value so when it wraps it stays part of the value flow */
-::deep .ec-field .badge,
-::deep .ec-field-value-item .badge {
+/* StatusBadge inside field rows: alignment; spacing comes from StatusBadge .status-badge-inline */
+::deep .ec-field .status-badge,
+::deep .ec-field-value-item .status-badge {
     display: inline-flex;
     align-items: center;
     line-height: 1;
-}
-
-/* Inline badge (inside value): gap from text; when it wraps to own line the margin gives a subtle indent */
-::deep .ec-badge-inline {
-    margin-left: 0.35rem;
-    white-space: nowrap;
 }
 
 @media (max-width: 767.98px) {

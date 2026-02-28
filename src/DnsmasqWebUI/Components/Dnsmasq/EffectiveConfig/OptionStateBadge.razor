@@ -6,14 +6,16 @@
 {
     @if (IsInteractive && Ui != null)
     {
-        <button type="button" id="@AnchorId" class="badge bg-secondary ec-badge-inline border-0 ms-1" title="@(Source?.GetReadOnlyTooltip())"
-                @onclick="OnReadonlyClick" @onmouseleave="OnReadonlyMouseLeave">
-            readonly
-        </button>
+        <StatusBadge Kind="StatusBadgeKind.ReadOnly" Text="readonly" Clickable="true"
+                     Id="@AnchorId" Title="@(Source?.GetReadOnlyTooltip())"
+                     OnClick="OnReadonlyClick" OnMouseLeave="OnReadonlyMouseLeave"
+                     Class="status-badge-inline" />
     }
     else
     {
-        <span class="badge bg-secondary ec-badge-inline ms-1" title="@(Source?.GetReadOnlyTooltip())">readonly</span>
+        <StatusBadge Kind="StatusBadgeKind.ReadOnly" Text="readonly"
+                     Title="@(Source?.GetReadOnlyTooltip())"
+                     Class="status-badge-inline" />
     }
 }
 else if (ShowEditableBadge)
@@ -22,31 +24,36 @@ else if (ShowEditableBadge)
     {
         @if (IsActiveEditor)
         {
-            <button type="button"
-                    class="badge ec-badge-inline border-0 ms-1 bg-secondary"
-                    @onmousedown:preventDefault
-                    @onclick="OnCancelClick"
-                    @onclick:stopPropagation="true"
-                    title="Cancel and clear unsaved changes for this field"
-                    aria-label="Cancel">
-                cancel
-            </button>
+            <span class="status-badge-inline">
+                <StatusBadge Kind="StatusBadgeKind.ActionOk" Text="ok" Clickable="true"
+                             Title="Apply this field change" AriaLabel="Apply change"
+                             PreventBlurOnMouseDown="true" OnClick="OnConfirmClick" />
+                <StatusBadge Kind="StatusBadgeKind.ActionCancel" Text="cancel" Clickable="true"
+                             Title="Discard in-progress edits for this field" AriaLabel="Cancel edit"
+                             PreventBlurOnMouseDown="true" OnClick="OnCancelClick" />
+                @if (HasPendingChange)
+                {
+                    <StatusBadge Kind="StatusBadgeKind.ActionRevert" Text="revert" Clickable="true"
+                                 Title="Remove this field from pending changes" AriaLabel="Revert pending change"
+                                 PreventBlurOnMouseDown="true" OnClick="OnRevertClick" />
+                }
+            </span>
         }
         else
         {
-            <button type="button"
-                    class="badge ec-badge-inline border-0 ms-1 @(HasPendingChange ? "bg-warning text-dark" : "bg-primary")"
-                    @onclick="OnEditableClick"
-                    @onclick:stopPropagation="true"
-                    title="@(HasPendingChange ? "Pending change" : "Edit this field")"
-                    aria-label="Edit">
-                @(HasPendingChange ? "pending" : "editable")
-            </button>
+            <StatusBadge Kind="@(HasPendingChange ? StatusBadgeKind.Pending : StatusBadgeKind.Editable)"
+                         Text="@(HasPendingChange ? "pending" : "editable")"
+                         Clickable="true"
+                         Title="@(HasPendingChange ? "Pending change" : "Edit this field")"
+                         AriaLabel="Edit"
+                         OnClick="OnEditableClick"
+                         Class="status-badge-inline" />
         }
     }
     else
     {
-        <span class="badge bg-primary ec-badge-inline ms-1">editable</span>
+        <StatusBadge Kind="StatusBadgeKind.Editable" Text="editable"
+                     Class="status-badge-inline" />
     }
 }
 
@@ -55,21 +62,22 @@ else if (ShowEditableBadge)
     [Parameter] public ConfigValueSource? Source { get; set; }
     [Parameter] public string OptionName { get; set; } = "";
     [Parameter] public object? Value { get; set; }
-    /// <summary>When true, render readonly as button and raise click/mouseleave via context.</summary>
     [Parameter] public bool IsInteractive { get; set; }
-    /// <summary>When true, show editable/pending badge for non-readonly fields.</summary>
     [Parameter] public bool ShowEditableBadge { get; set; }
-    /// <summary>When true, badge shows "pending" and warning style.</summary>
     [Parameter] public bool HasPendingChange { get; set; }
-    /// <summary>When true, editable badge is a button; otherwise a static span.</summary>
     [Parameter] public bool EditableAsButton { get; set; } = true;
-    /// <summary>When true, this field is the active editor; show Cancel instead of Edit and invoke OnCancelRequested on click.</summary>
     [Parameter] public bool IsActiveEditor { get; set; }
-    /// <summary>When user clicks Cancel (while IsActiveEditor). Invoke before deactivating so parent can clear draft.</summary>
+    [Parameter] public EventCallback OnConfirmRequested { get; set; }
     [Parameter] public EventCallback OnCancelRequested { get; set; }
-    /// <summary>Field key for activation via context when editable badge is clicked.</summary>
+    [Parameter] public EventCallback OnRevertRequested { get; set; }
     [Parameter] public string? FieldKey { get; set; }
     [CascadingParameter] public EffectiveConfigUiContext? Ui { get; set; }
+
+    private async Task OnConfirmClick()
+    {
+        if (OnConfirmRequested.HasDelegate)
+            await OnConfirmRequested.InvokeAsync();
+    }
 
     private async Task OnCancelClick()
     {
@@ -77,6 +85,12 @@ else if (ShowEditableBadge)
             await OnCancelRequested.InvokeAsync();
         else if (Ui != null)
             await Ui.DeactivateFieldAsync();
+    }
+
+    private async Task OnRevertClick()
+    {
+        if (OnRevertRequested.HasDelegate)
+            await OnRevertRequested.InvokeAsync();
     }
 
     private Task OnEditableClick()

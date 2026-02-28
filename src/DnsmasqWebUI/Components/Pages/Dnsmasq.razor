@@ -38,11 +38,11 @@ else if (_status != null)
                     <li>
                         @if (f.IsManaged)
                         {
-                            <span class="badge bg-primary me-1">managed</span>
+                            <StatusBadge Kind="StatusBadgeKind.Managed" Text="managed" Class="me-1" />
                         }
                         else
                         {
-                            <span class="badge bg-secondary me-1">@(f.Source.ToString().ToLowerInvariant())</span>
+                            <StatusBadge Kind="StatusBadgeKind.SourceMain" Text="@(f.Source.ToString().ToLowerInvariant())" Class="me-1" />
                         }
                         @f.Path
                         @if (exists == true) { <text> ✓</text> }

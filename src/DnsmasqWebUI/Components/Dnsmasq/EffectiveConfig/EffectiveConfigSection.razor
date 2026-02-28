@@ -93,6 +93,7 @@
             await InvokeAsync(StateHasChanged);
             return;
         }
+        _optionHelpControllerRef?.CancelCloseFromLabelEnter();
         _optionHelpKey = args.HelpKey;
         _optionHelpTitle = args.OptionLabel;
         _optionHelpAnchorId = args.AnchorId;
