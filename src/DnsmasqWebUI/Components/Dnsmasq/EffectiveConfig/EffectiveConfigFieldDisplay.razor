@@ -34,7 +34,7 @@
                     @fragment(Descriptor)
                 </CascadingValue>
             }
-            <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@Descriptor.GetSource()" OptionName="@Descriptor.OptionName" Value="@effectiveValue" IsInteractive="@IsEditMode" ShowEditableBadge="@showEditableBadge" HasPendingChange="@_hasPendingChange" EditableAsButton="true" OnActivateEdit="@OnActivateEdit" />
+            <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@Descriptor.GetSource()" OptionName="@Descriptor.OptionName" Value="@effectiveValue" IsInteractive="@IsEditMode" ShowEditableBadge="@showEditableBadge" HasPendingChange="@_hasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" />
         </span>
     </li>
 }
@@ -54,14 +54,14 @@ else
     {
         <li class="ec-field" title="@(Descriptor.GetSource()?.GetReadOnlyTooltip())">
             <EffectiveConfigOptionItem Label="@Descriptor.OptionName" DisplayValue="@(displayValue ?? "(not set)")" Source="@Descriptor.GetSource()" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId"
-                ReadonlyBadgeAnchorId="@_readonlyBadgeAnchorId" RawValue="@value" HasPendingChange="@_hasPendingChange" />
+                FieldKey="@FieldKey" ReadonlyBadgeAnchorId="@_readonlyBadgeAnchorId" RawValue="@value" HasPendingChange="@_hasPendingChange" />
         </li>
     }
     else
     {
         <li class="ec-field @(isActiveEditor ? "ec-field-editing" : "")" title="@(Descriptor.GetSource()?.GetReadOnlyTooltip())">
             <EffectiveConfigOptionItem Label="@Descriptor.OptionName" DisplayValue="@(displayValue ?? "(not set)")" Source="@Descriptor.GetSource()" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId"
-                ShowEditableBadge="true" OnActivateEdit="@OnActivateEdit" IsActive="@IsActive"
+                ShowEditableBadge="true" FieldKey="@FieldKey" IsActive="@IsActive"
                 ReadonlyBadgeAnchorId="@_readonlyBadgeAnchorId" RawValue="@value" HasPendingChange="@_hasPendingChange"
                 DisplayValueChanged="@HandleDefaultValueChanged" OnBlur="@HandleDefaultBlur" />
         </li>
@@ -70,11 +70,9 @@ else
 
 @code {
     [Parameter] public EffectiveConfigFieldDescriptor Descriptor { get; set; } = null!;
+    [Parameter] public string FieldKey { get; set; } = "";
     [Parameter] public bool IsEditMode { get; set; }
     [Parameter] public bool IsActive { get; set; }
-    [Parameter] public string? ActiveFieldKey { get; set; }
-    [Parameter] public EventCallback OnActivateEdit { get; set; }
-    [Parameter] public EventCallback<EffectiveConfigEditCommittedArgs> OnEditCommitted { get; set; }
     [CascadingParameter] public IEffectiveConfigEditSession? Session { get; set; }
 
     private readonly string _anchorId = "ec-help-" + Guid.NewGuid().ToString("N")[..8];
@@ -127,8 +125,6 @@ else
             var args = new EffectiveConfigEditCommittedArgs(Descriptor.SectionId, Descriptor.OptionName, _valueAtActivation, newValue, source?.FilePath);
             if (Ui != null)
                 await Ui.CommitFieldAsync(args);
-            else if (OnEditCommitted.HasDelegate)
-                await OnEditCommitted.InvokeAsync(args);
         }
         _draftValue = null;
     }

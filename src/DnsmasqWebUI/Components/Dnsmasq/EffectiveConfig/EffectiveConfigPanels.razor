@@ -23,8 +23,7 @@
         var isOpen = hasSearch || IsSectionOpen(view.SectionId);
         <EffectiveConfigSectionPanel SectionId="@view.SectionId" Title="@view.Title" Descriptors="@sectionDescriptors" IsOpen="@isOpen" OnToggle="@OnSectionToggle"
             DisplayMode="@( IsEditMode ? EffectiveConfigDisplayMode.Edit : EffectiveConfigDisplayMode.View )"
-            IsEditMode="@IsEditMode" ActiveFieldKey="@ActiveFieldKey"
-            OnActivateField="@OnActivateField" OnFieldEditCommitted="@OnFieldEditCommitted" />
+            IsEditMode="@IsEditMode" ActiveFieldKey="@ActiveFieldKey" />
     }
 </div>
 
@@ -36,8 +35,6 @@
     [Parameter] public EventCallback<string> OnSectionToggle { get; set; }
     [Parameter] public bool IsEditMode { get; set; }
     [Parameter] public string? ActiveFieldKey { get; set; }
-    [Parameter] public EventCallback<string> OnActivateField { get; set; }
-    [Parameter] public EventCallback<EffectiveConfigEditCommittedArgs> OnFieldEditCommitted { get; set; }
 
     private bool IsSectionOpen(string id) => OpenSectionIds.Contains(id);
 

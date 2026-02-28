@@ -14,12 +14,8 @@
                     @foreach (var f in Descriptors)
                     {
                         var fieldKey = $"{SectionId}:{f.OptionName}";
-                        <EffectiveConfigFieldDisplay Descriptor="@f"
-                            IsEditMode="@IsEditMode"
-                            IsActive="@(ActiveFieldKey == fieldKey)"
-                            ActiveFieldKey="@ActiveFieldKey"
-                            OnActivateEdit="@(() => OnActivateField.InvokeAsync(fieldKey))"
-                            OnEditCommitted="@OnFieldEditCommitted" />
+                        <EffectiveConfigFieldDisplay Descriptor="@f" FieldKey="@fieldKey"
+                            IsEditMode="@IsEditMode" IsActive="@(ActiveFieldKey == fieldKey)" />
                     }
                 </ul>
             </div>
@@ -37,8 +33,6 @@
     [Parameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
     [Parameter] public bool IsEditMode { get; set; }
     [Parameter] public string? ActiveFieldKey { get; set; }
-    [Parameter] public EventCallback<string> OnActivateField { get; set; }
-    [Parameter] public EventCallback<EffectiveConfigEditCommittedArgs> OnFieldEditCommitted { get; set; }
 
     private async Task ToggleSection() => await OnToggle.InvokeAsync(SectionId);
 }

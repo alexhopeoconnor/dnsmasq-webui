@@ -22,7 +22,7 @@ else if (ShowEditableBadge)
     {
         <button type="button"
                 class="badge ec-badge-inline border-0 ms-1 @(HasPendingChange ? "bg-warning text-dark" : "bg-primary")"
-                @onclick="OnActivateEdit"
+                @onclick="OnEditableClick"
                 @onclick:stopPropagation="true"
                 title="@(HasPendingChange ? "Pending change" : "Edit this field")"
                 aria-label="Edit">
@@ -48,8 +48,15 @@ else if (ShowEditableBadge)
     [Parameter] public bool HasPendingChange { get; set; }
     /// <summary>When true, editable badge is a button; otherwise a static span.</summary>
     [Parameter] public bool EditableAsButton { get; set; } = true;
-    [Parameter] public EventCallback OnActivateEdit { get; set; }
+    /// <summary>Field key for activation via context when editable badge is clicked.</summary>
+    [Parameter] public string? FieldKey { get; set; }
     [CascadingParameter] public EffectiveConfigUiContext? Ui { get; set; }
+
+    private Task OnEditableClick()
+    {
+        if (Ui == null || string.IsNullOrEmpty(FieldKey)) return Task.CompletedTask;
+        return Ui.ActivateFieldAsync(FieldKey);
+    }
 
     private Task OnReadonlyClick()
     {

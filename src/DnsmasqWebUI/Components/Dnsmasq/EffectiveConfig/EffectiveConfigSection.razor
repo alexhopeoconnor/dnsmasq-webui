@@ -22,8 +22,7 @@
     <CascadingValue Value="@Session">
     <CascadingValue Value="@_uiContext">
         <EffectiveConfigPanels Status="@Status" Context="@Context" SearchTerm="@_searchTerm" OpenSectionIds="@_openPanels"
-            OnSectionToggle="OnSectionToggle" IsEditMode="@Session.IsEditMode" ActiveFieldKey="@Session.ActiveFieldKey"
-            OnActivateField="ActivateField" OnFieldEditCommitted="HandleFieldEditCommitted" />
+            OnSectionToggle="OnSectionToggle" IsEditMode="@Session.IsEditMode" ActiveFieldKey="@Session.ActiveFieldKey" />
     </CascadingValue>
     </CascadingValue>
     <EffectiveConfigSaveFlow ShowModal="@_showSaveModal" PendingChanges="@Session.PendingChanges" Status="@Status" Session="@Session"
