@@ -1,0 +1,113 @@
+@namespace DnsmasqWebUI.Components.EffectiveConfig
+@using DnsmasqWebUI.Models.Dnsmasq
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+
+@if (Source?.IsReadOnly == true)
+{
+    @if (IsInteractive && Ui != null)
+    {
+        <StatusBadge Kind="StatusBadgeKind.ReadOnly" Text="readonly" Clickable="true"
+                     Id="@AnchorId" Title="@(Source?.GetReadOnlyTooltip())"
+                     OnClick="OnReadonlyClick" OnMouseLeave="OnReadonlyMouseLeave"
+                     Class="status-badge-inline" />
+    }
+    else
+    {
+        <StatusBadge Kind="StatusBadgeKind.ReadOnly" Text="readonly"
+                     Title="@(Source?.GetReadOnlyTooltip())"
+                     Class="status-badge-inline" />
+    }
+}
+else if (ShowEditableBadge)
+{
+    @if (EditableAsButton)
+    {
+        @if (IsActiveEditor)
+        {
+            <span class="status-badge-inline">
+                <StatusBadge Kind="StatusBadgeKind.ActionOk" Text="ok" Clickable="true"
+                             Title="Apply this field change" AriaLabel="Apply change"
+                             PreventBlurOnMouseDown="true" OnClick="OnConfirmClick" />
+                <StatusBadge Kind="StatusBadgeKind.ActionCancel" Text="cancel" Clickable="true"
+                             Title="Discard in-progress edits for this field" AriaLabel="Cancel edit"
+                             PreventBlurOnMouseDown="true" OnClick="OnCancelClick" />
+                @if (HasPendingChange)
+                {
+                    <StatusBadge Kind="StatusBadgeKind.ActionRevert" Text="revert" Clickable="true"
+                                 Title="Remove this field from pending changes" AriaLabel="Revert pending change"
+                                 PreventBlurOnMouseDown="true" OnClick="OnRevertClick" />
+                }
+            </span>
+        }
+        else
+        {
+            <StatusBadge Kind="@(HasPendingChange ? StatusBadgeKind.Pending : StatusBadgeKind.Editable)"
+                         Text="@(HasPendingChange ? "pending" : "editable")"
+                         Clickable="true"
+                         Title="@(HasPendingChange ? "Pending change" : "Edit this field")"
+                         AriaLabel="Edit"
+                         OnClick="OnEditableClick"
+                         Class="status-badge-inline" />
+        }
+    }
+    else
+    {
+        <StatusBadge Kind="StatusBadgeKind.Editable" Text="editable"
+                     Class="status-badge-inline" />
+    }
+}
+
+@code {
+    [Parameter] public string AnchorId { get; set; } = "";
+    [Parameter] public ConfigValueSource? Source { get; set; }
+    [Parameter] public string OptionName { get; set; } = "";
+    [Parameter] public object? Value { get; set; }
+    [Parameter] public bool IsInteractive { get; set; }
+    [Parameter] public bool ShowEditableBadge { get; set; }
+    [Parameter] public bool HasPendingChange { get; set; }
+    [Parameter] public bool EditableAsButton { get; set; } = true;
+    [Parameter] public bool IsActiveEditor { get; set; }
+    [Parameter] public EventCallback OnConfirmRequested { get; set; }
+    [Parameter] public EventCallback OnCancelRequested { get; set; }
+    [Parameter] public EventCallback OnRevertRequested { get; set; }
+    [Parameter] public string? FieldKey { get; set; }
+    [CascadingParameter] public EffectiveConfigUiContext? Ui { get; set; }
+
+    private async Task OnConfirmClick()
+    {
+        if (OnConfirmRequested.HasDelegate)
+            await OnConfirmRequested.InvokeAsync();
+    }
+
+    private async Task OnCancelClick()
+    {
+        if (OnCancelRequested.HasDelegate)
+            await OnCancelRequested.InvokeAsync();
+        else if (Ui != null)
+            await Ui.DeactivateFieldAsync();
+    }
+
+    private async Task OnRevertClick()
+    {
+        if (OnRevertRequested.HasDelegate)
+            await OnRevertRequested.InvokeAsync();
+    }
+
+    private Task OnEditableClick()
+    {
+        if (Ui == null || string.IsNullOrEmpty(FieldKey)) return Task.CompletedTask;
+        return Ui.ActivateFieldAsync(FieldKey);
+    }
+
+    private Task OnReadonlyClick()
+    {
+        if (Ui == null || Source == null) return Task.CompletedTask;
+        return Ui.RequestReadonlyPopoverAsync(new ReadonlyBadgeClickedEventArgs(AnchorId, Source, OptionName, Value));
+    }
+
+    private Task OnReadonlyMouseLeave()
+    {
+        if (Ui == null) return Task.CompletedTask;
+        return Ui.ScheduleReadonlyPopoverCloseAsync();
+    }
+}

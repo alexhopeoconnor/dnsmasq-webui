@@ -1,0 +1,38 @@
+@namespace DnsmasqWebUI.Components.EffectiveConfig
+@using DnsmasqWebUI.Models.Dnsmasq
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+
+<CascadingValue Value="DisplayMode">
+    <div class="ec-section @(IsOpen ? "ec-section-open" : "")">
+        <button type="button" class="ec-section-header" @onclick="ToggleSection" aria-expanded="@IsOpen">
+            <span class="ec-section-title fw-bold">@Title</span>
+            <i class="bi @(IsOpen ? "bi-chevron-down" : "bi-chevron-right") ec-section-chevron" aria-hidden="true"></i>
+        </button>
+        <div class="collapse @(IsOpen ? "show" : "")">
+            <div class="ec-section-body">
+                <ul class="list-unstyled mb-0">
+                    @foreach (var f in Descriptors)
+                    {
+                        var fieldKey = $"{SectionId}:{f.OptionName}";
+                        <EffectiveConfigFieldDisplay Descriptor="@f" FieldKey="@fieldKey"
+                            IsEditMode="@IsEditMode" IsActive="@(ActiveFieldKey == fieldKey)" />
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+</CascadingValue>
+
+@code {
+    [Parameter] public string SectionId { get; set; } = "";
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public IReadOnlyList<EffectiveConfigFieldDescriptor> Descriptors { get; set; } = null!;
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<string> OnToggle { get; set; }
+    /// <summary>Cascaded from EffectiveConfigSection. View = read-only; Edit = editable.</summary>
+    [Parameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
+    [Parameter] public bool IsEditMode { get; set; }
+    [Parameter] public string? ActiveFieldKey { get; set; }
+
+    private async Task ToggleSection() => await OnToggle.InvokeAsync(SectionId);
+}

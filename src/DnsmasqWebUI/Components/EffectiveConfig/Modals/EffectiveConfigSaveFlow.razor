@@ -1,0 +1,38 @@
+@namespace DnsmasqWebUI.Components.EffectiveConfig
+@using DnsmasqWebUI.Models.Dnsmasq
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
+
+@if (ShowModal)
+{
+    <EffectiveConfigSaveModal PendingChanges="@PendingChanges" Status="@Status" Session="@Session" OnClose="@OnClose" OnSave="@HandleSave" OnReverted="@HandleReverted" />
+}
+
+@code {
+    [Parameter] public bool ShowModal { get; set; }
+    [Parameter] public IReadOnlyList<PendingEffectiveConfigChange> PendingChanges { get; set; } = null!;
+    [Parameter] public DnsmasqServiceStatus? Status { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnSaveCompleted { get; set; }
+    [Parameter] public IEffectiveConfigEditSession Session { get; set; } = null!;
+
+    private async Task HandleReverted()
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleSave()
+    {
+        if (Session.PendingChanges.Count == 0) return;
+        try
+        {
+            await Session.ApplyAsync();
+            await OnClose.InvokeAsync();
+            await OnSaveCompleted.InvokeAsync();
+        }
+        catch (Exception)
+        {
+            // TODO: show error to user (e.g. toast or modal message)
+        }
+    }
+}

@@ -1,0 +1,175 @@
+@namespace DnsmasqWebUI.Components.EffectiveConfig
+@using DnsmasqWebUI.Models.Dnsmasq
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Models.Config
+@using DnsmasqWebUI.Infrastructure.Helpers.Config
+@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
+@inject IEffectiveConfigRenderFragmentRegistry RenderFragmentRegistry
+
+@* Custom fragment renders only the value; we keep the row shell (label + value slot + badge) here for consistency. Pending value shown until save. *@
+@if (_customFragment is { } fragment)
+{
+    var labelTooltip = DnsmasqOptionTooltips.Get(Descriptor.OptionName);
+    var isReadonly = Descriptor.GetSource()?.IsReadOnly == true;
+    var showEditableBadge = !isReadonly;
+    var isActiveEditor = IsEditMode && IsActive;
+    var fragmentWithCallback = isActiveEditor ? _fragmentWithCallback : null;
+    var effectiveValue = _effectiveValue;
+    <li class="ec-field @(isActiveEditor ? "ec-field-editing" : "")" title="@(Descriptor.GetSource()?.GetReadOnlyTooltip())">
+        <OptionHelpLabel AnchorId="@_anchorId" HelpKey="@_optionHelpKey" OptionLabel="@Descriptor.OptionName" Title="@(labelTooltip ?? Descriptor.GetSource()?.GetReadOnlyTooltip())"><strong>@Descriptor.OptionName:</strong></OptionHelpLabel>
+        <span class="ec-field-value">
+            @if (isActiveEditor)
+            {
+                <div class="ec-field-edit-wrapper" @onfocusout="OnBlur" @onclick:stopPropagation="true">
+                    <CascadingValue Value="@true">
+                        <CascadingValue Value="@(EventCallback.Factory.Create<FocusEventArgs>(this, OnBlur))">
+                            @((fragmentWithCallback ?? fragment)(Descriptor))
+                        </CascadingValue>
+                    </CascadingValue>
+                </div>
+            }
+            else
+            {
+                <CascadingValue Value="@false">
+                    @fragment(Descriptor)
+                </CascadingValue>
+            }
+            <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@Descriptor.GetSource()" OptionName="@Descriptor.OptionName" Value="@effectiveValue" IsInteractive="@IsEditMode" ShowEditableBadge="@showEditableBadge" HasPendingChange="@_hasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@isActiveEditor" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
+        </span>
+    </li>
+}
+else if (Descriptor.IsMultiValue)
+{
+    var items = Descriptor.GetItems();
+    <EffectiveConfigMultiValueRow Label="@Descriptor.OptionName" Items="@items" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId" IsActiveEditor="@(IsEditMode && IsActive)" IsEditMode="@IsEditMode" ReadonlyBadgeAnchorIdBase="@_readonlyBadgeAnchorId" />
+}
+else
+{
+    var value = _effectiveValue;
+    var displayValue = value == null ? "(not set)" : (value is IReadOnlyList<string> list ? (list.Count == 0 ? "(none)" : string.Join(", ", list)) : value.ToString());
+    var isReadonly = Descriptor.GetSource()?.IsReadOnly == true;
+    var showReadonlyHint = IsEditMode && isReadonly;
+    var isActiveEditor = IsEditMode && IsActive;
+    @if (showReadonlyHint)
+    {
+        <li class="ec-field" title="@(Descriptor.GetSource()?.GetReadOnlyTooltip())">
+            <EffectiveConfigOptionItem Label="@Descriptor.OptionName" DisplayValue="@(displayValue ?? "(not set)")" Source="@Descriptor.GetSource()" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId"
+                FieldKey="@FieldKey" ReadonlyBadgeAnchorId="@_readonlyBadgeAnchorId" RawValue="@value" HasPendingChange="@_hasPendingChange" />
+        </li>
+    }
+    else
+    {
+        <li class="ec-field @(isActiveEditor ? "ec-field-editing" : "")" title="@(Descriptor.GetSource()?.GetReadOnlyTooltip())">
+            <EffectiveConfigOptionItem Label="@Descriptor.OptionName" DisplayValue="@(displayValue ?? "(not set)")" Source="@Descriptor.GetSource()" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId"
+                ShowEditableBadge="true" FieldKey="@FieldKey" IsActive="@IsActive"
+                ReadonlyBadgeAnchorId="@_readonlyBadgeAnchorId" RawValue="@value" HasPendingChange="@_hasPendingChange"
+                DisplayValueChanged="@HandleDefaultValueChanged" OnBlur="@HandleDefaultBlur" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
+        </li>
+    }
+}
+
+@code {
+    [Parameter] public EffectiveConfigFieldDescriptor Descriptor { get; set; } = null!;
+    [Parameter] public string FieldKey { get; set; } = "";
+    [Parameter] public bool IsEditMode { get; set; }
+    [Parameter] public bool IsActive { get; set; }
+    [CascadingParameter] public IEffectiveConfigEditSession? Session { get; set; }
+
+    private readonly string _anchorId = "ec-help-" + Guid.NewGuid().ToString("N")[..8];
+    private readonly string _readonlyBadgeAnchorId = "ec-readonly-" + Guid.NewGuid().ToString("N")[..8];
+    private RenderFragment<EffectiveConfigFieldDescriptor>? _customFragment;
+    private RenderFragment<EffectiveConfigFieldDescriptor>? _fragmentWithCallback;
+    private string? _labelTooltip;
+    private string? _optionHelpKey;
+    private object? _effectiveValue;
+    private bool _hasPendingChange;
+    private object? _valueAtActivation;
+    private object? _draftValue;
+    private bool _wasActive;
+    private ExitAction _exitAction = ExitAction.None;
+
+    protected override void OnParametersSet()
+    {
+        _customFragment = RenderFragmentRegistry.BuildFieldComponentFragment(Descriptor.SectionId, Descriptor.OptionName);
+        _fragmentWithCallback = RenderFragmentRegistry.BuildFieldComponentFragment(Descriptor.SectionId, Descriptor.OptionName, EventCallback.Factory.Create<object?>(this, HandleValueChanged));
+        _labelTooltip = DnsmasqOptionTooltips.Get(Descriptor.OptionName);
+        _optionHelpKey = DnsmasqOptionTooltips.GetOptionHelpKey(Descriptor.OptionName);
+        var pending = Session?.PendingChanges.FirstOrDefault(c =>
+            string.Equals(c.SectionId, Descriptor.SectionId, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(c.OptionName, Descriptor.OptionName, StringComparison.OrdinalIgnoreCase));
+        _hasPendingChange = pending != null;
+        _effectiveValue = pending != null ? pending.NewValue : Descriptor.GetValue();
+        if (!_wasActive && IsActive)
+            _valueAtActivation = Descriptor.GetValue();
+        if (_wasActive && !IsActive && _exitAction == ExitAction.None)
+            _ = InvokeAsync(CommitIfChangedAsync);
+        if (_wasActive && !IsActive)
+            _exitAction = ExitAction.None;
+        _wasActive = IsActive;
+    }
+
+    private void HandleValueChanged(object? value)
+    {
+        _draftValue = value;
+    }
+
+    private async Task OnBlur(FocusEventArgs _)
+    {
+        if (!IsActive) return;
+        await CommitIfChangedAsync();
+    }
+
+    private async Task CommitIfChangedAsync()
+    {
+        var newValue = _draftValue ?? _effectiveValue;
+        if (!Equals(_valueAtActivation, newValue))
+        {
+            var source = Descriptor.GetSource();
+            var args = new EffectiveConfigEditCommittedArgs(Descriptor.SectionId, Descriptor.OptionName, _valueAtActivation, newValue, source?.FilePath);
+            if (Ui != null)
+                await Ui.CommitFieldAsync(args);
+        }
+        _draftValue = null;
+    }
+
+    [CascadingParameter] private EffectiveConfigUiContext? Ui { get; set; }
+
+    private void HandleDefaultValueChanged(string value)
+    {
+        _draftValue = value;
+    }
+
+    private async Task HandleDefaultBlur(string? value)
+    {
+        if (!IsActive) return;
+        _draftValue = value;
+        await CommitIfChangedAsync();
+    }
+
+    private async Task HandleConfirmEdit()
+    {
+        await CommitIfChangedAsync();
+        _exitAction = ExitAction.Confirm;
+        if (Ui != null)
+            await Ui.DeactivateFieldAsync();
+    }
+
+    private async Task HandleCancelEdit()
+    {
+        _draftValue = null;
+        _exitAction = ExitAction.Cancel;
+        if (Ui != null)
+            await Ui.DeactivateFieldAsync();
+    }
+
+    private async Task HandleRevertEdit()
+    {
+        _draftValue = null;
+        Session?.RevertChange(Descriptor.SectionId, Descriptor.OptionName);
+        _exitAction = ExitAction.Revert;
+        if (Ui != null)
+            await Ui.DeactivateFieldAsync();
+    }
+
+    private enum ExitAction { None, Confirm, Cancel, Revert }
+}

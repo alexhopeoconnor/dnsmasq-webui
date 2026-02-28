@@ -1,0 +1,11 @@
+@namespace DnsmasqWebUI.Components.Dnsmasq.Logs
+@* Renders a pre element for logs. Once Freeze is true, stops re-rendering so Blazor does not overwrite JS-owned content. *@
+<pre id="@Id" class="pre-block mb-0" style="max-height: 24rem;">@Placeholder</pre>
+
+@code {
+    [Parameter] public string Id { get; set; } = "";
+    [Parameter] public string Placeholder { get; set; } = "Connecting…";
+    [Parameter] public bool Freeze { get; set; }
+
+    protected override bool ShouldRender() => !Freeze;
+}

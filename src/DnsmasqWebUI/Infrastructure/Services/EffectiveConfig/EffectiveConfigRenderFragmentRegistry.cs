@@ -4,7 +4,7 @@ using DnsmasqWebUI.Models.Dnsmasq;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions;
-using DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig.CustomDisplays;
+using DnsmasqWebUI.Components.EffectiveConfig.CustomDisplays;
 
 namespace DnsmasqWebUI.Infrastructure.Services.EffectiveConfig;
 

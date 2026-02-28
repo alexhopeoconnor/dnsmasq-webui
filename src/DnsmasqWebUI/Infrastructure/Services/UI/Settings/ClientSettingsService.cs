@@ -1,5 +1,5 @@
 using System.Text.Json;
-using DnsmasqWebUI.Extensions;
+using DnsmasqWebUI.Extensions.Interop;
 using DnsmasqWebUI.Models.Client;
 using DnsmasqWebUI.Infrastructure.Services.UI.Settings.Abstractions;
 using Microsoft.JSInterop;

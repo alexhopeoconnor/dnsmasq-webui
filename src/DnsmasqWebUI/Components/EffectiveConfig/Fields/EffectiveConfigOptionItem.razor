@@ -1,0 +1,73 @@
+@namespace DnsmasqWebUI.Components.EffectiveConfig
+@using DnsmasqWebUI.Models.Dnsmasq
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+
+<OptionHelpLabel AnchorId="@(OptionHelpAnchorId ?? "")" HelpKey="@OptionHelpKey" OptionLabel="@Label" Title="@(LabelTooltip ?? Source?.GetReadOnlyTooltip())"><strong>@Label:</strong></OptionHelpLabel>
+@if (DisplayMode == EffectiveConfigDisplayMode.Edit && IsActive && Source?.IsReadOnly != true)
+{
+    <span class="ec-field-value" @onclick:stopPropagation="true">
+        <input type="text" class="form-control form-control-sm" value="@(_editValue ?? DisplayValue)" @oninput="OnValueInput" @onfocusout="OnInputBlur" />
+        <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorId ?? "")" Source="@Source" OptionName="@Label" Value="@(RawValue ?? DisplayValue)" IsInteractive="@(DisplayMode == EffectiveConfigDisplayMode.Edit && !string.IsNullOrEmpty(ReadonlyBadgeAnchorId))" ShowEditableBadge="@ShowEditableBadge" HasPendingChange="@HasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="true" OnConfirmRequested="@OnConfirmRequested" OnCancelRequested="@OnCancelRequested" OnRevertRequested="@OnRevertRequested" />
+    </span>
+}
+else
+{
+    <span class="ec-field-value">
+        @DisplayValue
+        <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorId ?? "")" Source="@Source" OptionName="@Label" Value="@(RawValue ?? DisplayValue)" IsInteractive="@(DisplayMode == EffectiveConfigDisplayMode.Edit && !string.IsNullOrEmpty(ReadonlyBadgeAnchorId))" ShowEditableBadge="@ShowEditableBadge" HasPendingChange="@HasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="false" OnConfirmRequested="@OnConfirmRequested" OnCancelRequested="@OnCancelRequested" OnRevertRequested="@OnRevertRequested" />
+    </span>
+}
+
+@code {
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string DisplayValue { get; set; } = "";
+    [Parameter] public ConfigValueSource? Source { get; set; }
+    /// <summary>Optional explainer shown on hover over the label (e.g. from DnsmasqOptionTooltips).</summary>
+    [Parameter] public string? LabelTooltip { get; set; }
+    [Parameter] public string? OptionHelpKey { get; set; }
+    [Parameter] public string? OptionHelpAnchorId { get; set; }
+    /// <summary>When set in edit mode, the readonly badge is rendered as a button with this id so the popover can anchor to it.</summary>
+    [Parameter] public string? ReadonlyBadgeAnchorId { get; set; }
+    /// <summary>Raw value for the readonly popover override line (e.g. from descriptor); falls back to DisplayValue.</summary>
+    [Parameter] public object? RawValue { get; set; }
+    /// <summary>When true, show an 'editable' badge next to non-readonly fields; clicking it activates edit for this field.</summary>
+    [Parameter] public bool ShowEditableBadge { get; set; }
+    /// <summary>When true, badge shows "pending" and warning style to indicate this field has an unsaved change.</summary>
+    [Parameter] public bool HasPendingChange { get; set; }
+    /// <summary>Field key for activation via context when editable badge is clicked.</summary>
+    [Parameter] public string FieldKey { get; set; } = "";
+    /// <summary>When true, add ec-field-editing class and show input when DisplayMode is Edit.</summary>
+    [Parameter] public bool IsActive { get; set; }
+    /// <summary>When Edit and not readonly: raised when the user changes the value. Not yet wired to save.</summary>
+    [Parameter] public EventCallback<string> DisplayValueChanged { get; set; }
+    /// <summary>When Edit and not readonly: raised when the input loses focus; argument is the current value.</summary>
+    [Parameter] public EventCallback<string?> OnBlur { get; set; }
+    /// <summary>When user clicks OK; parent should commit and deactivate.</summary>
+    [Parameter] public EventCallback OnConfirmRequested { get; set; }
+    /// <summary>When user clicks Cancel; parent should clear draft and deactivate.</summary>
+    [Parameter] public EventCallback OnCancelRequested { get; set; }
+    /// <summary>When user clicks Revert; parent should revert pending, clear draft, and deactivate.</summary>
+    [Parameter] public EventCallback OnRevertRequested { get; set; }
+    [CascadingParameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
+
+    private string? _editValue;
+
+    protected override void OnParametersSet()
+    {
+        if (DisplayMode != EffectiveConfigDisplayMode.Edit)
+            _editValue = null;
+    }
+
+    private async Task OnValueInput(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString() ?? "";
+        _editValue = value;
+        await DisplayValueChanged.InvokeAsync(value);
+    }
+
+    private async Task OnInputBlur(FocusEventArgs _)
+    {
+        if (OnBlur.HasDelegate)
+            await OnBlur.InvokeAsync(_editValue ?? DisplayValue);
+    }
+}

@@ -1,7 +1,8 @@
 using DnsmasqWebUI.Components;
-using DnsmasqWebUI.Hubs;
+using DnsmasqWebUI.Infrastructure.Realtime.Hubs;
 using DnsmasqWebUI.Models.Config;
-using DnsmasqWebUI.Extensions;
+using DnsmasqWebUI.Extensions.DependencyInjection;
+using DnsmasqWebUI.Extensions.Hosting;
 using DnsmasqWebUI.Infrastructure.Helpers.Http;
 using DnsmasqWebUI.Infrastructure.Services.UI.Settings;
 using DnsmasqWebUI.Infrastructure.Services.UI.Settings.Abstractions;

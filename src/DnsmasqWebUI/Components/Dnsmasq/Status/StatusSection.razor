@@ -1,0 +1,30 @@
+@namespace DnsmasqWebUI.Components.Dnsmasq.Status
+@* Service status — output of StatusShowCommand; only this component re-renders on its timer *@
+@if (_status != null && _status.StatusShowConfigured)
+{
+    <p class="mb-1 mt-3 d-flex align-items-center justify-content-between flex-wrap gap-1">
+        <span class="d-flex align-items-center gap-1">
+            <strong>Service status</strong>
+            @{
+                var isActive = _status.DnsmasqStatus == "active";
+                var isUpdating = _refreshing || IsReloading;
+            }
+            <span class="status-dot d-inline-block rounded-circle flex-shrink-0 @(isActive ? "bg-success" : "bg-danger") @(isUpdating ? "status-dot-updating" : null)" style="width: 0.5rem; height: 0.5rem;" title="@(isUpdating ? "Updating…" : (isActive ? "Running" : "Not running"))" aria-hidden="true"></span>
+        </span>
+        <button type="button" class="btn btn-link btn-sm p-0 text-body" aria-label="Service status polling settings" @onclick="() => OnOpenSettings.InvokeAsync()" title="Configure service status polling interval">
+            <i class="bi bi-gear-fill bi-gear-sm" aria-hidden="true"></i>
+        </button>
+    </p>
+    <p class="text-muted small mb-1"><code>@_status.StatusShowCommand</code></p>
+    @if (string.IsNullOrWhiteSpace(_status.StatusShowOutput))
+    {
+        <p class="text-muted small">No output. On a systemd host use <code>systemctl status dnsmasq --no-pager</code> for full status; in Docker or without systemd use <code>ps -C dnsmasq -o pid,user,args</code> or <code>pgrep -a dnsmasq</code> for minimal process info.</p>
+    }
+    else
+    {
+        <pre class="pre-block mb-0" style="max-height: 22rem;">@_status.StatusShowOutput</pre>
+    }
+    <div class="mt-2">
+        <button class="btn btn-primary btn-sm" @onclick="RefreshAsync" disabled="@_refreshing">Refresh</button>
+    </div>
+}

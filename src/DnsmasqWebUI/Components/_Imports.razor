@@ -7,7 +7,9 @@
 @using Microsoft.AspNetCore.Components.Web.Virtualization
 @using Microsoft.JSInterop
 @using DnsmasqWebUI
-@using DnsmasqWebUI.Extensions
+@using DnsmasqWebUI.Extensions.DependencyInjection
+@using DnsmasqWebUI.Extensions.Hosting
+@using DnsmasqWebUI.Extensions.Interop
 @using DnsmasqWebUI.Models.Client
 @using DnsmasqWebUI.Models.Client.Abstractions
 @using DnsmasqWebUI.Infrastructure.Services.Common.Process.Abstractions
@@ -23,7 +25,10 @@
 @using DnsmasqWebUI.Components.Shared
 @using DnsmasqWebUI.Components.Modals
 @using DnsmasqWebUI.Components.Dnsmasq
-@using DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Components.Dnsmasq.Status
+@using DnsmasqWebUI.Components.Dnsmasq.Logs
+@using DnsmasqWebUI.Components.Dnsmasq.AppLogs
+@using DnsmasqWebUI.Components.EffectiveConfig
 @using DnsmasqWebUI.Components.Hosts
 @using DnsmasqWebUI.Infrastructure
 @using DnsmasqWebUI.Infrastructure.Helpers.Config

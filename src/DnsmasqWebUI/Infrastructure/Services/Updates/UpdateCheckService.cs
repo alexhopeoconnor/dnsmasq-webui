@@ -1,6 +1,6 @@
 using System.Reflection;
 using System.Text.Json;
-using DnsmasqWebUI.Extensions;
+using DnsmasqWebUI.Extensions.DependencyInjection;
 using DnsmasqWebUI.Infrastructure.Services.Updates.Abstractions;
 using DnsmasqWebUI.Models.Config;
 using Microsoft.Extensions.Options;

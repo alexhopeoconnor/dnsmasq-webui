@@ -2,6 +2,7 @@ using System.Text;
 using DnsmasqWebUI.Infrastructure.Services.Common.Process.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.Logs.Abstractions;
 using DnsmasqWebUI.Models.Config;
+using DnsmasqWebUI.Infrastructure.Realtime.Hubs;
 using DnsmasqWebUI.Models.Logs;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,7 +22,7 @@ public sealed class LogsService : ILogsService
     /// <summary>Max bytes per SignalR message (under 32KB default).</summary>
     private const int MaxMessageContentBytes = 28 * 1024;
 
-    private readonly IHubContext<Hubs.LogsHub> _hubContext;
+    private readonly IHubContext<LogsHub> _hubContext;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOptions<DnsmasqOptions> _options;
     private readonly IAppLogsBuffer _appLogsBuffer;
@@ -30,7 +31,7 @@ public sealed class LogsService : ILogsService
     private string _lastDnsmasqOutput = "";
 
     public LogsService(
-        IHubContext<Hubs.LogsHub> hubContext,
+        IHubContext<LogsHub> hubContext,
         IServiceScopeFactory scopeFactory,
         IOptions<DnsmasqOptions> options,
         IAppLogsBuffer appLogsBuffer,

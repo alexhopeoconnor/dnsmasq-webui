@@ -1,0 +1,201 @@
+@namespace DnsmasqWebUI.Components.EffectiveConfig
+@using DnsmasqWebUI.Models.Dnsmasq
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Infrastructure.Helpers.Config
+@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
+@inject IEffectiveConfigEditSession Session
+@inject IJSRuntime JSRuntime
+
+@if (Status != null)
+{
+<div class="ec-container" @onclick="DeactivateActiveFieldIfClicked">
+    <OptionHelpController @ref="_optionHelpControllerRef" Visible="@_showOptionHelp" HelpKey="@_optionHelpKey" AnchorId="@_optionHelpAnchorId" Title="@_optionHelpTitle" OnCloseRequested="CloseOptionHelp" />
+    <ReadonlyPopoverController @ref="_readonlyPopoverControllerRef" Visible="@_showReadonlyPopover" AnchorId="@_readonlyPopoverAnchorId" Source="@_readonlyPopoverSource" OptionName="@(_readonlyPopoverOptionName ?? "")" Value="@_readonlyPopoverValue" ManagedFilePath="@(Status?.ManagedFilePath)" OnCloseRequested="CloseReadonlyPopover" />
+    @{
+        var _sectionViews = EffectiveConfigViews.GetViewsForContext(Context);
+        var _allSectionsExpanded = _sectionViews.Count > 0 && _sectionViews.All(v => _openPanels.Contains(v.SectionId));
+    }
+    <EffectiveConfigToolbar ShowSearchBox="@ShowSearchBox" SearchTerm="@_searchTerm" SearchTermChanged="@OnSearchTermChanged"
+        IsEditMode="@Session.IsEditMode" PendingChangesCount="@Session.PendingChanges.Count"
+        AllSectionsExpanded="@_allSectionsExpanded"
+        OnExpandAll="ExpandAll" OnCollapseAll="CollapseAll" OnEnterEditMode="EnterEditMode" OnExitEditModeWithConfirm="ExitEditModeWithConfirmAsync" OnOpenSaveModal="OpenSaveModal" />
+    <CascadingValue Value="@Session">
+    <CascadingValue Value="@_uiContext">
+        <EffectiveConfigPanels Status="@Status" Context="@Context" SearchTerm="@_searchTerm" OpenSectionIds="@_openPanels"
+            OnSectionToggle="OnSectionToggle" IsEditMode="@Session.IsEditMode" ActiveFieldKey="@Session.ActiveFieldKey" />
+    </CascadingValue>
+    </CascadingValue>
+    <EffectiveConfigSaveFlow ShowModal="@_showSaveModal" PendingChanges="@Session.PendingChanges" Status="@Status" Session="@Session"
+        OnClose="CloseSaveModal" OnSaveCompleted="OnSaveCompleted" />
+</div>
+}
+
+@code {
+    [Parameter] public DnsmasqServiceStatus? Status { get; set; }
+    [Parameter] public EffectiveConfigContext Context { get; set; } = EffectiveConfigContext.All;
+    [Parameter] public bool ShowSearchBox { get; set; } = true;
+    [Parameter] public EventCallback OnSaveCompleted { get; set; }
+
+    private string _searchTerm = "";
+    private HashSet<string> _openPanels = new();
+    private bool _showSaveModal;
+
+    private string? _optionHelpKey;
+    private string? _optionHelpAnchorId;
+    private string _optionHelpTitle = "Option help";
+    private bool _showOptionHelp;
+    private OptionHelpController? _optionHelpControllerRef;
+
+    private bool _showReadonlyPopover;
+    private ReadonlyPopoverController? _readonlyPopoverControllerRef;
+    private string? _readonlyPopoverAnchorId;
+    private ConfigValueSource? _readonlyPopoverSource;
+    private string? _readonlyPopoverOptionName;
+    private object? _readonlyPopoverValue;
+
+    private EffectiveConfigUiContext? _uiContext;
+
+    protected override void OnInitialized()
+    {
+        _uiContext = new EffectiveConfigUiContext
+        {
+            RequestOptionHelpAsync = HandleOptionHelpRequested,
+            RequestReadonlyPopoverAsync = HandleReadonlyBadgeClicked,
+            ScheduleReadonlyPopoverCloseAsync = () =>
+            {
+                _readonlyPopoverControllerRef?.ScheduleCloseFromBadgeLeave();
+                return Task.CompletedTask;
+            },
+            ActivateFieldAsync = fieldKey => { ActivateField(fieldKey); return Task.CompletedTask; },
+            DeactivateFieldAsync = () => { Session.DeactivateField(); return InvokeAsync(StateHasChanged); },
+            CommitFieldAsync = args => { HandleFieldEditCommitted(args); return Task.CompletedTask; }
+        };
+    }
+
+    private async Task OnSearchTermChanged(string value)
+    {
+        _searchTerm = value ?? "";
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void CloseOptionHelp()
+    {
+        _showOptionHelp = false;
+        StateHasChanged();
+    }
+
+    private async Task HandleOptionHelpRequested(ConfigOptionHelpRequestEventArgs args)
+    {
+        if (args.IsLabelMouseLeave)
+        {
+            if (args.AnchorId == _optionHelpAnchorId)
+                _optionHelpControllerRef?.ScheduleCloseFromLabelLeave();
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+        _optionHelpControllerRef?.CancelCloseFromLabelEnter();
+        _optionHelpKey = args.HelpKey;
+        _optionHelpTitle = args.OptionLabel;
+        _optionHelpAnchorId = args.AnchorId;
+        _showOptionHelp = true;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void CloseReadonlyPopover()
+    {
+        _showReadonlyPopover = false;
+        StateHasChanged();
+    }
+
+    private async Task HandleReadonlyBadgeClicked(ReadonlyBadgeClickedEventArgs args)
+    {
+        _readonlyPopoverControllerRef?.CancelCloseFromBadgeEnter();
+        _readonlyPopoverAnchorId = args.AnchorId;
+        _readonlyPopoverSource = args.Source;
+        _readonlyPopoverOptionName = args.OptionName;
+        _readonlyPopoverValue = args.Value;
+        _showReadonlyPopover = true;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void OnSectionToggle(string id)
+    {
+        if (_openPanels.Contains(id))
+            _openPanels.Remove(id);
+        else
+            _openPanels.Add(id);
+        StateHasChanged();
+    }
+
+    private void ExpandAll()
+    {
+        foreach (var view in EffectiveConfigViews.GetViewsForContext(Context))
+            _openPanels.Add(view.SectionId);
+        StateHasChanged();
+    }
+
+    private void CollapseAll()
+    {
+        _openPanels.Clear();
+        StateHasChanged();
+    }
+
+    private void EnterEditMode()
+    {
+        Session.EnterEditMode();
+        StateHasChanged();
+    }
+
+    private async Task ExitEditModeWithConfirmAsync()
+    {
+        if (Session.PendingChanges.Count > 0)
+        {
+            var module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/dialog.js");
+            try
+            {
+                var confirmed = await module.InvokeAsync<bool>("confirmMessage", "Discard unsaved changes and exit edit mode?");
+                if (!confirmed) return;
+            }
+            finally
+            {
+                await module.DisposeAsync();
+            }
+        }
+        Session.ExitEditModeDiscard();
+        StateHasChanged();
+    }
+
+    private void DeactivateActiveFieldIfClicked()
+    {
+        if (Session.IsEditMode && Session.ActiveFieldKey != null)
+        {
+            Session.DeactivateField();
+            StateHasChanged();
+        }
+    }
+
+    private void ActivateField(string fieldKey)
+    {
+        Session.ActivateField(fieldKey);
+        StateHasChanged();
+    }
+
+    private void HandleFieldEditCommitted(EffectiveConfigEditCommittedArgs args)
+    {
+        Session.TrackCommit(args);
+        StateHasChanged();
+    }
+
+    private void OpenSaveModal()
+    {
+        if (Session.PendingChanges.Count == 0) return;
+        _showSaveModal = true;
+        StateHasChanged();
+    }
+
+    private void CloseSaveModal()
+    {
+        _showSaveModal = false;
+        StateHasChanged();
+    }
+}

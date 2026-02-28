@@ -1,0 +1,47 @@
+@namespace DnsmasqWebUI.Components.EffectiveConfig
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Infrastructure.Helpers.Config
+
+@if (Source is { IsReadOnly: true })
+{
+    <div class="ec-readonly-hint small text-muted mt-1">
+        <span class="d-block">@ReadonlyConfigCommandGenerator.GetEditFileHint(Source)</span>
+        @if (!string.IsNullOrEmpty(_removeCommand))
+        {
+            <div class="mt-1">
+                <CopyableCodeLine Text="@_removeCommand" CssClass="small" CodeCssClass="small text-break" CopyTitle="Copy command" />
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(_overrideLine))
+        {
+            <span class="d-block mt-1">@ReadonlyConfigCommandGenerator.GetOverrideHint(OptionName, Value, ManagedFilePath)</span>
+            <div class="mt-1">
+                <CopyableCodeLine Text="@_overrideLine" CodeCssClass="small" CopyTitle="Copy line" />
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public ConfigValueSource? Source { get; set; }
+    [Parameter] public string OptionName { get; set; } = "";
+    [Parameter] public object? Value { get; set; }
+    [Parameter] public string? ManagedFilePath { get; set; }
+
+    private string _removeCommand = "";
+    private string _overrideLine = "";
+
+    protected override void OnParametersSet()
+    {
+        if (Source is { IsReadOnly: true })
+        {
+            _removeCommand = ReadonlyConfigCommandGenerator.GetRemoveLineCommand(Source, OptionName);
+            _overrideLine = ReadonlyConfigCommandGenerator.GetOverrideLine(OptionName, Value, ManagedFilePath);
+        }
+        else
+        {
+            _removeCommand = "";
+            _overrideLine = "";
+        }
+    }
+}

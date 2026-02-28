@@ -1,0 +1,46 @@
+@namespace DnsmasqWebUI.Components.Dnsmasq.AppLogs
+@inject ILoggingClient LoggingClient
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
+
+@if (IsVisible)
+{
+    <dialog @ref="_dialogRef" class="settings-modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">App logs filters</h5>
+                <button type="button" class="btn-close" @onclick="Close" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-2">Logger categories matching these prefixes are excluded from the app logs display.</p>
+                <div class="input-group input-group-sm mb-2">
+                    <input type="text" class="form-control" placeholder="e.g. Microsoft.AspNetCore."
+                           @bind="_newPrefix" @bind:event="oninput" @onkeydown="OnNewPrefixKeydown" />
+                    <button type="button" class="btn btn-outline-primary" @onclick="AddPrefix" disabled="@string.IsNullOrWhiteSpace(_newPrefix)">Add</button>
+                </div>
+                <ul class="list-group list-group-flush" style="max-height: 12rem; overflow-y: auto;">
+                    @foreach (var prefix in _prefixes)
+                    {
+                        <li class="list-group-item d-flex align-items-center justify-content-between py-1 px-2">
+                            <code class="small text-break">@prefix</code>
+                            <button type="button" class="btn btn-link btn-sm p-0 text-danger" aria-label="Remove" @onclick="() => RemovePrefix(prefix)">
+                                <i class="bi bi-x-lg" aria-hidden="true"></i>
+                            </button>
+                        </li>
+                    }
+                    @if (_prefixes.Count == 0)
+                    {
+                        <li class="list-group-item text-muted small py-2">No filters. All categories are shown.</li>
+                    }
+                </ul>
+            </div>
+            <div class="modal-footer d-flex justify-content-between align-items-center">
+                <button type="button" class="btn btn-secondary" @onclick="RestoreDefaults" disabled="@_saving">Restore defaults</button>
+                <div>
+                    <button type="button" class="btn btn-secondary" @onclick="Close">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="Save" disabled="@_saving">@(_saving ? "Saving…" : "Save")</button>
+                </div>
+            </div>
+        </div>
+    </dialog>
+}

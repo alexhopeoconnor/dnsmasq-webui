@@ -1,0 +1,59 @@
+@namespace DnsmasqWebUI.Components.EffectiveConfig.CustomDisplays
+@using DnsmasqWebUI.Models.Dnsmasq
+@inherits EffectiveConfigValueDisplayBase
+
+@* log-queries: optional value extra|proto|auth. View: Off / On / On (extra|proto|auth). When active editor: dropdown. *@
+@if (IsActiveEditor && Descriptor.GetSource()?.IsReadOnly != true)
+{
+    <select class="form-select form-select-sm" style="max-width: 12rem;" value="@GetEditValue()" @onchange="OnChange" @onfocusout="OnCommitRequested">
+        <option value="">Off</option>
+        <option value="on">On</option>
+        <option value="extra">On (extra)</option>
+        <option value="proto">On (proto)</option>
+        <option value="auth">On (auth)</option>
+    </select>
+}
+else
+{
+    @GetViewText()
+}
+
+@code {
+    private string GetEditValue()
+    {
+        var v = GetEffectiveDisplayValue() as string;
+        if (string.IsNullOrEmpty(v)) return "";
+        var lower = v.Trim().ToLowerInvariant();
+        if (lower is "extra" or "proto" or "auth") return lower;
+        return "on";
+    }
+
+    private string GetViewText()
+    {
+        var v = GetEffectiveDisplayValue() as string;
+        if (string.IsNullOrEmpty(v)) return "Off";
+        var lower = v.Trim().ToLowerInvariant();
+        return lower switch
+        {
+            "extra" => "On (extra)",
+            "proto" => "On (proto)",
+            "auth" => "On (auth)",
+            _ => "On"
+        };
+    }
+
+    private async Task OnChange(ChangeEventArgs e)
+    {
+        var sel = e.Value?.ToString()?.Trim().ToLowerInvariant();
+        string? newValue = sel switch
+        {
+            "" or "off" => null,
+            "on" => "",
+            "extra" => "extra",
+            "proto" => "proto",
+            "auth" => "auth",
+            _ => null
+        };
+        await NotifyValueChanged(newValue);
+    }
+}

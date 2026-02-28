@@ -1,0 +1,33 @@
+@namespace DnsmasqWebUI.Components.Dnsmasq.AppLogs
+@* App logs — live view via SignalR from ILogger *@
+@using DnsmasqWebUI.Models.Logs
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inject ILogger<AppLogsSection> Logger
+@implements IAsyncDisposable
+
+<p class="mb-1 mt-3 d-flex align-items-center justify-content-between flex-wrap gap-1">
+    <span class="d-flex align-items-center gap-1 flex-wrap">
+        <strong>App logs</strong>
+        <span class="status-dot d-inline-block rounded-circle flex-shrink-0 bg-success @(_justUpdated ? "status-dot-updating" : null)" style="width: 0.5rem; height: 0.5rem;" title="@(_justUpdated ? "Updating…" : "Live")" aria-hidden="true"></span>
+    </span>
+    <span class="d-flex align-items-center gap-1 flex-wrap">
+        <select class="form-select form-select-sm" style="width: auto;" aria-label="Log level" @bind="_logLevel" @bind:after="OnLogLevelChanged" disabled="@_logLevelDisabled">
+            <option value="Trace">Trace</option>
+            <option value="Debug">Debug</option>
+            <option value="Information">Information</option>
+            <option value="Warning">Warning</option>
+            <option value="Error">Error</option>
+            <option value="Critical">Critical</option>
+        </select>
+        <button type="button" class="btn btn-link btn-sm p-0 text-body" aria-label="App logs category filters" @onclick="OpenFiltersModal" title="Configure category filters">
+            <i class="bi bi-funnel-fill bi-gear-sm" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="btn btn-link btn-sm p-0 text-body" aria-label="App logs polling settings" @onclick="() => OnOpenSettings.InvokeAsync()" title="Configure app logs polling interval">
+            <i class="bi bi-gear-fill bi-gear-sm" aria-hidden="true"></i>
+        </button>
+    </span>
+</p>
+<AppLogsFiltersModal IsVisible="_filtersModalVisible" OnClose="CloseFiltersModal" />
+<LogsPreView Id="app-logs-pre" Placeholder="@_initialPlaceholder" Freeze="_logsContentReceived" />
