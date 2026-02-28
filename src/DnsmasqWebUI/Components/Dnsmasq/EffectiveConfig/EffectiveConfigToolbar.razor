@@ -17,13 +17,13 @@
             <button type="button" class="btn btn-sm btn-primary" @onclick="OnOpenSaveModal" disabled="@(PendingChangesCount == 0)" title="Save changes to managed config" aria-label="Save">
                 <i class="bi bi-floppy-fill" aria-hidden="true"></i>
             </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="OnExitEditModeWithConfirm" title="Exit edit mode" aria-label="Exit edit mode">
+                <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+            </button>
             @if (PendingChangesCount > 0)
             {
                 <span class="text-muted small">@PendingChangesCount change(s)</span>
             }
-            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="OnExitEditModeWithConfirm" title="Exit edit mode" aria-label="Exit edit mode">
-                <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
-            </button>
         }
         else
         {

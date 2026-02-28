@@ -67,6 +67,7 @@
                 return Task.CompletedTask;
             },
             ActivateFieldAsync = fieldKey => { ActivateField(fieldKey); return Task.CompletedTask; },
+            DeactivateFieldAsync = () => { Session.DeactivateField(); return InvokeAsync(StateHasChanged); },
             CommitFieldAsync = args => { HandleFieldEditCommitted(args); return Task.CompletedTask; }
         };
     }

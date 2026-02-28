@@ -10,5 +10,6 @@ public sealed class EffectiveConfigUiContext
     public required Func<ReadonlyBadgeClickedEventArgs, Task> RequestReadonlyPopoverAsync { get; init; }
     public required Func<Task> ScheduleReadonlyPopoverCloseAsync { get; init; }
     public required Func<string, Task> ActivateFieldAsync { get; init; }
+    public required Func<Task> DeactivateFieldAsync { get; init; }
     public required Func<EffectiveConfigEditCommittedArgs, Task> CommitFieldAsync { get; init; }
 }

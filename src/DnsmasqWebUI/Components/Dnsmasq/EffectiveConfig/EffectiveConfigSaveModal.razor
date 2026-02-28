@@ -1,6 +1,7 @@
 @namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig
 @using DnsmasqWebUI.Models.Dnsmasq
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Infrastructure.Services.Abstractions
 
 <div class="modal fade show" style="display: block;" tabindex="-1" role="dialog" aria-labelledby="ec-save-modal-title" aria-modal="true">
     <div class="modal-dialog modal-dialog-scrollable" role="document">
@@ -9,29 +10,50 @@
                 <h5 class="modal-title" id="ec-save-modal-title">Save effective config changes</h5>
                 <button type="button" class="btn-close" @onclick="Close" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                <p class="small text-muted">The following changes will be written to your managed config file. Values set in other files will be overridden by these entries.</p>
+            <div class="modal-body ec-save-modal-body">
+                <p class="text-muted mb-3">These changes will be written to your config. Remove any you don’t want to keep.</p>
                 @if (ManagedFilePath != null)
                 {
-                    <p class="small mb-2"><strong>Target file:</strong> <code>@ManagedFilePath</code></p>
+                    <p class="ec-save-modal-target mb-3">
+                        <span class="text-muted">Target file:</span> <code class="small">@ManagedFilePath</code>
+                    </p>
                 }
-                <ul class="list-unstyled mb-0">
-                    @foreach (var c in PendingChanges)
-                    {
-                        <li class="small py-1 border-bottom border-light">
-                            <strong>@c.OptionName:</strong>
-                            @FormatValue(c.OldValue) → @FormatValue(c.NewValue)
-                            @if (c.CurrentSourceFilePath != null)
-                            {
-                                <br /><span class="text-muted">(overrides value from @System.IO.Path.GetFileName(c.CurrentSourceFilePath))</span>
-                            }
-                        </li>
-                    }
-                </ul>
+                @if (PendingChanges.Count == 0)
+                {
+                    <div class="ec-save-modal-empty alert alert-light border text-center text-muted py-4 mb-0">
+                        No changes to save. Revert all above or close to keep editing.
+                    </div>
+                }
+                else
+                {
+                    <div class="ec-save-modal-changes list-group list-group-flush">
+                        @foreach (var c in PendingChanges)
+                        {
+                            var change = c;
+                            <div class="list-group-item ec-save-modal-item d-flex align-items-center gap-3 py-3 px-0 border-0 border-bottom">
+                                <div class="ec-save-modal-item-body flex-grow-1 min-width-0">
+                                    <span class="ec-save-modal-option badge rounded-pill bg-light text-dark border me-2">@change.OptionName</span>
+                                    <span class="ec-save-modal-diff text-body">
+                                        <span class="text-muted text-decoration-line-through">@FormatValue(change.OldValue)</span>
+                                        <span class="text-muted mx-1" aria-hidden="true">→</span>
+                                        <span>@FormatValue(change.NewValue)</span>
+                                    </span>
+                                    @if (change.CurrentSourceFilePath != null)
+                                    {
+                                        <div class="ec-save-modal-override small text-muted mt-1">Overrides @System.IO.Path.GetFileName(change.CurrentSourceFilePath)</div>
+                                    }
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger flex-shrink-0" @onclick="() => Revert(change)" title="Remove this change from the list" aria-label="Revert @change.OptionName">
+                                    Remove
+                                </button>
+                            </div>
+                        }
+                    </div>
+                }
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" @onclick="Close">Cancel</button>
-                <button type="button" class="btn btn-primary" @onclick="Save">Save</button>
+                <button type="button" class="btn btn-primary" @onclick="Save" disabled="@(PendingChanges.Count == 0)">Save</button>
             </div>
         </div>
     </div>
@@ -41,8 +63,11 @@
 @code {
     [Parameter] public IReadOnlyList<PendingEffectiveConfigChange> PendingChanges { get; set; } = null!;
     [Parameter] public DnsmasqServiceStatus? Status { get; set; }
+    [Parameter] public IEffectiveConfigEditSession Session { get; set; } = null!;
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback OnSave { get; set; }
+    /// <summary>Invoked after reverting a change so the parent can re-render.</summary>
+    [Parameter] public EventCallback OnReverted { get; set; }
 
     private string? ManagedFilePath => Status?.ManagedFilePath;
 
@@ -51,6 +76,12 @@
         if (v == null) return "(not set)";
         if (v is bool b) return b ? "on" : "off";
         return v.ToString() ?? "(not set)";
+    }
+
+    private async Task Revert(PendingEffectiveConfigChange change)
+    {
+        Session.RevertChange(change.SectionId, change.OptionName);
+        await OnReverted.InvokeAsync();
     }
 
     private async Task Close()

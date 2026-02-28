@@ -7,3 +7,37 @@
 .modal-backdrop {
     z-index: 1050;
 }
+
+.ec-save-modal-body {
+    padding-top: 0.25rem;
+}
+
+.ec-save-modal-target {
+    font-size: 0.9rem;
+}
+
+.ec-save-modal-changes {
+    margin: 0 -1rem;
+    padding: 0 1rem;
+}
+
+.ec-save-modal-item:last-child {
+    border-bottom: 0 !important;
+}
+
+.ec-save-modal-option {
+    font-weight: 500;
+    font-size: 0.75rem;
+}
+
+.ec-save-modal-diff {
+    font-size: 0.9375rem;
+}
+
+.ec-save-modal-override {
+    font-size: 0.8125rem;
+}
+
+.ec-save-modal-empty {
+    font-size: 0.9rem;
+}

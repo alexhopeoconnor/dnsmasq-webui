@@ -34,7 +34,7 @@
                     @fragment(Descriptor)
                 </CascadingValue>
             }
-            <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@Descriptor.GetSource()" OptionName="@Descriptor.OptionName" Value="@effectiveValue" IsInteractive="@IsEditMode" ShowEditableBadge="@showEditableBadge" HasPendingChange="@_hasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" />
+            <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@Descriptor.GetSource()" OptionName="@Descriptor.OptionName" Value="@effectiveValue" IsInteractive="@IsEditMode" ShowEditableBadge="@showEditableBadge" HasPendingChange="@_hasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@isActiveEditor" OnCancelRequested="@HandleCancelEdit" />
         </span>
     </li>
 }
@@ -63,7 +63,7 @@ else
             <EffectiveConfigOptionItem Label="@Descriptor.OptionName" DisplayValue="@(displayValue ?? "(not set)")" Source="@Descriptor.GetSource()" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId"
                 ShowEditableBadge="true" FieldKey="@FieldKey" IsActive="@IsActive"
                 ReadonlyBadgeAnchorId="@_readonlyBadgeAnchorId" RawValue="@value" HasPendingChange="@_hasPendingChange"
-                DisplayValueChanged="@HandleDefaultValueChanged" OnBlur="@HandleDefaultBlur" />
+                DisplayValueChanged="@HandleDefaultValueChanged" OnBlur="@HandleDefaultBlur" OnCancelRequested="@HandleCancelEdit" />
         </li>
     }
 }
@@ -86,6 +86,7 @@ else
     private object? _valueAtActivation;
     private object? _draftValue;
     private bool _wasActive;
+    private bool _cancelRequested;
 
     protected override void OnParametersSet()
     {
@@ -100,8 +101,10 @@ else
         _effectiveValue = pending != null ? pending.NewValue : Descriptor.GetValue();
         if (!_wasActive && IsActive)
             _valueAtActivation = _effectiveValue;
-        if (_wasActive && !IsActive)
+        if (_wasActive && !IsActive && !_cancelRequested)
             _ = InvokeAsync(CommitIfChangedAsync);
+        if (_wasActive && !IsActive)
+            _cancelRequested = false;
         _wasActive = IsActive;
     }
 
@@ -141,6 +144,14 @@ else
         if (!IsActive) return;
         _draftValue = value;
         await CommitIfChangedAsync();
+    }
+
+    private async Task HandleCancelEdit()
+    {
+        _cancelRequested = true;
+        _draftValue = null;
+        if (Ui != null)
+            await Ui.DeactivateFieldAsync();
     }
 
 }

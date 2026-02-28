@@ -20,14 +20,29 @@ else if (ShowEditableBadge)
 {
     @if (EditableAsButton)
     {
-        <button type="button"
-                class="badge ec-badge-inline border-0 ms-1 @(HasPendingChange ? "bg-warning text-dark" : "bg-primary")"
-                @onclick="OnEditableClick"
-                @onclick:stopPropagation="true"
-                title="@(HasPendingChange ? "Pending change" : "Edit this field")"
-                aria-label="Edit">
-            @(HasPendingChange ? "pending" : "editable")
-        </button>
+        @if (IsActiveEditor)
+        {
+            <button type="button"
+                    class="badge ec-badge-inline border-0 ms-1 bg-secondary"
+                    @onmousedown:preventDefault
+                    @onclick="OnCancelClick"
+                    @onclick:stopPropagation="true"
+                    title="Cancel and clear unsaved changes for this field"
+                    aria-label="Cancel">
+                cancel
+            </button>
+        }
+        else
+        {
+            <button type="button"
+                    class="badge ec-badge-inline border-0 ms-1 @(HasPendingChange ? "bg-warning text-dark" : "bg-primary")"
+                    @onclick="OnEditableClick"
+                    @onclick:stopPropagation="true"
+                    title="@(HasPendingChange ? "Pending change" : "Edit this field")"
+                    aria-label="Edit">
+                @(HasPendingChange ? "pending" : "editable")
+            </button>
+        }
     }
     else
     {
@@ -48,9 +63,21 @@ else if (ShowEditableBadge)
     [Parameter] public bool HasPendingChange { get; set; }
     /// <summary>When true, editable badge is a button; otherwise a static span.</summary>
     [Parameter] public bool EditableAsButton { get; set; } = true;
+    /// <summary>When true, this field is the active editor; show Cancel instead of Edit and invoke OnCancelRequested on click.</summary>
+    [Parameter] public bool IsActiveEditor { get; set; }
+    /// <summary>When user clicks Cancel (while IsActiveEditor). Invoke before deactivating so parent can clear draft.</summary>
+    [Parameter] public EventCallback OnCancelRequested { get; set; }
     /// <summary>Field key for activation via context when editable badge is clicked.</summary>
     [Parameter] public string? FieldKey { get; set; }
     [CascadingParameter] public EffectiveConfigUiContext? Ui { get; set; }
+
+    private async Task OnCancelClick()
+    {
+        if (OnCancelRequested.HasDelegate)
+            await OnCancelRequested.InvokeAsync();
+        else if (Ui != null)
+            await Ui.DeactivateFieldAsync();
+    }
 
     private Task OnEditableClick()
     {

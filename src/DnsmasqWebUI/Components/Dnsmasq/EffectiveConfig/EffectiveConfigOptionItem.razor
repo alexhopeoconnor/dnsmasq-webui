@@ -7,14 +7,14 @@
 {
     <span class="ec-field-value" @onclick:stopPropagation="true">
         <input type="text" class="form-control form-control-sm" value="@(_editValue ?? DisplayValue)" @oninput="OnValueInput" @onfocusout="OnInputBlur" />
-        <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorId ?? "")" Source="@Source" OptionName="@Label" Value="@(RawValue ?? DisplayValue)" IsInteractive="@(DisplayMode == EffectiveConfigDisplayMode.Edit && !string.IsNullOrEmpty(ReadonlyBadgeAnchorId))" ShowEditableBadge="@ShowEditableBadge" HasPendingChange="@HasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" />
+        <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorId ?? "")" Source="@Source" OptionName="@Label" Value="@(RawValue ?? DisplayValue)" IsInteractive="@(DisplayMode == EffectiveConfigDisplayMode.Edit && !string.IsNullOrEmpty(ReadonlyBadgeAnchorId))" ShowEditableBadge="@ShowEditableBadge" HasPendingChange="@HasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="true" OnCancelRequested="@OnCancelRequested" />
     </span>
 }
 else
 {
     <span class="ec-field-value">
         @DisplayValue
-        <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorId ?? "")" Source="@Source" OptionName="@Label" Value="@(RawValue ?? DisplayValue)" IsInteractive="@(DisplayMode == EffectiveConfigDisplayMode.Edit && !string.IsNullOrEmpty(ReadonlyBadgeAnchorId))" ShowEditableBadge="@ShowEditableBadge" HasPendingChange="@HasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" />
+        <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorId ?? "")" Source="@Source" OptionName="@Label" Value="@(RawValue ?? DisplayValue)" IsInteractive="@(DisplayMode == EffectiveConfigDisplayMode.Edit && !string.IsNullOrEmpty(ReadonlyBadgeAnchorId))" ShowEditableBadge="@ShowEditableBadge" HasPendingChange="@HasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="false" OnCancelRequested="@OnCancelRequested" />
     </span>
 }
 
@@ -42,6 +42,8 @@ else
     [Parameter] public EventCallback<string> DisplayValueChanged { get; set; }
     /// <summary>When Edit and not readonly: raised when the input loses focus; argument is the current value.</summary>
     [Parameter] public EventCallback<string?> OnBlur { get; set; }
+    /// <summary>When user clicks Cancel while this field is the active editor; parent should clear draft and deactivate.</summary>
+    [Parameter] public EventCallback OnCancelRequested { get; set; }
     [CascadingParameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
 
     private string? _editValue;
