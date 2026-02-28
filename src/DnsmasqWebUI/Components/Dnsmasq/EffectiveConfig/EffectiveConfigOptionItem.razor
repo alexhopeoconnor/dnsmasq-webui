@@ -2,26 +2,19 @@
 @using DnsmasqWebUI.Models.Dnsmasq
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 
-<OptionHelpLabel AnchorId="@(OptionHelpAnchorId ?? "")" HelpKey="@OptionHelpKey" OptionLabel="@Label" CssClass="@(OptionHelpKey != null ? "ec-field-label ec-field-label-help" : "ec-field-label")" Title="@(LabelTooltip ?? Source?.GetReadOnlyTooltip())"><strong>@Label:</strong></OptionHelpLabel>
+<OptionHelpLabel AnchorId="@(OptionHelpAnchorId ?? "")" HelpKey="@OptionHelpKey" OptionLabel="@Label" Title="@(LabelTooltip ?? Source?.GetReadOnlyTooltip())"><strong>@Label:</strong></OptionHelpLabel>
 @if (DisplayMode == EffectiveConfigDisplayMode.Edit && IsActive && Source?.IsReadOnly != true)
 {
     <span class="ec-field-value" @onclick:stopPropagation="true">
         <input type="text" class="form-control form-control-sm" value="@(_editValue ?? DisplayValue)" @oninput="OnValueInput" @onfocusout="OnInputBlur" />
-        @if (ShowEditableBadge)
-        {
-            <button type="button" class="badge ec-badge-inline border-0 ms-1 @(HasPendingChange ? "bg-warning text-dark" : "bg-primary")" @onclick="OnActivateEdit" @onclick:stopPropagation="true" title="@(HasPendingChange ? "Pending change" : "Edit this field")" aria-label="Edit">@(HasPendingChange ? "pending" : "editable")</button>
-        }
+        <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorId ?? "")" Source="@Source" OptionName="@Label" Value="@(RawValue ?? DisplayValue)" IsInteractive="@(DisplayMode == EffectiveConfigDisplayMode.Edit && !string.IsNullOrEmpty(ReadonlyBadgeAnchorId))" ShowEditableBadge="@ShowEditableBadge" HasPendingChange="@HasPendingChange" EditableAsButton="true" OnActivateEdit="@OnActivateEdit" />
     </span>
 }
 else
 {
     <span class="ec-field-value">
         @DisplayValue
-        <ReadonlyBadge AnchorId="@(ReadonlyBadgeAnchorId ?? "")" Source="@Source" OptionName="@Label" Value="@(RawValue ?? DisplayValue)" IsInteractive="@(DisplayMode == EffectiveConfigDisplayMode.Edit && !string.IsNullOrEmpty(ReadonlyBadgeAnchorId))" />
-        @if (ShowEditableBadge && Source?.IsReadOnly != true)
-        {
-            <button type="button" class="badge ec-badge-inline border-0 ms-1 @(HasPendingChange ? "bg-warning text-dark" : "bg-primary")" @onclick="OnActivateEdit" @onclick:stopPropagation="true" title="@(HasPendingChange ? "Pending change" : "Edit this field")" aria-label="Edit">@(HasPendingChange ? "pending" : "editable")</button>
-        }
+        <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorId ?? "")" Source="@Source" OptionName="@Label" Value="@(RawValue ?? DisplayValue)" IsInteractive="@(DisplayMode == EffectiveConfigDisplayMode.Edit && !string.IsNullOrEmpty(ReadonlyBadgeAnchorId))" ShowEditableBadge="@ShowEditableBadge" HasPendingChange="@HasPendingChange" EditableAsButton="true" OnActivateEdit="@OnActivateEdit" />
     </span>
 }
 

@@ -3,7 +3,7 @@
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 
 <li class="ec-field">
-    <OptionHelpLabel AnchorId="@(OptionHelpAnchorId ?? "")" HelpKey="@OptionHelpKey" OptionLabel="@Label" CssClass="@(OptionHelpKey != null ? "ec-field-label ec-field-label-help" : "ec-field-label")" Title="@LabelTooltip"><strong>@Label:</strong></OptionHelpLabel>
+    <OptionHelpLabel AnchorId="@(OptionHelpAnchorId ?? "")" HelpKey="@OptionHelpKey" OptionLabel="@Label" Title="@LabelTooltip"><strong>@Label:</strong></OptionHelpLabel>
     @if (IsActiveEditor)
     {
         <span class="ec-field-value ec-field-value-multi" @onclick:stopPropagation="true">

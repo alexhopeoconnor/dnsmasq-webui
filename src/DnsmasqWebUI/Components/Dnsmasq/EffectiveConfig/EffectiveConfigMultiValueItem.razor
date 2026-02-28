@@ -4,11 +4,7 @@
 
 <span class="ec-field-value-item" title="@(Source?.GetReadOnlyTooltip())">
     @Value
-    <ReadonlyBadge AnchorId="@(ReadonlyBadgeAnchorId ?? "")" Source="@Source" OptionName="@OptionName" Value="@Value" IsInteractive="@(IsEditMode && !string.IsNullOrEmpty(ReadonlyBadgeAnchorId))" />
-    @if (Source?.IsReadOnly != true && IsEditMode)
-    {
-        <span class="badge bg-primary ec-badge-inline ms-1">editable</span>
-    }
+    <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorId ?? "")" Source="@Source" OptionName="@OptionName" Value="@Value" IsInteractive="@(IsEditMode && !string.IsNullOrEmpty(ReadonlyBadgeAnchorId))" ShowEditableBadge="@(Source?.IsReadOnly != true && IsEditMode)" EditableAsButton="false" />
 </span>
 
 @code {

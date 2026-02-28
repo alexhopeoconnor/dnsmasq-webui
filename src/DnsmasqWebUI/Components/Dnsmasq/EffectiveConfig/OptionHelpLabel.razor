@@ -1,7 +1,7 @@
 @namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 
-<span id="@AnchorId" class="@CssClass" title="@Title" @onclick="OnClick" @onmouseleave="OnMouseLeave">
+<span id="@AnchorId" class="@EffectiveCssClass" title="@Title" @onclick="OnClick" @onmouseleave="OnMouseLeave">
     @ChildContent
 </span>
 
@@ -10,6 +10,9 @@
     [Parameter] public string? HelpKey { get; set; }
     [Parameter] public string OptionLabel { get; set; } = "";
     [Parameter] public string? CssClass { get; set; }
+
+    private string EffectiveCssClass =>
+        CssClass ?? (!string.IsNullOrEmpty(HelpKey) ? "ec-field-label ec-field-label-help" : "ec-field-label");
     [Parameter] public string? Title { get; set; }
     [CascadingParameter] public EffectiveConfigUiContext? Ui { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }

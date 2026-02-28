@@ -1,0 +1,65 @@
+@namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Models.Dnsmasq
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+
+@if (Source?.IsReadOnly == true)
+{
+    @if (IsInteractive && Ui != null)
+    {
+        <button type="button" id="@AnchorId" class="badge bg-secondary ec-badge-inline border-0 ms-1" title="@(Source?.GetReadOnlyTooltip())"
+                @onclick="OnReadonlyClick" @onmouseleave="OnReadonlyMouseLeave">
+            readonly
+        </button>
+    }
+    else
+    {
+        <span class="badge bg-secondary ec-badge-inline ms-1" title="@(Source?.GetReadOnlyTooltip())">readonly</span>
+    }
+}
+else if (ShowEditableBadge)
+{
+    @if (EditableAsButton)
+    {
+        <button type="button"
+                class="badge ec-badge-inline border-0 ms-1 @(HasPendingChange ? "bg-warning text-dark" : "bg-primary")"
+                @onclick="OnActivateEdit"
+                @onclick:stopPropagation="true"
+                title="@(HasPendingChange ? "Pending change" : "Edit this field")"
+                aria-label="Edit">
+            @(HasPendingChange ? "pending" : "editable")
+        </button>
+    }
+    else
+    {
+        <span class="badge bg-primary ec-badge-inline ms-1">editable</span>
+    }
+}
+
+@code {
+    [Parameter] public string AnchorId { get; set; } = "";
+    [Parameter] public ConfigValueSource? Source { get; set; }
+    [Parameter] public string OptionName { get; set; } = "";
+    [Parameter] public object? Value { get; set; }
+    /// <summary>When true, render readonly as button and raise click/mouseleave via context.</summary>
+    [Parameter] public bool IsInteractive { get; set; }
+    /// <summary>When true, show editable/pending badge for non-readonly fields.</summary>
+    [Parameter] public bool ShowEditableBadge { get; set; }
+    /// <summary>When true, badge shows "pending" and warning style.</summary>
+    [Parameter] public bool HasPendingChange { get; set; }
+    /// <summary>When true, editable badge is a button; otherwise a static span.</summary>
+    [Parameter] public bool EditableAsButton { get; set; } = true;
+    [Parameter] public EventCallback OnActivateEdit { get; set; }
+    [CascadingParameter] public EffectiveConfigUiContext? Ui { get; set; }
+
+    private Task OnReadonlyClick()
+    {
+        if (Ui == null || Source == null) return Task.CompletedTask;
+        return Ui.RequestReadonlyPopoverAsync(new ReadonlyBadgeClickedEventArgs(AnchorId, Source, OptionName, Value));
+    }
+
+    private Task OnReadonlyMouseLeave()
+    {
+        if (Ui == null) return Task.CompletedTask;
+        return Ui.ScheduleReadonlyPopoverCloseAsync();
+    }
+}

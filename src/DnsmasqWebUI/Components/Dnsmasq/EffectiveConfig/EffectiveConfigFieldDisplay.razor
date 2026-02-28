@@ -14,9 +14,9 @@
     var showEditableBadge = !isReadonly;
     var isActiveEditor = IsEditMode && IsActive;
     var fragmentWithCallback = isActiveEditor ? _fragmentWithCallback : null;
-    var effectiveValue = _effectiveValue ?? Descriptor.GetValue();
+    var effectiveValue = _effectiveValue;
     <li class="ec-field @(isActiveEditor ? "ec-field-editing" : "")" title="@(Descriptor.GetSource()?.GetReadOnlyTooltip())">
-        <OptionHelpLabel AnchorId="@_anchorId" HelpKey="@_optionHelpKey" OptionLabel="@Descriptor.OptionName" CssClass="@(_optionHelpKey != null ? "ec-field-label ec-field-label-help" : "ec-field-label")" Title="@(labelTooltip ?? Descriptor.GetSource()?.GetReadOnlyTooltip())"><strong>@Descriptor.OptionName:</strong></OptionHelpLabel>
+        <OptionHelpLabel AnchorId="@_anchorId" HelpKey="@_optionHelpKey" OptionLabel="@Descriptor.OptionName" Title="@(labelTooltip ?? Descriptor.GetSource()?.GetReadOnlyTooltip())"><strong>@Descriptor.OptionName:</strong></OptionHelpLabel>
         <span class="ec-field-value">
             @if (isActiveEditor)
             {
@@ -34,11 +34,7 @@
                     @fragment(Descriptor)
                 </CascadingValue>
             }
-            <ReadonlyBadge AnchorId="@_readonlyBadgeAnchorId" Source="@Descriptor.GetSource()" OptionName="@Descriptor.OptionName" Value="@effectiveValue" IsInteractive="@IsEditMode" />
-            @if (showEditableBadge)
-            {
-                <button type="button" class="badge ec-badge-inline border-0 ms-1 @(_hasPendingChange ? "bg-warning text-dark" : "bg-primary")" @onclick="OnActivateEdit" @onclick:stopPropagation="true" title="@(_hasPendingChange ? "Pending change" : "Edit this field")" aria-label="Edit">@(_hasPendingChange ? "pending" : "editable")</button>
-            }
+            <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@Descriptor.GetSource()" OptionName="@Descriptor.OptionName" Value="@effectiveValue" IsInteractive="@IsEditMode" ShowEditableBadge="@showEditableBadge" HasPendingChange="@_hasPendingChange" EditableAsButton="true" OnActivateEdit="@OnActivateEdit" />
         </span>
     </li>
 }
@@ -49,7 +45,7 @@ else if (Descriptor.IsMultiValue)
 }
 else
 {
-    var value = _effectiveValue ?? Descriptor.GetValue();
+    var value = _effectiveValue;
     var displayValue = value == null ? "(not set)" : (value is IReadOnlyList<string> list ? (list.Count == 0 ? "(none)" : string.Join(", ", list)) : value.ToString());
     var isReadonly = Descriptor.GetSource()?.IsReadOnly == true;
     var showReadonlyHint = IsEditMode && isReadonly;
@@ -103,7 +99,7 @@ else
             string.Equals(c.SectionId, Descriptor.SectionId, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(c.OptionName, Descriptor.OptionName, StringComparison.OrdinalIgnoreCase));
         _hasPendingChange = pending != null;
-        _effectiveValue = pending?.NewValue ?? Descriptor.GetValue();
+        _effectiveValue = pending != null ? pending.NewValue : Descriptor.GetValue();
         if (!_wasActive && IsActive)
             _valueAtActivation = _effectiveValue;
         if (_wasActive && !IsActive)
@@ -124,7 +120,7 @@ else
 
     private async Task CommitIfChangedAsync()
     {
-        var newValue = _draftValue ?? _effectiveValue ?? Descriptor.GetValue();
+        var newValue = _draftValue ?? _effectiveValue;
         if (!Equals(_valueAtActivation, newValue))
         {
             var source = Descriptor.GetSource();
