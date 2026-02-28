@@ -11,8 +11,13 @@
 <div class="ec-container" @onclick="DeactivateActiveFieldIfClicked">
     <OptionHelpController @ref="_optionHelpControllerRef" Visible="@_showOptionHelp" HelpKey="@_optionHelpKey" AnchorId="@_optionHelpAnchorId" Title="@_optionHelpTitle" OnCloseRequested="CloseOptionHelp" />
     <ReadonlyPopoverController @ref="_readonlyPopoverControllerRef" Visible="@_showReadonlyPopover" AnchorId="@_readonlyPopoverAnchorId" Source="@_readonlyPopoverSource" OptionName="@(_readonlyPopoverOptionName ?? "")" Value="@_readonlyPopoverValue" ManagedFilePath="@(Status?.ManagedFilePath)" OnCloseRequested="CloseReadonlyPopover" />
+    @{
+        var _sectionViews = EffectiveConfigViews.GetViewsForContext(Context);
+        var _allSectionsExpanded = _sectionViews.Count > 0 && _sectionViews.All(v => _openPanels.Contains(v.SectionId));
+    }
     <EffectiveConfigToolbar ShowSearchBox="@ShowSearchBox" SearchTerm="@_searchTerm" SearchTermChanged="@OnSearchTermChanged"
         IsEditMode="@Session.IsEditMode" PendingChangesCount="@Session.PendingChanges.Count"
+        AllSectionsExpanded="@_allSectionsExpanded"
         OnExpandAll="ExpandAll" OnCollapseAll="CollapseAll" OnEnterEditMode="EnterEditMode" OnExitEditModeWithConfirm="ExitEditModeWithConfirmAsync" OnOpenSaveModal="OpenSaveModal" />
     <CascadingValue Value="@Session">
     <CascadingValue Value="@_uiContext">

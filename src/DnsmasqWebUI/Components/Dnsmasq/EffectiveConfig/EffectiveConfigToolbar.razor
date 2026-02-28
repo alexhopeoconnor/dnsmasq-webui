@@ -7,11 +7,10 @@
                value="@SearchTerm" @oninput="OnSearchInput" />
     }
     <div class="ec-toolbar-actions">
-        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="OnExpandAll" title="Expand all sections" aria-label="Expand all sections">
-            <i class="bi bi-arrows-expand" aria-hidden="true"></i>
-        </button>
-        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="OnCollapseAll" title="Collapse all sections" aria-label="Collapse all sections">
-            <i class="bi bi-arrows-collapse" aria-hidden="true"></i>
+        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="OnToggleExpandCollapse"
+                title="@(AllSectionsExpanded ? "Collapse all sections" : "Expand all sections")"
+                aria-label="@(AllSectionsExpanded ? "Collapse all sections" : "Expand all sections")">
+            <i class="bi @(AllSectionsExpanded ? "bi-arrows-collapse" : "bi-arrows-expand")" aria-hidden="true"></i>
         </button>
         @if (IsEditMode)
         {
@@ -41,8 +40,17 @@
     [Parameter] public EventCallback<string> SearchTermChanged { get; set; }
     [Parameter] public bool IsEditMode { get; set; }
     [Parameter] public int PendingChangesCount { get; set; }
+    [Parameter] public bool AllSectionsExpanded { get; set; }
     [Parameter] public EventCallback OnExpandAll { get; set; }
     [Parameter] public EventCallback OnCollapseAll { get; set; }
+
+    private async Task OnToggleExpandCollapse()
+    {
+        if (AllSectionsExpanded)
+            await OnCollapseAll.InvokeAsync();
+        else
+            await OnExpandAll.InvokeAsync();
+    }
     [Parameter] public EventCallback OnEnterEditMode { get; set; }
     [Parameter] public EventCallback OnExitEditModeWithConfirm { get; set; }
     [Parameter] public EventCallback OnOpenSaveModal { get; set; }
