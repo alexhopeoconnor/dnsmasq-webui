@@ -1,0 +1,9 @@
+/* Ensure the dialog stacks above the backdrop when both are siblings inside .modal */
+.modal-dialog {
+    position: relative;
+    z-index: 1056;
+}
+
+.modal-backdrop {
+    z-index: 1050;
+}

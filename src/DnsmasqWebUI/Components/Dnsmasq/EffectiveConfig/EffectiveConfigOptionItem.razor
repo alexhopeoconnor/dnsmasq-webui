@@ -2,95 +2,45 @@
 @using DnsmasqWebUI.Models.Dnsmasq
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 
-@if (SuppressOuterLi)
+<OptionHelpLabel AnchorId="@(OptionHelpAnchorId ?? "")" HelpKey="@OptionHelpKey" OptionLabel="@Label" CssClass="@(OptionHelpKey != null ? "ec-field-label ec-field-label-help" : "ec-field-label")" Title="@(LabelTooltip ?? Source?.GetReadOnlyTooltip())"><strong>@Label:</strong></OptionHelpLabel>
+@if (DisplayMode == EffectiveConfigDisplayMode.Edit && IsActive && Source?.IsReadOnly != true)
 {
-    <span id="@OptionHelpAnchorId" class="ec-field-label @(OptionHelpKey != null ? "ec-field-label-help" : null)" title="@(LabelTooltip ?? Source?.GetReadOnlyTooltip())" @onclick="RaiseOptionHelpRequested" @onmouseleave="RaiseLabelMouseLeave"><strong>@Label:</strong></span>
-    @if (DisplayMode == EffectiveConfigDisplayMode.Edit && IsActive && Source?.IsReadOnly != true)
-    {
-        <span class="ec-field-value" @onclick:stopPropagation="true">
-            <input type="text" class="form-control form-control-sm" value="@(_editValue ?? DisplayValue)" @oninput="OnValueInput" @onfocusout="OnInputBlur" />
-            @if (ShowEditableBadge)
-            {
-                <button type="button" class="badge bg-primary ec-badge-inline border-0 ms-1" @onclick="OnActivateEdit" @onclick:stopPropagation="true" title="Edit this field" aria-label="Edit">editable</button>
-            }
-        </span>
-    }
-    else
-    {
-        <span class="ec-field-value">
-            @DisplayValue
-            @if (Source?.IsReadOnly == true)
-            {
-                @if (!string.IsNullOrEmpty(ReadonlyBadgeAnchorId) && OnReadonlyBadgeClick.HasDelegate)
-                {
-                    <button type="button" id="@ReadonlyBadgeAnchorId" class="badge bg-secondary ec-badge-inline border-0 ms-1" title="@(Source?.GetReadOnlyTooltip())" @onclick="OnReadonlyBadgeClick" @onmouseleave="OnReadonlyBadgeMouseLeave">readonly</button>
-                }
-                else
-                {
-                    <span class="badge bg-secondary ec-badge-inline ms-1" title="@(Source?.GetReadOnlyTooltip())">readonly</span>
-                }
-            }
-            @if (ShowEditableBadge && Source?.IsReadOnly != true)
-            {
-                <button type="button" class="badge bg-primary ec-badge-inline border-0 ms-1" @onclick="OnActivateEdit" @onclick:stopPropagation="true" title="Edit this field" aria-label="Edit">editable</button>
-            }
-        </span>
-    }
+    <span class="ec-field-value" @onclick:stopPropagation="true">
+        <input type="text" class="form-control form-control-sm" value="@(_editValue ?? DisplayValue)" @oninput="OnValueInput" @onfocusout="OnInputBlur" />
+        @if (ShowEditableBadge)
+        {
+            <button type="button" class="badge ec-badge-inline border-0 ms-1 @(HasPendingChange ? "bg-warning text-dark" : "bg-primary")" @onclick="OnActivateEdit" @onclick:stopPropagation="true" title="@(HasPendingChange ? "Pending change" : "Edit this field")" aria-label="Edit">@(HasPendingChange ? "pending" : "editable")</button>
+        }
+    </span>
 }
 else
 {
-    <li class="ec-field @(IsActive ? "ec-field-editing" : "")" title="@(Source?.GetReadOnlyTooltip())">
-        <span id="@OptionHelpAnchorId" class="ec-field-label @(OptionHelpKey != null ? "ec-field-label-help" : null)" title="@(LabelTooltip ?? Source?.GetReadOnlyTooltip())" @onclick="RaiseOptionHelpRequested" @onmouseleave="RaiseLabelMouseLeave"><strong>@Label:</strong></span>
-        @if (DisplayMode == EffectiveConfigDisplayMode.Edit && IsActive && Source?.IsReadOnly != true)
+    <span class="ec-field-value">
+        @DisplayValue
+        <ReadonlyBadge AnchorId="@(ReadonlyBadgeAnchorId ?? "")" Source="@Source" OptionName="@Label" Value="@(RawValue ?? DisplayValue)" IsInteractive="@(DisplayMode == EffectiveConfigDisplayMode.Edit && !string.IsNullOrEmpty(ReadonlyBadgeAnchorId))" />
+        @if (ShowEditableBadge && Source?.IsReadOnly != true)
         {
-            <span class="ec-field-value" @onclick:stopPropagation="true">
-                <input type="text" class="form-control form-control-sm" value="@(_editValue ?? DisplayValue)" @oninput="OnValueInput" @onfocusout="OnInputBlur" />
-                @if (ShowEditableBadge)
-                {
-                    <button type="button" class="badge bg-primary ec-badge-inline border-0 ms-1" @onclick="OnActivateEdit" @onclick:stopPropagation="true" title="Edit this field" aria-label="Edit">editable</button>
-                }
-            </span>
+            <button type="button" class="badge ec-badge-inline border-0 ms-1 @(HasPendingChange ? "bg-warning text-dark" : "bg-primary")" @onclick="OnActivateEdit" @onclick:stopPropagation="true" title="@(HasPendingChange ? "Pending change" : "Edit this field")" aria-label="Edit">@(HasPendingChange ? "pending" : "editable")</button>
         }
-        else
-        {
-            <span class="ec-field-value">
-                @DisplayValue
-                @if (Source?.IsReadOnly == true)
-                {
-                    @if (!string.IsNullOrEmpty(ReadonlyBadgeAnchorId) && OnReadonlyBadgeClick.HasDelegate)
-                    {
-                        <button type="button" id="@ReadonlyBadgeAnchorId" class="badge bg-secondary ec-badge-inline border-0 ms-1" title="@(Source?.GetReadOnlyTooltip())" @onclick="OnReadonlyBadgeClick" @onmouseleave="OnReadonlyBadgeMouseLeave">readonly</button>
-                    }
-                    else
-                    {
-                        <span class="badge bg-secondary ec-badge-inline ms-1" title="@(Source?.GetReadOnlyTooltip())">readonly</span>
-                    }
-                }
-                @if (ShowEditableBadge && Source?.IsReadOnly != true)
-                {
-                    <button type="button" class="badge bg-primary ec-badge-inline border-0 ms-1" @onclick="OnActivateEdit" @onclick:stopPropagation="true" title="Edit this field" aria-label="Edit">editable</button>
-                }
-            </span>
-        }
-    </li>
+    </span>
 }
 
 @code {
     [Parameter] public string Label { get; set; } = "";
     [Parameter] public string DisplayValue { get; set; } = "";
     [Parameter] public ConfigValueSource? Source { get; set; }
-    /// <summary>When true, render only the inner content (no outer li); used when parent wraps with ReadonlyEditHint.</summary>
-    [Parameter] public bool SuppressOuterLi { get; set; }
     /// <summary>Optional explainer shown on hover over the label (e.g. from DnsmasqOptionTooltips).</summary>
     [Parameter] public string? LabelTooltip { get; set; }
     [Parameter] public string? OptionHelpKey { get; set; }
     [Parameter] public string? OptionHelpAnchorId { get; set; }
-    /// <summary>When set with OnReadonlyBadgeClick, the readonly badge is rendered as a button with this id so the parent can open a popover under it.</summary>
+    /// <summary>When set in edit mode, the readonly badge is rendered as a button with this id so the popover can anchor to it.</summary>
     [Parameter] public string? ReadonlyBadgeAnchorId { get; set; }
-    [Parameter] public EventCallback OnReadonlyBadgeClick { get; set; }
-    [Parameter] public EventCallback OnReadonlyBadgeMouseLeave { get; set; }
+    /// <summary>Raw value for the readonly popover override line (e.g. from descriptor); falls back to DisplayValue.</summary>
+    [Parameter] public object? RawValue { get; set; }
     /// <summary>When true, show an 'editable' badge next to non-readonly fields; clicking it activates edit for this field.</summary>
     [Parameter] public bool ShowEditableBadge { get; set; }
+    /// <summary>When true, badge shows "pending" and warning style to indicate this field has an unsaved change.</summary>
+    [Parameter] public bool HasPendingChange { get; set; }
     [Parameter] public EventCallback OnActivateEdit { get; set; }
     /// <summary>When true, add ec-field-editing class and show input when DisplayMode is Edit.</summary>
     [Parameter] public bool IsActive { get; set; }
@@ -99,19 +49,6 @@ else
     /// <summary>When Edit and not readonly: raised when the input loses focus; argument is the current value.</summary>
     [Parameter] public EventCallback<string?> OnBlur { get; set; }
     [CascadingParameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
-    [Parameter] public EventCallback<ConfigOptionHelpRequestEventArgs> OnOptionHelpRequested { get; set; }
-
-    private async Task RaiseOptionHelpRequested()
-    {
-        if (string.IsNullOrEmpty(OptionHelpKey) || string.IsNullOrEmpty(OptionHelpAnchorId)) return;
-        await OnOptionHelpRequested.InvokeAsync(new ConfigOptionHelpRequestEventArgs { HelpKey = OptionHelpKey, OptionLabel = Label, AnchorId = OptionHelpAnchorId });
-    }
-
-    private async Task RaiseLabelMouseLeave()
-    {
-        if (string.IsNullOrEmpty(OptionHelpAnchorId)) return;
-        await OnOptionHelpRequested.InvokeAsync(new ConfigOptionHelpRequestEventArgs { AnchorId = OptionHelpAnchorId, IsLabelMouseLeave = true });
-    }
 
     private string? _editValue;
 

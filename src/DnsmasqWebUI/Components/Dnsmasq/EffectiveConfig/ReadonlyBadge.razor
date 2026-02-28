@@ -1,0 +1,40 @@
+@namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Models.Dnsmasq
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+
+@if (Source?.IsReadOnly == true)
+{
+    @if (IsInteractive && Ui != null)
+    {
+        <button type="button" id="@AnchorId" class="badge bg-secondary ec-badge-inline border-0 ms-1" title="@(Source?.GetReadOnlyTooltip())"
+                @onclick="OnClick" @onmouseleave="OnMouseLeave">
+            readonly
+        </button>
+    }
+    else
+    {
+        <span class="badge bg-secondary ec-badge-inline ms-1" title="@(Source?.GetReadOnlyTooltip())">readonly</span>
+    }
+}
+
+@code {
+    [Parameter] public string AnchorId { get; set; } = "";
+    [Parameter] public ConfigValueSource? Source { get; set; }
+    [Parameter] public string OptionName { get; set; } = "";
+    [Parameter] public object? Value { get; set; }
+    /// <summary>When true, render as button and raise click/mouseleave via context.</summary>
+    [Parameter] public bool IsInteractive { get; set; }
+    [CascadingParameter] public EffectiveConfigUiContext? Ui { get; set; }
+
+    private Task OnClick()
+    {
+        if (Ui == null || Source == null) return Task.CompletedTask;
+        return Ui.RequestReadonlyPopoverAsync(new ReadonlyBadgeClickedEventArgs(AnchorId, Source, OptionName, Value));
+    }
+
+    private Task OnMouseLeave()
+    {
+        if (Ui == null) return Task.CompletedTask;
+        return Ui.ScheduleReadonlyPopoverCloseAsync();
+    }
+}

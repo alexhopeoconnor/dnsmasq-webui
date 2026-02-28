@@ -1,16 +1,17 @@
 @namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig.CustomDisplays
 @using DnsmasqWebUI.Models.Dnsmasq
+@inherits EffectiveConfigValueDisplayBase
 
-@* Value-only display for int? options. When active editor: number input (unless readonly); View: value + optional suffix/unit. Metadata from EffectiveIntegerConfigFieldDescriptor. *@
+@* Value-only display for int? options. Pending value shown until save. *@
 @if (IsActiveEditor && Descriptor.GetSource()?.IsReadOnly != true)
 {
-    var current = Descriptor.GetValue() is int i ? i : DefaultValue;
+    var current = GetEffectiveDisplayValue() is int i ? i : DefaultValue;
     <input type="number" class="form-control form-control-sm" style="max-width: 8rem;"
            min="@Min" max="@Max" value="@(current?.ToString() ?? "")" @oninput="OnInput" @onfocusout="OnCommitRequested" />
 }
 else
 {
-    var v = Descriptor.GetValue() is int n ? n : (int?)null;
+    var v = GetEffectiveDisplayValue() is int n ? n : (int?)null;
     if (v is null)
     {
         @("(not set)")
@@ -24,11 +25,6 @@ else
 }
 
 @code {
-    [Parameter] public EffectiveConfigFieldDescriptor Descriptor { get; set; } = null!;
-    [CascadingParameter] public bool IsActiveEditor { get; set; }
-    [CascadingParameter] public EventCallback<FocusEventArgs> OnCommitRequested { get; set; }
-    [Parameter] public EventCallback<object?> ValueChanged { get; set; }
-
     private EffectiveIntegerConfigFieldDescriptor? IntDescriptor => Descriptor as EffectiveIntegerConfigFieldDescriptor;
     private string? ViewSuffix => IntDescriptor?.ViewSuffix;
     private string? Unit => IntDescriptor?.Unit;
@@ -41,6 +37,6 @@ else
         int? value = null;
         if (int.TryParse(e.Value?.ToString(), out var num) && num >= Min && num <= Max)
             value = num;
-        await ValueChanged.InvokeAsync(value);
+        await NotifyValueChanged(value);
     }
 }

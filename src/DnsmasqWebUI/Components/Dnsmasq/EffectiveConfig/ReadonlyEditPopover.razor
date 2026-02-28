@@ -19,18 +19,14 @@
                 <p class="text-muted mb-2">@ReadonlyConfigCommandGenerator.GetEditFileHint(Source)</p>
                 @if (!string.IsNullOrEmpty(_removeCommand))
                 {
-                    <div class="d-flex align-items-center gap-1 mb-2">
-                        <code class="flex-grow-1 text-break" style="font-size: 0.8rem;">@_removeCommand</code>
-                        <button type="button" class="btn btn-sm btn-outline-secondary py-0" @onclick="CopyRemoveCommand" title="Copy command">Copy</button>
+                    <div class="mb-2">
+                        <CopyableCodeLine Text="@_removeCommand" CodeCssClass="small" CopyTitle="Copy command" />
                     </div>
                 }
                 @if (!string.IsNullOrEmpty(_overrideLine))
                 {
                     <p class="text-muted mb-1">@ReadonlyConfigCommandGenerator.GetOverrideHint(OptionName, Value, ManagedFilePath)</p>
-                    <div class="d-flex align-items-center gap-1">
-                        <code class="flex-grow-1" style="font-size: 0.8rem;">@_overrideLine</code>
-                        <button type="button" class="btn btn-sm btn-outline-secondary py-0" @onclick="CopyOverrideLine" title="Copy line">Copy</button>
-                    </div>
+                    <CopyableCodeLine Text="@_overrideLine" CodeCssClass="small" CopyTitle="Copy line" />
                 }
             </div>
         </div>
@@ -47,6 +43,9 @@
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback OnMouseEnterPopover { get; set; }
     [Parameter] public EventCallback OnMouseLeavePopover { get; set; }
+
+    private const string HiddenPositionStyle = "position: fixed; z-index: 1060; left: 0; top: 0; visibility: hidden;";
+    private const string VisiblePositionStyleFormat = "position: fixed; top: {0}px; left: {1}px; visibility: visible;";
 
     private string _positionStyle = "";
     private readonly string _popoverId = "ec-readonly-popover-" + Guid.NewGuid().ToString("N")[..8];
@@ -71,7 +70,7 @@
             _overrideLine = "";
         }
         if (Visible && string.IsNullOrEmpty(_positionStyle))
-            _positionStyle = "position: fixed; z-index: 1060; left: 0; top: 0; visibility: hidden;";
+            _positionStyle = HiddenPositionStyle;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -143,11 +142,11 @@
             var gap = 4;
             var topPx = r.Bottom + gap;
             var leftPx = r.Left;
-            _positionStyle = $"position: fixed; top: {topPx}px; left: {leftPx}px; visibility: visible;";
+            _positionStyle = string.Format(VisiblePositionStyleFormat, topPx, leftPx);
         }
         else
         {
-            _positionStyle = "position: fixed; z-index: 1060; left: 0; top: 0; visibility: hidden;";
+            _positionStyle = HiddenPositionStyle;
         }
     }
 
@@ -161,18 +160,6 @@
     {
         _mouseOverPopover = false;
         await OnMouseLeavePopover.InvokeAsync();
-    }
-
-    private async Task CopyRemoveCommand()
-    {
-        if (string.IsNullOrEmpty(_removeCommand)) return;
-        try { await JSRuntime.InvokeVoidAsync("copyToClipboard", _removeCommand); } catch { }
-    }
-
-    private async Task CopyOverrideLine()
-    {
-        if (string.IsNullOrEmpty(_overrideLine)) return;
-        try { await JSRuntime.InvokeVoidAsync("copyToClipboard", _overrideLine); } catch { }
     }
 
     private sealed record BoundingRect(

@@ -3,7 +3,7 @@
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 
 <li class="ec-field">
-    <span id="@OptionHelpAnchorId" class="ec-field-label @(OptionHelpKey != null ? "ec-field-label-help" : null)" title="@LabelTooltip" @onclick="RaiseOptionHelpRequested" @onmouseleave="RaiseLabelMouseLeave"><strong>@Label:</strong></span>
+    <OptionHelpLabel AnchorId="@(OptionHelpAnchorId ?? "")" HelpKey="@OptionHelpKey" OptionLabel="@Label" CssClass="@(OptionHelpKey != null ? "ec-field-label ec-field-label-help" : "ec-field-label")" Title="@LabelTooltip"><strong>@Label:</strong></OptionHelpLabel>
     @if (IsActiveEditor)
     {
         <span class="ec-field-value ec-field-value-multi" @onclick:stopPropagation="true">
@@ -18,9 +18,8 @@
                 <ol class="ec-field-value-list">
                     @foreach (var (item, index) in Items!.Select((item, index) => (item, index)))
                     {
-                        var anchorId = ReadonlyBadgeAnchorIdBase != null ? ReadonlyBadgeAnchorIdBase + "-" + index : null;
-                        var args = new ReadonlyBadgeClickedEventArgs(anchorId ?? "", item.Source!, Label, item.Value);
-                        <li><EffectiveConfigMultiValueItem Value="@item.Value" Source="@item.Source" IsEditMode="@IsEditMode" ReadonlyBadgeAnchorId="@anchorId" OnReadonlyBadgeClick="@(() => _ = OnReadonlyBadgeClicked.InvokeAsync(args))" OnReadonlyBadgeMouseLeave="@OnReadonlyBadgeMouseLeave" /></li>
+                        var anchorId = ReadonlyBadgeAnchorIdBase != null ? ReadonlyBadgeAnchorIdBase + "-" + index : "";
+                        <li><EffectiveConfigMultiValueItem Value="@item.Value" Source="@item.Source" OptionName="@Label" IsEditMode="@IsEditMode" ReadonlyBadgeAnchorId="@anchorId" /></li>
                     }
                 </ol>
             }
@@ -42,23 +41,8 @@
     [Parameter] public bool IsActiveEditor { get; set; }
     [Parameter] public bool IsEditMode { get; set; }
     [Parameter] public string? ReadonlyBadgeAnchorIdBase { get; set; }
-    [Parameter] public EventCallback<ReadonlyBadgeClickedEventArgs> OnReadonlyBadgeClicked { get; set; }
-    [Parameter] public EventCallback OnReadonlyBadgeMouseLeave { get; set; }
-    [Parameter] public EventCallback<ConfigOptionHelpRequestEventArgs> OnOptionHelpRequested { get; set; }
 
     private string _editLines = "";
-
-    private async Task RaiseOptionHelpRequested()
-    {
-        if (string.IsNullOrEmpty(OptionHelpKey) || string.IsNullOrEmpty(OptionHelpAnchorId)) return;
-        await OnOptionHelpRequested.InvokeAsync(new ConfigOptionHelpRequestEventArgs { HelpKey = OptionHelpKey, OptionLabel = Label, AnchorId = OptionHelpAnchorId });
-    }
-
-    private async Task RaiseLabelMouseLeave()
-    {
-        if (string.IsNullOrEmpty(OptionHelpAnchorId)) return;
-        await OnOptionHelpRequested.InvokeAsync(new ConfigOptionHelpRequestEventArgs { AnchorId = OptionHelpAnchorId, IsLabelMouseLeave = true });
-    }
 
     protected override void OnParametersSet()
     {

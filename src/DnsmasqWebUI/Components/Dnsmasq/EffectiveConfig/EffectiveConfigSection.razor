@@ -3,88 +3,26 @@
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 @using DnsmasqWebUI.Infrastructure.Helpers.Config
 @using DnsmasqWebUI.Infrastructure.Services.Abstractions
-@inject IEffectiveConfigRenderFragmentRegistry RenderFragmentRegistry
-@inject DnsmasqWebUI.Infrastructure.Services.Abstractions.IDnsmasqConfigService ConfigService
+@inject IEffectiveConfigEditSession Session
 @inject IJSRuntime JSRuntime
-@implements IAsyncDisposable
 
 @if (Status != null)
 {
 <div class="ec-container" @onclick="DeactivateActiveFieldIfClicked">
-    <ConfigOptionHelpModal HelpKey="@_optionHelpKey" AnchorId="@_optionHelpAnchorId" Visible="@_showOptionHelp" Title="@_optionHelpTitle"
-        OnClose="CloseOptionHelp" OnMouseEnterModal="CancelCloseTimerAsync" OnMouseLeaveModal="ScheduleCloseAsync" />
-    <ReadonlyEditPopover Visible="@_showReadonlyPopover" AnchorId="@_readonlyPopoverAnchorId" Source="@_readonlyPopoverSource" OptionName="@(_readonlyPopoverOptionName ?? "")" Value="@_readonlyPopoverValue" ManagedFilePath="@(Status?.ManagedFilePath)"
-        OnClose="CloseReadonlyPopover" OnMouseEnterPopover="CancelReadonlyCloseTimerAsync" OnMouseLeavePopover="ScheduleReadonlyCloseAsync" />
-    <div class="ec-toolbar @(_isEditMode ? "ec-edit-toolbar" : "")">
-            @if (ShowSearchBox)
-            {
-                <input type="search" id="ec-search-input" class="form-control form-control-sm ec-toolbar-search" placeholder="Search..." autocomplete="off"
-                       @bind="_searchTerm" @bind:event="oninput" @bind:after="StateHasChanged" />
-            }
-            <div class="ec-toolbar-actions">
-            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExpandAll" title="Expand all sections" aria-label="Expand all sections">
-                <i class="bi bi-arrows-expand" aria-hidden="true"></i>
-            </button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CollapseAll" title="Collapse all sections" aria-label="Collapse all sections">
-                <i class="bi bi-arrows-collapse" aria-hidden="true"></i>
-            </button>
-            @if (_isEditMode)
-            {
-                <button type="button" class="btn btn-sm btn-primary" @onclick="OpenSaveModal" disabled="@(_pendingChanges.Count == 0)" title="Save changes to managed config" aria-label="Save">
-                    <i class="bi bi-floppy-fill" aria-hidden="true"></i>
-                </button>
-                @if (_pendingChanges.Count > 0)
-                {
-                    <span class="text-muted small">@_pendingChanges.Count change(s)</span>
-                }
-                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ExitEditModeWithConfirmAsync" title="Exit edit mode" aria-label="Exit edit mode">
-                    <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
-                </button>
-            }
-            else
-            {
-                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="EnterEditMode" title="Edit effective config" aria-label="Edit">
-                    <i class="bi bi-pencil" aria-hidden="true"></i>
-                </button>
-            }
-            </div>
-    </div>
-    <CascadingValue Name="IsEditMode" Value="@_isEditMode">
-    <CascadingValue Name="ActiveFieldKey" Value="@_activeFieldKey">
-    <CascadingValue Name="ManagedFilePath" Value="@(Status?.ManagedFilePath)">
-    <div class="ec-sections small">
-        @{
-            var views = EffectiveConfigViews.GetViewsForContext(Context);
-            var descriptorsBySection = EffectiveConfigViews.GetDescriptorsBySection(Status, views, RenderFragmentRegistry);
-            var hasSearch = !string.IsNullOrWhiteSpace(_searchTerm);
-            var term = _searchTerm?.Trim() ?? "";
-        }
-        @foreach (var view in views)
-        {
-            if (!descriptorsBySection.TryGetValue(view.SectionId, out var contextDescriptors))
-                continue;
-            var sectionDescriptors = hasSearch
-                ? contextDescriptors.Where(d => DescriptorMatchesSearch(d, term)).ToList()
-                : contextDescriptors.ToList();
-            if (sectionDescriptors.Count == 0)
-                continue;
-            var isOpen = hasSearch ? true : IsOpen(view.SectionId);
-            <EffectiveConfigSectionPanel SectionId="@view.SectionId" Title="@view.Title" Descriptors="@sectionDescriptors" IsOpen="@isOpen" OnToggle="@OnSectionToggle"
-                DisplayMode="@( _isEditMode ? EffectiveConfigDisplayMode.Edit : EffectiveConfigDisplayMode.View )"
-                IsEditMode="@_isEditMode" ActiveFieldKey="@_activeFieldKey"
-                OnActivateField="ActivateField" OnFieldEditCommitted="HandleFieldEditCommitted"
-                OnReadonlyBadgeClicked="HandleReadonlyBadgeClicked"
-                OnReadonlyBadgeMouseLeave="ScheduleReadonlyCloseAsync"
-                OnOptionHelpRequested="@HandleOptionHelpRequested" />
-        }
-    </div>
+    <OptionHelpController @ref="_optionHelpControllerRef" Visible="@_showOptionHelp" HelpKey="@_optionHelpKey" AnchorId="@_optionHelpAnchorId" Title="@_optionHelpTitle" OnCloseRequested="CloseOptionHelp" />
+    <ReadonlyPopoverController @ref="_readonlyPopoverControllerRef" Visible="@_showReadonlyPopover" AnchorId="@_readonlyPopoverAnchorId" Source="@_readonlyPopoverSource" OptionName="@(_readonlyPopoverOptionName ?? "")" Value="@_readonlyPopoverValue" ManagedFilePath="@(Status?.ManagedFilePath)" OnCloseRequested="CloseReadonlyPopover" />
+    <EffectiveConfigToolbar ShowSearchBox="@ShowSearchBox" SearchTerm="@_searchTerm" SearchTermChanged="@OnSearchTermChanged"
+        IsEditMode="@Session.IsEditMode" PendingChangesCount="@Session.PendingChanges.Count"
+        OnExpandAll="ExpandAll" OnCollapseAll="CollapseAll" OnEnterEditMode="EnterEditMode" OnExitEditModeWithConfirm="ExitEditModeWithConfirmAsync" OnOpenSaveModal="OpenSaveModal" />
+    <CascadingValue Value="@Session">
+    <CascadingValue Value="@_uiContext">
+        <EffectiveConfigPanels Status="@Status" Context="@Context" SearchTerm="@_searchTerm" OpenSectionIds="@_openPanels"
+            OnSectionToggle="OnSectionToggle" IsEditMode="@Session.IsEditMode" ActiveFieldKey="@Session.ActiveFieldKey"
+            OnActivateField="ActivateField" OnFieldEditCommitted="HandleFieldEditCommitted" />
     </CascadingValue>
     </CascadingValue>
-    </CascadingValue>
-    @if (_showSaveModal)
-    {
-        <EffectiveConfigSaveModal PendingChanges="_pendingChanges" Status="@Status" OnClose="CloseSaveModal" OnSave="ConfirmSave" />
-    }
+    <EffectiveConfigSaveFlow ShowModal="@_showSaveModal" PendingChanges="@Session.PendingChanges" Status="@Status" Session="@Session"
+        OnClose="CloseSaveModal" OnSaveCompleted="OnSaveCompleted" />
 </div>
 }
 
@@ -92,131 +30,86 @@
     [Parameter] public DnsmasqServiceStatus? Status { get; set; }
     [Parameter] public EffectiveConfigContext Context { get; set; } = EffectiveConfigContext.All;
     [Parameter] public bool ShowSearchBox { get; set; } = true;
-    /// <summary>Raised after pending changes were successfully written to managed config (so the page can refresh status).</summary>
     [Parameter] public EventCallback OnSaveCompleted { get; set; }
 
     private string _searchTerm = "";
     private HashSet<string> _openPanels = new();
+    private bool _showSaveModal;
+
     private string? _optionHelpKey;
     private string? _optionHelpAnchorId;
     private string _optionHelpTitle = "Option help";
     private bool _showOptionHelp;
-    private CancellationTokenSource? _closeCts;
-
-    private bool _isEditMode;
-    private string? _activeFieldKey;
-    private readonly List<PendingEffectiveConfigChange> _pendingChanges = new();
-    private bool _showSaveModal;
+    private OptionHelpController? _optionHelpControllerRef;
 
     private bool _showReadonlyPopover;
+    private ReadonlyPopoverController? _readonlyPopoverControllerRef;
     private string? _readonlyPopoverAnchorId;
     private ConfigValueSource? _readonlyPopoverSource;
     private string? _readonlyPopoverOptionName;
     private object? _readonlyPopoverValue;
-    private CancellationTokenSource? _readonlyCloseCts;
 
-    private bool IsOpen(string id) => _openPanels.Contains(id);
+    private EffectiveConfigUiContext? _uiContext;
+
+    protected override void OnInitialized()
+    {
+        _uiContext = new EffectiveConfigUiContext
+        {
+            RequestOptionHelpAsync = HandleOptionHelpRequested,
+            RequestReadonlyPopoverAsync = HandleReadonlyBadgeClicked,
+            ScheduleReadonlyPopoverCloseAsync = () =>
+            {
+                _readonlyPopoverControllerRef?.ScheduleCloseFromBadgeLeave();
+                return Task.CompletedTask;
+            },
+            ActivateFieldAsync = fieldKey => { ActivateField(fieldKey); return Task.CompletedTask; },
+            CommitFieldAsync = args => { HandleFieldEditCommitted(args); return Task.CompletedTask; }
+        };
+    }
+
+    private async Task OnSearchTermChanged(string value)
+    {
+        _searchTerm = value ?? "";
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void CloseOptionHelp()
+    {
+        _showOptionHelp = false;
+        StateHasChanged();
+    }
 
     private async Task HandleOptionHelpRequested(ConfigOptionHelpRequestEventArgs args)
     {
         if (args.IsLabelMouseLeave)
         {
             if (args.AnchorId == _optionHelpAnchorId)
-                ScheduleClose();
+                _optionHelpControllerRef?.ScheduleCloseFromLabelLeave();
+            await InvokeAsync(StateHasChanged);
             return;
         }
         _optionHelpKey = args.HelpKey;
         _optionHelpTitle = args.OptionLabel;
         _optionHelpAnchorId = args.AnchorId;
         _showOptionHelp = true;
-        CancelCloseTimer();
         await InvokeAsync(StateHasChanged);
     }
 
-    private void CancelCloseTimer()
+    private void CloseReadonlyPopover()
     {
-        _closeCts?.Cancel();
-        _closeCts = null;
-    }
-
-    private Task CancelCloseTimerAsync() { CancelCloseTimer(); return Task.CompletedTask; }
-
-    private void ScheduleClose()
-    {
-        _closeCts?.Cancel();
-        _closeCts = new CancellationTokenSource();
-        var token = _closeCts.Token;
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await Task.Delay(300, token);
-            }
-            catch (OperationCanceledException) { return; }
-            await InvokeAsync(() =>
-            {
-                if (token.IsCancellationRequested) return;
-                _showOptionHelp = false;
-                _closeCts = null;
-                StateHasChanged();
-            });
-        }, token);
-    }
-
-    private Task ScheduleCloseAsync() { ScheduleClose(); return Task.CompletedTask; }
-
-    private void CloseOptionHelp()
-    {
-        CancelCloseTimer();
-        _showOptionHelp = false;
+        _showReadonlyPopover = false;
         StateHasChanged();
     }
 
     private async Task HandleReadonlyBadgeClicked(ReadonlyBadgeClickedEventArgs args)
     {
+        _readonlyPopoverControllerRef?.CancelCloseFromBadgeEnter();
         _readonlyPopoverAnchorId = args.AnchorId;
         _readonlyPopoverSource = args.Source;
         _readonlyPopoverOptionName = args.OptionName;
         _readonlyPopoverValue = args.Value;
         _showReadonlyPopover = true;
-        CancelReadonlyCloseTimer();
         await InvokeAsync(StateHasChanged);
-    }
-
-    private void CancelReadonlyCloseTimer()
-    {
-        _readonlyCloseCts?.Cancel();
-        _readonlyCloseCts = null;
-    }
-
-    private Task CancelReadonlyCloseTimerAsync() { CancelReadonlyCloseTimer(); return Task.CompletedTask; }
-
-    private void ScheduleReadonlyClose()
-    {
-        _readonlyCloseCts?.Cancel();
-        _readonlyCloseCts = new CancellationTokenSource();
-        var token = _readonlyCloseCts.Token;
-        _ = Task.Run(async () =>
-        {
-            try { await Task.Delay(300, token); }
-            catch (OperationCanceledException) { return; }
-            await InvokeAsync(() =>
-            {
-                if (token.IsCancellationRequested) return;
-                _showReadonlyPopover = false;
-                _readonlyCloseCts = null;
-                StateHasChanged();
-            });
-        }, token);
-    }
-
-    private Task ScheduleReadonlyCloseAsync() { ScheduleReadonlyClose(); return Task.CompletedTask; }
-
-    private void CloseReadonlyPopover()
-    {
-        CancelReadonlyCloseTimer();
-        _showReadonlyPopover = false;
-        StateHasChanged();
     }
 
     private void OnSectionToggle(string id)
@@ -225,6 +118,7 @@
             _openPanels.Remove(id);
         else
             _openPanels.Add(id);
+        StateHasChanged();
     }
 
     private void ExpandAll()
@@ -240,24 +134,15 @@
         StateHasChanged();
     }
 
-    private static bool DescriptorMatchesSearch(EffectiveConfigFieldDescriptor d, string term)
-    {
-        if (string.IsNullOrEmpty(term)) return true;
-        var searchable = (d.OptionName + " " + (DnsmasqOptionTooltips.Get(d.OptionName) ?? "")).Trim();
-        return searchable.Contains(term, StringComparison.OrdinalIgnoreCase);
-    }
-
     private void EnterEditMode()
     {
-        _isEditMode = true;
-        _activeFieldKey = null;
-        _pendingChanges.Clear();
+        Session.EnterEditMode();
         StateHasChanged();
     }
 
     private async Task ExitEditModeWithConfirmAsync()
     {
-        if (_pendingChanges.Count > 0)
+        if (Session.PendingChanges.Count > 0)
         {
             var module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/dialog.js");
             try
@@ -270,42 +155,34 @@
                 await module.DisposeAsync();
             }
         }
-        _pendingChanges.Clear();
-        _activeFieldKey = null;
-        _isEditMode = false;
+        Session.ExitEditModeDiscard();
         StateHasChanged();
     }
 
     private void DeactivateActiveFieldIfClicked()
     {
-        if (_isEditMode && _activeFieldKey != null)
+        if (Session.IsEditMode && Session.ActiveFieldKey != null)
         {
-            _activeFieldKey = null;
+            Session.DeactivateField();
             StateHasChanged();
         }
     }
 
     private void ActivateField(string fieldKey)
     {
-        _isEditMode = true;
-        _activeFieldKey = fieldKey;
+        Session.ActivateField(fieldKey);
         StateHasChanged();
     }
 
     private void HandleFieldEditCommitted(EffectiveConfigEditCommittedArgs args)
     {
-        var existing = _pendingChanges.FirstOrDefault(c => c.SectionId == args.SectionId && c.OptionName == args.OptionName);
-        if (existing != null)
-            _pendingChanges.Remove(existing);
-        if (!Equals(args.OldValue, args.NewValue))
-            _pendingChanges.Add(new PendingEffectiveConfigChange(args.SectionId, args.OptionName, args.OldValue, args.NewValue, args.CurrentSourceFilePath));
-        _activeFieldKey = null;
+        Session.TrackCommit(args);
         StateHasChanged();
     }
 
     private void OpenSaveModal()
     {
-        if (_pendingChanges.Count == 0) return;
+        if (Session.PendingChanges.Count == 0) return;
         _showSaveModal = true;
         StateHasChanged();
     }
@@ -314,34 +191,5 @@
     {
         _showSaveModal = false;
         StateHasChanged();
-    }
-
-    private async Task ConfirmSave()
-    {
-        if (_pendingChanges.Count == 0) return;
-        var changes = _pendingChanges.ToList();
-        try
-        {
-            await ConfigService.ApplyEffectiveConfigChangesAsync(changes);
-            CloseSaveModal();
-            _pendingChanges.Clear();
-            _activeFieldKey = null;
-            _isEditMode = false;
-            StateHasChanged();
-            await OnSaveCompleted.InvokeAsync();
-        }
-        catch (Exception)
-        {
-            // TODO: show error to user (e.g. toast or modal message)
-            await InvokeAsync(StateHasChanged);
-        }
-    }
-
-    public ValueTask DisposeAsync()
-    {
-        _closeCts?.Cancel();
-        _closeCts?.Dispose();
-        _closeCts = null;
-        return ValueTask.CompletedTask;
     }
 }

@@ -4,18 +4,8 @@
 
 <span class="ec-field-value-item" title="@(Source?.GetReadOnlyTooltip())">
     @Value
-    @if (Source?.IsReadOnly == true)
-    {
-        @if (IsEditMode && !string.IsNullOrEmpty(ReadonlyBadgeAnchorId) && OnReadonlyBadgeClick.HasDelegate)
-        {
-            <button type="button" id="@ReadonlyBadgeAnchorId" class="badge bg-secondary ec-badge-inline border-0 ms-1" title="@(Source?.GetReadOnlyTooltip())" @onclick="OnReadonlyBadgeClick" @onmouseleave="OnReadonlyBadgeMouseLeave">readonly</button>
-        }
-        else
-        {
-            <span class="badge bg-secondary ec-badge-inline ms-1">readonly</span>
-        }
-    }
-    else if (IsEditMode)
+    <ReadonlyBadge AnchorId="@(ReadonlyBadgeAnchorId ?? "")" Source="@Source" OptionName="@OptionName" Value="@Value" IsInteractive="@(IsEditMode && !string.IsNullOrEmpty(ReadonlyBadgeAnchorId))" />
+    @if (Source?.IsReadOnly != true && IsEditMode)
     {
         <span class="badge bg-primary ec-badge-inline ms-1">editable</span>
     }
@@ -24,8 +14,7 @@
 @code {
     [Parameter] public string Value { get; set; } = "";
     [Parameter] public ConfigValueSource? Source { get; set; }
+    [Parameter] public string OptionName { get; set; } = "";
     [Parameter] public bool IsEditMode { get; set; }
     [Parameter] public string? ReadonlyBadgeAnchorId { get; set; }
-    [Parameter] public EventCallback OnReadonlyBadgeClick { get; set; }
-    [Parameter] public EventCallback OnReadonlyBadgeMouseLeave { get; set; }
 }

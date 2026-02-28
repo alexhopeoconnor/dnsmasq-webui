@@ -1,5 +1,6 @@
 @namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig.CustomDisplays
 @using DnsmasqWebUI.Models.Dnsmasq
+@inherits EffectiveConfigValueDisplayBase
 
 @* log-queries: optional value extra|proto|auth. View: Off / On / On (extra|proto|auth). When active editor: dropdown. *@
 @if (IsActiveEditor && Descriptor.GetSource()?.IsReadOnly != true)
@@ -18,14 +19,9 @@ else
 }
 
 @code {
-    [Parameter] public EffectiveConfigFieldDescriptor Descriptor { get; set; } = null!;
-    [CascadingParameter] public bool IsActiveEditor { get; set; }
-    [CascadingParameter] public EventCallback<FocusEventArgs> OnCommitRequested { get; set; }
-    [Parameter] public EventCallback<object?> ValueChanged { get; set; }
-
     private string GetEditValue()
     {
-        var v = Descriptor.GetValue() as string;
+        var v = GetEffectiveDisplayValue() as string;
         if (string.IsNullOrEmpty(v)) return "";
         var lower = v.Trim().ToLowerInvariant();
         if (lower is "extra" or "proto" or "auth") return lower;
@@ -34,7 +30,7 @@ else
 
     private string GetViewText()
     {
-        var v = Descriptor.GetValue() as string;
+        var v = GetEffectiveDisplayValue() as string;
         if (string.IsNullOrEmpty(v)) return "Off";
         var lower = v.Trim().ToLowerInvariant();
         return lower switch
@@ -58,6 +54,6 @@ else
             "auth" => "auth",
             _ => null
         };
-        await ValueChanged.InvokeAsync(newValue);
+        await NotifyValueChanged(newValue);
     }
 }

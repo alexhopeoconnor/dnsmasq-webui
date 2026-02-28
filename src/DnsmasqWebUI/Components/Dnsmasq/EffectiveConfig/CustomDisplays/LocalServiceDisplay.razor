@@ -1,10 +1,11 @@
 @namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig.CustomDisplays
 @using DnsmasqWebUI.Models.Dnsmasq
+@inherits EffectiveConfigValueDisplayBase
 
-@* local-service: net | host. View: (not set) / net / host. When active editor: dropdown. *@
+@* local-service: net | host. Pending value shown until save. *@
 @if (IsActiveEditor && Descriptor.GetSource()?.IsReadOnly != true)
 {
-    <select class="form-select form-select-sm" style="max-width: 10rem;" value="@(Descriptor.GetValue() as string ?? "")" @onchange="OnChange" @onfocusout="OnCommitRequested">
+    <select class="form-select form-select-sm" style="max-width: 10rem;" value="@(GetEffectiveDisplayValue() as string ?? "")" @onchange="OnChange" @onfocusout="OnCommitRequested">
         <option value="">(not set)</option>
         <option value="net">net</option>
         <option value="host">host</option>
@@ -12,20 +13,15 @@
 }
 else
 {
-    var v = Descriptor.GetValue() as string;
+    var v = GetEffectiveDisplayValue() as string;
     @(string.IsNullOrEmpty(v) ? "(not set)" : (v.Trim().ToLowerInvariant() is "net" or "host" ? v.Trim() : v))
 }
 
 @code {
-    [Parameter] public EffectiveConfigFieldDescriptor Descriptor { get; set; } = null!;
-    [CascadingParameter] public bool IsActiveEditor { get; set; }
-    [CascadingParameter] public EventCallback<FocusEventArgs> OnCommitRequested { get; set; }
-    [Parameter] public EventCallback<object?> ValueChanged { get; set; }
-
     private async Task OnChange(ChangeEventArgs e)
     {
         var v = e.Value?.ToString()?.Trim();
         var value = string.IsNullOrEmpty(v) ? null : (v == "net" || v == "host" ? v : null);
-        await ValueChanged.InvokeAsync(value);
+        await NotifyValueChanged(value);
     }
 }
