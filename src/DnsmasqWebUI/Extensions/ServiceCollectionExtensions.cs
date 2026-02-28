@@ -1,7 +1,7 @@
 using System.Reflection;
 using DnsmasqWebUI.Infrastructure.Client;
 using DnsmasqWebUI.Infrastructure.Client.Abstractions;
-using DnsmasqWebUI.Infrastructure.Services.Abstractions;
+using DnsmasqWebUI.Infrastructure.Services.Registration.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 

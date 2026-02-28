@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
-using DnsmasqWebUI.Infrastructure.Services.Abstractions;
+using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions;
 
 namespace DnsmasqWebUI.Components.Dnsmasq.EffectiveConfig;
 

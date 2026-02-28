@@ -1,4 +1,4 @@
-using DnsmasqWebUI.Infrastructure.Services.Abstractions;
+using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Leases.Abstractions;
 using DnsmasqWebUI.Models.Dhcp;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;

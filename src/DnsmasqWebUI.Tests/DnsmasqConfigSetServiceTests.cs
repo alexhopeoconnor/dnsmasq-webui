@@ -1,7 +1,7 @@
 using DnsmasqWebUI.Models.Config;
 using DnsmasqWebUI.Models.Dnsmasq;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
-using DnsmasqWebUI.Infrastructure.Services;
+using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Config;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 

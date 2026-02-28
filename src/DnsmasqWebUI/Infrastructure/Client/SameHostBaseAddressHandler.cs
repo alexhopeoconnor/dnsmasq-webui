@@ -1,5 +1,5 @@
 using System.Net;
-using DnsmasqWebUI.Infrastructure.Services.Abstractions;
+using DnsmasqWebUI.Infrastructure.Services.Registration.Abstractions;
 
 namespace DnsmasqWebUI.Infrastructure.Client;
 

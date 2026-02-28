@@ -1,5 +1,5 @@
 using System.Threading.Channels;
-using DnsmasqWebUI.Infrastructure.Services.Abstractions;
+using DnsmasqWebUI.Infrastructure.Services.Logs.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 

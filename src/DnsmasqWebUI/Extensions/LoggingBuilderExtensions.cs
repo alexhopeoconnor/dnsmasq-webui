@@ -1,7 +1,7 @@
 using System.Threading.Channels;
 using DnsmasqWebUI.Infrastructure.Logging;
-using DnsmasqWebUI.Infrastructure.Services;
-using DnsmasqWebUI.Infrastructure.Services.Abstractions;
+using DnsmasqWebUI.Infrastructure.Services.Logs;
+using DnsmasqWebUI.Infrastructure.Services.Logs.Abstractions;
 using DnsmasqWebUI.Models.Config;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

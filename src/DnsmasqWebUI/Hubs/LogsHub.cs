@@ -1,4 +1,4 @@
-using DnsmasqWebUI.Infrastructure.Services.Abstractions;
+using DnsmasqWebUI.Infrastructure.Services.Logs.Abstractions;
 using Microsoft.AspNetCore.SignalR;
 
 namespace DnsmasqWebUI.Hubs;

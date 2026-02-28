@@ -1,6 +1,6 @@
 using DnsmasqWebUI.Extensions;
 using DnsmasqWebUI.Models.Client;
-using DnsmasqWebUI.Infrastructure.Services.Abstractions;
+using DnsmasqWebUI.Infrastructure.Services.UI.Settings.Abstractions;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;

@@ -1,4 +1,4 @@
-using DnsmasqWebUI.Infrastructure.Services.Abstractions;
+using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Reload.Abstractions;
 
 namespace DnsmasqWebUI.Infrastructure.Client.Abstractions;
 

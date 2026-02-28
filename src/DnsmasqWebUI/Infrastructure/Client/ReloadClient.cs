@@ -1,6 +1,6 @@
 using DnsmasqWebUI.Infrastructure.Client.Abstractions;
 using DnsmasqWebUI.Infrastructure.Helpers.Http;
-using DnsmasqWebUI.Infrastructure.Services.Abstractions;
+using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Reload.Abstractions;
 using System.Net.Http.Json;
 
 namespace DnsmasqWebUI.Infrastructure.Client;

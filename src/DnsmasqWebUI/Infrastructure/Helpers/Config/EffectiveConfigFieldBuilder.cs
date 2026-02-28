@@ -1,6 +1,6 @@
 using DnsmasqWebUI.Models.Dnsmasq;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
-using DnsmasqWebUI.Infrastructure.Services.Abstractions;
+using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions;
 
 namespace DnsmasqWebUI.Infrastructure.Helpers.Config;
 
