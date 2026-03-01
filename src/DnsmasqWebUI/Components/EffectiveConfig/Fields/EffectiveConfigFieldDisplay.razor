@@ -4,7 +4,11 @@
 @using DnsmasqWebUI.Models.Config
 @using DnsmasqWebUI.Infrastructure.Helpers.Config
 @using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
+@using DnsmasqWebUI.Infrastructure.Services.UI.Notifications.Abstractions
+@using System.Net
+@using System.Net.Sockets
 @inject IEffectiveConfigRenderFragmentRegistry RenderFragmentRegistry
+@inject INotificationService NotificationService
 
 @* Custom fragment renders only the value; we keep the row shell (label + value slot + badge) here for consistency. Pending value shown until save. *@
 @if (_customFragment is { } fragment)
@@ -40,8 +44,14 @@
 }
 else if (Descriptor.IsMultiValue)
 {
-    var items = Descriptor.GetItems();
-    <EffectiveConfigMultiValueRow Label="@Descriptor.OptionName" Items="@items" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId" IsActiveEditor="@(IsEditMode && IsActive)" IsEditMode="@IsEditMode" ReadonlyBadgeAnchorIdBase="@_readonlyBadgeAnchorId" />
+    var items = _hasPendingChange && _effectiveValue is IReadOnlyList<string> pendingList
+        ? pendingList.Select(s => new ValueWithSource(s, null)).ToList()
+        : Descriptor.GetItems();
+    var allReadonly = items != null && items.Count > 0 && items.All(i => i.Source?.IsReadOnly == true);
+    <EffectiveConfigMultiValueRow Label="@Descriptor.OptionName" Items="@items" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId"
+        IsActiveEditor="@(IsEditMode && IsActive)" IsEditMode="@IsEditMode" ReadonlyBadgeAnchorIdBase="@_readonlyBadgeAnchorId"
+        Source="@(allReadonly ? items?.FirstOrDefault()?.Source : null)" ShowEditableBadge="@(!allReadonly)" HasPendingChange="@_hasPendingChange" FieldKey="@FieldKey"
+        ItemsChanged="@HandleMultiValueChanged" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
 }
 else
 {
@@ -93,14 +103,17 @@ else
         _customFragment = RenderFragmentRegistry.BuildFieldComponentFragment(Descriptor.SectionId, Descriptor.OptionName);
         _fragmentWithCallback = RenderFragmentRegistry.BuildFieldComponentFragment(Descriptor.SectionId, Descriptor.OptionName, EventCallback.Factory.Create<object?>(this, HandleValueChanged));
         _labelTooltip = DnsmasqOptionTooltips.Get(Descriptor.OptionName);
-        _optionHelpKey = DnsmasqOptionTooltips.GetOptionHelpKey(Descriptor.OptionName);
+        _optionHelpKey = Descriptor.OptionName;
         var pending = Session?.PendingChanges.FirstOrDefault(c =>
             string.Equals(c.SectionId, Descriptor.SectionId, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(c.OptionName, Descriptor.OptionName, StringComparison.OrdinalIgnoreCase));
+        var descriptorValue = Descriptor.IsMultiValue
+            ? (Descriptor.GetItems()?.Select(i => i.Value).ToList() ?? new List<string>())
+            : Descriptor.GetValue();
         _hasPendingChange = pending != null;
-        _effectiveValue = pending != null ? pending.NewValue : Descriptor.GetValue();
+        _effectiveValue = pending != null ? pending.NewValue : descriptorValue;
         if (!_wasActive && IsActive)
-            _valueAtActivation = Descriptor.GetValue();
+            _valueAtActivation = descriptorValue;
         if (_wasActive && !IsActive && _exitAction == ExitAction.None)
             _ = InvokeAsync(CommitIfChangedAsync);
         if (_wasActive && !IsActive)
@@ -119,17 +132,25 @@ else
         await CommitIfChangedAsync();
     }
 
-    private async Task CommitIfChangedAsync()
+    private async Task<bool> CommitIfChangedAsync()
     {
         var newValue = _draftValue ?? _effectiveValue;
-        if (!Equals(_valueAtActivation, newValue))
+        if (!ValuesEqual(_valueAtActivation, newValue))
         {
+            var validationError = ValidateDraftValue(newValue);
+            if (validationError != null)
+            {
+                NotificationService.ShowError(validationError);
+                return false;
+            }
+
             var source = Descriptor.GetSource();
             var args = new EffectiveConfigEditCommittedArgs(Descriptor.SectionId, Descriptor.OptionName, _valueAtActivation, newValue, source?.FilePath);
             if (Ui != null)
                 await Ui.CommitFieldAsync(args);
         }
         _draftValue = null;
+        return true;
     }
 
     [CascadingParameter] private EffectiveConfigUiContext? Ui { get; set; }
@@ -143,12 +164,19 @@ else
     {
         if (!IsActive) return;
         _draftValue = value;
-        await CommitIfChangedAsync();
+        if (!await CommitIfChangedAsync() && Ui != null)
+            await Ui.ActivateFieldAsync(FieldKey);
+    }
+
+    private void HandleMultiValueChanged(IReadOnlyList<string> values)
+    {
+        _draftValue = values.ToList();
     }
 
     private async Task HandleConfirmEdit()
     {
-        await CommitIfChangedAsync();
+        if (!await CommitIfChangedAsync())
+            return;
         _exitAction = ExitAction.Confirm;
         if (Ui != null)
             await Ui.DeactivateFieldAsync();
@@ -169,6 +197,36 @@ else
         _exitAction = ExitAction.Revert;
         if (Ui != null)
             await Ui.DeactivateFieldAsync();
+    }
+
+    private string? ValidateDraftValue(object? value)
+    {
+        if (string.Equals(Descriptor.OptionName, DnsmasqConfKeys.ListenAddress, StringComparison.Ordinal))
+        {
+            var values = AsStringList(value) ?? (value is string s ? new[] { s } : null);
+            if (values == null) return null;
+            foreach (var raw in values)
+            {
+                var v = raw.Trim();
+                if (!IPAddress.TryParse(v, out var ip) || ip.AddressFamily != AddressFamily.InterNetwork)
+                    return $"Invalid value for {DnsmasqConfKeys.ListenAddress}: '{raw}'. Use a valid IPv4 address.";
+            }
+        }
+        return null;
+    }
+
+    private static IReadOnlyList<string>? AsStringList(object? value)
+    {
+        return value as IReadOnlyList<string>;
+    }
+
+    private static bool ValuesEqual(object? oldValue, object? newValue)
+    {
+        var oldList = AsStringList(oldValue);
+        var newList = AsStringList(newValue);
+        if (oldList != null || newList != null)
+            return (oldList ?? Array.Empty<string>()).SequenceEqual(newList ?? Array.Empty<string>(), StringComparer.Ordinal);
+        return Equals(oldValue, newValue);
     }
 
     private enum ExitAction { None, Confirm, Cancel, Revert }

@@ -1,3 +1,4 @@
+using DnsmasqWebUI.Infrastructure.Services.Registration.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace DnsmasqWebUI.Models.Config;
@@ -5,8 +6,9 @@ namespace DnsmasqWebUI.Models.Config;
 /// <summary>
 /// Validates required dnsmasq options at startup. If config is missing or default paths don't point at existing files,
 /// the application exits with a detailed error instead of failing later at runtime.
+/// Registered via assembly scanning (<see cref="IApplicationOptionsValidator{TOptions}"/>).
 /// </summary>
-public sealed class DnsmasqOptionsValidator : IValidateOptions<DnsmasqOptions>
+public sealed class DnsmasqOptionsValidator : IApplicationOptionsValidator<DnsmasqOptions>
 {
     public ValidateOptionsResult Validate(string? name, DnsmasqOptions options)
     {

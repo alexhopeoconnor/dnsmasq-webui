@@ -1,0 +1,88 @@
+/* Toast: compact popover with left accent, icon, message, dismiss. Modern, distinct. */
+.notification-toast {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    min-width: 16rem;
+    max-width: 28rem;
+    padding: 0.75rem 1rem;
+    padding-left: 0.5rem;
+    background: var(--notification-bg);
+    color: var(--notification-fg);
+    border-radius: var(--app-radius-lg, 0.5rem);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+    font-size: 0.9375rem;
+    line-height: 1.4;
+}
+
+.notification-toast-accent {
+    width: 4px;
+    align-self: stretch;
+    border-radius: 2px;
+    background: var(--notification-accent);
+    flex-shrink: 0;
+}
+
+.notification-toast-icon {
+    flex-shrink: 0;
+    width: 1.25rem;
+    height: 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.875rem;
+}
+
+.notification-toast-message {
+    flex: 1;
+    min-width: 0;
+}
+
+.notification-toast-dismiss {
+    flex-shrink: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    opacity: 0.75;
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: var(--app-radius, 0.375rem);
+}
+
+.notification-toast-dismiss:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.08);
+}
+
+/* Success */
+.notification-toast-success {
+    --notification-bg: #f0fdf4;
+    --notification-fg: #166534;
+    --notification-accent: #22c55e;
+}
+
+/* Error */
+.notification-toast-error {
+    --notification-bg: #fef2f2;
+    --notification-fg: #b91c1c;
+    --notification-accent: #ef4444;
+}
+
+/* Warning */
+.notification-toast-warning {
+    --notification-bg: #fffbeb;
+    --notification-fg: #b45309;
+    --notification-accent: #f59e0b;
+}
+
+/* Info */
+.notification-toast-info {
+    --notification-bg: #eff6ff;
+    --notification-fg: #1d4ed8;
+    --notification-accent: #3b82f6;
+}

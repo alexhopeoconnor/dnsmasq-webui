@@ -1,0 +1,46 @@
+@namespace DnsmasqWebUI.Components.Shared
+@using DnsmasqWebUI.Infrastructure.Services.UI.Notifications.Abstractions
+@inject INotificationService NotificationService
+@implements IDisposable
+
+@if (_toasts.Count > 0)
+{
+    <div class="notification-host" aria-live="polite">
+        @foreach (var item in _toasts)
+        {
+            <NotificationToast @key="item.Id"
+                Id="@item.Id"
+                Kind="@item.Kind"
+                Message="@item.Message"
+                AutoDismissMs="4500"
+                OnDismissRequested="Dismiss" />
+        }
+    </div>
+}
+
+@code {
+    private List<NotificationItem> _toasts = new();
+
+    protected override void OnInitialized()
+    {
+        NotificationService.NotificationsChanged += OnNotificationsChanged;
+        _toasts = NotificationService.GetSnapshot().ToList();
+    }
+
+    private void OnNotificationsChanged(object? sender, EventArgs e)
+    {
+        _toasts = NotificationService.GetSnapshot().ToList();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task Dismiss(int id)
+    {
+        NotificationService.Dismiss(id);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        NotificationService.NotificationsChanged -= OnNotificationsChanged;
+    }
+}

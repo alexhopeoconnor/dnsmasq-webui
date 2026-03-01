@@ -1,0 +1,44 @@
+@namespace DnsmasqWebUI.Components.Shared
+@using DnsmasqWebUI.Infrastructure.Services.UI.Notifications.Abstractions
+
+<div class="notification-toast notification-toast-@Kind.ToString().ToLowerInvariant()" role="alert">
+    <span class="notification-toast-accent" aria-hidden="true"></span>
+    <span class="notification-toast-icon" aria-hidden="true">@Icon</span>
+    <span class="notification-toast-message">@Message</span>
+    <button type="button" class="notification-toast-dismiss" aria-label="Dismiss" @onclick="Dismiss">×</button>
+</div>
+
+@code {
+    [Parameter] public NotificationKind Kind { get; set; }
+    [Parameter] public string Message { get; set; } = "";
+    [Parameter] public int Id { get; set; }
+    [Parameter] public int AutoDismissMs { get; set; } = 4500;
+    [Parameter] public EventCallback<int> OnDismissRequested { get; set; }
+
+    private string Icon => Kind switch
+    {
+        NotificationKind.Success => "✓",
+        NotificationKind.Error => "✕",
+        NotificationKind.Warning => "⚠",
+        NotificationKind.Info => "ℹ",
+        _ => "•"
+    };
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender && AutoDismissMs > 0)
+            _ = ScheduleAutoDismiss();
+    }
+
+    private async Task ScheduleAutoDismiss()
+    {
+        try
+        {
+            await Task.Delay(AutoDismissMs);
+            await InvokeAsync(() => OnDismissRequested.InvokeAsync(Id));
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task Dismiss() => await OnDismissRequested.InvokeAsync(Id);
+}

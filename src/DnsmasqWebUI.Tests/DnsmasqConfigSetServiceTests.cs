@@ -25,7 +25,8 @@ public class DnsmasqConfigSetServiceTests
         Assert.Empty(config.AddnHostsPaths);
         Assert.NotNull(sources);
         Assert.Empty(sources.AddnHostsPaths);
-        Assert.Empty(sources.ServerLocalValues);
+        Assert.Empty(sources.ServerValues);
+        Assert.Empty(sources.LocalValues);
         Assert.Empty(sources.DhcpRanges);
         Assert.Null(sources.NoHosts);
         Assert.Null(sources.Port);
@@ -59,7 +60,8 @@ public class DnsmasqConfigSetServiceTests
             Assert.Equal(cacheSize, config.CacheSize);
             Assert.Single(config.AddnHostsPaths);
             Assert.Equal(Path.GetFullPath(addnHostsPath), config.AddnHostsPaths[0]);
-            Assert.Empty(config.ServerLocalValues);
+            Assert.Empty(config.ServerValues);
+            Assert.Empty(config.LocalValues);
             Assert.Empty(config.DhcpRanges);
 
             Assert.NotNull(sources);

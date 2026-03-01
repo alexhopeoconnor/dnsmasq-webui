@@ -45,7 +45,8 @@ public class DnsmasqConfIncludeParserOfficialExampleTests
     {
         var mainPath = GetOfficialExamplePath();
         var paths = new[] { mainPath };
-        var servers = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, DnsmasqConfKeys.ServerLocalKeys);
+        var servers = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, DnsmasqConfKeys.Server);
+        var locals = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, DnsmasqConfKeys.Local);
         var dhcpOptionForce = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, DnsmasqConfKeys.DhcpOptionForce);
         var ipset = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, DnsmasqConfKeys.Ipset);
         var nftset = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, DnsmasqConfKeys.Nftset);
@@ -53,6 +54,7 @@ public class DnsmasqConfIncludeParserOfficialExampleTests
         var dhcpNameMatch = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, DnsmasqConfKeys.DhcpNameMatch);
         var dhcpIgnoreNames = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, DnsmasqConfKeys.DhcpIgnoreNames);
         Assert.Empty(servers);
+        Assert.Empty(locals);
         Assert.Empty(dhcpOptionForce);
         Assert.Empty(ipset);
         Assert.Empty(nftset);

@@ -6,8 +6,10 @@
 @inject IReloadClient ReloadClient
 @inject IClientSettingsService ClientSettingsService
 @inject ISettingsModalService SettingsModalService
+@inject INotificationService NotificationService
 @inject IOptions<ApplicationOptions> AppOptions
 @implements IDisposable
+@using DnsmasqWebUI.Infrastructure.Services.UI.Notifications.Abstractions
 
 <PageTitle>Dnsmasq | @AppTitle</PageTitle>
 
@@ -67,14 +69,6 @@ else if (_status != null)
                     }
                     @(_reloading ? "Reloading…" : "Reload config")
                 </button>
-                @if (!string.IsNullOrEmpty(_reloadMessage))
-                {
-                    <span class="@(_reloadSuccess ? "text-success" : "text-danger") small">@_reloadMessage</span>
-                }
-                @if (!_reloadSuccess && _reloadDetail != null)
-                {
-                    <pre class="pre-block mt-2 mb-0" style="max-height: 10rem;">@_reloadDetail</pre>
-                }
             </div>
         }
 
@@ -92,9 +86,6 @@ else if (_status != null)
     private string? _error;
     private bool _loading = true;
     private bool _reloading;
-    private string? _reloadMessage;
-    private string? _reloadDetail;
-    private bool _reloadSuccess;
     private readonly CancellationTokenSource _cts = new();
 
     protected override void OnInitialized()
@@ -158,28 +149,30 @@ else if (_status != null)
             await InvokeAsync(StateHasChanged);
         }
         catch (OperationCanceledException) { }
+        catch (ObjectDisposedException)
+        {
+            // Component disposed (e.g. navigated away) while callback was pending; ignore
+        }
     }
 
     private async Task ReloadDnsmasq()
     {
         if (_status == null || !_status.ReloadCommandConfigured || _reloading) return;
         _reloading = true;
-        _reloadMessage = null;
-        _reloadDetail = null;
         try
         {
             var token = _cts.Token;
             var result = await ReloadClient.ReloadAsync(token);
             if (result.Success)
             {
-                _reloadMessage = "Reloaded.";
-                _reloadSuccess = true;
+                NotificationService.ShowSuccess("Reloaded.");
             }
             else
             {
-                _reloadMessage = "Reload failed" + (result.ExitCode != 0 ? " (exit " + result.ExitCode + ")" : "") + ".";
-                _reloadDetail = BuildReloadDetail(result);
-                _reloadSuccess = false;
+                var msg = "Reload failed" + (result.ExitCode != 0 ? " (exit " + result.ExitCode + ")" : "") + ".";
+                if (!string.IsNullOrEmpty(result.StdErr))
+                    msg += " " + result.StdErr;
+                NotificationService.ShowError(msg);
             }
             try
             {
@@ -193,20 +186,12 @@ else if (_status != null)
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            if (_reloadMessage == null) { _reloadMessage = ex.Message; _reloadSuccess = false; }
+            NotificationService.ShowError("Reload failed: " + ex.Message);
         }
         finally
         {
             _reloading = false;
         }
-    }
-
-    private static string? BuildReloadDetail(ReloadResult r)
-    {
-        var parts = new List<string>();
-        if (!string.IsNullOrEmpty(r.StdOut)) parts.Add("stdout:\n" + r.StdOut);
-        if (!string.IsNullOrEmpty(r.StdErr)) parts.Add("stderr:\n" + r.StdErr);
-        return parts.Count > 0 ? string.Join("\n\n", parts) : null;
     }
 
     public void Dispose()

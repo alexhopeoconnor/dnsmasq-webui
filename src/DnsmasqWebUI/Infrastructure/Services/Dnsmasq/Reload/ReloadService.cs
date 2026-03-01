@@ -22,9 +22,13 @@ public class ReloadService : IReloadService
 
     public async Task<ReloadResult> ReloadAsync(CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(_options.ReloadCommand))
+        var command = !string.IsNullOrWhiteSpace(_options.RestartCommand)
+            ? _options.RestartCommand
+            : _options.ReloadCommand;
+
+        if (string.IsNullOrWhiteSpace(command))
         {
-            _logger.LogDebug("Reload command not configured");
+            _logger.LogDebug("Reload/restart command not configured");
             return new ReloadResult(true, 0, null, "Reload command not configured");
         }
 
@@ -36,7 +40,7 @@ public class ReloadService : IReloadService
 
         try
         {
-            var result = await _processRunner.RunAsync(_options.ReloadCommand, TimeSpan.FromSeconds(30), ct);
+            var result = await _processRunner.RunAsync(command, TimeSpan.FromSeconds(30), ct);
             var stderr = result.Stderr;
             if (result.TimedOut)
                 stderr = (string.IsNullOrEmpty(stderr) ? "" : stderr + "\n") + "Reload command timed out after 30 seconds.";

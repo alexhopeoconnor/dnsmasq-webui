@@ -244,7 +244,8 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
         var addnHosts = DnsmasqConfIncludeParser.GetAddnHostsPathsFromConfigFiles(paths, pathToLines);
         var (hostsdirVal, hostsdirDir) = ((string?, string?))ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.Hostsdir);
         var hostsdirPath = string.IsNullOrWhiteSpace(hostsdirVal) ? null : DnsmasqConfIncludeParser.ResolvePath(hostsdirVal?.Trim(), hostsdirDir);
-        var serverLocal = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.ServerLocalKeys);
+        var serverValues = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.Server);
+        var localValues = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, pathToLines, DnsmasqConfKeys.Local);
         var revServer = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.RevServer);
         var addressValues = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.Address);
         var interfaces = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.Interface);
@@ -395,7 +396,7 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
 
         return new EffectiveDnsmasqConfig(
             noHosts, addnHosts, hostsdirPath,
-            serverLocal, revServer, addressValues, interfaces, listenAddresses, exceptInterfaces, dhcpRanges, dhcpHostLines, dhcpOptionLines,
+            serverValues, localValues, revServer, addressValues, interfaces, listenAddresses, exceptInterfaces, dhcpRanges, dhcpHostLines, dhcpOptionLines,
             dhcpMatchValues, dhcpBootValues, dhcpIgnoreValues, dhcpVendorclassValues, dhcpUserclassValues, raParamValues, slaacValues, pxeServiceValues, trustAnchorValues, resolvFiles,
             rebindDomainOk, bogusNxdomain, ignoreAddress, alias, filterRr, cacheRr, authServer, noDhcpInterface, noDhcpv4Interface, noDhcpv6Interface,
             domainValues, cnameValues, mxHostValues, srvValues, ptrRecordValues, txtRecordValues, naptrRecordValues, hostRecordValues, dynamicHostValues, interfaceNameValues,
@@ -417,7 +418,8 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
         var (_, noHostsSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.NoHosts, managedFilePath);
         var addnHostsWithSource = DnsmasqConfIncludeParser.GetAddnHostsPathsFromConfigFilesWithSource(paths, pathToLines, managedFilePath, managedHostsFilePath);
         var (_, hostsdirPathSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.Hostsdir, managedFilePath);
-        var serverLocalWithSource = DnsmasqConfIncludeParser.GetMultiValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.ServerLocalKeys, managedFilePath);
+        var serverWithSource = DnsmasqConfIncludeParser.GetMultiValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.Server, managedFilePath);
+        var localWithSource = DnsmasqConfIncludeParser.GetMultiValueFromConfigFilesWithSource(paths, pathToLines, DnsmasqConfKeys.Local, managedFilePath);
         var revServerWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.RevServer, managedFilePath);
         var addressWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.Address, managedFilePath);
         var interfacesWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.Interface, managedFilePath);
@@ -537,7 +539,8 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
 
         return new EffectiveConfigSources(
             noHostsSource, addnHostsWithSource.Select(t => new PathWithSource(t.Path, t.Source)).ToList(), hostsdirPathSource,
-            serverLocalWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            serverWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            localWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
             revServerWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
             addressWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
             interfacesWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
@@ -690,7 +693,7 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
     private static EffectiveDnsmasqConfig CreateDefaultEffectiveConfig() =>
         new(
             NoHosts: false, AddnHostsPaths: Array.Empty<string>(), HostsdirPath: null,
-            ServerLocalValues: Array.Empty<string>(), RevServerValues: Array.Empty<string>(), AddressValues: Array.Empty<string>(), Interfaces: Array.Empty<string>(),
+            ServerValues: Array.Empty<string>(), LocalValues: Array.Empty<string>(), RevServerValues: Array.Empty<string>(), AddressValues: Array.Empty<string>(), Interfaces: Array.Empty<string>(),
             ListenAddresses: Array.Empty<string>(), ExceptInterfaces: Array.Empty<string>(), DhcpRanges: Array.Empty<string>(),
             DhcpHostLines: Array.Empty<string>(), DhcpOptionLines: Array.Empty<string>(),
             DhcpMatchValues: Array.Empty<string>(), DhcpBootValues: Array.Empty<string>(), DhcpIgnoreValues: Array.Empty<string>(),
@@ -721,7 +724,7 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
     private static EffectiveConfigSources CreateDefaultEffectiveConfigSources() =>
         new(
             NoHosts: null, AddnHostsPaths: Array.Empty<PathWithSource>(), HostsdirPath: null,
-            ServerLocalValues: Array.Empty<ValueWithSource>(), RevServerValues: Array.Empty<ValueWithSource>(), AddressValues: Array.Empty<ValueWithSource>(),
+            ServerValues: Array.Empty<ValueWithSource>(), LocalValues: Array.Empty<ValueWithSource>(), RevServerValues: Array.Empty<ValueWithSource>(), AddressValues: Array.Empty<ValueWithSource>(),
             Interfaces: Array.Empty<ValueWithSource>(), ListenAddresses: Array.Empty<ValueWithSource>(),
             ExceptInterfaces: Array.Empty<ValueWithSource>(), DhcpRanges: Array.Empty<ValueWithSource>(),
             DhcpHostLines: Array.Empty<ValueWithSource>(),

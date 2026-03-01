@@ -148,6 +148,4 @@ public static class DnsmasqConfKeys
     // --- Niche / platform (Linux conntrack mark for UBus/query filtering) ---
     public const string Conntrack = "conntrack";
 
-    /// <summary>Keys collected for effective config "server/local" multi-value (order preserved).</summary>
-    public static readonly string[] ServerLocalKeys = { Server, Local };
 }

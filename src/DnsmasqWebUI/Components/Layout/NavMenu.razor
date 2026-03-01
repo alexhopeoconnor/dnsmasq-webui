@@ -54,14 +54,7 @@
         else
         {
             <button type="button" class="nav-footer-link nav-footer-check-btn" @onclick="ForceCheckAsync" disabled="@UpdateCheckService.CheckInProgress" title="@GetCheckButtonTooltip()" aria-label="@GetCheckButtonTooltip()">
-                @if (UpdateCheckService.CheckInProgress)
-                {
-                    <i class="bi bi-arrow-repeat nav-footer-spin" aria-hidden="true"></i>
-                }
-                else
-                {
-                    <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
-                }
+                <i class="bi bi-arrow-repeat nav-footer-check-icon @(UpdateCheckService.CheckInProgress ? "nav-footer-spin" : null)" aria-hidden="true"></i>
             </button>
         }
         ]</span>

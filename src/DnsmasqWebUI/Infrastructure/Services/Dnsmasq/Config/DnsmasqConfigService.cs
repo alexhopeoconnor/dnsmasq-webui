@@ -194,11 +194,13 @@ public class DnsmasqConfigService : IDnsmasqConfigService
         {
             var behavior = EffectiveConfigParserBehaviorMap.GetBehavior(c.OptionName);
             var isFlag = behavior == EffectiveConfigParserBehavior.Flag;
+            var confKey = c.OptionName;
+
             bool MatchesOption(DnsmasqConfLine line)
             {
                 if (line is not OtherLine o) return false;
                 var raw = o.RawLine.Trim();
-                return raw == c.OptionName || raw.StartsWith(c.OptionName + "=", StringComparison.Ordinal);
+                return raw == confKey || raw.StartsWith(confKey + "=", StringComparison.Ordinal);
             }
 
             if (behavior == EffectiveConfigParserBehavior.Multi && TryGetMultiValues(c.NewValue, out var values))
@@ -213,7 +215,8 @@ public class DnsmasqConfigService : IDnsmasqConfigService
                 var insertIdx = matchingIndices.Count > 0 ? matchingIndices[0] : list.Count;
                 for (var i = 0; i < values.Count; i++)
                 {
-                    var lineText = string.IsNullOrEmpty(values[i]) ? c.OptionName : c.OptionName + "=" + values[i];
+                    var lineKey = confKey;
+                    var lineText = string.IsNullOrEmpty(values[i]) ? lineKey : lineKey + "=" + values[i];
                     var lineObj = new OtherLine { LineNumber = maxLineNumber + 1, RawLine = lineText };
                     maxLineNumber++;
                     list.Insert(insertIdx + i, lineObj);
@@ -229,11 +232,11 @@ public class DnsmasqConfigService : IDnsmasqConfigService
             }
             string rawLine;
             if (isFlag)
-                rawLine = c.OptionName;
+                rawLine = confKey;
             else
             {
                 var v = ToConfValue(c.NewValue);
-                rawLine = string.IsNullOrEmpty(v) ? c.OptionName : c.OptionName + "=" + v;
+                rawLine = string.IsNullOrEmpty(v) ? confKey : confKey + "=" + v;
             }
             var newLine = new OtherLine { LineNumber = maxLineNumber + 1, RawLine = rawLine };
             maxLineNumber++;
@@ -271,6 +274,8 @@ public class DnsmasqConfigService : IDnsmasqConfigService
     {
         if (value == null) return "";
         if (value is bool b) return b ? "1" : "0";
+        if (value is IReadOnlyList<string> list)
+            return string.Join(", ", list);
         return value.ToString() ?? "";
     }
 

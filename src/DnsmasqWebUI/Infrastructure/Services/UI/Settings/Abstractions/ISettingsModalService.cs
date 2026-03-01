@@ -1,4 +1,5 @@
 using DnsmasqWebUI.Models.Client;
+using DnsmasqWebUI.Infrastructure.Services.Registration.Abstractions;
 
 namespace DnsmasqWebUI.Infrastructure.Services.UI.Settings.Abstractions;
 
@@ -6,8 +7,9 @@ namespace DnsmasqWebUI.Infrastructure.Services.UI.Settings.Abstractions;
 /// Scoped service to open the app-level settings modal from anywhere (e.g. NavMenu, pages).
 /// MainLayout subscribes to <see cref="OpenRequested"/> and hosts the modal.
 /// Subscribe to <see cref="SettingsChanged"/> to refresh when settings are saved/closed.
+/// Registered via assembly scanning (<see cref="IApplicationScopedService"/>).
 /// </summary>
-public interface ISettingsModalService
+public interface ISettingsModalService : IApplicationScopedService
 {
     /// <summary>Raised when <see cref="Open"/> is called. MainLayout subscribes and shows the modal.</summary>
     event Action<SettingsModalContext, string>? OpenRequested;

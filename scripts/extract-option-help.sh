@@ -50,7 +50,7 @@ except ImportError:
 OUT_DIR = "/out"
 URL = os.environ.get("URL", "https://thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html")
 
-# One per line; keep in sync with DnsmasqOptionTooltips / EffectiveConfigSections. server + local = one UI row.
+# One per line; keep in sync with DnsmasqOptionTooltips / EffectiveConfigSections.
 OPTION_KEYS = [
     "no-hosts",
     "addn-hosts",

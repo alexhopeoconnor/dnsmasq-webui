@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @namespace DnsmasqWebUI.Components.Layout
+@using DnsmasqWebUI.Components.Shared
 @inject ISettingsModalService SettingsModalService
 @implements IDisposable
 
@@ -17,6 +18,7 @@
 </div>
 
 <SettingsModal IsVisible="_settingsModalOpen" Title="@_settingsModalTitle" SettingsContext="_settingsModalContext" OnClose="CloseSettingsModal" />
+<NotificationHost />
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.

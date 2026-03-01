@@ -21,6 +21,7 @@ RECREATE=false
 CLEAR=false
 STOP=false
 TIDY=false
+MINIMAL_CONF=false
 
 usage() {
   echo "Usage: $0 [OPTIONS] [--]"
@@ -43,6 +44,8 @@ usage() {
   echo "  --clear             Clear mount dir completely before sync. Use for a clean run."
   echo ""
   echo "Compose behaviour:"
+  echo "  --minimal-conf     Use minimal dnsmasq config (dnsmasq-test-minimal.conf) so effective"
+  echo "                      config has few readonly options; good for testing reload/restart failure flows."
   echo "  --prepare-only      Only prepare the mount; do not run docker compose."
   echo "                      Use to inspect or edit the mount before starting containers."
   echo "  --build             Pass --build to docker compose (rebuild images before starting)."
@@ -85,6 +88,9 @@ usage() {
   echo ""
   echo "  $0 --tidy"
   echo "                      Stop harness and clear testdata-mount for a clean next run."
+  echo ""
+  echo "  $0 --minimal-conf"
+  echo "                      Use dnsmasq-test-minimal.conf (single file, few options) and start."
 }
 
 while [ $# -gt 0 ]; do
@@ -123,6 +129,10 @@ while [ $# -gt 0 ]; do
       ;;
     --recreate)
       RECREATE=true
+      shift
+      ;;
+    --minimal-conf)
+      MINIMAL_CONF=true
       shift
       ;;
     --stop)
@@ -210,7 +220,11 @@ if [ "$PREPARE_ONLY" = true ]; then
     /*) MOUNT_EXPORT="$MOUNT_DIR" ;;
     *)  MOUNT_EXPORT="./$MOUNT_DIR" ;;
   esac
-  echo "To start the harness: TESTDATA_MOUNT=$MOUNT_EXPORT docker compose -f $COMPOSE_FILE up -d [--build]"
+  START_CMD="TESTDATA_MOUNT=$MOUNT_EXPORT docker compose -f $COMPOSE_FILE up -d [--build]"
+  if [ "$MINIMAL_CONF" = true ]; then
+    START_CMD="TESTDATA_MOUNT=$MOUNT_EXPORT TEST_DNSMASQ_CONF=/data/dnsmasq-test-minimal.conf docker compose -f $COMPOSE_FILE up -d [--build]"
+  fi
+  echo "To start the harness: $START_CMD"
   exit 0
 fi
 
@@ -219,6 +233,11 @@ case "$MOUNT_DIR" in
   /*) export TESTDATA_MOUNT="$MOUNT_DIR" ;;
   *)  export TESTDATA_MOUNT="./$MOUNT_DIR" ;;
 esac
+
+if [ "$MINIMAL_CONF" = true ]; then
+  export TEST_DNSMASQ_CONF="/data/dnsmasq-test-minimal.conf"
+  echo "Using minimal config: $TEST_DNSMASQ_CONF"
+fi
 
 COMPOSE_CMD="docker compose -f $COMPOSE_FILE up -d"
 if [ "$BUILD" = true ]; then

@@ -10,7 +10,7 @@ public sealed class ConfigOptionHelpRequestEventArgs
     /// <summary>Option-help file key (e.g. "server", "no-hosts").</summary>
     public string HelpKey { get; init; } = "";
 
-    /// <summary>Display label for the modal title (e.g. "server / local").</summary>
+    /// <summary>Display label for the modal title (e.g. "server" or "listen-address").</summary>
     public string OptionLabel { get; init; } = "";
 
     /// <summary>Id of the label element that triggered the request; used to position the modal and match leave events.</summary>

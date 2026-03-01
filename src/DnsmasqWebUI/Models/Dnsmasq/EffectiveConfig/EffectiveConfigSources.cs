@@ -16,7 +16,8 @@ public record EffectiveConfigSources(
     ConfigValueSource? HostsdirPath,
 
     // --- Multi-value (ARG_DUP): source per value ---
-    IReadOnlyList<ValueWithSource> ServerLocalValues,
+    IReadOnlyList<ValueWithSource> ServerValues,
+    IReadOnlyList<ValueWithSource> LocalValues,
     IReadOnlyList<ValueWithSource> RevServerValues,
     IReadOnlyList<ValueWithSource> AddressValues,
     IReadOnlyList<ValueWithSource> Interfaces,

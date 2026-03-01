@@ -26,7 +26,7 @@ public class DnsmasqConfIncludeParserHostsAndLeaseTests
         var mainPath = TestDataHelper.GetPath("dnsmasq-test.conf");
         Assert.True(File.Exists(mainPath), "Testdata dnsmasq-test.conf required");
         var paths = new[] { mainPath };
-        var servers = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, DnsmasqConfKeys.ServerLocalKeys);
+        var servers = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, DnsmasqConfKeys.Server);
         var addnHosts = DnsmasqConfIncludeParser.GetAddnHostsPathsFromConfigFiles(paths);
         var addresses = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, DnsmasqConfKeys.Address);
         var listenAddrs = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, DnsmasqConfKeys.ListenAddress);

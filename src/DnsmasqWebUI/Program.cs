@@ -4,10 +4,6 @@ using DnsmasqWebUI.Models.Config;
 using DnsmasqWebUI.Extensions.DependencyInjection;
 using DnsmasqWebUI.Extensions.Hosting;
 using DnsmasqWebUI.Infrastructure.Helpers.Http;
-using DnsmasqWebUI.Infrastructure.Services.UI.Settings;
-using DnsmasqWebUI.Infrastructure.Services.UI.Settings.Abstractions;
-using DnsmasqWebUI.Infrastructure.Services.Updates;
-using DnsmasqWebUI.Infrastructure.Services.Updates.Abstractions;
 using Microsoft.Extensions.Options;
 
 // When not in Development, use the app's directory (not CWD) so static assets work when run via symlink or from any CWD.
@@ -36,12 +32,9 @@ builder.Services.AddOptions<UpdateCheckOptions>()
 builder.Services.AddOptions<DnsmasqOptions>()
     .Bind(builder.Configuration.GetSection(DnsmasqOptions.SectionName))
     .ValidateOnStart();
-builder.Services.AddSingleton<IValidateOptions<DnsmasqOptions>, DnsmasqOptionsValidator>();
 
-// ---- Application services ----
+// ---- Application services (assembly-scanned: IApplicationScopedService, IApplicationSingleton, IValidateOptions<>, etc.) ----
 builder.Services.AddApplicationServices();
-builder.Services.AddScoped<ISettingsModalService, SettingsModalService>();
-builder.Services.AddSingleton<IUpdateCheckService, UpdateCheckService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddDnsmasqApiHttpClients();
 

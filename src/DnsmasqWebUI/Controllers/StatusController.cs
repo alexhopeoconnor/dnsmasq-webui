@@ -84,7 +84,7 @@ public class StatusController : ControllerBase
                 LeasesPathConfigured: !string.IsNullOrEmpty(effectiveLeasesPath),
                 LeasesPathExists: !string.IsNullOrEmpty(effectiveLeasesPath) && System.IO.File.Exists(effectiveLeasesPath),
                 ConfigFiles: set.Files.Count > 0 ? set.Files : null,
-                ReloadCommandConfigured: !string.IsNullOrWhiteSpace(_options.ReloadCommand),
+                ReloadCommandConfigured: !string.IsNullOrWhiteSpace(_options.RestartCommand) || !string.IsNullOrWhiteSpace(_options.ReloadCommand),
                 StatusCommandConfigured: !string.IsNullOrWhiteSpace(_options.StatusCommand),
                 StatusShowConfigured: !string.IsNullOrWhiteSpace(_options.StatusShowCommand),
                 LogsConfigured: !string.IsNullOrWhiteSpace(_options.LogsCommand),

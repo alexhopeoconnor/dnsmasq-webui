@@ -23,11 +23,13 @@ public class DnsmasqConfIncludeParserServerAndResolvTests
         {
             File.WriteAllText(f1, $"server={v1}\nlocal={v2}\n");
             File.WriteAllText(f2, $"server={v3}\n");
-            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { f1, f2 }, DnsmasqConfKeys.ServerLocalKeys);
-            Assert.Equal(3, result.Count);
-            Assert.Equal(v1, result[0]);
-            Assert.Equal(v2, result[1]);
-            Assert.Equal(v3, result[2]);
+            var resultServer = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { f1, f2 }, DnsmasqConfKeys.Server);
+            var resultLocal = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { f1, f2 }, DnsmasqConfKeys.Local);
+            Assert.Equal(2, resultServer.Count);
+            Assert.Equal(v1, resultServer[0]);
+            Assert.Equal(v3, resultServer[1]);
+            Assert.Single(resultLocal);
+            Assert.Equal(v2, resultLocal[0]);
         }
         finally
         {

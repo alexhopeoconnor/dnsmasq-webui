@@ -29,7 +29,10 @@ public class DnsmasqOptions
     /// <summary>Optional path to the system hosts file (e.g. /etc/hosts). When set, shown in the UI as read-only so users can see those entries. The app never writes to it; editing is via the managed hosts file only. When unset, the system hosts row is not shown.</summary>
     public string? SystemHostsPath { get; set; }
 
-    /// <summary>Command to run after config changes (e.g. "systemctl reload dnsmasq" or "pkill -HUP -x dnsmasq"). Runs in the same environment as the app; if app is in a container and dnsmasq is on the host, this runs in the container and will not reload host dnsmasq unless you use a host-side relay.</summary>
+    /// <summary>Command to run to apply config changes (e.g. "systemctl restart dnsmasq"). When set, this is used instead of <see cref="ReloadCommand"/> so that .conf file changes take effect (dnsmasq does not re-read config on SIGHUP). If unset, <see cref="ReloadCommand"/> is used.</summary>
+    public string? RestartCommand { get; set; }
+
+    /// <summary>Command to run after config changes when <see cref="RestartCommand"/> is not set (e.g. "systemctl reload dnsmasq" or "pkill -HUP -x dnsmasq"). SIGHUP only re-reads hosts/addn-hosts etc., not .conf files. Runs in the same environment as the app.</summary>
     public string? ReloadCommand { get; set; }
 
     /// <summary>Optional command to check dnsmasq service state (e.g. "systemctl is-active dnsmasq" or "pgrep -x dnsmasq"). Runs in the same environment as the app; if app is in a container, this checks for dnsmasq in the container, not on the host.</summary>

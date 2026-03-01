@@ -52,7 +52,8 @@ public static class EffectiveConfigFieldBuilder
         list.AddDescriptor(registry, DnsmasqConfKeys.ReadEthers, status, s => Config(s)?.ReadEthers, s => Sources(s)?.ReadEthers, null);
 
         // Resolver / DNS
-        list.AddDescriptor(registry, DnsmasqOptionTooltips.ServerLocalLabel, status, null, null, Items(ec => ec?.ServerLocalValues, src => src?.ServerLocalValues));
+        list.AddDescriptor(registry, DnsmasqConfKeys.Server, status, null, null, Items(ec => ec?.ServerValues, src => src?.ServerValues));
+        list.AddDescriptor(registry, DnsmasqConfKeys.Local, status, null, null, Items(ec => ec?.LocalValues, src => src?.LocalValues));
         list.AddDescriptor(registry, DnsmasqConfKeys.RevServer, status, null, null, Items(ec => ec?.RevServerValues, src => src?.RevServerValues));
         list.AddDescriptor(registry, DnsmasqConfKeys.Address, status, null, null, Items(ec => ec?.AddressValues, src => src?.AddressValues));
         list.AddDescriptor(registry, DnsmasqConfKeys.ResolvFile, status, null, null, Items(ec => ec?.ResolvFiles, src => src?.ResolvFiles));

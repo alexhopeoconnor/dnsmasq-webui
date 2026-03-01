@@ -21,5 +21,5 @@ public interface IEffectiveConfigEditSession : IApplicationScopedService
     void TrackCommit(EffectiveConfigEditCommittedArgs args);
     void RevertChange(string sectionId, string optionName);
 
-    Task ApplyAsync(CancellationToken ct = default);
+    Task<EffectiveConfigSaveResult> ApplyAsync(CancellationToken ct = default);
 }

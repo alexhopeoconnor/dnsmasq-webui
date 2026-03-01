@@ -10,7 +10,7 @@ namespace DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 ///
 /// Single-value (ARG_ONE): last occurrence wins; can be overridden by writing to the managed file.
 /// Flags: set if any file contains the option (key-only line).
-/// Multi-value (ARG_DUP): addn-hosts, server/local, address, interface, listen-address, except-interface,
+/// Multi-value (ARG_DUP): addn-hosts, server, local, address, interface, listen-address, except-interface,
 /// dhcp-range, dhcp-host, dhcp-option, resolv-file — all values in order; each has source in EffectiveConfigSources.
 /// </summary>
 public record EffectiveDnsmasqConfig(
@@ -20,7 +20,8 @@ public record EffectiveDnsmasqConfig(
     string? HostsdirPath,
 
     // --- Multi-value (ARG_DUP): all occurrences in order ---
-    IReadOnlyList<string> ServerLocalValues,
+    IReadOnlyList<string> ServerValues,
+    IReadOnlyList<string> LocalValues,
     IReadOnlyList<string> RevServerValues,
     IReadOnlyList<string> AddressValues,
     IReadOnlyList<string> Interfaces,

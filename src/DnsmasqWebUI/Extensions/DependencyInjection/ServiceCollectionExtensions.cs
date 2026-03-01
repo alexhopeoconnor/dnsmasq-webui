@@ -4,6 +4,7 @@ using DnsmasqWebUI.Infrastructure.Client.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.Registration.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace DnsmasqWebUI.Extensions.DependencyInjection;
 
@@ -59,12 +60,38 @@ public static class ServiceCollectionExtensions
     /// Scans the assembly for types implementing application marker interfaces
     /// (<see cref="IApplicationScopedService"/>, <see cref="IApplicationScopedConcrete"/>, <see cref="IApplicationSingleton"/>, <see cref="IApplicationHostedService"/>, etc.)
     /// and registers each with the configured lifetime. Hosted services are registered via <c>AddHostedService&lt;T&gt;</c>.
+    /// Also registers all <see cref="IApplicationOptionsValidator{TOptions}"/> implementations as <see cref="IValidateOptions{TOptions}"/>.
     /// Skips open generics; requires exactly one public implementation per interface (scoped/singleton).
     /// </summary>
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
         foreach (var (markerInterface, register) in ApplicationRegistrations)
             ScanAndRegister(services, markerInterface, register);
+        AddOptionsValidatorsFromAssembly(services, Assembly.GetExecutingAssembly());
+        return services;
+    }
+
+    /// <summary>
+    /// Scans the given assembly for types implementing <see cref="IApplicationOptionsValidator{TOptions}"/> and registers each
+    /// as <see cref="IValidateOptions{TOptions}"/> singleton so the options framework picks them up.
+    /// </summary>
+    public static IServiceCollection AddOptionsValidatorsFromAssembly(this IServiceCollection services, Assembly assembly)
+    {
+        var markerDef = typeof(IApplicationOptionsValidator<>);
+        var validateOptionsDef = typeof(IValidateOptions<>);
+        var validators = assembly.GetTypes()
+            .Where(t => t.IsClass && t.IsPublic && !t.IsAbstract && !t.IsGenericTypeDefinition)
+            .Select(t => (Impl: t, MarkerInterface: t.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == markerDef)))
+            .Where(x => x.MarkerInterface != null)
+            .ToList();
+
+        foreach (var (impl, markerInterface) in validators)
+        {
+            // Register as IValidateOptions<TOptions> so options validation finds it
+            var optionsType = markerInterface!.GetGenericArguments()[0];
+            var validateOptionsType = validateOptionsDef.MakeGenericType(optionsType);
+            services.AddSingleton(validateOptionsType, impl);
+        }
         return services;
     }
 

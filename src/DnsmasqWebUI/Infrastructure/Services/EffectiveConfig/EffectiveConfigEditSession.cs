@@ -1,4 +1,3 @@
-using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Config.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 
@@ -6,12 +5,12 @@ namespace DnsmasqWebUI.Infrastructure.Services.EffectiveConfig;
 
 public sealed class EffectiveConfigEditSession : IEffectiveConfigEditSession
 {
-    private readonly IDnsmasqConfigService _configService;
+    private readonly IEffectiveConfigSaveService _saveService;
     private readonly List<PendingEffectiveConfigChange> _pending = new();
 
-    public EffectiveConfigEditSession(IDnsmasqConfigService configService)
+    public EffectiveConfigEditSession(IEffectiveConfigSaveService saveService)
     {
-        _configService = configService;
+        _saveService = saveService;
     }
 
     public bool IsEditMode { get; private set; }
@@ -49,7 +48,7 @@ public sealed class EffectiveConfigEditSession : IEffectiveConfigEditSession
             c.SectionId == args.SectionId && c.OptionName == args.OptionName);
         if (existing != null)
             _pending.Remove(existing);
-        if (!Equals(args.OldValue, args.NewValue))
+        if (!ValuesEqual(args.OldValue, args.NewValue))
             _pending.Add(new PendingEffectiveConfigChange(
                 args.SectionId, args.OptionName, args.OldValue, args.NewValue, args.CurrentSourceFilePath));
         ActiveFieldKey = null;
@@ -63,11 +62,28 @@ public sealed class EffectiveConfigEditSession : IEffectiveConfigEditSession
             _pending.Remove(existing);
     }
 
-    public async Task ApplyAsync(CancellationToken ct = default)
+    public async Task<EffectiveConfigSaveResult> ApplyAsync(CancellationToken ct = default)
     {
-        if (_pending.Count == 0) return;
-        var changes = _pending.ToList();
-        await _configService.ApplyEffectiveConfigChangesAsync(changes, ct);
-        ExitEditModeDiscard();
+        if (_pending.Count == 0)
+            return EffectiveConfigSaveResult.NoChanges();
+
+        var result = await _saveService.SaveAsync(_pending.ToList(), ct);
+        if (result.Saved && result.Reloaded)
+            ExitEditModeDiscard();
+        return result;
+    }
+
+    private static IReadOnlyList<string>? AsStringList(object? value)
+    {
+        return value as IReadOnlyList<string>;
+    }
+
+    private static bool ValuesEqual(object? oldValue, object? newValue)
+    {
+        var oldList = AsStringList(oldValue);
+        var newList = AsStringList(newValue);
+        if (oldList != null || newList != null)
+            return (oldList ?? Array.Empty<string>()).SequenceEqual(newList ?? Array.Empty<string>(), StringComparer.Ordinal);
+        return Equals(oldValue, newValue);
     }
 }

@@ -32,7 +32,8 @@ public static class EffectiveConfigSections
             DnsmasqConfKeys.ReadEthers,
         ]),
         new SectionDef(SectionResolver, "Resolver / DNS", [
-            DnsmasqOptionTooltips.ServerLocalLabel,
+            DnsmasqConfKeys.Server,
+            DnsmasqConfKeys.Local,
             DnsmasqConfKeys.RevServer,
             DnsmasqConfKeys.Address,
             DnsmasqConfKeys.ResolvFile,

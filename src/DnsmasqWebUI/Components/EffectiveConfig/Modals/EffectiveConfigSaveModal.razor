@@ -8,73 +8,187 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="ec-save-modal-title">Save effective config changes</h5>
-                <button type="button" class="btn-close" @onclick="Close" aria-label="Close"></button>
+                <button type="button" class="btn-close" @onclick="Close" aria-label="Close" disabled="@(SaveState == EffectiveConfigSaveFlow.SaveUiState.Saving || SaveState == EffectiveConfigSaveFlow.SaveUiState.RestoreInProgress)"></button>
             </div>
             <div class="modal-body ec-save-modal-body">
-                <p class="text-muted mb-3">These changes will be written to your config. Remove any you don’t want to keep.</p>
-                @if (ManagedFilePath != null)
+                @if (SaveState == EffectiveConfigSaveFlow.SaveUiState.Saving || SaveState == EffectiveConfigSaveFlow.SaveUiState.RestoreInProgress)
                 {
-                    <p class="ec-save-modal-target mb-3">
-                        <span class="text-muted">Target file:</span> <code class="small">@ManagedFilePath</code>
-                    </p>
-                }
-                @if (PendingChanges.Count == 0)
-                {
-                    <div class="ec-save-modal-empty alert alert-light border text-center text-muted py-4 mb-0">
-                        No changes to save. Revert all above or close to keep editing.
+                    <div class="ec-save-modal-loading text-center py-4">
+                        <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+                        <p class="text-muted mt-2 mb-0">@(SaveState == EffectiveConfigSaveFlow.SaveUiState.Saving ? "Saving and reloading…" : "Restoring backup and reloading…")</p>
                     </div>
                 }
-                else
+                else if (SaveState == EffectiveConfigSaveFlow.SaveUiState.WriteFailed && SaveResult != null)
                 {
-                    <div class="ec-save-modal-changes list-group list-group-flush">
-                        @foreach (var c in PendingChanges)
+                    <div class="alert alert-danger mb-0">
+                        <strong>Save failed.</strong> @SaveResult.UserMessage
+                        @if (!string.IsNullOrEmpty(SaveResult.ReloadStdErr))
                         {
-                            var change = c;
-                            <div class="list-group-item ec-save-modal-item d-flex align-items-center gap-3 py-3 px-0 border-0 border-bottom">
-                                <div class="ec-save-modal-item-body flex-grow-1 min-width-0">
-                                    <StatusBadge Kind="StatusBadgeKind.NeutralPill" Text="@change.OptionName" Class="ec-save-modal-option me-2" />
-                                    <span class="ec-save-modal-diff text-body">
-                                        <span class="text-muted text-decoration-line-through">@FormatValue(change.OldValue)</span>
-                                        <span class="text-muted mx-1" aria-hidden="true">→</span>
-                                        <span>@FormatValue(change.NewValue)</span>
-                                    </span>
-                                    @if (change.CurrentSourceFilePath != null)
-                                    {
-                                        <div class="ec-save-modal-override small text-muted mt-1">Overrides @System.IO.Path.GetFileName(change.CurrentSourceFilePath)</div>
-                                    }
-                                </div>
-                                <button type="button" class="btn btn-sm btn-outline-danger flex-shrink-0" @onclick="() => Revert(change)" title="Remove this change from the list" aria-label="Revert @change.OptionName">
-                                    Remove
+                            <pre class="ec-save-modal-pre border rounded p-2 bg-light small mt-2 mb-0">@SaveResult.ReloadStdErr</pre>
+                        }
+                    </div>
+                }
+                else if (SaveState == EffectiveConfigSaveFlow.SaveUiState.ReloadFailed && SaveResult != null)
+                {
+                    <div class="ec-save-modal-reload-failed">
+                        <div class="alert alert-warning mb-3">
+                            <strong>Config was saved, but reload failed.</strong> You can restore the backup or keep editing.
+                        </div>
+                        @if (SaveResult.BackupPath != null)
+                        {
+                            <p class="ec-save-modal-backup-path mb-2">
+                                <span class="text-muted">Backup:</span> <code class="small ec-save-modal-backup-code">@SaveResult.BackupPath</code>
+                            </p>
+                        }
+                        @if (!string.IsNullOrEmpty(SaveResult.ReloadStdErr))
+                        {
+                            <div class="ec-save-modal-stderr mb-3">
+                                <button type="button" class="btn btn-sm btn-outline-secondary mb-2 @(_stderrExpanded ? "active" : "")" @onclick="() => _stderrExpanded = !_stderrExpanded" aria-expanded="@_stderrExpanded">
+                                    @(_stderrExpanded ? "Hide" : "Show") reload stderr
                                 </button>
+                                @if (_stderrExpanded)
+                                {
+                                    <pre class="ec-save-modal-pre border rounded p-2 bg-light small mb-0">@SaveResult.ReloadStdErr</pre>
+                                }
                             </div>
                         }
                     </div>
                 }
+                else if (SaveState == EffectiveConfigSaveFlow.SaveUiState.RestoreFailed && RestoreResult != null)
+                {
+                    <div class="alert alert-warning mb-0">
+                        @RestoreResult.UserMessage
+                        @if (!string.IsNullOrEmpty(RestoreResult.ReloadStdErr))
+                        {
+                            <pre class="ec-save-modal-pre border rounded p-2 bg-light small mt-2 mb-0">@RestoreResult.ReloadStdErr</pre>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted mb-3">These changes will be written to your config. Remove any you don't want to keep.</p>
+                    @if (ManagedFilePath != null)
+                    {
+                        <p class="ec-save-modal-target mb-3">
+                            <span class="text-muted">Target file:</span> <code class="small">@ManagedFilePath</code>
+                        </p>
+                    }
+                    @if (PendingChanges.Count == 0)
+                    {
+                        <div class="ec-save-modal-empty alert alert-light border text-center text-muted py-4 mb-0">
+                            No pending changes. Close to continue editing.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="ec-save-modal-changes list-group list-group-flush">
+                            @foreach (var c in PendingChanges)
+                            {
+                                var change = c;
+                                var oldList = AsStringList(change.OldValue);
+                                var newList = AsStringList(change.NewValue);
+                                var isMultiValue = oldList != null || newList != null;
+                                <div class="list-group-item ec-save-modal-item d-flex align-items-start gap-3 py-3 px-0 border-0 border-bottom">
+                                    <div class="ec-save-modal-item-body flex-grow-1 min-width-0">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <StatusBadge Kind="StatusBadgeKind.NeutralPill" Text="@change.OptionName" Class="ec-save-modal-option me-2" />
+                                            @if (!isMultiValue)
+                                            {
+                                                <span class="ec-save-modal-diff text-body">
+                                                    <span class="text-muted text-decoration-line-through">@FormatValue(change.OldValue)</span>
+                                                    <span class="text-muted mx-1" aria-hidden="true">→</span>
+                                                    <span>@FormatValue(change.NewValue)</span>
+                                                </span>
+                                            }
+                                        </div>
+                                        @if (isMultiValue)
+                                        {
+                                            var added = (newList ?? Array.Empty<string>()).Except(oldList ?? Array.Empty<string>()).ToList();
+                                            var removed = (oldList ?? Array.Empty<string>()).Except(newList ?? Array.Empty<string>()).ToList();
+                                            <div class="ec-save-modal-multidiff ps-3 mt-1 small">
+                                                @foreach (var val in removed)
+                                                {
+                                                    <div class="text-muted text-decoration-line-through">− @val</div>
+                                                }
+                                                @foreach (var val in added)
+                                                {
+                                                    <div class="text-success">+ @val</div>
+                                                }
+                                            </div>
+                                        }
+                                        @if (change.CurrentSourceFilePath != null)
+                                        {
+                                            <div class="ec-save-modal-override small text-muted mt-1">Overrides @System.IO.Path.GetFileName(change.CurrentSourceFilePath)</div>
+                                        }
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-danger flex-shrink-0" @onclick="() => Revert(change)" title="Revert this change" aria-label="Revert @change.OptionName">
+                                        Revert
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" @onclick="Close">Cancel</button>
-                <button type="button" class="btn btn-primary" @onclick="Save" disabled="@(PendingChanges.Count == 0)">Save</button>
+                @if (SaveState == EffectiveConfigSaveFlow.SaveUiState.ReloadFailed && SaveResult?.BackupPath != null)
+                {
+                    <button type="button" class="btn btn-primary" @onclick="() => Restore(SaveResult.BackupPath)">Restore backup</button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="Close">Continue editing</button>
+                }
+                else if (SaveState == EffectiveConfigSaveFlow.SaveUiState.RestoreFailed)
+                {
+                    <button type="button" class="btn btn-secondary" @onclick="Close">Continue editing</button>
+                }
+                else if (SaveState == EffectiveConfigSaveFlow.SaveUiState.WriteFailed)
+                {
+                    <button type="button" class="btn btn-secondary" @onclick="Close">Continue editing</button>
+                }
+                else if (SaveState != EffectiveConfigSaveFlow.SaveUiState.Saving && SaveState != EffectiveConfigSaveFlow.SaveUiState.RestoreInProgress)
+                {
+                    <button type="button" class="btn btn-secondary" @onclick="Close">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="Save" disabled="@(PendingChanges.Count == 0)">Save</button>
+                }
             </div>
         </div>
     </div>
-    <div class="modal-backdrop fade show" style="display: block;" @onclick="Close"></div>
+    <div class="modal-backdrop fade show" style="display: block;" @onclick="OnBackdropClick"></div>
 </div>
 
 @code {
     [Parameter] public IReadOnlyList<PendingEffectiveConfigChange> PendingChanges { get; set; } = null!;
     [Parameter] public DnsmasqServiceStatus? Status { get; set; }
     [Parameter] public IEffectiveConfigEditSession Session { get; set; } = null!;
+    [Parameter] public EffectiveConfigSaveFlow.SaveUiState SaveState { get; set; }
+    [Parameter] public EffectiveConfigSaveResult? SaveResult { get; set; }
+    [Parameter] public EffectiveConfigRestoreResult? RestoreResult { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback OnSave { get; set; }
-    /// <summary>Invoked after reverting a change so the parent can re-render.</summary>
+    [Parameter] public EventCallback<string> OnRestore { get; set; }
     [Parameter] public EventCallback OnReverted { get; set; }
 
+    private bool _stderrExpanded;
+
+    private bool AllowClose => SaveState != EffectiveConfigSaveFlow.SaveUiState.Saving && SaveState != EffectiveConfigSaveFlow.SaveUiState.RestoreInProgress;
+
     private string? ManagedFilePath => Status?.ManagedFilePath;
+
+    /// <summary>If the value is a list of strings (multi-value option), return it; otherwise null.</summary>
+    private static IReadOnlyList<string>? AsStringList(object? v)
+    {
+        if (v == null) return null;
+        if (v is IReadOnlyList<string> ro) return ro;
+        if (v is List<string> list) return list;
+        if (v is string[] arr) return arr;
+        return null;
+    }
 
     private static string FormatValue(object? v)
     {
         if (v == null) return "(not set)";
         if (v is bool b) return b ? "on" : "off";
+        var list = AsStringList(v);
+        if (list != null) return list.Count == 0 ? "(none)" : string.Join(", ", list);
         return v.ToString() ?? "(not set)";
     }
 
@@ -84,13 +198,25 @@
         await OnReverted.InvokeAsync();
     }
 
+    private async Task OnBackdropClick()
+    {
+        if (!AllowClose) return;
+        await Close();
+    }
+
     private async Task Close()
     {
+        if (!AllowClose) return;
         await OnClose.InvokeAsync();
     }
 
     private async Task Save()
     {
         await OnSave.InvokeAsync();
+    }
+
+    private async Task Restore(string backupPath)
+    {
+        await OnRestore.InvokeAsync(backupPath);
     }
 }

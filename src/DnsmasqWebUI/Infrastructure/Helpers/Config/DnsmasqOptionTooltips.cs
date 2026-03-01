@@ -8,13 +8,6 @@ namespace DnsmasqWebUI.Infrastructure.Helpers.Config;
 /// </summary>
 public static class DnsmasqOptionTooltips
 {
-    /// <summary>Display label used in EffectiveConfigFieldBuilder for server/local multi-value.</summary>
-    public const string ServerLocalLabel = "server / local";
-
-    /// <summary>Option name to option-help file key. "server / local" → "server"; others unchanged.</summary>
-    public static string GetOptionHelpKey(string optionName) =>
-        string.Equals(optionName, ServerLocalLabel, StringComparison.Ordinal) ? "server" : optionName;
-
     private static readonly FrozenDictionary<string, string> Tooltips = new Dictionary<string, string>(StringComparer.Ordinal)
     {
         // --- Hosts ---
@@ -32,7 +25,8 @@ public static class DnsmasqOptionTooltips
         [DnsmasqConfKeys.DomainNeeded] = "Never forward plain names (without a domain) to upstream.",
         [DnsmasqConfKeys.Port] = "Listen on this port for DNS queries (default 53).",
         [DnsmasqConfKeys.LogQueries] = "Log DNS queries. Optional value: extra, proto, or auth.",
-        [ServerLocalLabel] = "Upstream DNS servers (server=) and local-only domains (local=). Order is preserved.",
+        [DnsmasqConfKeys.Server] = "Upstream DNS servers. Order is preserved.",
+        [DnsmasqConfKeys.Local] = "Local-only domains (queries not forwarded). Order is preserved.",
         [DnsmasqConfKeys.RevServer] = "Reverse DNS server (e.g. rev-server=1.2.3.0/24,192.168.0.1). Can repeat.",
         [DnsmasqConfKeys.Address] = "Map a domain or hostname to an IP (e.g. for ad blocking or local names). Can repeat.",
         [DnsmasqConfKeys.ResolvFile] = "File(s) to read upstream server addresses from (e.g. from DHCP). Can repeat.",

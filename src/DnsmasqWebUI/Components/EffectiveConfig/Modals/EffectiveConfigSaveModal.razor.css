@@ -41,3 +41,21 @@
 .ec-save-modal-empty {
     font-size: 0.9rem;
 }
+
+.ec-save-modal-loading {
+    min-height: 6rem;
+}
+
+.ec-save-modal-backup-path {
+    font-size: 0.9rem;
+}
+
+.ec-save-modal-backup-code {
+    word-break: break-all;
+}
+
+.ec-save-modal-pre {
+    font-size: 0.8125rem;
+    max-height: 12rem;
+    overflow: auto;
+}

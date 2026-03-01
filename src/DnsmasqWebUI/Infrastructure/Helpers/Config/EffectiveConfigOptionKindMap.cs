@@ -36,7 +36,8 @@ public static class EffectiveConfigOptionKindMap
             [DnsmasqConfKeys.AddnHosts] = EffectiveConfigFieldKind.Multi,
             [DnsmasqConfKeys.Hostsdir] = EffectiveConfigFieldKind.Single,
             [DnsmasqConfKeys.ReadEthers] = EffectiveConfigFieldKind.Single,
-            [DnsmasqOptionTooltips.ServerLocalLabel] = EffectiveConfigFieldKind.Multi,
+            [DnsmasqConfKeys.Server] = EffectiveConfigFieldKind.Multi,
+            [DnsmasqConfKeys.Local] = EffectiveConfigFieldKind.Multi,
             [DnsmasqConfKeys.RevServer] = EffectiveConfigFieldKind.Multi,
             [DnsmasqConfKeys.Address] = EffectiveConfigFieldKind.Multi,
             [DnsmasqConfKeys.ResolvFile] = EffectiveConfigFieldKind.Multi,
@@ -160,7 +161,7 @@ public static class EffectiveConfigOptionKindMap
 /// <summary>
 /// Maps dnsmasq option names to parser behavior (LastWins / Flag / Multi). Used by ConfigSetCache so it
 /// dispatches to GetLastValue, GetFlag, or GetMultiValue from one place. Special cases (NoHosts value,
-/// AddnHosts, server/local keys array, DhcpLeaseFilePath) remain explicit in the cache.
+/// AddnHosts, DhcpLeaseFilePath) remain explicit in the cache.
 /// </summary>
 public static class EffectiveConfigParserBehaviorMap
 {
@@ -171,6 +172,8 @@ public static class EffectiveConfigParserBehaviorMap
             [DnsmasqConfKeys.AddnHosts] = EffectiveConfigParserBehavior.Multi,
             [DnsmasqConfKeys.Hostsdir] = EffectiveConfigParserBehavior.LastWins,
             [DnsmasqConfKeys.ReadEthers] = EffectiveConfigParserBehavior.Flag,
+            [DnsmasqConfKeys.Server] = EffectiveConfigParserBehavior.Multi,
+            [DnsmasqConfKeys.Local] = EffectiveConfigParserBehavior.Multi,
             [DnsmasqConfKeys.RevServer] = EffectiveConfigParserBehavior.Multi,
             [DnsmasqConfKeys.Address] = EffectiveConfigParserBehavior.Multi,
             [DnsmasqConfKeys.ResolvFile] = EffectiveConfigParserBehavior.Multi,

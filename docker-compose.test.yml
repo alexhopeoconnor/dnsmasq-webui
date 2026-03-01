@@ -1,7 +1,8 @@
 # Run the app with real dnsmasq and several DHCP clients so hosts/leases are real.
 # Some clients also make periodic DNS requests so the DNS cache and logs show activity.
-# Prepare mount: ./scripts/prepare-test-mount.sh [--prepare-only | --no-build | --recreate | --source DIR | --mount DIR]
+# Prepare mount: ./scripts/prepare-test-mount.sh [--minimal-conf | --prepare-only | ...]
 # Or set TESTDATA_MOUNT to override the data volume (default: ./testdata-mount).
+# Set TEST_DNSMASQ_CONF to override main config path (default: /data/dnsmasq-test.conf; use /data/dnsmasq-test-minimal.conf for minimal).
 #
 # No systemd in container (dnsmasq runs as a process from entrypoint, like most dnsmasq images).
 # StatusShowCommand/LogsCommand use ps so the Service status / Recent logs sections show something
@@ -18,9 +19,11 @@ services:
     cap_add:
       - NET_ADMIN
     environment:
-      DNSMASQ_CONF: /data/dnsmasq-test.conf
-      Dnsmasq__MainConfigPath: /data/dnsmasq-test.conf
+      DNSMASQ_CONF: ${TEST_DNSMASQ_CONF:-/data/dnsmasq-test.conf}
+      Dnsmasq__MainConfigPath: ${TEST_DNSMASQ_CONF:-/data/dnsmasq-test.conf}
       Dnsmasq__ManagedFileName: zz-dnsmasq-webui.conf
+      # No systemd in container: restart by killing and re-running dnsmasq (same as entrypoint.sh). Config path must match DNSMASQ_CONF/MainConfigPath.
+      Dnsmasq__RestartCommand: "pkill -x dnsmasq || true; sleep 1; dnsmasq --test --conf-file=${TEST_DNSMASQ_CONF:-/data/dnsmasq-test.conf} >/tmp/dnsmasq-restart.err 2>&1 || { cat /tmp/dnsmasq-restart.err >&2; exit 1; }; dnsmasq -k --conf-file=${TEST_DNSMASQ_CONF:-/data/dnsmasq-test.conf} >/tmp/dnsmasq-restart.err 2>&1 & sleep 1; pgrep -x dnsmasq >/dev/null || { cat /tmp/dnsmasq-restart.err >&2; exit 1; }"
       Dnsmasq__ReloadCommand: "pkill -HUP -x dnsmasq"
       Dnsmasq__StatusCommand: "pgrep -x dnsmasq"
       # Simulated systemctl status + real logs (dnsmasq logs to /data/dnsmasq.log via log-facility in dnsmasq-test.conf)

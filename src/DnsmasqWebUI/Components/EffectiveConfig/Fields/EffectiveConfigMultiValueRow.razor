@@ -8,6 +8,10 @@
     {
         <span class="ec-field-value ec-field-value-multi" @onclick:stopPropagation="true">
             <textarea class="form-control form-control-sm" rows="@(Math.Max(2, (Items?.Count ?? 0) + 1))" @oninput="OnLinesInput" placeholder="One value per line">@_editLines</textarea>
+            <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorIdBase ?? "")" Source="@Source" OptionName="@Label" Value="@Items"
+                             IsInteractive="@IsEditMode" ShowEditableBadge="@ShowEditableBadge" HasPendingChange="@HasPendingChange"
+                             EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@IsActiveEditor"
+                             OnConfirmRequested="@OnConfirmRequested" OnCancelRequested="@OnCancelRequested" OnRevertRequested="@OnRevertRequested" />
         </span>
     }
     else
@@ -27,6 +31,10 @@
             {
                 <span class="text-muted">(none)</span>
             }
+            <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorIdBase ?? "")" Source="@Source" OptionName="@Label" Value="@Items"
+                             IsInteractive="@IsEditMode" ShowEditableBadge="@ShowEditableBadge" HasPendingChange="@HasPendingChange"
+                             EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@IsActiveEditor"
+                             OnConfirmRequested="@OnConfirmRequested" OnCancelRequested="@OnCancelRequested" OnRevertRequested="@OnRevertRequested" />
         </span>
     }
 </li>
@@ -41,6 +49,13 @@
     [Parameter] public bool IsActiveEditor { get; set; }
     [Parameter] public bool IsEditMode { get; set; }
     [Parameter] public string? ReadonlyBadgeAnchorIdBase { get; set; }
+    [Parameter] public ConfigValueSource? Source { get; set; }
+    [Parameter] public bool ShowEditableBadge { get; set; }
+    [Parameter] public bool HasPendingChange { get; set; }
+    [Parameter] public string FieldKey { get; set; } = "";
+    [Parameter] public EventCallback OnConfirmRequested { get; set; }
+    [Parameter] public EventCallback OnCancelRequested { get; set; }
+    [Parameter] public EventCallback OnRevertRequested { get; set; }
 
     private string _editLines = "";
 

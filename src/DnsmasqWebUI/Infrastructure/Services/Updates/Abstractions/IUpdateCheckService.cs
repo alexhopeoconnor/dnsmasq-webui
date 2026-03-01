@@ -1,10 +1,13 @@
+using DnsmasqWebUI.Infrastructure.Services.Registration.Abstractions;
+
 namespace DnsmasqWebUI.Infrastructure.Services.Updates.Abstractions;
 
 /// <summary>
 /// Service that checks GitHub for a newer release. Runs on a configurable interval (hosted service)
 /// and can be triggered manually. UI subscribes to <see cref="ResultChanged"/> to refresh when state updates.
+/// Registered via assembly scanning (<see cref="IApplicationSingleton"/>).
 /// </summary>
-public interface IUpdateCheckService
+public interface IUpdateCheckService : IApplicationSingleton
 {
     /// <summary>Raised when a check completes (background or manual). Subscribe and call StateHasChanged from the UI.</summary>
     event EventHandler? ResultChanged;

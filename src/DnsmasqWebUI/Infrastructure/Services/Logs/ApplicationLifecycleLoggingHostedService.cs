@@ -38,7 +38,7 @@ public sealed class ApplicationLifecycleLoggingHostedService : IApplicationHoste
         _logger.LogInformation(
             "Application started: version={Version}, env={Environment}, os={OS}, arch={Arch}. " +
             "MainConfig={MainConfig}, managedConfig={ManagedConfig}, managedHosts={ManagedHosts}, systemHosts={SystemHosts}. " +
-            "ReloadCommand={ReloadCmd}, StatusCommand={StatusCmd}",
+            "RestartCommand={RestartCmd}, ReloadCommand={ReloadCmd}, StatusCommand={StatusCmd}",
             version,
             _env.EnvironmentName,
             RuntimeInformation.OSDescription.Trim(),
@@ -47,6 +47,7 @@ public sealed class ApplicationLifecycleLoggingHostedService : IApplicationHoste
             managedConfigPath,
             managedHostsPath,
             _dnsmasq.SystemHostsPath ?? "(not set)",
+            string.IsNullOrWhiteSpace(_dnsmasq.RestartCommand) ? "(not set)" : _dnsmasq.RestartCommand,
             string.IsNullOrWhiteSpace(_dnsmasq.ReloadCommand) ? "(not set)" : _dnsmasq.ReloadCommand,
             string.IsNullOrWhiteSpace(_dnsmasq.StatusCommand) ? "(not set)" : _dnsmasq.StatusCommand);
 
