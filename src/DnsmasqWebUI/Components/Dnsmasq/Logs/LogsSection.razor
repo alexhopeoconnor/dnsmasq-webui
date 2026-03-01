@@ -27,14 +27,14 @@
         <LogsPreView Id="dnsmasq-logs-pre" Placeholder="@_initialPlaceholder" Freeze="_logsContentReceived" />
     }
     <div class="mt-2 d-flex flex-wrap gap-2 align-items-center">
-        <button class="btn btn-primary btn-sm" @onclick="RequestRefreshAsync" disabled="@_refreshing">Refresh</button>
+        <button class="btn btn-primary btn-sm" @onclick="RequestRefreshAsync" disabled="@_refreshing"><i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Refresh</button>
         @if (_status.LogsPath != null)
         {
-            <a href="api/status/logs/download" download="dnsmasq.log" class="btn btn-primary btn-sm">Download logs</a>
+            <a href="api/status/logs/download" download="dnsmasq.log" class="btn btn-primary btn-sm"><i class="bi bi-download me-1" aria-hidden="true"></i>Download logs</a>
         }
         else
         {
-            <button type="button" class="btn btn-primary btn-sm" disabled title="No log file path detected. Set log-facility=/path/to/file in your dnsmasq config to enable download.">Download logs</button>
+            <button type="button" class="btn btn-primary btn-sm" disabled title="No log file path detected. Set log-facility=/path/to/file in your dnsmasq config to enable download."><i class="bi bi-download me-1" aria-hidden="true"></i>Download logs</button>
         }
     </div>
 }

@@ -43,8 +43,10 @@ public class StatusController : ControllerBase
             var (dhcpRangeStart, dhcpRangeEnd) = _configSetService.GetDhcpRange();
             var systemHostsPath = _options.SystemHostsPath?.Trim();
 
-            var statusResult = await _processRunner.RunAsync(_options.StatusCommand, TimeSpan.FromSeconds(5), ct);
-            var dnsmasqStatus = statusResult.ExitCode == 0 ? "active" : (statusResult.ExitCode.HasValue ? "inactive" : "unknown");
+            var statusResult = await _processRunner.RunAsync(_options.StatusCommand, _options.StatusTimeout, ct);
+            var dnsmasqStatus = statusResult.TimedOut || statusResult.ExitCode is null || statusResult.ExceptionMessage is not null
+                ? "unknown"
+                : statusResult.ExitCode == 0 ? "active" : "inactive";
             var statusCommandStdout = string.IsNullOrWhiteSpace(statusResult.Stdout) ? null : statusResult.Stdout.Trim();
             var statusCommandStderr = string.IsNullOrWhiteSpace(statusResult.Stderr) ? null : statusResult.Stderr.Trim();
             if (statusResult.ExceptionMessage != null)
@@ -52,19 +54,19 @@ public class StatusController : ControllerBase
 
             var showTask = string.IsNullOrWhiteSpace(_options.StatusShowCommand)
                 ? Task.FromResult(new ProcessRunResult(null, "", "", false))
-                : _processRunner.RunAsync(_options.StatusShowCommand, TimeSpan.FromSeconds(5), ct);
+                : _processRunner.RunAsync(_options.StatusShowCommand, _options.StatusShowTimeout, ct);
             var logsTask = string.IsNullOrWhiteSpace(_options.LogsCommand)
                 ? Task.FromResult(new ProcessRunResult(null, "", "", false))
-                : _processRunner.RunAsync(_options.LogsCommand, TimeSpan.FromSeconds(10), ct);
+                : _processRunner.RunAsync(_options.LogsCommand, _options.LogsTimeout, ct);
             await Task.WhenAll(showTask, logsTask);
 
             var showResult = await showTask;
             var logsResult = await logsTask;
             var statusShowOutput = !string.IsNullOrWhiteSpace(_options.StatusShowCommand)
-                ? FormatStatusShowOutput(showResult.Stdout + (showResult.TimedOut ? "\n(Command timed out.)" : ""))
+                ? FormatStatusShowOutput(AppendCommandFailureMarker(showResult.Stdout, showResult.TimedOut, showResult.ExceptionMessage))
                 : null;
             var logsOutput = !string.IsNullOrWhiteSpace(_options.LogsCommand)
-                ? logsResult.Stdout + (logsResult.TimedOut ? "\n(Command timed out.)" : "")
+                ? AppendCommandFailureMarker(logsResult.Stdout, logsResult.TimedOut, logsResult.ExceptionMessage)
                 : null;
 
             var status = new DnsmasqServiceStatus(
@@ -107,6 +109,15 @@ public class StatusController : ControllerBase
             _logger.LogError(ex, "Get status failed");
             return StatusCode(500, new { error = ex.Message });
         }
+    }
+
+    private static string AppendCommandFailureMarker(string output, bool timedOut, string? exceptionMessage)
+    {
+        if (timedOut)
+            return output + "\n(Command timed out.)";
+        if (!string.IsNullOrEmpty(exceptionMessage))
+            return output + "\n(Command failed: " + exceptionMessage + ")";
+        return output;
     }
 
     /// <summary>

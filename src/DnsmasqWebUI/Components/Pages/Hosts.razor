@@ -45,7 +45,7 @@ else
         }
 
         <HostsFileSection Path="@(_status.ManagedHostsFilePath ?? "")" Entries="_entries" IsEditable="true" IsFirst="true" />
-        <button class="btn btn-primary mt-2" @onclick="Save" disabled="@_saving">Save</button>
+        <button class="btn btn-primary mt-2" @onclick="Save" disabled="@_saving"><i class="bi bi-floppy-fill me-1" aria-hidden="true"></i>Save</button>
 
         @if (_readOnlyHosts?.Count > 0)
         {

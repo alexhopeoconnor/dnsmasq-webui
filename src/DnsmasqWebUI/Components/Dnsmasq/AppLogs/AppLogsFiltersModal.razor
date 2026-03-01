@@ -16,7 +16,7 @@
                 <div class="input-group input-group-sm mb-2">
                     <input type="text" class="form-control" placeholder="e.g. Microsoft.AspNetCore."
                            @bind="_newPrefix" @bind:event="oninput" @onkeydown="OnNewPrefixKeydown" />
-                    <button type="button" class="btn btn-outline-primary" @onclick="AddPrefix" disabled="@string.IsNullOrWhiteSpace(_newPrefix)">Add</button>
+                    <button type="button" class="btn btn-outline-primary" @onclick="AddPrefix" disabled="@string.IsNullOrWhiteSpace(_newPrefix)"><i class="bi bi-plus me-1" aria-hidden="true"></i>Add</button>
                 </div>
                 <ul class="list-group list-group-flush" style="max-height: 12rem; overflow-y: auto;">
                     @foreach (var prefix in _prefixes)
@@ -35,10 +35,10 @@
                 </ul>
             </div>
             <div class="modal-footer d-flex justify-content-between align-items-center">
-                <button type="button" class="btn btn-secondary" @onclick="RestoreDefaults" disabled="@_saving">Restore defaults</button>
+                <button type="button" class="btn btn-secondary" @onclick="RestoreDefaults" disabled="@_saving"><i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Restore defaults</button>
                 <div>
-                    <button type="button" class="btn btn-secondary" @onclick="Close">Cancel</button>
-                    <button type="button" class="btn btn-primary" @onclick="Save" disabled="@_saving">@(_saving ? "Saving…" : "Save")</button>
+                    <button type="button" class="btn btn-secondary" @onclick="Close"><i class="bi bi-x me-1" aria-hidden="true"></i>Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="Save" disabled="@_saving">@if (_saving) { <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> } else { <i class="bi bi-floppy-fill me-1" aria-hidden="true"></i> }@(_saving ? "Saving…" : "Save")</button>
                 </div>
             </div>
         </div>

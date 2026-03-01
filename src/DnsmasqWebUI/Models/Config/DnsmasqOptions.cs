@@ -43,4 +43,30 @@ public class DnsmasqOptions
 
     /// <summary>Optional command for recent logs (e.g. "journalctl -u dnsmasq -n 100 --no-pager"). Output shown on Dnsmasq page.</summary>
     public string? LogsCommand { get; set; }
+
+    // --- Timeouts (seconds) for the commands above ---
+
+    /// <summary>Timeout in seconds for <see cref="RestartCommand"/> / <see cref="ReloadCommand"/>. Default 30.</summary>
+    public int RestartTimeoutSeconds { get; set; } = 15;
+
+    /// <summary>Timeout in seconds for <see cref="StatusCommand"/>. Default 5.</summary>
+    public int StatusTimeoutSeconds { get; set; } = 5;
+
+    /// <summary>Timeout in seconds for <see cref="StatusShowCommand"/>. Default 5.</summary>
+    public int StatusShowTimeoutSeconds { get; set; } = 5;
+
+    /// <summary>Timeout in seconds for <see cref="LogsCommand"/>. Default 10.</summary>
+    public int LogsTimeoutSeconds { get; set; } = 10;
+
+    /// <summary><see cref="RestartTimeoutSeconds"/> as <see cref="TimeSpan"/>.</summary>
+    public TimeSpan RestartTimeout => TimeSpan.FromSeconds(RestartTimeoutSeconds);
+
+    /// <summary><see cref="StatusTimeoutSeconds"/> as <see cref="TimeSpan"/>.</summary>
+    public TimeSpan StatusTimeout => TimeSpan.FromSeconds(StatusTimeoutSeconds);
+
+    /// <summary><see cref="StatusShowTimeoutSeconds"/> as <see cref="TimeSpan"/>.</summary>
+    public TimeSpan StatusShowTimeout => TimeSpan.FromSeconds(StatusShowTimeoutSeconds);
+
+    /// <summary><see cref="LogsTimeoutSeconds"/> as <see cref="TimeSpan"/>.</summary>
+    public TimeSpan LogsTimeout => TimeSpan.FromSeconds(LogsTimeoutSeconds);
 }

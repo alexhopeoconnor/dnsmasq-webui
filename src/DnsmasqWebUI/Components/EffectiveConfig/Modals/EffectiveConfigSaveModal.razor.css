@@ -1,3 +1,8 @@
+/* Keep footer buttons on one line */
+.ec-save-modal-footer {
+    flex-wrap: nowrap;
+}
+
 /* Ensure the dialog stacks above the backdrop when both are siblings inside .modal */
 .modal-dialog {
     position: relative;
@@ -54,8 +59,29 @@
     word-break: break-all;
 }
 
+/* Command output: ensure text is always visible (avoid inherited color/visibility issues) */
 .ec-save-modal-pre {
     font-size: 0.8125rem;
     max-height: 12rem;
     overflow: auto;
+    color: var(--bs-body-color, #212529);
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-height: 2.5rem;
+}
+
+/* Alert icon in reload/restore failed states: larger, spacing, aligned with text */
+.ec-save-modal-alert {
+    --ec-save-modal-alert-icon-gap: 0.5rem;
+}
+
+.ec-save-modal-alert-icon {
+    flex-shrink: 0;
+    font-size: 1.25rem;
+    margin-right: var(--ec-save-modal-alert-icon-gap);
+    line-height: 1;
+}
+
+.ec-save-modal-alert-text {
+    min-width: 0;
 }

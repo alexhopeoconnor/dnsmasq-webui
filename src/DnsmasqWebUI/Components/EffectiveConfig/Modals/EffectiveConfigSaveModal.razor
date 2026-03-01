@@ -15,24 +15,27 @@
                 {
                     <div class="ec-save-modal-loading text-center py-4">
                         <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
-                        <p class="text-muted mt-2 mb-0">@(SaveState == EffectiveConfigSaveFlow.SaveUiState.Saving ? "Saving and reloading…" : "Restoring backup and reloading…")</p>
+                        <p class="text-muted mt-2 mb-0">@(SaveState == EffectiveConfigSaveFlow.SaveUiState.Saving ? "Saving and restarting…" : "Restoring backup and restarting…")</p>
                     </div>
                 }
                 else if (SaveState == EffectiveConfigSaveFlow.SaveUiState.WriteFailed && SaveResult != null)
                 {
                     <div class="alert alert-danger mb-0">
                         <strong>Save failed.</strong> @SaveResult.UserMessage
-                        @if (!string.IsNullOrEmpty(SaveResult.ReloadStdErr))
+                        @if (!string.IsNullOrEmpty(SaveResult.RestartStdErr))
                         {
-                            <pre class="ec-save-modal-pre border rounded p-2 bg-light small mt-2 mb-0">@SaveResult.ReloadStdErr</pre>
+                            <pre class="ec-save-modal-pre border rounded p-2 bg-light small mt-2 mb-0">@SaveResult.RestartStdErr</pre>
                         }
                     </div>
                 }
                 else if (SaveState == EffectiveConfigSaveFlow.SaveUiState.ReloadFailed && SaveResult != null)
                 {
                     <div class="ec-save-modal-reload-failed">
-                        <div class="alert alert-warning mb-3">
-                            <strong>Config was saved, but reload failed.</strong> You can restore the backup or keep editing.
+                        <div class="alert alert-danger mb-3 d-flex align-items-center gap-2 ec-save-modal-alert">
+                            <i class="bi bi-exclamation-triangle-fill ec-save-modal-alert-icon" aria-hidden="true"></i>
+                            <div class="ec-save-modal-alert-text">
+                                <strong>Config was saved, but the restart command failed.</strong> You can restore the backup or keep editing.
+                            </div>
                         </div>
                         @if (SaveResult.BackupPath != null)
                         {
@@ -40,28 +43,23 @@
                                 <span class="text-muted">Backup:</span> <code class="small ec-save-modal-backup-code">@SaveResult.BackupPath</code>
                             </p>
                         }
-                        @if (!string.IsNullOrEmpty(SaveResult.ReloadStdErr))
-                        {
-                            <div class="ec-save-modal-stderr mb-3">
-                                <button type="button" class="btn btn-sm btn-outline-secondary mb-2 @(_stderrExpanded ? "active" : "")" @onclick="() => _stderrExpanded = !_stderrExpanded" aria-expanded="@_stderrExpanded">
-                                    @(_stderrExpanded ? "Hide" : "Show") reload stderr
-                                </button>
-                                @if (_stderrExpanded)
-                                {
-                                    <pre class="ec-save-modal-pre border rounded p-2 bg-light small mb-0">@SaveResult.ReloadStdErr</pre>
-                                }
-                            </div>
-                        }
+                        <div class="ec-save-modal-stderr mb-3">
+                            <p class="text-muted small mb-1"><strong>Command output</strong></p>
+                            <pre class="ec-save-modal-pre border rounded p-2 bg-light small mb-0 text-body">@GetRestartFailedOutput(SaveResult)</pre>
+                        </div>
                     </div>
                 }
                 else if (SaveState == EffectiveConfigSaveFlow.SaveUiState.RestoreFailed && RestoreResult != null)
                 {
-                    <div class="alert alert-warning mb-0">
-                        @RestoreResult.UserMessage
-                        @if (!string.IsNullOrEmpty(RestoreResult.ReloadStdErr))
-                        {
-                            <pre class="ec-save-modal-pre border rounded p-2 bg-light small mt-2 mb-0">@RestoreResult.ReloadStdErr</pre>
-                        }
+                    <div class="ec-save-modal-restore-failed">
+                        <div class="alert alert-danger mb-3 d-flex align-items-center gap-2 ec-save-modal-alert">
+                            <i class="bi bi-exclamation-triangle-fill ec-save-modal-alert-icon" aria-hidden="true"></i>
+                            <div class="ec-save-modal-alert-text">@RestoreResult.UserMessage</div>
+                        </div>
+                        <div class="ec-save-modal-stderr mb-3">
+                            <p class="text-muted small mb-1"><strong>Command output</strong></p>
+                            <pre class="ec-save-modal-pre border rounded p-2 bg-light small mb-0 text-body">@GetRestoreFailedOutput(RestoreResult)</pre>
+                        </div>
                     </div>
                 }
                 else
@@ -122,7 +120,7 @@
                                         }
                                     </div>
                                     <button type="button" class="btn btn-sm btn-outline-danger flex-shrink-0" @onclick="() => Revert(change)" title="Revert this change" aria-label="Revert @change.OptionName">
-                                        Revert
+                                        <i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Revert
                                     </button>
                                 </div>
                             }
@@ -130,24 +128,26 @@
                     }
                 }
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer ec-save-modal-footer">
                 @if (SaveState == EffectiveConfigSaveFlow.SaveUiState.ReloadFailed && SaveResult?.BackupPath != null)
                 {
-                    <button type="button" class="btn btn-primary" @onclick="() => Restore(SaveResult.BackupPath)">Restore backup</button>
-                    <button type="button" class="btn btn-outline-secondary" @onclick="Close">Continue editing</button>
+                    <button type="button" class="btn btn-primary" @onclick="() => Restore(SaveResult.BackupPath)"><i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Restore backup</button>
+                    <button type="button" class="btn btn-outline-warning" @onclick="Close"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Continue editing</button>
+                    <button type="button" class="btn btn-danger" @onclick="CloseAndEndEdit"><i class="bi bi-x-circle me-1" aria-hidden="true"></i>Stop editing</button>
                 }
                 else if (SaveState == EffectiveConfigSaveFlow.SaveUiState.RestoreFailed)
                 {
-                    <button type="button" class="btn btn-secondary" @onclick="Close">Continue editing</button>
+                    <button type="button" class="btn btn-outline-warning" @onclick="Close"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Continue editing</button>
+                    <button type="button" class="btn btn-danger" @onclick="CloseAndEndEdit"><i class="bi bi-x-circle me-1" aria-hidden="true"></i>Stop editing</button>
                 }
                 else if (SaveState == EffectiveConfigSaveFlow.SaveUiState.WriteFailed)
                 {
-                    <button type="button" class="btn btn-secondary" @onclick="Close">Continue editing</button>
+                    <button type="button" class="btn btn-outline-warning" @onclick="Close"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Continue editing</button>
                 }
                 else if (SaveState != EffectiveConfigSaveFlow.SaveUiState.Saving && SaveState != EffectiveConfigSaveFlow.SaveUiState.RestoreInProgress)
                 {
-                    <button type="button" class="btn btn-secondary" @onclick="Close">Cancel</button>
-                    <button type="button" class="btn btn-primary" @onclick="Save" disabled="@(PendingChanges.Count == 0)">Save</button>
+                    <button type="button" class="btn btn-secondary" @onclick="Close"><i class="bi bi-x me-1" aria-hidden="true"></i>Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="Save" disabled="@(PendingChanges.Count == 0)"><i class="bi bi-floppy-fill me-1" aria-hidden="true"></i>Save</button>
                 }
             </div>
         </div>
@@ -166,12 +166,31 @@
     [Parameter] public EventCallback OnSave { get; set; }
     [Parameter] public EventCallback<string> OnRestore { get; set; }
     [Parameter] public EventCallback OnReverted { get; set; }
-
-    private bool _stderrExpanded;
+    [Parameter] public EventCallback OnCloseAndEndEdit { get; set; }
 
     private bool AllowClose => SaveState != EffectiveConfigSaveFlow.SaveUiState.Saving && SaveState != EffectiveConfigSaveFlow.SaveUiState.RestoreInProgress;
 
     private string? ManagedFilePath => Status?.ManagedFilePath;
+
+    private static string GetRestartFailedOutput(EffectiveConfigSaveResult result)
+    {
+        var err = (result.RestartStdErr ?? "").Trim();
+        var outp = (result.RestartStdOut ?? "").Trim();
+        if (err.Length > 0 && outp.Length > 0)
+            return err + "\n\n" + outp;
+        if (err.Length > 0) return err;
+        if (outp.Length > 0) return outp;
+        var exitInfo = result.RestartExitCode >= 0 ? $"Exit code: {result.RestartExitCode}." : "";
+        return string.IsNullOrEmpty(exitInfo) ? "(No output captured)" : exitInfo + " (No output captured)";
+    }
+
+    private static string GetRestoreFailedOutput(EffectiveConfigRestoreResult result)
+    {
+        var err = (result.RestartStdErr ?? "").Trim();
+        if (err.Length > 0) return err;
+        var exitInfo = result.RestartExitCode >= 0 ? $"Exit code: {result.RestartExitCode}." : "";
+        return string.IsNullOrEmpty(exitInfo) ? "(No output captured)" : exitInfo + " (No output captured)";
+    }
 
     /// <summary>If the value is a list of strings (multi-value option), return it; otherwise null.</summary>
     private static IReadOnlyList<string>? AsStringList(object? v)
@@ -218,5 +237,11 @@
     private async Task Restore(string backupPath)
     {
         await OnRestore.InvokeAsync(backupPath);
+    }
+
+    private async Task CloseAndEndEdit()
+    {
+        if (!AllowClose) return;
+        await OnCloseAndEndEdit.InvokeAsync();
     }
 }

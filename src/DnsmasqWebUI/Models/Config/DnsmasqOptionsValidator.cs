@@ -34,6 +34,17 @@ public sealed class DnsmasqOptionsValidator : IApplicationOptionsValidator<Dnsma
         // managed hosts file (ManagedHostsFileName in the same directory as main config). Hosts UI is available when
         // MainConfigPath is set (managed hosts path is then derived from it and ManagedHostsFileName).
 
+        const int minTimeoutSeconds = 1;
+        const int maxTimeoutSeconds = 600;
+        if (options.RestartTimeoutSeconds < minTimeoutSeconds || options.RestartTimeoutSeconds > maxTimeoutSeconds)
+            failures.Add($"Dnsmasq:RestartTimeoutSeconds must be between {minTimeoutSeconds} and {maxTimeoutSeconds}. Current value: {options.RestartTimeoutSeconds}.");
+        if (options.StatusTimeoutSeconds < minTimeoutSeconds || options.StatusTimeoutSeconds > maxTimeoutSeconds)
+            failures.Add($"Dnsmasq:StatusTimeoutSeconds must be between {minTimeoutSeconds} and {maxTimeoutSeconds}. Current value: {options.StatusTimeoutSeconds}.");
+        if (options.StatusShowTimeoutSeconds < minTimeoutSeconds || options.StatusShowTimeoutSeconds > maxTimeoutSeconds)
+            failures.Add($"Dnsmasq:StatusShowTimeoutSeconds must be between {minTimeoutSeconds} and {maxTimeoutSeconds}. Current value: {options.StatusShowTimeoutSeconds}.");
+        if (options.LogsTimeoutSeconds < minTimeoutSeconds || options.LogsTimeoutSeconds > maxTimeoutSeconds)
+            failures.Add($"Dnsmasq:LogsTimeoutSeconds must be between {minTimeoutSeconds} and {maxTimeoutSeconds}. Current value: {options.LogsTimeoutSeconds}.");
+
         if (failures.Count == 0)
             return ValidateOptionsResult.Success;
 

@@ -23,7 +23,7 @@ services:
       Dnsmasq__MainConfigPath: ${TEST_DNSMASQ_CONF:-/data/dnsmasq-test.conf}
       Dnsmasq__ManagedFileName: zz-dnsmasq-webui.conf
       # No systemd in container: restart by killing and re-running dnsmasq (same as entrypoint.sh). Config path must match DNSMASQ_CONF/MainConfigPath.
-      Dnsmasq__RestartCommand: "pkill -x dnsmasq || true; sleep 1; dnsmasq --test --conf-file=${TEST_DNSMASQ_CONF:-/data/dnsmasq-test.conf} >/tmp/dnsmasq-restart.err 2>&1 || { cat /tmp/dnsmasq-restart.err >&2; exit 1; }; dnsmasq -k --conf-file=${TEST_DNSMASQ_CONF:-/data/dnsmasq-test.conf} >/tmp/dnsmasq-restart.err 2>&1 & sleep 1; pgrep -x dnsmasq >/dev/null || { cat /tmp/dnsmasq-restart.err >&2; exit 1; }"
+      Dnsmasq__RestartCommand: "pkill -x dnsmasq || true; sleep 1; dnsmasq --test --conf-file=${TEST_DNSMASQ_CONF:-/data/dnsmasq-test.conf} && dnsmasq --conf-file=${TEST_DNSMASQ_CONF:-/data/dnsmasq-test.conf}"
       Dnsmasq__ReloadCommand: "pkill -HUP -x dnsmasq"
       Dnsmasq__StatusCommand: "pgrep -x dnsmasq"
       # Simulated systemctl status + real logs (dnsmasq logs to /data/dnsmasq.log via log-facility in dnsmasq-test.conf)

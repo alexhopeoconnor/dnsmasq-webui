@@ -67,6 +67,10 @@ else if (_status != null)
                     {
                         <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                     }
+                    else
+                    {
+                        <i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>
+                    }
                     @(_reloading ? "Reloading…" : "Reload config")
                 </button>
             </div>

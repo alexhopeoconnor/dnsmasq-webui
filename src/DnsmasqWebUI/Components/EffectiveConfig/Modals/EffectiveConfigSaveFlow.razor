@@ -18,7 +18,8 @@
         OnClose="@OnClose"
         OnSave="@HandleSave"
         OnRestore="@HandleRestore"
-        OnReverted="@HandleReverted" />
+        OnReverted="@HandleReverted"
+        OnCloseAndEndEdit="@OnCloseAndEndEdit" />
 }
 
 @code {
@@ -37,6 +38,7 @@
     [Parameter] public DnsmasqServiceStatus? Status { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback OnSaveCompleted { get; set; }
+    [Parameter] public EventCallback OnCloseAndEndEdit { get; set; }
     [Parameter] public IEffectiveConfigEditSession Session { get; set; } = null!;
 
     private SaveUiState _saveState = SaveUiState.Review;
@@ -70,9 +72,9 @@
         var result = await Session.ApplyAsync();
 
         _saveResult = result;
-        if (result.Saved && result.Reloaded)
+        if (result.Saved && result.Restarted)
         {
-            var message = result.UserMessage ?? "Config saved and dnsmasq reloaded.";
+            var message = result.UserMessage ?? "Config saved and dnsmasq restarted.";
             NotificationService.ShowSuccess(message);
             _saveState = SaveUiState.Review;
             _saveResult = null;
@@ -81,7 +83,7 @@
             return;
         }
 
-        if (result.Saved && !result.Reloaded)
+        if (result.Saved && !result.Restarted)
             _saveState = SaveUiState.ReloadFailed;
         else if (!result.Saved)
             _saveState = SaveUiState.WriteFailed;
@@ -102,9 +104,9 @@
         var result = await SaveService.RestoreAsync(backupPath);
 
         _restoreResult = result;
-        if (result.Restored && result.Reloaded)
+        if (result.Restored && result.Restarted)
         {
-            var message = result.UserMessage ?? "Backup restored and dnsmasq reloaded.";
+            var message = result.UserMessage ?? "Backup restored and dnsmasq restarted.";
             NotificationService.ShowSuccess(message);
             _saveState = SaveUiState.Review;
             _saveResult = null;

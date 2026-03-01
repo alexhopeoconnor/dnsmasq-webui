@@ -1,12 +1,12 @@
 using System.Diagnostics;
-using System.Text;
+using System.Threading.Channels;
 using DnsmasqWebUI.Infrastructure.Services.Common.Process.Abstractions;
 using DnsmasqWebUI.Models.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace DnsmasqWebUI.Infrastructure.Services.Common.Process;
 
-/// <summary>Runs shell commands via /bin/sh with async output capture and timeout. Used by StatusController and ReloadService.</summary>
+/// <summary>Runs shell commands via /bin/sh with async output capture and timeout. Supports run-to-completion and start-then-stream.</summary>
 public sealed class ProcessRunner : IProcessRunner
 {
     private const int MaxCommandPrefixLength = 80;
@@ -27,14 +27,33 @@ public sealed class ProcessRunner : IProcessRunner
         var prefix = trimmed.Length <= MaxCommandPrefixLength ? trimmed : trimmed[..MaxCommandPrefixLength] + "...";
         _logger.LogDebug("Running command (length={Length}, timeout={Timeout}s): {CommandPrefix}", trimmed.Length, timeout.TotalSeconds, prefix);
 
-        var stdout = new StringBuilder();
-        var stderr = new StringBuilder();
-        using var process = new System.Diagnostics.Process
+        try
+        {
+            await using var handle = await StartAsync(trimmed, maxOutputChars, ct);
+            return await handle.WaitForExitAsync(timeout, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to run command");
+            return new ProcessRunResult(null, "", "", false, ex.Message);
+        }
+    }
+
+    public async Task<IProcessHandle> StartAsync(string command, int? maxOutputChars = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(command))
+            throw new ArgumentException("Command must be non-null and non-empty.", nameof(command));
+
+        var trimmed = command.Trim();
+        var prefix = trimmed.Length <= MaxCommandPrefixLength ? trimmed : trimmed[..MaxCommandPrefixLength] + "...";
+        _logger.LogDebug("Starting command (length={Length}): {CommandPrefix}", trimmed.Length, prefix);
+
+        var process = new System.Diagnostics.Process
         {
             StartInfo = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = "/bin/sh",
-                Arguments = "-c \"" + command.Replace("\"", "\\\"") + "\"",
+                Arguments = "-c \"" + trimmed.Replace("\"", "\\\"") + "\"",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -42,66 +61,13 @@ public sealed class ProcessRunner : IProcessRunner
             }
         };
 
-        var truncMsg = "\n\n(output truncated)\n";
-        process.OutputDataReceived += (_, e) =>
-        {
-            if (e.Data == null) return;
-            if (maxOutputChars.HasValue && stdout.Length >= maxOutputChars.Value) return;
-            stdout.AppendLine(e.Data);
-            if (maxOutputChars.HasValue && stdout.Length > maxOutputChars.Value)
-            {
-                var keep = Math.Max(0, maxOutputChars.Value - truncMsg.Length);
-                stdout.Length = keep;
-                stdout.Append(truncMsg);
-            }
-        };
-        process.ErrorDataReceived += (_, e) =>
-        {
-            if (e.Data == null) return;
-            if (maxOutputChars.HasValue && stderr.Length >= maxOutputChars.Value) return;
-            stderr.AppendLine(e.Data);
-            if (maxOutputChars.HasValue && stderr.Length > maxOutputChars.Value)
-            {
-                var keep = Math.Max(0, maxOutputChars.Value - truncMsg.Length);
-                stderr.Length = keep;
-                stderr.Append(truncMsg);
-            }
-        };
+        var channel = Channel.CreateUnbounded<ProcessOutputLine>(new UnboundedChannelOptions { SingleReader = false, SingleWriter = true });
+        var handle = new ProcessHandle(process, channel, maxOutputChars, _logger);
 
-        try
-        {
-            process.Start();
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
+        process.Start();
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
 
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(timeout);
-            try
-            {
-                await process.WaitForExitAsync(timeoutCts.Token);
-            }
-            catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
-            {
-                _logger.LogWarning("Command timed out after {Timeout}s", timeout.TotalSeconds);
-                try { process.Kill(); } catch { /* best effort */ }
-                var err = stderr.ToString();
-                if (!string.IsNullOrEmpty(err)) err += "\n";
-                err += $"Command timed out after {timeout.TotalSeconds} seconds.";
-                return new ProcessRunResult(null, stdout.ToString(), err, true);
-            }
-
-            var exitCode = process.HasExited ? process.ExitCode : -1;
-            _logger.LogDebug("Command completed, exit code={ExitCode}", exitCode);
-            return new ProcessRunResult(
-                exitCode,
-                stdout.ToString(),
-                stderr.ToString(),
-                false);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to run command");
-            return new ProcessRunResult(null, "", "", false, ex.Message);
-        }
+        return await Task.FromResult(handle);
     }
 }

@@ -1,12 +1,22 @@
 #!/bin/sh
 # Simulates "systemctl status dnsmasq" output when run in a container without systemd.
 # Uses ps/pgrep. Memory is RSS. Uptime line omitted; Active line has break after semicolon with continuation indented.
+# When dnsmasq is not running, runs dnsmasq --test to show config/startup errors (use DNSMASQ_CONF for config path).
 
 pid=$(pgrep -x dnsmasq)
 if [ -z "$pid" ]; then
   echo "● dnsmasq.service - dnsmasq - A lightweight DHCP and caching DNS server"
   echo "     Loaded: (container, no systemd)"
   echo "     Active: inactive (dead)"
+  conf="${DNSMASQ_CONF:-/etc/dnsmasq.conf}"
+  if [ -f "$conf" ]; then
+    err=$(dnsmasq --test --conf-file="$conf" 2>&1)
+    if [ -n "$err" ]; then
+      echo ""
+      echo "     Config test (dnsmasq --test):"
+      echo "$err" | sed 's/^/       /'
+    fi
+  fi
   echo ""
   exit 0
 fi

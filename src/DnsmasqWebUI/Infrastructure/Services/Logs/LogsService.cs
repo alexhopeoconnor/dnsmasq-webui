@@ -54,8 +54,21 @@ public sealed class LogsService : ILogsService
         {
             using var scope = _scopeFactory.CreateScope();
             var processRunner = scope.ServiceProvider.GetRequiredService<IProcessRunner>();
-            var result = await processRunner.RunAsync(cmd, TimeSpan.FromSeconds(10), MaxCommandOutputChars, ct);
-            var raw = result.Stdout + (result.TimedOut ? "\n(Command timed out.)" : "");
+            var result = await processRunner.RunAsync(cmd, _options.Value.LogsTimeout, MaxCommandOutputChars, ct);
+
+            if (result.TimedOut || result.ExceptionMessage is not null)
+            {
+                var err = "(Logs command failed";
+                if (result.TimedOut) err += ": timed out";
+                else err += ": " + result.ExceptionMessage;
+                err += ")\n";
+                if (!string.IsNullOrWhiteSpace(result.Stderr))
+                    err += result.Stderr + "\n";
+                await PushChunkedAsync("DnsmasqLogsUpdate", "replace", err, ct);
+                return;
+            }
+
+            var raw = result.Stdout;
 
             string mode;
             string content;

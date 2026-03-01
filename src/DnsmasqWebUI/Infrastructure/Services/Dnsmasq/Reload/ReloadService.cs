@@ -40,10 +40,10 @@ public class ReloadService : IReloadService
 
         try
         {
-            var result = await _processRunner.RunAsync(command, TimeSpan.FromSeconds(30), ct);
+            var result = await _processRunner.RunAsync(command, _options.RestartTimeout, ct);
             var stderr = result.Stderr;
             if (result.TimedOut)
-                stderr = (string.IsNullOrEmpty(stderr) ? "" : stderr + "\n") + "Reload command timed out after 30 seconds.";
+                stderr = (string.IsNullOrEmpty(stderr) ? "" : stderr + "\n") + $"Reload command timed out after {_options.RestartTimeoutSeconds} seconds.";
             if (result.ExceptionMessage != null)
                 stderr = (string.IsNullOrEmpty(stderr) ? "" : stderr + "\n") + result.ExceptionMessage;
 

@@ -66,22 +66,22 @@ public sealed class EffectiveConfigSaveService : IEffectiveConfigSaveService
                 "Failed to write config.");
         }
 
-        var reload = await _reloadService.ReloadAsync(ct);
+        var restartResult = await _reloadService.ReloadAsync(ct);
         var backupCreated = File.Exists(backupPath);
 
-        if (!reload.Success)
-            _logger.LogWarning("Config saved but reload failed: exit {ExitCode}, stderr: {Stderr}", reload.ExitCode, reload.StdErr);
+        if (!restartResult.Success)
+            _logger.LogWarning("Config saved but restart command failed: exit {ExitCode}, stderr: {Stderr}", restartResult.ExitCode, restartResult.StdErr);
 
         return new EffectiveConfigSaveResult(
             BackupCreated: backupCreated,
             BackupPath: backupCreated ? backupPath : null,
             Saved: true,
-            Reloaded: reload.Success,
-            ReloadExitCode: reload.ExitCode,
-            ReloadStdOut: reload.StdOut,
-            ReloadStdErr: reload.StdErr,
-            ErrorCode: reload.Success ? null : "reload_failed",
-            UserMessage: reload.Success ? "Saved and reloaded." : "Saved, but reload failed.");
+            Restarted: restartResult.Success,
+            RestartExitCode: restartResult.ExitCode,
+            RestartStdOut: restartResult.StdOut,
+            RestartStdErr: restartResult.StdErr,
+            ErrorCode: restartResult.Success ? null : "restart_failed",
+            UserMessage: restartResult.Success ? "Saved and dnsmasq restarted." : "Saved, but the restart command failed.");
     }
 
     /// <inheritdoc />
@@ -106,19 +106,19 @@ public sealed class EffectiveConfigSaveService : IEffectiveConfigSaveService
         File.Copy(backupPath, managedPath, overwrite: true);
         _logger.LogInformation("Restored managed config from backup: {BackupPath}", backupPath);
 
-        var reload = await _reloadService.ReloadAsync(ct);
+        var restartResult = await _reloadService.ReloadAsync(ct);
 
-        if (!reload.Success)
-            _logger.LogWarning("Restore completed but reload failed: exit {ExitCode}, stderr: {Stderr}", reload.ExitCode, reload.StdErr);
+        if (!restartResult.Success)
+            _logger.LogWarning("Restore completed but restart command failed: exit {ExitCode}, stderr: {Stderr}", restartResult.ExitCode, restartResult.StdErr);
 
         return new EffectiveConfigRestoreResult(
             Restored: true,
-            Reloaded: reload.Success,
-            ReloadExitCode: reload.ExitCode,
-            ReloadStdErr: reload.StdErr,
-            UserMessage: reload.Success
-                ? "Backup restored and dnsmasq reloaded."
-                : "Backup restored, but reload still failed.");
+            Restarted: restartResult.Success,
+            RestartExitCode: restartResult.ExitCode,
+            RestartStdErr: restartResult.StdErr,
+            UserMessage: restartResult.Success
+                ? "Backup restored and dnsmasq restarted."
+                : "Backup restored, but the restart command still failed.");
     }
 
     private static string BuildBackupPath(string managedPath) =>

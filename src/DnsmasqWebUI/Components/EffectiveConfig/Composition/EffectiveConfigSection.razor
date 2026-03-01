@@ -26,7 +26,7 @@
     </CascadingValue>
     </CascadingValue>
     <EffectiveConfigSaveFlow ShowModal="@_showSaveModal" PendingChanges="@Session.PendingChanges" Status="@Status" Session="@Session"
-        OnClose="CloseSaveModal" OnSaveCompleted="OnSaveCompleted" />
+        OnClose="CloseSaveModal" OnSaveCompleted="OnSaveCompleted" OnCloseAndEndEdit="CloseSaveModalAndEndEdit" />
 </div>
 }
 
@@ -196,6 +196,13 @@
     private void CloseSaveModal()
     {
         _showSaveModal = false;
+        StateHasChanged();
+    }
+
+    private void CloseSaveModalAndEndEdit()
+    {
+        _showSaveModal = false;
+        Session.ExitEditModeDiscard();
         StateHasChanged();
     }
 }

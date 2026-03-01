@@ -208,8 +208,8 @@ else
             foreach (var raw in values)
             {
                 var v = raw.Trim();
-                if (!IPAddress.TryParse(v, out var ip) || ip.AddressFamily != AddressFamily.InterNetwork)
-                    return $"Invalid value for {DnsmasqConfKeys.ListenAddress}: '{raw}'. Use a valid IPv4 address.";
+                if (!IPAddress.TryParse(v, out var ip) || (ip.AddressFamily != AddressFamily.InterNetwork && ip.AddressFamily != AddressFamily.InterNetworkV6))
+                    return $"Invalid value for {DnsmasqConfKeys.ListenAddress}: '{raw}'. Use a valid IPv4 or IPv6 address.";
             }
         }
         return null;

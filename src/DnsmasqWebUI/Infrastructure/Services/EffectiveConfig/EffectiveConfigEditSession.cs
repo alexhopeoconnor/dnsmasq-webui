@@ -68,7 +68,7 @@ public sealed class EffectiveConfigEditSession : IEffectiveConfigEditSession
             return EffectiveConfigSaveResult.NoChanges();
 
         var result = await _saveService.SaveAsync(_pending.ToList(), ct);
-        if (result.Saved && result.Reloaded)
+        if (result.Saved && result.Restarted)
             ExitEditModeDiscard();
         return result;
     }

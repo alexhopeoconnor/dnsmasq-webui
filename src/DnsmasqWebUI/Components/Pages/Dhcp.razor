@@ -97,7 +97,7 @@ else
                                 <td><input type="checkbox" checked="@e.Ignore" @onchange="() => ToggleIgnore(e)" title="Add ignore flag so dnsmasq will not assign this client a lease" /></td>
                                 <td><input class="form-control form-control-sm" @bind="e.Comment" /></td>
                                 <td class="text-muted small">—</td>
-                                <td><button class="btn btn-sm btn-danger" @onclick="() => Delete(e)">Delete</button></td>
+                                <td><button class="btn btn-sm btn-danger" @onclick="() => Delete(e)"><i class="bi bi-trash me-1" aria-hidden="true"></i>Delete</button></td>
                             }
                             else
                             {
@@ -203,7 +203,7 @@ else
                         @if (editable)
                         {
                             <div class="table-card-row mt-2">
-                                <button class="btn btn-sm btn-danger" @onclick="() => Delete(e)">Delete</button>
+                                <button class="btn btn-sm btn-danger" @onclick="() => Delete(e)"><i class="bi bi-trash me-1" aria-hidden="true"></i>Delete</button>
                             </div>
                         }
                     </div>
@@ -212,11 +212,11 @@ else
         </div>
     </div>
     <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-        <button class="btn btn-primary" @onclick="Add">Add host</button>
-        <button class="btn btn-primary" @onclick="Save" disabled="@_saving">Save</button>
+        <button class="btn btn-primary" @onclick="Add"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Add host</button>
+        <button class="btn btn-primary" @onclick="Save" disabled="@_saving"><i class="bi bi-floppy-fill me-1" aria-hidden="true"></i>Save</button>
         @if (_status.ReloadCommandConfigured)
         {
-            <button class="btn btn-primary" @onclick="Reload" disabled="@_saving">Reload config</button>
+            <button class="btn btn-primary" @onclick="Reload" disabled="@_saving"><i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Reload config</button>
         }
     </div>
         }
@@ -253,7 +253,7 @@ else
         {
             <p class="text-muted">No leases yet. Leases appear here when DHCP clients obtain an address; use Refresh to update.</p>
             <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-                <button class="btn btn-primary" @onclick="() => LoadLeases(showLoading: true, forceRefresh: true)" disabled="@_leasesLoading">Refresh</button>
+                <button class="btn btn-primary" @onclick="() => LoadLeases(showLoading: true, forceRefresh: true)" disabled="@_leasesLoading"><i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Refresh</button>
             </div>
         }
         else
@@ -286,8 +286,8 @@ else
                                     <td>@e.ClientId</td>
                                     <td>
                                         <div class="d-flex flex-wrap gap-1">
-                                            <button type="button" class="btn btn-primary btn-sm" title="Add a new static host entry using this lease's MAC, name, and address" @onclick="() => AddStaticFromLease(e)">Add static</button>
-                                            <button type="button" class="btn btn-outline-danger btn-sm" title="Add a static host with ignore flag (dnsmasq will not assign this client a lease)" @onclick="() => AddStaticFromLeaseWithIgnore(e)">Ignore</button>
+                                            <button type="button" class="btn btn-primary btn-sm" title="Add a new static host entry using this lease's MAC, name, and address" @onclick="() => AddStaticFromLease(e)"><i class="bi bi-plus me-1" aria-hidden="true"></i>Add static</button>
+                                            <button type="button" class="btn btn-outline-danger btn-sm" title="Add a static host with ignore flag (dnsmasq will not assign this client a lease)" @onclick="() => AddStaticFromLeaseWithIgnore(e)"><i class="bi bi-slash-circle me-1" aria-hidden="true"></i>Ignore</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -309,8 +309,8 @@ else
                                 <div class="table-card-row"><span class="table-card-label">Name</span> @e.Name</div>
                                 <div class="table-card-row"><span class="table-card-label">Client ID</span> @e.ClientId</div>
                                 <div class="table-card-row mt-2 d-flex flex-wrap gap-1">
-                                    <button type="button" class="btn btn-primary btn-sm" title="Add a new static host entry using this lease's MAC, name, and address" @onclick="() => AddStaticFromLease(e)">Add static</button>
-                                    <button type="button" class="btn btn-outline-danger btn-sm" title="Add a static host with ignore flag (dnsmasq will not assign this client a lease)" @onclick="() => AddStaticFromLeaseWithIgnore(e)">Ignore</button>
+                                    <button type="button" class="btn btn-primary btn-sm" title="Add a new static host entry using this lease's MAC, name, and address" @onclick="() => AddStaticFromLease(e)"><i class="bi bi-plus me-1" aria-hidden="true"></i>Add static</button>
+                                    <button type="button" class="btn btn-outline-danger btn-sm" title="Add a static host with ignore flag (dnsmasq will not assign this client a lease)" @onclick="() => AddStaticFromLeaseWithIgnore(e)"><i class="bi bi-slash-circle me-1" aria-hidden="true"></i>Ignore</button>
                                 </div>
                             </div>
                         </div>
@@ -318,7 +318,7 @@ else
                 </div>
             </div>
             <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-                <button class="btn btn-primary" @onclick="() => LoadLeases(showLoading: true, forceRefresh: true)" disabled="@_leasesLoading">Refresh</button>
+                <button class="btn btn-primary" @onclick="() => LoadLeases(showLoading: true, forceRefresh: true)" disabled="@_leasesLoading"><i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Refresh</button>
             </div>
         }
     </section>
