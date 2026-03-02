@@ -75,6 +75,7 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
         RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.LogDhcp);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.KeepInForeground);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.NoDaemon);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.Conntrack);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.ProxyDnssec);
 
         // log-queries: dropdown (Off / On / extra / proto / auth).

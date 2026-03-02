@@ -286,7 +286,7 @@ public static class EffectiveConfigParserBehaviorMap
             [DnsmasqConfKeys.LogDhcp] = EffectiveConfigParserBehavior.Flag,
             [DnsmasqConfKeys.KeepInForeground] = EffectiveConfigParserBehavior.Flag,
             [DnsmasqConfKeys.NoDaemon] = EffectiveConfigParserBehavior.Flag,
-            [DnsmasqConfKeys.Conntrack] = EffectiveConfigParserBehavior.LastWins,
+            [DnsmasqConfKeys.Conntrack] = EffectiveConfigParserBehavior.Flag,
         };
 
     /// <summary>Returns LastWins, Flag, or Multi for the given option name; defaults to LastWins if unknown.</summary>

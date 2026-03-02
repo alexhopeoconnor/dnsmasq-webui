@@ -271,13 +271,23 @@ public class DnsmasqConfigService : IDnsmasqConfigService
                 if (idx >= 0) list.RemoveAt(idx);
                 continue;
             }
+            if (!isFlag)
+            {
+                var v = ToConfValue(c.NewValue);
+                if (string.IsNullOrWhiteSpace(v))
+                {
+                    // Non-flag option with no value: remove existing line if any; never write key-only (malformed).
+                    if (idx >= 0) list.RemoveAt(idx);
+                    continue;
+                }
+            }
             string rawLine;
             if (isFlag)
                 rawLine = confKey;
             else
             {
-                var v = ToConfValue(c.NewValue);
-                rawLine = string.IsNullOrEmpty(v) ? confKey : confKey + "=" + v;
+                var v = ToConfValue(c.NewValue).Trim();
+                rawLine = confKey + "=" + v;
             }
             var newLine = new OtherLine { LineNumber = maxLineNumber + 1, RawLine = rawLine };
             maxLineNumber++;

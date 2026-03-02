@@ -391,8 +391,7 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
         var dhcpScriptPath = string.IsNullOrWhiteSpace(dhcpScriptVal) ? null : DnsmasqConfIncludeParser.ResolvePath(dhcpScriptVal?.Trim(), dhcpScriptDir);
         var (mxTargetVal, _) = ((string?, string?))ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.MxTarget);
         var mxTarget = string.IsNullOrWhiteSpace(mxTargetVal) ? null : mxTargetVal.Trim();
-        var (conntrackVal, _) = ((string?, string?))ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.Conntrack);
-        var conntrack = string.IsNullOrWhiteSpace(conntrackVal) ? null : conntrackVal.Trim();
+        var conntrack = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.Conntrack);
 
         return new EffectiveDnsmasqConfig(
             noHosts, addnHosts, hostsdirPath,
@@ -535,7 +534,7 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
         var (_, fastDnsRetrySource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.FastDnsRetry, managedFilePath);
         var (_, dhcpScriptPathSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpScript, managedFilePath);
         var (_, mxTargetSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.MxTarget, managedFilePath);
-        var (_, conntrackSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.Conntrack, managedFilePath);
+        var (_, conntrackSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.Conntrack, managedFilePath);
 
         return new EffectiveConfigSources(
             noHostsSource, addnHostsWithSource.Select(t => new PathWithSource(t.Path, t.Source)).ToList(), hostsdirPathSource,
@@ -718,7 +717,7 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
             LogFacility: null, LogQueries: null, AuthTtl: null, EdnsPacketMax: null, QueryPort: null, PortLimit: null, MinPort: null, MaxPort: null, LogAsync: null, LocalService: null,
             DhcpLeaseMax: null, NegTtl: null, MaxTtl: null, MaxCacheTtl: null, MinCacheTtl: null, DhcpTtl: null,
             TftpRootPath: null, PxePrompt: null, EnableDbus: null, EnableUbus: null, FastDnsRetry: null,
-            DhcpScriptPath: null, MxTarget: null, Conntrack: null
+            DhcpScriptPath: null, MxTarget: null, Conntrack: false
         );
 
     private static EffectiveConfigSources CreateDefaultEffectiveConfigSources() =>

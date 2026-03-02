@@ -211,6 +211,11 @@
     word-break: break-word;
 }
 
+/* Row-level ok/cancel (and revert) for multi-value: right-align on the row below the list */
+::deep .ec-field .ec-field-value-multi + .status-badge-inline {
+    margin-left: auto;
+}
+
 ::deep .ec-field-value-list {
     margin: 0;
     padding-left: 1.25rem;

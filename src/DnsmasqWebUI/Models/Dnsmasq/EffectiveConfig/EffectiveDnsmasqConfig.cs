@@ -139,7 +139,7 @@ public record EffectiveDnsmasqConfig(
     string? FastDnsRetry,
     string? DhcpScriptPath,
     string? MxTarget,
-    string? Conntrack
+    bool Conntrack
 )
 {
     /// <summary>
