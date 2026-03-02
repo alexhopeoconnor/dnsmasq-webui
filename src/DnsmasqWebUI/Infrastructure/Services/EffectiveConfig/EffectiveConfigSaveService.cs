@@ -1,5 +1,6 @@
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Config.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Reload.Abstractions;
+using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Validation.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 using Microsoft.Extensions.Logging;
@@ -10,17 +11,20 @@ public sealed class EffectiveConfigSaveService : IEffectiveConfigSaveService
 {
     private readonly IDnsmasqConfigSetService _configSetService;
     private readonly IDnsmasqConfigService _configService;
+    private readonly IConfigValidationService _validationService;
     private readonly IReloadService _reloadService;
     private readonly ILogger<EffectiveConfigSaveService> _logger;
 
     public EffectiveConfigSaveService(
         IDnsmasqConfigSetService configSetService,
         IDnsmasqConfigService configService,
+        IConfigValidationService validationService,
         IReloadService reloadService,
         ILogger<EffectiveConfigSaveService> logger)
     {
         _configSetService = configSetService;
         _configService = configService;
+        _validationService = validationService;
         _reloadService = reloadService;
         _logger = logger;
     }
@@ -38,8 +42,8 @@ public sealed class EffectiveConfigSaveService : IEffectiveConfigSaveService
         {
             _logger.LogWarning("Save skipped: managed config path is not configured");
             return new EffectiveConfigSaveResult(
-                false, null, false, false, -1, null, null,
-                "missing_managed_path", "Managed config path is not configured.");
+                false, null, false, false, -1, null, null, false, -1, null, null,
+                EffectiveConfigSaveResult.ErrorCodes.MissingManagedPath, "Managed config path is not configured.");
         }
 
         var managedPath = set.ManagedFilePath!;
@@ -61,13 +65,38 @@ public sealed class EffectiveConfigSaveService : IEffectiveConfigSaveService
                 false,
                 -1,
                 null,
+                null,
+                false,
+                -1,
+                null,
                 ex.Message,
-                "write_failed",
+                EffectiveConfigSaveResult.ErrorCodes.WriteFailed,
                 "Failed to write config.");
         }
 
-        var restartResult = await _reloadService.ReloadAsync(ct);
         var backupCreated = File.Exists(backupPath);
+        var validateResult = await _validationService.ValidateAsync(ct);
+
+        if (!validateResult.Success)
+        {
+            _logger.LogWarning("Config saved but validation failed: exit {ExitCode}, stderr: {Stderr}", validateResult.ExitCode, validateResult.StdErr);
+            return new EffectiveConfigSaveResult(
+                BackupCreated: backupCreated,
+                BackupPath: backupCreated ? backupPath : null,
+                Saved: true,
+                Validated: false,
+                ValidationExitCode: validateResult.ExitCode,
+                ValidationStdOut: validateResult.StdOut,
+                ValidationStdErr: validateResult.StdErr,
+                Restarted: false,
+                RestartExitCode: -1,
+                RestartStdOut: null,
+                RestartStdErr: null,
+                ErrorCode: EffectiveConfigSaveResult.ErrorCodes.ValidateFailed,
+                UserMessage: "Saved, but validation failed. Restart was not attempted.");
+        }
+
+        var restartResult = await _reloadService.ReloadAsync(ct);
 
         if (!restartResult.Success)
             _logger.LogWarning("Config saved but restart command failed: exit {ExitCode}, stderr: {Stderr}", restartResult.ExitCode, restartResult.StdErr);
@@ -76,12 +105,18 @@ public sealed class EffectiveConfigSaveService : IEffectiveConfigSaveService
             BackupCreated: backupCreated,
             BackupPath: backupCreated ? backupPath : null,
             Saved: true,
+            Validated: true,
+            ValidationExitCode: 0,
+            ValidationStdOut: validateResult.StdOut,
+            ValidationStdErr: validateResult.StdErr,
             Restarted: restartResult.Success,
             RestartExitCode: restartResult.ExitCode,
             RestartStdOut: restartResult.StdOut,
             RestartStdErr: restartResult.StdErr,
-            ErrorCode: restartResult.Success ? null : "restart_failed",
-            UserMessage: restartResult.Success ? "Saved and dnsmasq restarted." : "Saved, but the restart command failed.");
+            ErrorCode: restartResult.Success ? null : EffectiveConfigSaveResult.ErrorCodes.RestartFailed,
+            UserMessage: restartResult.Success
+                ? "Saved, validated, and dnsmasq restarted."
+                : "Saved and validated, but the restart command failed.");
     }
 
     /// <inheritdoc />

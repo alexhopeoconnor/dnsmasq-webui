@@ -1,0 +1,167 @@
+@namespace DnsmasqWebUI.Components.EffectiveConfig
+@using DnsmasqWebUI.Models.Dnsmasq
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+
+<span class="ec-field-value ec-field-value-multi ec-multi-list-editor" @onclick:stopPropagation="true">
+    <ol class="ec-field-value-list">
+        @if (SourceItems?.Count > 0)
+        {
+            @for (var i = 0; i < SourceItems.Count; i++)
+            {
+                var item = SourceItems[i];
+                var anchorId = $"{ReadonlyBadgeAnchorIdBase}-{i}";
+                var itemReadonly = item.Source?.IsReadOnly == true;
+                var rowIndex = i;
+                var rowValue = item.Value;
+
+                <li class="ec-multi-list-row" @key="anchorId">
+                    @if (_editingIndex == rowIndex && !itemReadonly)
+                    {
+                        <input class="form-control form-control-sm ec-multi-list-input"
+                               @bind="_draftValue" @bind:event="oninput" />
+                        <span class="status-badge-inline">
+                            <StatusBadge Kind="StatusBadgeKind.ActionOk" Text="save" Clickable="true"
+                                         Title="Apply change" AriaLabel="Apply change"
+                                         PreventBlurOnMouseDown="true" OnClick="@(() => SaveEdit(rowIndex))" Class="status-badge-inline" />
+                            <StatusBadge Kind="StatusBadgeKind.ActionCancel" Text="cancel" Clickable="true"
+                                         Title="Discard edit" AriaLabel="Cancel edit"
+                                         PreventBlurOnMouseDown="true" OnClick="CancelInline" Class="status-badge-inline" />
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="ec-field-value-item">@rowValue</span>
+
+                        <span class="status-badge-inline">
+                            <OptionStateBadge
+                                AnchorId="@anchorId"
+                                Source="@item.Source"
+                                OptionName="@OptionName"
+                                Value="@rowValue"
+                                IsInteractive="@IsEditMode"
+                                ShowEditableBadge="@(!itemReadonly)"
+                                EditableAsButton="@(!itemReadonly)"
+                                OnEditableClickRequested="@(!itemReadonly ? EventCallback.Factory.Create(this, () => { BeginEdit(rowIndex, rowValue); return Task.CompletedTask; }) : default)" />
+                            @if (!itemReadonly)
+                            {
+                                <StatusBadge Kind="StatusBadgeKind.ActionRevert" Text="remove" Clickable="true"
+                                             Title="Remove this value" AriaLabel="Remove"
+                                             OnClick="@(() => RemoveAt(rowIndex))" Class="status-badge-inline" />
+                            }
+                        </span>
+                    }
+                </li>
+            }
+        }
+        else
+        {
+            <li class="ec-multi-list-row ec-multi-list-empty-hint">
+                <span class="text-muted">(none)</span>
+            </li>
+        }
+
+        @if (AllowAddManagedValue)
+        {
+            <li class="ec-multi-list-row ec-multi-list-add-item" @key="AddItemKey">
+                @if (_addingNew)
+                {
+                    <input class="form-control form-control-sm ec-multi-list-input"
+                           placeholder="New value"
+                           @bind="_draftValue" @bind:event="oninput" />
+                    <span class="status-badge-inline">
+                        <StatusBadge Kind="StatusBadgeKind.ActionOk" Text="add" Clickable="true"
+                                     Title="Add this value" AriaLabel="Add"
+                                     PreventBlurOnMouseDown="true" OnClick="SaveNew" Class="status-badge-inline" />
+                        <StatusBadge Kind="StatusBadgeKind.ActionCancel" Text="cancel" Clickable="true"
+                                     Title="Discard" AriaLabel="Cancel"
+                                     PreventBlurOnMouseDown="true" OnClick="CancelInline" Class="status-badge-inline" />
+                    </span>
+                }
+                else
+                {
+                    <StatusBadge Kind="StatusBadgeKind.Editable" Text="add item" Clickable="true"
+                                 Title="Add a new value" AriaLabel="Add item"
+                                 OnClick="BeginAdd" Class="status-badge-inline ec-multi-list-add-btn" />
+                }
+            </li>
+        }
+    </ol>
+</span>
+
+@code {
+    [Parameter] public IReadOnlyList<ValueWithSource>? SourceItems { get; set; }
+    [Parameter] public string OptionName { get; set; } = "";
+    [Parameter] public string ReadonlyBadgeAnchorIdBase { get; set; } = "";
+
+    [Parameter] public bool IsEditMode { get; set; }
+    [Parameter] public bool AllowAddManagedValue { get; set; } = true;
+
+    [Parameter] public EventCallback<IReadOnlyList<string>> OnValuesChanged { get; set; }
+
+    private const string AddItemKey = "add-item";
+    private int? _editingIndex;
+    private bool _addingNew;
+    private string _draftValue = "";
+
+    private void BeginEdit(int index, string current)
+    {
+        _addingNew = false;
+        _editingIndex = index;
+        _draftValue = current;
+    }
+
+    private void BeginAdd()
+    {
+        _editingIndex = null;
+        _addingNew = true;
+        _draftValue = "";
+    }
+
+    private void CancelInline()
+    {
+        _editingIndex = null;
+        _addingNew = false;
+        _draftValue = "";
+    }
+
+    private async Task SaveEdit(int index)
+    {
+        var next = (SourceItems ?? Array.Empty<ValueWithSource>())
+            .Select(x => x.Value)
+            .ToList();
+        if (index < 0 || index >= next.Count) return;
+
+        next[index] = (_draftValue ?? "").Trim();
+        await OnValuesChanged.InvokeAsync(next);
+        CancelInline();
+    }
+
+    private async Task SaveNew()
+    {
+        var value = (_draftValue ?? "").Trim();
+        if (value.Length == 0) return;
+
+        var next = (SourceItems ?? Array.Empty<ValueWithSource>())
+            .Select(x => x.Value)
+            .ToList();
+
+        next.Add(value);
+        await OnValuesChanged.InvokeAsync(next);
+        CancelInline();
+    }
+
+    private async Task RemoveAt(int index)
+    {
+        if (SourceItems == null || index < 0 || index >= SourceItems.Count) return;
+        var item = SourceItems[index];
+        if (item?.Source?.IsReadOnly == true) return;
+
+        var next = (SourceItems ?? Array.Empty<ValueWithSource>())
+            .Select(x => x.Value)
+            .ToList();
+        if (index < 0 || index >= next.Count) return;
+
+        next.RemoveAt(index);
+        await OnValuesChanged.InvokeAsync(next);
+    }
+}

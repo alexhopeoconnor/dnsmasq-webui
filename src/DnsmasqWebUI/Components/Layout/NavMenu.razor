@@ -1,8 +1,10 @@
 @namespace DnsmasqWebUI.Components.Layout
 @using System.Reflection
+@using DnsmasqWebUI.Infrastructure.Services.UI.Notifications.Abstractions
 @inject IOptions<ApplicationOptions> AppOptions
 @inject ISettingsModalService SettingsModalService
 @inject IUpdateCheckService UpdateCheckService
+@inject INotificationService NotificationService
 @implements IDisposable
 
 <div class="top-row ps-3 navbar navbar-dark">
@@ -110,6 +112,12 @@
     private async Task ForceCheckAsync()
     {
         await UpdateCheckService.CheckNowAsync();
+        if (UpdateCheckService.LastCheckFailed)
+            NotificationService.ShowError("Update check failed: " + (UpdateCheckService.LastCheckErrorMessage ?? "Unknown error."));
+        else if (UpdateCheckService.NewerVersionAvailable)
+            NotificationService.ShowSuccess($"New version {UpdateCheckService.NewerVersionTag} is available.");
+        else
+            NotificationService.ShowInfo("You're up to date.");
     }
 
     private void OpenAllSettings() => SettingsModalService.Open(SettingsModalContext.All, "Settings");

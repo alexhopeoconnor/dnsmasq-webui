@@ -15,7 +15,28 @@
                 {
                     <div class="ec-save-modal-loading text-center py-4">
                         <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
-                        <p class="text-muted mt-2 mb-0">@(SaveState == EffectiveConfigSaveFlow.SaveUiState.Saving ? "Saving and restarting…" : "Restoring backup and restarting…")</p>
+                        <p class="text-muted mt-2 mb-0">@(SaveState == EffectiveConfigSaveFlow.SaveUiState.Saving ? "Saving, validating and restarting…" : "Restoring backup and restarting…")</p>
+                    </div>
+                }
+                else if (SaveState == EffectiveConfigSaveFlow.SaveUiState.ValidateFailed && SaveResult != null)
+                {
+                    <div class="ec-save-modal-reload-failed">
+                        <div class="alert alert-danger mb-3 d-flex align-items-center gap-2 ec-save-modal-alert">
+                            <i class="bi bi-exclamation-triangle-fill ec-save-modal-alert-icon" aria-hidden="true"></i>
+                            <div class="ec-save-modal-alert-text">
+                                <strong>Config was saved, but validation failed.</strong> Restart was not attempted. You can restore the backup or keep editing.
+                            </div>
+                        </div>
+                        @if (SaveResult.BackupPath != null)
+                        {
+                            <p class="ec-save-modal-backup-path mb-2">
+                                <span class="text-muted">Backup:</span> <code class="small ec-save-modal-backup-code">@SaveResult.BackupPath</code>
+                            </p>
+                        }
+                        <div class="ec-save-modal-stderr mb-3">
+                            <p class="text-muted small mb-1"><strong>Validation output</strong></p>
+                            <pre class="ec-save-modal-pre border rounded p-2 bg-light small mb-0 text-body">@GetValidationFailedOutput(SaveResult)</pre>
+                        </div>
                     </div>
                 }
                 else if (SaveState == EffectiveConfigSaveFlow.SaveUiState.WriteFailed && SaveResult != null)
@@ -129,7 +150,7 @@
                 }
             </div>
             <div class="modal-footer ec-save-modal-footer">
-                @if (SaveState == EffectiveConfigSaveFlow.SaveUiState.ReloadFailed && SaveResult?.BackupPath != null)
+                @if ((SaveState == EffectiveConfigSaveFlow.SaveUiState.ReloadFailed || SaveState == EffectiveConfigSaveFlow.SaveUiState.ValidateFailed) && SaveResult?.BackupPath != null)
                 {
                     <button type="button" class="btn btn-primary" @onclick="() => Restore(SaveResult.BackupPath)"><i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Restore backup</button>
                     <button type="button" class="btn btn-outline-warning" @onclick="Close"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Continue editing</button>
@@ -171,6 +192,18 @@
     private bool AllowClose => SaveState != EffectiveConfigSaveFlow.SaveUiState.Saving && SaveState != EffectiveConfigSaveFlow.SaveUiState.RestoreInProgress;
 
     private string? ManagedFilePath => Status?.ManagedFilePath;
+
+    private static string GetValidationFailedOutput(EffectiveConfigSaveResult result)
+    {
+        var err = (result.ValidationStdErr ?? "").Trim();
+        var outp = (result.ValidationStdOut ?? "").Trim();
+        if (err.Length > 0 && outp.Length > 0)
+            return err + "\n\n" + outp;
+        if (err.Length > 0) return err;
+        if (outp.Length > 0) return outp;
+        var exitInfo = result.ValidationExitCode >= 0 ? $"Exit code: {result.ValidationExitCode}." : "";
+        return string.IsNullOrEmpty(exitInfo) ? "(No output captured)" : exitInfo + " (No output captured)";
+    }
 
     private static string GetRestartFailedOutput(EffectiveConfigSaveResult result)
     {

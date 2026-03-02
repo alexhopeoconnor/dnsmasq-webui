@@ -1,0 +1,65 @@
+/* Editor block: distinct from display mode (border + background) */
+.ec-multi-list-editor {
+    display: block;
+    padding: 0.75rem 1rem;
+    margin-top: 0.25rem;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 0.375rem;
+    background-color: var(--bs-body-bg, #fff);
+}
+
+.ec-multi-list-editor .ec-field-value-list {
+    margin-bottom: 0;
+}
+
+.ec-multi-list-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-height: 2rem;
+}
+
+.ec-multi-list-row .ec-field-value-item {
+    min-width: 0;
+}
+
+.ec-multi-list-row .status-badge-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
+.ec-multi-list-row .form-control.ec-multi-list-input {
+    max-width: 28rem;
+    flex-shrink: 0;
+}
+
+.ec-multi-list-empty-hint {
+    list-style: none;
+    margin-left: -1.25rem;
+}
+
+.ec-multi-list-add-item {
+    list-style: none;
+    margin-left: -1.25rem;
+    margin-top: 0.25rem;
+    padding-top: 0.25rem;
+    border-top: 1px dashed var(--bs-border-color, #dee2e6);
+    flex-wrap: nowrap;
+}
+
+.ec-multi-list-add-item .form-control.ec-multi-list-input {
+    flex: 1 1 auto;
+    max-width: none;
+    min-width: 12rem;
+}
+
+.ec-multi-list-add-item .status-badge-inline {
+    margin-left: auto;
+}
+
+.ec-multi-list-add-btn {
+    font-size: 0.875rem;
+}

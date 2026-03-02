@@ -4,17 +4,25 @@
 
 @if (Source?.IsReadOnly == true)
 {
-    @if (IsInteractive && Ui != null)
+    var readonlyTitle = !string.IsNullOrEmpty(ReadonlyTitleOverride) ? ReadonlyTitleOverride : Source?.GetReadOnlyTooltip();
+    if (ReadonlyClickActivatesField && Ui != null && !string.IsNullOrEmpty(FieldKey))
     {
         <StatusBadge Kind="StatusBadgeKind.ReadOnly" Text="readonly" Clickable="true"
-                     Id="@AnchorId" Title="@(Source?.GetReadOnlyTooltip())"
+                     Id="@AnchorId" Title="@readonlyTitle"
+                     OnClick="OnEditableClick"
+                     Class="status-badge-inline" />
+    }
+    else if (IsInteractive && Ui != null)
+    {
+        <StatusBadge Kind="StatusBadgeKind.ReadOnly" Text="readonly" Clickable="true"
+                     Id="@AnchorId" Title="@readonlyTitle"
                      OnClick="OnReadonlyClick" OnMouseLeave="OnReadonlyMouseLeave"
                      Class="status-badge-inline" />
     }
     else
     {
         <StatusBadge Kind="StatusBadgeKind.ReadOnly" Text="readonly"
-                     Title="@(Source?.GetReadOnlyTooltip())"
+                     Title="@readonlyTitle"
                      Class="status-badge-inline" />
     }
 }
@@ -71,6 +79,12 @@ else if (ShowEditableBadge)
     [Parameter] public EventCallback OnCancelRequested { get; set; }
     [Parameter] public EventCallback OnRevertRequested { get; set; }
     [Parameter] public string? FieldKey { get; set; }
+    /// <summary>Optional: when set, editable-badge click invokes this instead of activating the field by key (e.g. list editor per-item edit).</summary>
+    [Parameter] public EventCallback OnEditableClickRequested { get; set; }
+    /// <summary>When true, readonly badge click activates the field for editing instead of showing the readonly popover (e.g. for multi-value where new items can still be added).</summary>
+    [Parameter] public bool ReadonlyClickActivatesField { get; set; }
+    /// <summary>Optional tooltip for readonly badge when <see cref="ReadonlyClickActivatesField"/> is true (e.g. "New values can still be added. Click to edit.").</summary>
+    [Parameter] public string? ReadonlyTitleOverride { get; set; }
     [CascadingParameter] public EffectiveConfigUiContext? Ui { get; set; }
 
     private async Task OnConfirmClick()
@@ -93,10 +107,15 @@ else if (ShowEditableBadge)
             await OnRevertRequested.InvokeAsync();
     }
 
-    private Task OnEditableClick()
+    private async Task OnEditableClick()
     {
-        if (Ui == null || string.IsNullOrEmpty(FieldKey)) return Task.CompletedTask;
-        return Ui.ActivateFieldAsync(FieldKey);
+        if (OnEditableClickRequested.HasDelegate)
+        {
+            await OnEditableClickRequested.InvokeAsync();
+            return;
+        }
+        if (Ui != null && !string.IsNullOrEmpty(FieldKey))
+            await Ui.ActivateFieldAsync(FieldKey);
     }
 
     private Task OnReadonlyClick()

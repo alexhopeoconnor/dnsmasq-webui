@@ -44,13 +44,10 @@
 }
 else if (Descriptor.IsMultiValue)
 {
-    var items = _hasPendingChange && _effectiveValue is IReadOnlyList<string> pendingList
-        ? pendingList.Select(s => new ValueWithSource(s, null)).ToList()
-        : Descriptor.GetItems();
-    var allReadonly = items != null && items.Count > 0 && items.All(i => i.Source?.IsReadOnly == true);
-    <EffectiveConfigMultiValueRow Label="@Descriptor.OptionName" Items="@items" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId"
+    @* Multi-value state is computed in OnParametersSet and in HandleMultiValueChanged; we only read cached fields here. *@
+    <EffectiveConfigMultiValueRow Label="@Descriptor.OptionName" Items="@_multiValueItems" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId"
         IsActiveEditor="@(IsEditMode && IsActive)" IsEditMode="@IsEditMode" ReadonlyBadgeAnchorIdBase="@_readonlyBadgeAnchorId"
-        Source="@(allReadonly ? items?.FirstOrDefault()?.Source : null)" ShowEditableBadge="@(!allReadonly)" HasPendingChange="@_hasPendingChange" FieldKey="@FieldKey"
+        Source="@_multiValueRowSource" ShowEditableBadge="@IsEditMode" HasPendingChange="@_multiValueHasPendingOrDraft" FieldKey="@FieldKey"
         ItemsChanged="@HandleMultiValueChanged" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
 }
 else
@@ -98,6 +95,15 @@ else
     private bool _wasActive;
     private ExitAction _exitAction = ExitAction.None;
 
+    /// <summary>Cached for multi-value: items to pass to the row (with sources preserved for draft merge).</summary>
+    private IReadOnlyList<ValueWithSource>? _multiValueItems;
+    /// <summary>Cached for multi-value: true when there is an uncommitted draft list.</summary>
+    private bool _multiValueHasDraft;
+    /// <summary>Cached for multi-value: row-level source for badge (readonly when all items readonly and not edit mode).</summary>
+    private ConfigValueSource? _multiValueRowSource;
+    /// <summary>Cached for multi-value: whether row should show ok/cancel (session pending or local draft).</summary>
+    private bool _multiValueHasPendingOrDraft;
+
     protected override void OnParametersSet()
     {
         _customFragment = RenderFragmentRegistry.BuildFieldComponentFragment(Descriptor.SectionId, Descriptor.OptionName);
@@ -112,6 +118,8 @@ else
             : Descriptor.GetValue();
         _hasPendingChange = pending != null;
         _effectiveValue = pending != null ? pending.NewValue : descriptorValue;
+        if (Descriptor.IsMultiValue)
+            ComputeMultiValueState(Descriptor.GetItems(), pending?.NewValue as IReadOnlyList<string>, _draftValue as IReadOnlyList<string>);
         if (!_wasActive && IsActive)
             _valueAtActivation = descriptorValue;
         if (_wasActive && !IsActive && _exitAction == ExitAction.None)
@@ -119,6 +127,45 @@ else
         if (_wasActive && !IsActive)
             _exitAction = ExitAction.None;
         _wasActive = IsActive;
+    }
+
+    private void ComputeMultiValueState(IReadOnlyList<ValueWithSource>? descriptorItems, IReadOnlyList<string>? pendingList, IReadOnlyList<string>? draftList)
+    {
+        var descriptorValues = descriptorItems?.Select(i => i.Value).ToList() ?? new List<string>();
+        _multiValueHasDraft = draftList != null && !ValuesEqual(descriptorValues, draftList);
+        if (_multiValueHasDraft && draftList != null)
+        {
+            _multiValueItems = BuildItemsWithSource(descriptorItems, draftList);
+        }
+        else if (_hasPendingChange && pendingList != null)
+        {
+            _multiValueItems = BuildItemsWithSource(descriptorItems, pendingList);
+        }
+        else
+        {
+            _multiValueItems = descriptorItems;
+        }
+        var allReadonly = _multiValueItems != null && _multiValueItems.Count > 0 && _multiValueItems.All(i => i.Source?.IsReadOnly == true);
+        _multiValueRowSource = allReadonly && !IsEditMode ? _multiValueItems?.FirstOrDefault()?.Source : null;
+        _multiValueHasPendingOrDraft = _hasPendingChange || _multiValueHasDraft;
+    }
+
+    private static IReadOnlyList<ValueWithSource> BuildItemsWithSource(IReadOnlyList<ValueWithSource>? descriptorItems, IReadOnlyList<string> values)
+    {
+        var pool = descriptorItems?.ToList() ?? new List<ValueWithSource>();
+        var list = new List<ValueWithSource>(values.Count);
+        foreach (var s in values)
+        {
+            var idx = pool.FindIndex(x => string.Equals(x.Value, s, StringComparison.Ordinal));
+            if (idx >= 0)
+            {
+                list.Add(pool[idx]);
+                pool.RemoveAt(idx);
+            }
+            else
+                list.Add(new ValueWithSource(s, null));
+        }
+        return list;
     }
 
     private void HandleValueChanged(object? value)
@@ -145,7 +192,13 @@ else
             }
 
             var source = Descriptor.GetSource();
-            var args = new EffectiveConfigEditCommittedArgs(Descriptor.SectionId, Descriptor.OptionName, _valueAtActivation, newValue, source?.FilePath);
+            object? valueToCommit = newValue;
+            if (newValue is IReadOnlyList<string> list)
+            {
+                var deduped = list.Distinct(StringComparer.Ordinal).ToList();
+                valueToCommit = deduped;
+            }
+            var args = new EffectiveConfigEditCommittedArgs(Descriptor.SectionId, Descriptor.OptionName, _valueAtActivation, valueToCommit, source?.FilePath);
             if (Ui != null)
                 await Ui.CommitFieldAsync(args);
         }
@@ -171,6 +224,9 @@ else
     private void HandleMultiValueChanged(IReadOnlyList<string> values)
     {
         _draftValue = values.ToList();
+        if (Descriptor.IsMultiValue)
+            ComputeMultiValueState(Descriptor.GetItems(), _effectiveValue as IReadOnlyList<string>, _draftValue as IReadOnlyList<string>);
+        StateHasChanged();
     }
 
     private async Task HandleConfirmEdit()

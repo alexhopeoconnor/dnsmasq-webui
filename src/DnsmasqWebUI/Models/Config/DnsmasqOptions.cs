@@ -35,6 +35,9 @@ public class DnsmasqOptions
     /// <summary>Command to run after config changes when <see cref="RestartCommand"/> is not set (e.g. "systemctl reload dnsmasq" or "pkill -HUP -x dnsmasq"). SIGHUP only re-reads hosts/addn-hosts etc., not .conf files. Runs in the same environment as the app.</summary>
     public string? ReloadCommand { get; set; }
 
+    /// <summary>Optional command to validate config before restart (e.g. "dnsmasq --test --conf-file=\"{{MainConfigPath}}\""). Token {{MainConfigPath}} is replaced with <see cref="MainConfigPath"/>. When set, run after write and before restart; if it fails, restart is not attempted. When unset, validation is skipped.</summary>
+    public string? ValidateCommand { get; set; } = "dnsmasq --test --conf-file=\"{{MainConfigPath}}\"";
+
     /// <summary>Optional command to check dnsmasq service state (e.g. "systemctl is-active dnsmasq" or "pgrep -x dnsmasq"). Runs in the same environment as the app; if app is in a container, this checks for dnsmasq in the container, not on the host.</summary>
     public string? StatusCommand { get; set; }
 
@@ -58,6 +61,9 @@ public class DnsmasqOptions
     /// <summary>Timeout in seconds for <see cref="LogsCommand"/>. Default 10.</summary>
     public int LogsTimeoutSeconds { get; set; } = 10;
 
+    /// <summary>Timeout in seconds for <see cref="ValidateCommand"/>. Default 10.</summary>
+    public int ValidateTimeoutSeconds { get; set; } = 10;
+
     /// <summary><see cref="RestartTimeoutSeconds"/> as <see cref="TimeSpan"/>.</summary>
     public TimeSpan RestartTimeout => TimeSpan.FromSeconds(RestartTimeoutSeconds);
 
@@ -69,4 +75,7 @@ public class DnsmasqOptions
 
     /// <summary><see cref="LogsTimeoutSeconds"/> as <see cref="TimeSpan"/>.</summary>
     public TimeSpan LogsTimeout => TimeSpan.FromSeconds(LogsTimeoutSeconds);
+
+    /// <summary><see cref="ValidateTimeoutSeconds"/> as <see cref="TimeSpan"/>.</summary>
+    public TimeSpan ValidateTimeout => TimeSpan.FromSeconds(ValidateTimeoutSeconds);
 }

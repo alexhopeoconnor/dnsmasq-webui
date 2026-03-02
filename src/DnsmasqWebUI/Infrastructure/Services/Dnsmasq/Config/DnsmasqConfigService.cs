@@ -64,18 +64,54 @@ public class DnsmasqConfigService : IDnsmasqConfigService
         return "line:" + e.LineNumber;
     }
 
-    /// <summary>When managedHostsPath is set, ensures the managed config has exactly one addn-hosts line pointing to it (replaces the first AddnHosts line or inserts at start). So dnsmasq loads our managed hosts file last.</summary>
-    private static void EnsureOneAddnHostsLine(List<DnsmasqConfLine> configLines, string? managedHostsPath)
+    /// <summary>
+    /// Applies managed-config invariants (system-owned directives) that are not user option edits.
+    /// This runs at write-time and is intentionally outside the pending-changes model.
+    /// </summary>
+    private static void EnsureManagedConfigInvariants(List<DnsmasqConfLine> configLines, string? managedHostsPath)
     {
-        if (string.IsNullOrEmpty(managedHostsPath))
+        if (!string.IsNullOrEmpty(managedHostsPath))
+        {
+            EnsureUniqueDirective(
+                configLines,
+                DnsmasqConfKeys.AddnHosts,
+                managedHostsPath,
+                lineNumber => new AddnHostsLine { LineNumber = lineNumber, AddnHostsPath = managedHostsPath });
+        }
+    }
+
+    /// <summary>
+    /// Ensures exactly one directive with the given key/value exists in the managed file.
+    /// If multiple exist, keeps the first and removes the rest.
+    /// </summary>
+    private static void EnsureUniqueDirective(
+        List<DnsmasqConfLine> configLines,
+        string key,
+        string value,
+        Func<int, DnsmasqConfLine>? lineFactory = null)
+    {
+        var matchingIndices = new List<int>();
+        for (var i = 0; i < configLines.Count; i++)
+        {
+            var raw = DnsmasqConfFileLineParser.ToLine(configLines[i]);
+            var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(raw);
+            if (kv != null &&
+                string.Equals(kv.Value.key, key, StringComparison.Ordinal) &&
+                string.Equals(kv.Value.value.Trim(), value, StringComparison.Ordinal))
+                matchingIndices.Add(i);
+        }
+
+        if (matchingIndices.Count == 0)
+        {
+            configLines.Insert(0, lineFactory?.Invoke(1) ?? new OtherLine { LineNumber = 1, RawLine = $"{key}={value}" });
             return;
-        var idx = configLines.FindIndex(c => c.Kind == DnsmasqConfLineKind.AddnHosts);
-        var lineNumber = idx >= 0 ? configLines[idx].LineNumber : 1;
-        var line = new AddnHostsLine { LineNumber = lineNumber, AddnHostsPath = managedHostsPath };
-        if (idx >= 0)
-            configLines[idx] = line;
-        else
-            configLines.Insert(0, line);
+        }
+
+        var keepIdx = matchingIndices[0];
+        var keepLineNumber = configLines[keepIdx].LineNumber;
+        configLines[keepIdx] = lineFactory?.Invoke(keepLineNumber) ?? new OtherLine { LineNumber = keepLineNumber, RawLine = $"{key}={value}" };
+        for (var i = matchingIndices.Count - 1; i >= 1; i--)
+            configLines.RemoveAt(matchingIndices[i]);
     }
 
     /// <summary>Creates the managed hosts file empty if it does not exist, so dnsmasq does not error when we add addn-hosts=&lt;path&gt; to the managed config.</summary>
@@ -124,7 +160,7 @@ public class DnsmasqConfigService : IDnsmasqConfigService
             rawLines = Array.Empty<string>();
 
         var configLines = DnsmasqConfFileLineParser.ParseFile(rawLines).ToList();
-        EnsureOneAddnHostsLine(configLines, set.ManagedHostsFilePath);
+        EnsureManagedConfigInvariants(configLines, set.ManagedHostsFilePath);
         var fileEntries = configLines.OfType<DhcpHostLine>().Select(c => c.DhcpHost).ToList();
         AssignStableIds(fileEntries);
 
@@ -148,8 +184,10 @@ public class DnsmasqConfigService : IDnsmasqConfigService
         await File.WriteAllLinesAsync(tmpPath, output, DnsmasqFileEncoding.Utf8NoBom, ct);
         File.Move(tmpPath, path, overwrite: true);
         EnsureManagedHostsFileExists(set.ManagedHostsFilePath);
-        var effectiveHostsPathDhcp = configLines.OfType<AddnHostsLine>().FirstOrDefault()?.AddnHostsPath ?? "";
-        _configSetCache.NotifyWeWroteManagedConfig(new ManagedConfigContent(configLines, effectiveHostsPathDhcp));
+
+        var writtenLines = DnsmasqConfFileLineParser.ParseFile(output).ToList();
+        var effectiveHostsPathDhcp = writtenLines.OfType<AddnHostsLine>().FirstOrDefault()?.AddnHostsPath ?? "";
+        _configSetCache.NotifyWeWroteManagedConfig(new ManagedConfigContent(writtenLines, effectiveHostsPathDhcp));
         _logger.LogInformation("Wrote managed config file: {Path}", path);
     }
 
@@ -187,8 +225,9 @@ public class DnsmasqConfigService : IDnsmasqConfigService
     public async Task ApplyEffectiveConfigChangesAsync(IReadOnlyList<PendingEffectiveConfigChange> changes, CancellationToken ct = default)
     {
         if (changes.Count == 0) return;
-        var content = await ReadManagedConfigAsync(ct);
-        var list = content.Lines.ToList();
+        var snapshot = await _configSetCache.GetSnapshotAsync(ct);
+        var readonlyByOption = await ReadReadonlyMultiValuesByOptionAsync(snapshot.Set, ct);
+        var list = snapshot.ManagedContent.Lines.ToList();
         var maxLineNumber = list.Count > 0 ? list.Max(l => l.LineNumber) : 0;
         foreach (var c in changes)
         {
@@ -198,13 +237,15 @@ public class DnsmasqConfigService : IDnsmasqConfigService
 
             bool MatchesOption(DnsmasqConfLine line)
             {
-                if (line is not OtherLine o) return false;
-                var raw = o.RawLine.Trim();
-                return raw == confKey || raw.StartsWith(confKey + "=", StringComparison.Ordinal);
+                var raw = DnsmasqConfFileLineParser.ToLine(line);
+                var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(raw);
+                return kv != null && string.Equals(kv.Value.key, confKey, StringComparison.Ordinal);
             }
 
             if (behavior == EffectiveConfigParserBehavior.Multi && TryGetMultiValues(c.NewValue, out var values))
             {
+                IReadOnlyList<string> readonlyValues = readonlyByOption.TryGetValue(confKey, out var listValues) ? listValues : Array.Empty<string>();
+                var valuesToWrite = FilterManagedOnly(values, readonlyValues);
                 var matchingIndices = new List<int>();
                 for (var i = 0; i < list.Count; i++)
                 {
@@ -213,10 +254,10 @@ public class DnsmasqConfigService : IDnsmasqConfigService
                 for (var i = matchingIndices.Count - 1; i >= 0; i--)
                     list.RemoveAt(matchingIndices[i]);
                 var insertIdx = matchingIndices.Count > 0 ? matchingIndices[0] : list.Count;
-                for (var i = 0; i < values.Count; i++)
+                for (var i = 0; i < valuesToWrite.Count; i++)
                 {
                     var lineKey = confKey;
-                    var lineText = string.IsNullOrEmpty(values[i]) ? lineKey : lineKey + "=" + values[i];
+                    var lineText = string.IsNullOrEmpty(valuesToWrite[i]) ? lineKey : lineKey + "=" + valuesToWrite[i];
                     var lineObj = new OtherLine { LineNumber = maxLineNumber + 1, RawLine = lineText };
                     maxLineNumber++;
                     list.Insert(insertIdx + i, lineObj);
@@ -246,6 +287,61 @@ public class DnsmasqConfigService : IDnsmasqConfigService
                 list.Add(newLine);
         }
         await WriteManagedConfigAsync(list, ct);
+    }
+
+    /// <summary>
+    /// Keeps only values that should be written to managed config by subtracting values provided by
+    /// non-managed files (multiset subtraction, order preserved).
+    /// </summary>
+    private static IReadOnlyList<string> FilterManagedOnly(
+        IReadOnlyList<string> requestedValues,
+        IReadOnlyList<string> readonlyValues)
+    {
+        if (readonlyValues.Count == 0)
+            return requestedValues;
+
+        var readonlyCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var value in readonlyValues)
+            readonlyCounts[value] = readonlyCounts.TryGetValue(value, out var count) ? count + 1 : 1;
+
+        var result = new List<string>(requestedValues.Count);
+        foreach (var value in requestedValues)
+        {
+            if (readonlyCounts.TryGetValue(value, out var count) && count > 0)
+            {
+                readonlyCounts[value] = count - 1;
+                continue;
+            }
+            result.Add(value);
+        }
+        return result;
+    }
+
+    /// <summary>Reads all multi-value directive values from non-managed config files, grouped by option name. Single pass per save.</summary>
+    private static async Task<Dictionary<string, List<string>>> ReadReadonlyMultiValuesByOptionAsync(DnsmasqConfigSet set, CancellationToken ct)
+    {
+        var result = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (var file in set.Files.Where(f => !f.IsManaged))
+        {
+            if (!File.Exists(file.Path))
+                continue;
+            var lines = await File.ReadAllLinesAsync(file.Path, DnsmasqFileEncoding.Utf8NoBom, ct);
+            foreach (var line in lines)
+            {
+                var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
+                if (kv == null)
+                    continue;
+                var key = kv.Value.key;
+                var value = kv.Value.value.Trim();
+                if (!result.TryGetValue(key, out var list))
+                {
+                    list = new List<string>();
+                    result[key] = list;
+                }
+                list.Add(value);
+            }
+        }
+        return result;
     }
 
     private static bool TryGetMultiValues(object? value, out IReadOnlyList<string> values)
@@ -291,7 +387,7 @@ public class DnsmasqConfigService : IDnsmasqConfigService
             Directory.CreateDirectory(dir);
 
         var list = lines.ToList();
-        EnsureOneAddnHostsLine(list, set.ManagedHostsFilePath);
+        EnsureManagedConfigInvariants(list, set.ManagedHostsFilePath);
         var output = list.Select(DnsmasqConfFileLineParser.ToLine).ToList();
 
         var tmpPath = path + ".tmp";

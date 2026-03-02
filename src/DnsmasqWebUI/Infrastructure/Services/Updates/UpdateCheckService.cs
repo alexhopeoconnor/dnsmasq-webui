@@ -21,6 +21,8 @@ public sealed class UpdateCheckService : IUpdateCheckService
     private string? _newerVersionUrl;
     private DateTime? _lastCheckTime;
     private bool _checkInProgress;
+    private bool _lastCheckFailed;
+    private string? _lastCheckErrorMessage;
 
     public UpdateCheckService(IHttpClientFactory httpClientFactory, IOptions<UpdateCheckOptions> options)
     {
@@ -34,6 +36,8 @@ public sealed class UpdateCheckService : IUpdateCheckService
     public string? NewerVersionTag => _newerVersionTag;
     public string? NewerVersionUrl => _newerVersionUrl;
     public DateTime? LastCheckTime => _lastCheckTime;
+    public bool LastCheckFailed => _lastCheckFailed;
+    public string? LastCheckErrorMessage => _lastCheckErrorMessage;
     public bool CheckInProgress => _checkInProgress;
 
     public async Task CheckNowAsync()
@@ -46,6 +50,12 @@ public sealed class UpdateCheckService : IUpdateCheckService
 
         try
         {
+            lock (_lock)
+            {
+                _lastCheckFailed = false;
+                _lastCheckErrorMessage = null;
+            }
+
             var client = _httpClientFactory.CreateClient(ServiceCollectionExtensions.GitHubClientName);
             var response = await client.GetAsync("repos/alexhopeoconnor/dnsmasq-webui/releases/latest");
             string? newTag = null;
@@ -79,12 +89,14 @@ public sealed class UpdateCheckService : IUpdateCheckService
 
             ResultChanged?.Invoke(this, EventArgs.Empty);
         }
-        catch
+        catch (Exception ex)
         {
             lock (_lock)
             {
                 _lastCheckTime = DateTime.UtcNow;
                 _checkInProgress = false;
+                _lastCheckFailed = true;
+                _lastCheckErrorMessage = ex.Message;
             }
             ResultChanged?.Invoke(this, EventArgs.Empty);
         }

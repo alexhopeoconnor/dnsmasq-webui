@@ -24,6 +24,12 @@ public interface IUpdateCheckService : IApplicationSingleton
     /// <summary>When the last check completed (success or failure), or null if never run.</summary>
     DateTime? LastCheckTime { get; }
 
+    /// <summary>True if the last check threw an error (e.g. network failure).</summary>
+    bool LastCheckFailed { get; }
+
+    /// <summary>Error message from the last failed check, or null if the last check succeeded.</summary>
+    string? LastCheckErrorMessage { get; }
+
     /// <summary>True while a check is in progress.</summary>
     bool CheckInProgress { get; }
 

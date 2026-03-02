@@ -6,13 +6,17 @@
     <OptionHelpLabel AnchorId="@(OptionHelpAnchorId ?? "")" HelpKey="@OptionHelpKey" OptionLabel="@Label" Title="@LabelTooltip"><strong>@Label:</strong></OptionHelpLabel>
     @if (IsActiveEditor)
     {
-        <span class="ec-field-value ec-field-value-multi" @onclick:stopPropagation="true">
-            <textarea class="form-control form-control-sm" rows="@(Math.Max(2, (Items?.Count ?? 0) + 1))" @oninput="OnLinesInput" placeholder="One value per line">@_editLines</textarea>
-            <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorIdBase ?? "")" Source="@Source" OptionName="@Label" Value="@Items"
-                             IsInteractive="@IsEditMode" ShowEditableBadge="@ShowEditableBadge" HasPendingChange="@HasPendingChange"
-                             EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@IsActiveEditor"
-                             OnConfirmRequested="@OnConfirmRequested" OnCancelRequested="@OnCancelRequested" OnRevertRequested="@OnRevertRequested" />
-        </span>
+        <EffectiveConfigMultiValueListEditor
+            SourceItems="@(Items ?? Array.Empty<ValueWithSource>())"
+            OptionName="@Label"
+            ReadonlyBadgeAnchorIdBase="@(ReadonlyBadgeAnchorIdBase ?? "")"
+            IsEditMode="@IsEditMode"
+            AllowAddManagedValue="@IsEditMode"
+            OnValuesChanged="@ItemsChanged" />
+        <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorIdBase ?? "")" Source="@Source" OptionName="@Label" Value="@Items"
+                         IsInteractive="@IsEditMode" ShowEditableBadge="@ShowEditableBadge" HasPendingChange="@HasPendingChange"
+                         EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@IsActiveEditor"
+                         OnConfirmRequested="@OnConfirmRequested" OnCancelRequested="@OnCancelRequested" OnRevertRequested="@OnRevertRequested" />
     }
     else
     {
@@ -23,7 +27,7 @@
                     @foreach (var (item, index) in Items!.Select((item, index) => (item, index)))
                     {
                         var anchorId = ReadonlyBadgeAnchorIdBase != null ? ReadonlyBadgeAnchorIdBase + "-" + index : "";
-                        <li><EffectiveConfigMultiValueItem Value="@item.Value" Source="@item.Source" OptionName="@Label" IsEditMode="@IsEditMode" ReadonlyBadgeAnchorId="@anchorId" /></li>
+                        <li><EffectiveConfigMultiValueItem Value="@item.Value" Source="@item.Source" OptionName="@Label" IsEditMode="@IsEditMode" ReadonlyBadgeAnchorId="@anchorId" FieldKey="@FieldKey" ReadonlyClickActivatesField="true" ReadonlyTitleOverride="New values can still be added. Click to edit." /></li>
                     }
                 </ol>
             }
@@ -31,10 +35,6 @@
             {
                 <span class="text-muted">(none)</span>
             }
-            <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorIdBase ?? "")" Source="@Source" OptionName="@Label" Value="@Items"
-                             IsInteractive="@IsEditMode" ShowEditableBadge="@ShowEditableBadge" HasPendingChange="@HasPendingChange"
-                             EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@IsActiveEditor"
-                             OnConfirmRequested="@OnConfirmRequested" OnCancelRequested="@OnCancelRequested" OnRevertRequested="@OnRevertRequested" />
         </span>
     }
 </li>
@@ -56,22 +56,4 @@
     [Parameter] public EventCallback OnConfirmRequested { get; set; }
     [Parameter] public EventCallback OnCancelRequested { get; set; }
     [Parameter] public EventCallback OnRevertRequested { get; set; }
-
-    private string _editLines = "";
-
-    protected override void OnParametersSet()
-    {
-        if (Items != null && Items.Count > 0)
-            _editLines = string.Join("\n", Items.Select(i => i.Value));
-        else
-            _editLines = "";
-    }
-
-    private async Task OnLinesInput(ChangeEventArgs e)
-    {
-        var text = e.Value?.ToString() ?? "";
-        _editLines = text;
-        var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
-        await ItemsChanged.InvokeAsync(lines);
-    }
 }
