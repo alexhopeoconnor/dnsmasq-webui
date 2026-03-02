@@ -19,6 +19,7 @@ public partial class AppLogsSection : IAsyncDisposable
 
     private bool _justUpdated;
     private bool _logsContentReceived;
+    private bool _refreshing;
     private int _intervalSeconds;
     private string _logLevel = "Information";
     private bool _logLevelDisabled;
@@ -90,6 +91,25 @@ public partial class AppLogsSection : IAsyncDisposable
 
     private void OpenFiltersModal() => _filtersModalVisible = true;
     private void CloseFiltersModal() => _filtersModalVisible = false;
+
+    private async Task RequestRefreshAsync()
+    {
+        if (_hubConnection?.State != HubConnectionState.Connected)
+            return;
+        _refreshing = true;
+        StateHasChanged();
+        try
+        {
+            await _hubConnection.InvokeAsync("RequestAppLogsSnapshot", _cts.Token);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception) { /* ignore */ }
+        finally
+        {
+            _refreshing = false;
+            StateHasChanged();
+        }
+    }
 
     private async Task OnLogLevelChanged()
     {

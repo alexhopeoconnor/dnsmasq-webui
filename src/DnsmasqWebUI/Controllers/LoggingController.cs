@@ -1,6 +1,8 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using DnsmasqWebUI.Infrastructure.Logging;
+using DnsmasqWebUI.Infrastructure.Services.Logs.Abstractions;
 using DnsmasqWebUI.Models.Config;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
@@ -12,20 +14,37 @@ namespace DnsmasqWebUI.Controllers;
 [Route("api/[controller]")]
 public class LoggingController : ControllerBase
 {
+    private const int AppLogsDownloadMaxLines = 5000;
+
     private readonly IConfiguration _configuration;
     private readonly IConfigurationRoot _configurationRoot;
     private readonly RuntimeOverridesOptions _overridesOptions;
+    private readonly IAppLogsBuffer _appLogsBuffer;
     private readonly ILogger<LoggingController> _logger;
 
     public LoggingController(
         IConfiguration configuration,
         IOptions<RuntimeOverridesOptions> overridesOptions,
+        IAppLogsBuffer appLogsBuffer,
         ILogger<LoggingController> logger)
     {
         _configuration = configuration;
         _configurationRoot = (IConfigurationRoot)configuration;
         _overridesOptions = overridesOptions.Value;
+        _appLogsBuffer = appLogsBuffer;
         _logger = logger;
+    }
+
+    /// <summary>Download recent app logs from the in-memory buffer (up to AppLogsDownloadMaxLines).</summary>
+    [HttpGet("logs/download")]
+    public IActionResult GetAppLogsDownload()
+    {
+        var lines = _appLogsBuffer.GetRecent(maxLines: AppLogsDownloadMaxLines);
+        var content = string.Join(Environment.NewLine, lines);
+        if (lines.Count > 0 && !content.EndsWith(Environment.NewLine))
+            content += Environment.NewLine;
+        _logger.LogDebug("App logs download, lines={Count}", lines.Count);
+        return File(Encoding.UTF8.GetBytes(content), "text/plain", "app.log");
     }
 
     /// <summary>Get the current minimum log level from configuration (Logging:LogLevel:Default).</summary>
