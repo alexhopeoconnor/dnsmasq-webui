@@ -11,6 +11,7 @@ public sealed class EffectiveConfigSaveService : IEffectiveConfigSaveService
 {
     private readonly IDnsmasqConfigSetService _configSetService;
     private readonly IDnsmasqConfigService _configService;
+    private readonly IConfigSetCache _configSetCache;
     private readonly IConfigValidationService _validationService;
     private readonly IReloadService _reloadService;
     private readonly ILogger<EffectiveConfigSaveService> _logger;
@@ -18,12 +19,14 @@ public sealed class EffectiveConfigSaveService : IEffectiveConfigSaveService
     public EffectiveConfigSaveService(
         IDnsmasqConfigSetService configSetService,
         IDnsmasqConfigService configService,
+        IConfigSetCache configSetCache,
         IConfigValidationService validationService,
         IReloadService reloadService,
         ILogger<EffectiveConfigSaveService> logger)
     {
         _configSetService = configSetService;
         _configService = configService;
+        _configSetCache = configSetCache;
         _validationService = validationService;
         _reloadService = reloadService;
         _logger = logger;
@@ -139,6 +142,7 @@ public sealed class EffectiveConfigSaveService : IEffectiveConfigSaveService
 
         var managedPath = set.ManagedFilePath!;
         File.Copy(backupPath, managedPath, overwrite: true);
+        _configSetCache.Invalidate();
         _logger.LogInformation("Restored managed config from backup: {BackupPath}", backupPath);
 
         var restartResult = await _reloadService.ReloadAsync(ct);

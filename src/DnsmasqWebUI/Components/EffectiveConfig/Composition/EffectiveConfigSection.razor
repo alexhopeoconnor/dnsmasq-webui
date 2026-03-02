@@ -68,7 +68,8 @@
             },
             ActivateFieldAsync = fieldKey => { ActivateField(fieldKey); return Task.CompletedTask; },
             DeactivateFieldAsync = () => { Session.DeactivateField(); return InvokeAsync(StateHasChanged); },
-            CommitFieldAsync = args => { HandleFieldEditCommitted(args); return Task.CompletedTask; }
+            CommitFieldAsync = args => { HandleFieldEditCommitted(args); return Task.CompletedTask; },
+            RevertFieldAsync = (sectionId, optionName) => { Session.RevertChange(sectionId, optionName); return InvokeAsync(StateHasChanged); }
         };
     }
 

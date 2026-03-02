@@ -171,6 +171,8 @@ else
     private void HandleValueChanged(object? value)
     {
         _draftValue = value;
+        if (_hasPendingChange && ValuesEqual(_valueAtActivation, value))
+            _ = InvokeAsync(CommitIfChangedAsync);
     }
 
     private async Task OnBlur(FocusEventArgs _)
@@ -182,26 +184,30 @@ else
     private async Task<bool> CommitIfChangedAsync()
     {
         var newValue = _draftValue ?? _effectiveValue;
-        if (!ValuesEqual(_valueAtActivation, newValue))
+        if (ValuesEqual(_valueAtActivation, newValue))
         {
-            var validationError = ValidateDraftValue(newValue);
-            if (validationError != null)
-            {
-                NotificationService.ShowError(validationError);
-                return false;
-            }
-
-            var source = Descriptor.GetSource();
-            object? valueToCommit = newValue;
-            if (newValue is IReadOnlyList<string> list)
-            {
-                var deduped = list.Distinct(StringComparer.Ordinal).ToList();
-                valueToCommit = deduped;
-            }
-            var args = new EffectiveConfigEditCommittedArgs(Descriptor.SectionId, Descriptor.OptionName, _valueAtActivation, valueToCommit, source?.FilePath);
-            if (Ui != null)
-                await Ui.CommitFieldAsync(args);
+            _draftValue = null;
+            if (_hasPendingChange && Ui?.RevertFieldAsync != null)
+                await Ui.RevertFieldAsync(Descriptor.SectionId, Descriptor.OptionName);
+            return true;
         }
+        var validationError = ValidateDraftValue(newValue);
+        if (validationError != null)
+        {
+            NotificationService.ShowError(validationError);
+            return false;
+        }
+
+        var source = Descriptor.GetSource();
+        object? valueToCommit = newValue;
+        if (newValue is IReadOnlyList<string> list)
+        {
+            var deduped = list.Distinct(StringComparer.Ordinal).ToList();
+            valueToCommit = deduped;
+        }
+        var args = new EffectiveConfigEditCommittedArgs(Descriptor.SectionId, Descriptor.OptionName, _valueAtActivation, valueToCommit, source?.FilePath);
+        if (Ui != null)
+            await Ui.CommitFieldAsync(args);
         _draftValue = null;
         return true;
     }
