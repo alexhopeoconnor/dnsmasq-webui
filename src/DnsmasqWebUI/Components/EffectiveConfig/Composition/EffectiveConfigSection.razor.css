@@ -38,6 +38,14 @@
     margin-left: auto;
 }
 
+::deep .ec-toolbar-changes-link {
+    cursor: pointer;
+}
+
+::deep .ec-toolbar-changes-link:hover {
+    text-decoration: underline;
+}
+
 .ec-sections {
     display: flex;
     flex-direction: column;

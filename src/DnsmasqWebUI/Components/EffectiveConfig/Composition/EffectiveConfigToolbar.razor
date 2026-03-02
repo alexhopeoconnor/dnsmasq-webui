@@ -22,7 +22,13 @@
             </button>
             @if (PendingChangesCount > 0)
             {
-                <span class="text-muted small">@PendingChangesCount change(s)</span>
+                <span class="text-muted small ec-toolbar-changes-link" role="button" tabindex="0"
+                      @onclick="OnOpenSaveModal"
+                      @onkeydown="OnChangesLinkKeyDown"
+                      title="Open save dialog"
+                      aria-label="Open save dialog">
+                    @PendingChangesCount change(s)
+                </span>
             }
         }
         else
@@ -58,5 +64,13 @@
     private async Task OnSearchInput(ChangeEventArgs e)
     {
         await SearchTermChanged.InvokeAsync(e.Value?.ToString() ?? "");
+    }
+
+    private async Task OnChangesLinkKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" || e.Key == " ")
+        {
+            await OnOpenSaveModal.InvokeAsync();
+        }
     }
 }

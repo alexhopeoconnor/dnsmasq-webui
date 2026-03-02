@@ -1,6 +1,8 @@
 @namespace DnsmasqWebUI.Components.EffectiveConfig
 @using DnsmasqWebUI.Models.Dnsmasq
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+@using Microsoft.AspNetCore.Components.Web
+@inject IJSRuntime JSRuntime
 
 <span class="ec-field-value ec-field-value-multi ec-multi-list-editor" @onclick:stopPropagation="true">
     <ol class="ec-field-value-list">
@@ -53,7 +55,7 @@
                 </li>
             }
         }
-        else
+        else if (!AllowAddManagedValue)
         {
             <li class="ec-multi-list-row ec-multi-list-empty-hint">
                 <span class="text-muted">(none)</span>
@@ -65,7 +67,7 @@
             <li class="ec-multi-list-row ec-multi-list-add-item" @key="AddItemKey">
                 @if (_addingNew)
                 {
-                    <input class="form-control form-control-sm ec-multi-list-input"
+                    <input @ref="_addNewInputRef" class="form-control form-control-sm ec-multi-list-input"
                            placeholder="New value"
                            @bind="_draftValue" @bind:event="oninput" />
                     <span class="status-badge-inline">
@@ -102,6 +104,35 @@
     private int? _editingIndex;
     private bool _addingNew;
     private string _draftValue = "";
+    private bool _didAutoOpenAdd;
+    private bool _shouldFocusAddInput;
+    private ElementReference _addNewInputRef;
+
+    protected override void OnParametersSet()
+    {
+        if (!_didAutoOpenAdd && (SourceItems?.Count ?? 0) == 0 && AllowAddManagedValue)
+        {
+            _didAutoOpenAdd = true;
+            _addingNew = true;
+            _shouldFocusAddInput = true;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_shouldFocusAddInput && _addingNew)
+        {
+            _shouldFocusAddInput = false;
+            try
+            {
+                await _addNewInputRef.FocusAsync();
+            }
+            catch
+            {
+                // Focus can fail if the element is not yet in the DOM (e.g. prerender)
+            }
+        }
+    }
 
     private void BeginEdit(int index, string current)
     {
@@ -115,6 +146,7 @@
         _editingIndex = null;
         _addingNew = true;
         _draftValue = "";
+        _shouldFocusAddInput = true;
     }
 
     private void CancelInline()
