@@ -50,7 +50,7 @@ public class DnsmasqOptions
     // --- Timeouts (seconds) for the commands above ---
 
     /// <summary>Timeout in seconds for <see cref="RestartCommand"/> / <see cref="ReloadCommand"/>. Default 30.</summary>
-    public int RestartTimeoutSeconds { get; set; } = 15;
+    public int RestartTimeoutSeconds { get; set; } = 30;
 
     /// <summary>Timeout in seconds for <see cref="StatusCommand"/>. Default 5.</summary>
     public int StatusTimeoutSeconds { get; set; } = 5;

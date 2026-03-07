@@ -122,16 +122,28 @@
                                         </div>
                                         @if (isMultiValue)
                                         {
-                                            var added = (newList ?? Array.Empty<string>()).Except(oldList ?? Array.Empty<string>()).ToList();
-                                            var removed = (oldList ?? Array.Empty<string>()).Except(newList ?? Array.Empty<string>()).ToList();
+                                            var oldSeq = oldList ?? Array.Empty<string>();
+                                            var newSeq = newList ?? Array.Empty<string>();
+                                            var added = newSeq.Except(oldSeq).ToList();
+                                            var removed = oldSeq.Except(newSeq).ToList();
+                                            var orderOrDuplicatesChanged = added.Count == 0 && removed.Count == 0 && !oldSeq.SequenceEqual(newSeq, StringComparer.Ordinal);
                                             <div class="ec-save-modal-multidiff ps-3 mt-1 small">
-                                                @foreach (var val in removed)
+                                                @if (orderOrDuplicatesChanged)
                                                 {
-                                                    <div class="text-muted text-decoration-line-through">− @val</div>
+                                                    <div class="text-muted">Order or duplicates changed:</div>
+                                                    <div class="text-muted text-decoration-line-through">Before: @string.Join(", ", oldSeq)</div>
+                                                    <div class="text-success">After: @string.Join(", ", newSeq)</div>
                                                 }
-                                                @foreach (var val in added)
+                                                else
                                                 {
-                                                    <div class="text-success">+ @val</div>
+                                                    @foreach (var val in removed)
+                                                    {
+                                                        <div class="text-muted text-decoration-line-through">− @val</div>
+                                                    }
+                                                    @foreach (var val in added)
+                                                    {
+                                                        <div class="text-success">+ @val</div>
+                                                    }
                                                 }
                                             </div>
                                         }
