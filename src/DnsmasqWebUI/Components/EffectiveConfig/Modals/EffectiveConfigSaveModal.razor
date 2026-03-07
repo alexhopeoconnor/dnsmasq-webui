@@ -153,7 +153,7 @@
                 @if ((SaveState == EffectiveConfigSaveFlow.SaveUiState.ReloadFailed || SaveState == EffectiveConfigSaveFlow.SaveUiState.ValidateFailed) && SaveResult?.BackupPath != null)
                 {
                     <button type="button" class="btn btn-primary" @onclick="() => Restore(SaveResult.BackupPath)"><i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Restore backup</button>
-                    <button type="button" class="btn btn-outline-warning" @onclick="Close"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Continue editing</button>
+                    <button type="button" class="btn btn-outline-warning" @onclick="ContinueEditing"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Continue editing</button>
                     <button type="button" class="btn btn-danger" @onclick="CloseAndEndEdit"><i class="bi bi-x-circle me-1" aria-hidden="true"></i>Stop editing</button>
                 }
                 else if (SaveState == EffectiveConfigSaveFlow.SaveUiState.RestoreFailed)
@@ -184,6 +184,7 @@
     [Parameter] public EffectiveConfigSaveResult? SaveResult { get; set; }
     [Parameter] public EffectiveConfigRestoreResult? RestoreResult { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnContinueEditing { get; set; }
     [Parameter] public EventCallback OnSave { get; set; }
     [Parameter] public EventCallback<string> OnRestore { get; set; }
     [Parameter] public EventCallback OnReverted { get; set; }
@@ -260,6 +261,12 @@
     {
         if (!AllowClose) return;
         await OnClose.InvokeAsync();
+    }
+
+    private async Task ContinueEditing()
+    {
+        if (!AllowClose) return;
+        await OnContinueEditing.InvokeAsync();
     }
 
     private async Task Save()

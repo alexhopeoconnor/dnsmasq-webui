@@ -6,7 +6,7 @@
     @Value
     <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorId ?? "")" Source="@Source" OptionName="@OptionName" Value="@Value"
                      IsInteractive="@(IsEditMode && !ReadonlyClickActivatesField && !string.IsNullOrEmpty(ReadonlyBadgeAnchorId))"
-                     ShowEditableBadge="@(Source?.IsReadOnly != true)" EditableAsButton="@IsEditMode"
+                     ShowEditableBadge="@(Source?.IsReadOnly != true)" EditableAsButton="true"
                      FieldKey="@FieldKey" ReadonlyClickActivatesField="@ReadonlyClickActivatesField" ReadonlyTitleOverride="@ReadonlyTitleOverride" />
 </span>
 

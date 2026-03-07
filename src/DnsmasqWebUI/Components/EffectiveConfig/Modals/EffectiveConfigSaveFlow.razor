@@ -16,10 +16,11 @@
         SaveResult="@_saveResult"
         RestoreResult="@_restoreResult"
         OnClose="@OnClose"
+        OnContinueEditing="@(EventCallback.Factory.Create(this, HandleContinueEditing))"
         OnSave="@HandleSave"
         OnRestore="@HandleRestore"
         OnReverted="@HandleReverted"
-        OnCloseAndEndEdit="@OnCloseAndEndEdit" />
+        OnCloseAndEndEdit="@HandleCloseAndEndEdit" />
 }
 
 @code {
@@ -39,6 +40,7 @@
     [Parameter] public DnsmasqServiceStatus? Status { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback OnSaveCompleted { get; set; }
+    [Parameter] public EventCallback OnContinueEditingAfterSavedFailure { get; set; }
     [Parameter] public EventCallback OnCloseAndEndEdit { get; set; }
     [Parameter] public IEffectiveConfigEditSession Session { get; set; } = null!;
 
@@ -126,5 +128,24 @@
 
         _saveState = SaveUiState.RestoreFailed;
         await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleContinueEditing()
+    {
+        if (_saveState == SaveUiState.ValidateFailed || _saveState == SaveUiState.ReloadFailed)
+        {
+            await OnContinueEditingAfterSavedFailure.InvokeAsync();
+            return;
+        }
+
+        await OnClose.InvokeAsync();
+    }
+
+    private async Task HandleCloseAndEndEdit()
+    {
+        await OnCloseAndEndEdit.InvokeAsync();
+
+        if (_saveState == SaveUiState.ValidateFailed || _saveState == SaveUiState.ReloadFailed)
+            await OnSaveCompleted.InvokeAsync();
     }
 }

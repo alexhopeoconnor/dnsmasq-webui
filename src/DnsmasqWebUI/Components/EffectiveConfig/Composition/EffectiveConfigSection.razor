@@ -28,7 +28,7 @@
     </CascadingValue>
     </CascadingValue>
     <EffectiveConfigSaveFlow ShowModal="@_showSaveModal" PendingChanges="@Session.PendingChanges" Status="@Status" Session="@Session"
-        OnClose="CloseSaveModal" OnSaveCompleted="OnSaveCompleted" OnCloseAndEndEdit="CloseSaveModalAndEndEdit" />
+        OnClose="CloseSaveModal" OnSaveCompleted="OnSaveCompleted" OnContinueEditingAfterSavedFailure="ContinueEditingAfterSavedFailureAsync" OnCloseAndEndEdit="CloseSaveModalAndEndEdit" />
 </div>
 }
 
@@ -209,6 +209,15 @@
     private void CloseSaveModal()
     {
         _showSaveModal = false;
+        StateHasChanged();
+    }
+
+    private async Task ContinueEditingAfterSavedFailureAsync()
+    {
+        _showSaveModal = false;
+        Session.ExitEditModeDiscard();
+        await OnSaveCompleted.InvokeAsync();
+        Session.EnterEditMode();
         StateHasChanged();
     }
 
