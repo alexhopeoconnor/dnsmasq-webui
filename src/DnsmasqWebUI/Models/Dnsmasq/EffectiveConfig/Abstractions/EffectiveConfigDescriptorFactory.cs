@@ -14,3 +14,13 @@ public delegate IEffectiveConfigFieldDescriptor EffectiveConfigDescriptorFactory
     Func<DnsmasqServiceStatus?, object?>? getValue,
     Func<DnsmasqServiceStatus?, ConfigValueSource?>? getSource,
     Func<DnsmasqServiceStatus?, IReadOnlyList<ValueWithSource>?>? getItems);
+
+/// <summary>
+/// Creates an <see cref="EffectiveMultiValueConfigFieldDescriptor"/> for a multi-value field (section, option, status, getItems only).
+/// Used by the registry so the builder can create multi descriptors with behavior/validator.
+/// </summary>
+public delegate EffectiveMultiValueConfigFieldDescriptor EffectiveConfigMultiDescriptorFactory(
+    string sectionId,
+    string optionName,
+    DnsmasqServiceStatus? status,
+    Func<DnsmasqServiceStatus?, IReadOnlyList<ValueWithSource>?>? getItems);

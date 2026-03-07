@@ -22,7 +22,7 @@ public static class EffectiveConfigFieldDescriptorListExtensions
         Func<DnsmasqServiceStatus?, IReadOnlyList<ValueWithSource>?>? getItems)
     {
         if (EffectiveConfigOptionKindMap.GetKind(optionName) == EffectiveConfigFieldKind.Multi)
-            list.AddMultiDescriptor(optionName, status, getItems);
+            list.AddMultiDescriptor(registry, optionName, status, getItems);
         else
             list.AddSingleDescriptor(registry, optionName, status, getValue, getSource, getItems);
     }
@@ -43,15 +43,18 @@ public static class EffectiveConfigFieldDescriptorListExtensions
     }
 
     /// <summary>
-    /// Adds a multi-value field descriptor (e.g. server, address, dhcp-range).
+    /// Adds a multi-value field descriptor. Every multi option must be registered in the registry; uses the registry's multi descriptor factory.
     /// </summary>
     public static void AddMultiDescriptor(
         this List<EffectiveConfigFieldDescriptor> list,
+        IEffectiveConfigRenderFragmentRegistry? registry,
         string optionName,
         DnsmasqServiceStatus? status,
         Func<DnsmasqServiceStatus?, IReadOnlyList<ValueWithSource>?>? getItems)
     {
         var sectionId = EffectiveConfigSections.GetSectionId(optionName);
-        list.Add(new EffectiveConfigFieldDescriptor(sectionId, optionName, true, status, null, null, getItems));
+        var factory = registry?.GetMultiDescriptorFactory(sectionId, optionName)
+            ?? throw new InvalidOperationException($"No multi descriptor factory registered for option '{optionName}' (section '{sectionId}'). Register all multi options via RegisterMultiDescriptor.");
+        list.Add(factory(sectionId, optionName, status, getItems));
     }
 }

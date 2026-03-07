@@ -120,7 +120,7 @@ public class EffectiveDnsmasqConfigTests
             FastDnsRetry: null,
             DhcpScriptPath: null,
             MxTarget: null,
-            Conntrack: null
+            Conntrack: false
         );
 
     [Fact]

@@ -3,6 +3,7 @@
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 @using DnsmasqWebUI.Infrastructure.Helpers.Config
 @using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
+@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Validation
 @inject IEffectiveConfigEditSession Session
 @inject IJSRuntime JSRuntime
 
@@ -17,6 +18,7 @@
     }
     <EffectiveConfigToolbar ShowSearchBox="@ShowSearchBox" SearchTerm="@_searchTerm" SearchTermChanged="@OnSearchTermChanged"
         IsEditMode="@Session.IsEditMode" PendingChangesCount="@Session.PendingChanges.Count"
+        ValidationErrorCount="@_validationErrorCount" ValidationWarningCount="@_validationWarningCount"
         AllSectionsExpanded="@_allSectionsExpanded"
         OnExpandAll="ExpandAll" OnCollapseAll="CollapseAll" OnEnterEditMode="EnterEditMode" OnExitEditModeWithConfirm="ExitEditModeWithConfirmAsync" OnOpenSaveModal="OpenSaveModal" />
     <CascadingValue Value="@Session">
@@ -39,6 +41,9 @@
     private string _searchTerm = "";
     private HashSet<string> _openPanels = new();
     private bool _showSaveModal;
+
+    private int _validationErrorCount => Session.GetValidationSummary().Count(i => i.Severity == FieldIssueSeverity.Error);
+    private int _validationWarningCount => Session.GetValidationSummary().Count(i => i.Severity == FieldIssueSeverity.Warning);
 
     private string? _optionHelpKey;
     private string? _optionHelpAnchorId;
@@ -69,7 +74,7 @@
             ActivateFieldAsync = fieldKey => { ActivateField(fieldKey); return Task.CompletedTask; },
             DeactivateFieldAsync = () => { Session.DeactivateField(); return InvokeAsync(StateHasChanged); },
             CommitFieldAsync = args => { HandleFieldEditCommitted(args); return Task.CompletedTask; },
-            RevertFieldAsync = (sectionId, optionName) => { Session.RevertChange(sectionId, optionName); return InvokeAsync(StateHasChanged); }
+            RevertFieldAsync = (sectionId, optionName) => { Session.RevertChange(sectionId, optionName); RunCrossOptionEvaluator(); return InvokeAsync(StateHasChanged); }
         };
     }
 
@@ -184,7 +189,14 @@
     private void HandleFieldEditCommitted(EffectiveConfigEditCommittedArgs args)
     {
         Session.TrackCommit(args);
+        RunCrossOptionEvaluator();
         StateHasChanged();
+    }
+
+    private void RunCrossOptionEvaluator()
+    {
+        var issues = EffectiveConfigCrossOptionEvaluator.Evaluate(Status, Session.PendingChanges);
+        Session.SetCrossOptionIssues(issues);
     }
 
     private void OpenSaveModal()

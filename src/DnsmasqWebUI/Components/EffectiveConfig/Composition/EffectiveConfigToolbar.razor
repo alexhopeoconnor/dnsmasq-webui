@@ -30,6 +30,20 @@
                     @PendingChangesCount change(s)
                 </span>
             }
+            @if (ValidationErrorCount > 0 || ValidationWarningCount > 0)
+            {
+                <span class="small ec-toolbar-validation-count" aria-live="polite">
+                    @if (ValidationErrorCount > 0)
+                    {
+                        <span class="text-danger fw-medium">errors: @ValidationErrorCount</span>
+                    }
+                    @if (ValidationErrorCount > 0 && ValidationWarningCount > 0) { <span class="text-muted">·</span> }
+                    @if (ValidationWarningCount > 0)
+                    {
+                        <span class="text-warning">warnings: @ValidationWarningCount</span>
+                    }
+                </span>
+            }
         }
         else
         {
@@ -46,6 +60,8 @@
     [Parameter] public EventCallback<string> SearchTermChanged { get; set; }
     [Parameter] public bool IsEditMode { get; set; }
     [Parameter] public int PendingChangesCount { get; set; }
+    [Parameter] public int ValidationErrorCount { get; set; }
+    [Parameter] public int ValidationWarningCount { get; set; }
     [Parameter] public bool AllSectionsExpanded { get; set; }
     [Parameter] public EventCallback OnExpandAll { get; set; }
     [Parameter] public EventCallback OnCollapseAll { get; set; }

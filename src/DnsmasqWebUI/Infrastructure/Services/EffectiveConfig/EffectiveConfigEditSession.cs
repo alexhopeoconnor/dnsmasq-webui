@@ -7,6 +7,8 @@ public sealed class EffectiveConfigEditSession : IEffectiveConfigEditSession
 {
     private readonly IEffectiveConfigSaveService _saveService;
     private readonly List<PendingEffectiveConfigChange> _pending = new();
+    private readonly Dictionary<string, List<FieldIssue>> _fieldIssues = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<FieldIssue> _crossOptionIssues = new();
 
     public EffectiveConfigEditSession(IEffectiveConfigSaveService saveService)
     {
@@ -16,17 +18,37 @@ public sealed class EffectiveConfigEditSession : IEffectiveConfigEditSession
     public bool IsEditMode { get; private set; }
     public string? ActiveFieldKey { get; private set; }
     public IReadOnlyList<PendingEffectiveConfigChange> PendingChanges => _pending;
+    public IReadOnlyDictionary<string, IReadOnlyList<FieldIssue>> FieldIssues
+    {
+        get
+        {
+            var copy = new Dictionary<string, List<FieldIssue>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var kv in _fieldIssues)
+                copy[kv.Key] = new List<FieldIssue>(kv.Value);
+            foreach (var issue in _crossOptionIssues)
+            {
+                if (!copy.TryGetValue(issue.FieldKey, out var list))
+                    copy[issue.FieldKey] = list = new List<FieldIssue>();
+                list.Add(issue);
+            }
+            return copy.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<FieldIssue>)kv.Value, StringComparer.OrdinalIgnoreCase);
+        }
+    }
 
     public void EnterEditMode()
     {
         IsEditMode = true;
         ActiveFieldKey = null;
         _pending.Clear();
+        _fieldIssues.Clear();
+        _crossOptionIssues.Clear();
     }
 
     public void ExitEditModeDiscard()
     {
         _pending.Clear();
+        _fieldIssues.Clear();
+        _crossOptionIssues.Clear();
         ActiveFieldKey = null;
         IsEditMode = false;
     }
@@ -40,6 +62,39 @@ public sealed class EffectiveConfigEditSession : IEffectiveConfigEditSession
     public void DeactivateField()
     {
         ActiveFieldKey = null;
+    }
+
+    public void SetFieldIssues(string fieldKey, IReadOnlyList<FieldIssue> issues)
+    {
+        if (string.IsNullOrEmpty(fieldKey)) return;
+        _fieldIssues[fieldKey] = issues.ToList();
+    }
+
+    public void ClearFieldIssues(string fieldKey)
+    {
+        if (string.IsNullOrEmpty(fieldKey)) return;
+        _fieldIssues.Remove(fieldKey);
+    }
+
+    public void SetCrossOptionIssues(IReadOnlyList<FieldIssue> issues)
+    {
+        _crossOptionIssues.Clear();
+        if (issues != null)
+            _crossOptionIssues.AddRange(issues);
+    }
+
+    public bool HasBlockingValidationErrors()
+    {
+        if (_fieldIssues.Values.Any(list => list.Any(i => i.Severity == FieldIssueSeverity.Error)))
+            return true;
+        return _crossOptionIssues.Any(i => i.Severity == FieldIssueSeverity.Error);
+    }
+
+    public IReadOnlyList<FieldIssue> GetValidationSummary()
+    {
+        var list = new List<FieldIssue>(_fieldIssues.Values.SelectMany(x => x));
+        list.AddRange(_crossOptionIssues);
+        return list;
     }
 
     public void TrackCommit(EffectiveConfigEditCommittedArgs args)
@@ -60,6 +115,7 @@ public sealed class EffectiveConfigEditSession : IEffectiveConfigEditSession
             c.SectionId == sectionId && c.OptionName == optionName);
         if (existing != null)
             _pending.Remove(existing);
+        ClearFieldIssues($"{sectionId}:{optionName}");
     }
 
     public async Task<EffectiveConfigSaveResult> ApplyAsync(CancellationToken ct = default)

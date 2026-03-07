@@ -13,4 +13,6 @@ public interface IEffectiveConfigFieldDescriptor
     object? GetValue();
     ConfigValueSource? GetSource();
     IReadOnlyList<ValueWithSource>? GetItems();
+    /// <summary>Validates the value; returns error message or null if valid. Used for single/flag fields.</summary>
+    string? Validate(object? value);
 }

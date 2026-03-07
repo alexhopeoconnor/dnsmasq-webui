@@ -64,6 +64,11 @@
     private async Task HandleSave()
     {
         if (Session.PendingChanges.Count == 0) return;
+        if (Session.HasBlockingValidationErrors())
+        {
+            NotificationService.ShowError("Fix validation errors before saving.");
+            return;
+        }
 
         _saveState = SaveUiState.Saving;
         _saveResult = null;
@@ -114,7 +119,7 @@
             _saveState = SaveUiState.Review;
             _saveResult = null;
             _restoreResult = null;
-            await OnClose.InvokeAsync();
+            await OnCloseAndEndEdit.InvokeAsync();
             await OnSaveCompleted.InvokeAsync();
             return;
         }

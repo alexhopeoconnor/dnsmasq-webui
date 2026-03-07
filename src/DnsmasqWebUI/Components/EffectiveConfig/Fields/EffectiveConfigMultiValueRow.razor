@@ -12,6 +12,9 @@
             ReadonlyBadgeAnchorIdBase="@(ReadonlyBadgeAnchorIdBase ?? "")"
             IsEditMode="@IsEditMode"
             AllowAddManagedValue="@IsEditMode"
+            FieldKey="@FieldKey"
+            Behavior="@(_multiDesc?.Behavior)"
+            Validator="@(_multiDesc?.Validator)"
             OnValuesChanged="@ItemsChanged" />
         <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorIdBase ?? "")" Source="@Source" OptionName="@Label" Value="@Items"
                          IsInteractive="@IsEditMode" ShowEditableBadge="@ShowEditableBadge" HasPendingChange="@HasPendingChange"
@@ -20,7 +23,7 @@
     }
     else
     {
-        <span class="ec-field-value ec-field-value-multi">
+        <div class="ec-field-value ec-field-value-multi">
             @if (Items?.Count > 0)
             {
                 <ol class="ec-field-value-list">
@@ -37,12 +40,13 @@
                 <OptionStateBadge OptionName="@Label" ShowEditableBadge="true" EditableAsButton="true"
                     FieldKey="@FieldKey" IsActiveEditor="false" IsInteractive="true" />
             }
-        </span>
+        </div>
     }
 </li>
 
 @code {
     [Parameter] public string Label { get; set; } = "";
+    [Parameter] public EffectiveConfigFieldDescriptor? Descriptor { get; set; }
     [Parameter] public IReadOnlyList<ValueWithSource>? Items { get; set; }
     [Parameter] public EventCallback<IReadOnlyList<string>> ItemsChanged { get; set; }
     [Parameter] public string? LabelTooltip { get; set; }
@@ -58,4 +62,6 @@
     [Parameter] public EventCallback OnConfirmRequested { get; set; }
     [Parameter] public EventCallback OnCancelRequested { get; set; }
     [Parameter] public EventCallback OnRevertRequested { get; set; }
+
+    private EffectiveMultiValueConfigFieldDescriptor? _multiDesc => Descriptor as EffectiveMultiValueConfigFieldDescriptor;
 }

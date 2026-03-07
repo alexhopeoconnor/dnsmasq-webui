@@ -5,8 +5,6 @@
 @using DnsmasqWebUI.Infrastructure.Helpers.Config
 @using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
 @using DnsmasqWebUI.Infrastructure.Services.UI.Notifications.Abstractions
-@using System.Net
-@using System.Net.Sockets
 @inject IEffectiveConfigRenderFragmentRegistry RenderFragmentRegistry
 @inject INotificationService NotificationService
 
@@ -44,11 +42,32 @@
 }
 else if (Descriptor.IsMultiValue)
 {
-    @* Multi-value state is computed in OnParametersSet and in HandleMultiValueChanged; we only read cached fields here. *@
-    <EffectiveConfigMultiValueRow Label="@Descriptor.OptionName" Items="@_multiValueItems" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId"
-        IsActiveEditor="@(IsEditMode && IsActive)" IsEditMode="@IsEditMode" ReadonlyBadgeAnchorIdBase="@_readonlyBadgeAnchorId"
-        Source="@_multiValueRowSource" ShowEditableBadge="@IsEditMode" HasPendingChange="@_multiValueHasPendingOrDraft" FieldKey="@FieldKey"
-        ItemsChanged="@HandleMultiValueChanged" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
+    var customMulti = RenderFragmentRegistry.BuildMultiFieldComponentFragment(Descriptor.SectionId, Descriptor.OptionName, EventCallback.Factory.Create<IReadOnlyList<string>>(this, HandleMultiValueChanged));
+    if (customMulti is not null)
+    {
+        @* Custom multi editor (e.g. server): same row shell as generic multi, value slot uses custom fragment. *@
+        <li class="ec-field @(IsEditMode && IsActive ? "ec-field-editing" : "")">
+            <OptionHelpLabel AnchorId="@_anchorId" HelpKey="@_optionHelpKey" OptionLabel="@Descriptor.OptionName" Title="@(_labelTooltip ?? Descriptor.GetSource()?.GetReadOnlyTooltip())"><strong>@Descriptor.OptionName:</strong></OptionHelpLabel>
+            <span class="ec-field-value">
+                <CascadingValue Value="@(IsEditMode && IsActive)">
+                    <CascadingValue Value="@IsEditMode">
+                        @customMulti(Descriptor)
+                    </CascadingValue>
+                </CascadingValue>
+            </span>
+            <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@_multiValueRowSource" OptionName="@Descriptor.OptionName" Value="@_multiValueItems"
+                IsInteractive="@IsEditMode" ShowEditableBadge="@IsEditMode" HasPendingChange="@_multiValueHasPendingOrDraft" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@(IsEditMode && IsActive)"
+                OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
+        </li>
+    }
+    else
+    {
+        @* Multi-value state is computed in OnParametersSet and in HandleMultiValueChanged; we only read cached fields here. *@
+        <EffectiveConfigMultiValueRow Descriptor="@Descriptor" Label="@Descriptor.OptionName" Items="@_multiValueItems" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId"
+            IsActiveEditor="@(IsEditMode && IsActive)" IsEditMode="@IsEditMode" ReadonlyBadgeAnchorIdBase="@_readonlyBadgeAnchorId"
+            Source="@_multiValueRowSource" ShowEditableBadge="@IsEditMode" HasPendingChange="@_multiValueHasPendingOrDraft" FieldKey="@FieldKey"
+            ItemsChanged="@HandleMultiValueChanged" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
+    }
 }
 else
 {
@@ -191,7 +210,7 @@ else
                 await Ui.RevertFieldAsync(Descriptor.SectionId, Descriptor.OptionName);
             return true;
         }
-        var validationError = ValidateDraftValue(newValue);
+        var validationError = Descriptor.Validate(newValue);
         if (validationError != null)
         {
             NotificationService.ShowError(validationError);
@@ -259,22 +278,6 @@ else
         _exitAction = ExitAction.Revert;
         if (Ui != null)
             await Ui.DeactivateFieldAsync();
-    }
-
-    private string? ValidateDraftValue(object? value)
-    {
-        if (string.Equals(Descriptor.OptionName, DnsmasqConfKeys.ListenAddress, StringComparison.Ordinal))
-        {
-            var values = AsStringList(value) ?? (value is string s ? new[] { s } : null);
-            if (values == null) return null;
-            foreach (var raw in values)
-            {
-                var v = raw.Trim();
-                if (!IPAddress.TryParse(v, out var ip) || (ip.AddressFamily != AddressFamily.InterNetwork && ip.AddressFamily != AddressFamily.InterNetworkV6))
-                    return $"Invalid value for {DnsmasqConfKeys.ListenAddress}: '{raw}'. Use a valid IPv4 or IPv6 address.";
-            }
-        }
-        return null;
     }
 
     private static IReadOnlyList<string>? AsStringList(object? value)

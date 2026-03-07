@@ -32,17 +32,8 @@ internal sealed class ProcessHandle : IProcessHandle
         _logger = logger;
 
         process.EnableRaisingEvents = true;
-        process.Exited += (_, _) =>
-        {
-            lock (_gate)
-            {
-                if (!_channelCompleted)
-                {
-                    _channelCompleted = true;
-                    _channel.Writer.Complete();
-                }
-            }
-        };
+        // Do not complete the channel in Exited: OutputDataReceived/ErrorDataReceived can fire after Exited
+        // (see dotnet/runtime#18789). Complete only when both streams have closed (e.Data == null).
 
         process.OutputDataReceived += (_, e) =>
         {
@@ -52,7 +43,10 @@ internal sealed class ProcessHandle : IProcessHandle
                 _channel.Writer.TryWrite(new ProcessOutputLine(ProcessOutputStream.StdOut, e.Data, DateTime.UtcNow));
             }
             else
+            {
                 _stdoutClosed.TrySetResult();
+                TryCompleteChannelWhenBothStreamsClosed();
+            }
         };
 
         process.ErrorDataReceived += (_, e) =>
@@ -63,8 +57,33 @@ internal sealed class ProcessHandle : IProcessHandle
                 _channel.Writer.TryWrite(new ProcessOutputLine(ProcessOutputStream.StdErr, e.Data, DateTime.UtcNow));
             }
             else
+            {
                 _stderrClosed.TrySetResult();
+                TryCompleteChannelWhenBothStreamsClosed();
+            }
         };
+    }
+
+    private void TryCompleteChannelWhenBothStreamsClosed()
+    {
+        lock (_gate)
+        {
+            if (_channelCompleted) return;
+            if (!_stdoutClosed.Task.IsCompleted || !_stderrClosed.Task.IsCompleted) return;
+            _channelCompleted = true;
+            _channel.Writer.Complete();
+        }
+    }
+
+    /// <summary>Complete the channel after waiting for streams; used when stream-close wait timed out or caller is shutting down.</summary>
+    private void CompleteChannelIfNeeded()
+    {
+        lock (_gate)
+        {
+            if (_channelCompleted) return;
+            _channelCompleted = true;
+            _channel.Writer.Complete();
+        }
     }
 
     public async IAsyncEnumerable<ProcessOutputLine> ReadOutputAsync([EnumeratorCancellation] CancellationToken ct = default)
@@ -100,24 +119,18 @@ internal sealed class ProcessHandle : IProcessHandle
             var timeoutSeconds = timeout?.TotalSeconds ?? 0;
             _logger?.LogWarning("Command timed out after {Timeout}s", timeoutSeconds);
             try { _process.Kill(); } catch { /* best effort */ }
-            lock (_gate)
-            {
-                if (!_channelCompleted)
-                {
-                    _channelCompleted = true;
-                    _channel.Writer.Complete();
-                }
-            }
-            try { await drainTask; } catch (OperationCanceledException) { }
             await WaitForStreamsClosedAsync();
+            CompleteChannelIfNeeded();
+            try { await drainTask; } catch (OperationCanceledException) { }
             var err = _stderr.ToString();
             if (!string.IsNullOrEmpty(err)) err += "\n";
             err += $"Command timed out after {timeoutSeconds} seconds.";
             return new ProcessRunResult(null, _stdout.ToString(), err, true);
         }
 
-        try { await drainTask; } catch (OperationCanceledException) { }
         await WaitForStreamsClosedAsync();
+        CompleteChannelIfNeeded();
+        try { await drainTask; } catch (OperationCanceledException) { }
         var exitCode = _process.HasExited ? _process.ExitCode : -1;
         _logger?.LogDebug("Command completed, exit code={ExitCode}", exitCode);
 

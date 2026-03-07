@@ -4,6 +4,7 @@ using DnsmasqWebUI.Models.Dnsmasq;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions;
+using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Validation;
 using DnsmasqWebUI.Components.EffectiveConfig.CustomDisplays;
 
 namespace DnsmasqWebUI.Infrastructure.Services.EffectiveConfig;
@@ -14,8 +15,12 @@ namespace DnsmasqWebUI.Infrastructure.Services.EffectiveConfig;
 /// </summary>
 public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragmentRegistry
 {
+    private static readonly IMultiValueEditBehavior DefaultMultiBehavior = new DefaultMultiValueEditBehavior();
+
     private readonly Dictionary<(string SectionId, string OptionName), Type> _displayComponents = new();
     private readonly Dictionary<(string SectionId, string OptionName), EffectiveConfigDescriptorFactory> _descriptorFactories = new();
+    private readonly Dictionary<(string SectionId, string OptionName), Type> _multiDisplayComponents = new();
+    private readonly Dictionary<(string SectionId, string OptionName), EffectiveConfigMultiDescriptorFactory> _multiDescriptorFactories = new();
 
     public EffectiveConfigRenderFragmentRegistry()
     {
@@ -83,6 +88,99 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
 
         // local-service: dropdown (not set / net / host).
         RegisterComponent(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.LocalService, typeof(LocalServiceDisplay));
+
+        // Multi-value: server — descriptor only (behavior + validator); no custom display.
+        RegisterMultiDescriptor(
+            EffectiveConfigFieldBuilder.SectionResolver,
+            DnsmasqConfKeys.Server,
+            behavior: new ServerMultiBehavior(),
+            validator: new ServerMultiValidator());
+
+        RegisterMultiDescriptor(
+            EffectiveConfigFieldBuilder.SectionProcess,
+            DnsmasqConfKeys.ListenAddress,
+            validator: new ListenAddressMultiValidator());
+
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionHosts, DnsmasqConfKeys.AddnHosts);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.Local);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.RevServer);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.Address);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.ResolvFile);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.RebindDomainOk);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.BogusNxdomain);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.IgnoreAddress);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.Alias);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.FilterRr);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.Ipset);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.Nftset);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.Domain);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.Cname);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.MxHost);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.Srv);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.PtrRecord);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.TxtRecord);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.NaptrRecord);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.HostRecord);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.DynamicHost);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.InterfaceName);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpRange);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpHost);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpOption);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpOptionForce);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpMatch);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpMac);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpNameMatch);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpIgnoreNames);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpHostsfile);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpOptsfile);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpHostsdir);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpBoot);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpIgnore);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpVendorclass);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpUserclass);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.RaParam);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.Slaac);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionTftpPxe, DnsmasqConfKeys.PxeService);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.TrustAnchor);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.CacheRr);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.Interface);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.ExceptInterface);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.AuthServer);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.NoDhcpInterface);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.NoDhcpv4Interface);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.NoDhcpv6Interface);
+    }
+
+    private void RegisterMultiDescriptor(
+        string sectionId,
+        string optionName,
+        IMultiValueEditBehavior? behavior = null,
+        IMultiValueOptionValidator? validator = null)
+    {
+        _multiDescriptorFactories[(sectionId, optionName)] =
+            (sid, name, status, getItems) => new EffectiveMultiValueConfigFieldDescriptor(
+                sid,
+                name,
+                status,
+                getItems,
+                behavior ?? DefaultMultiBehavior,
+                validator);
+    }
+
+    private void RegisterMultiComponent(string sectionId, string optionName, Type componentType)
+    {
+        _multiDisplayComponents[(sectionId, optionName)] = componentType;
+    }
+
+    private void RegisterMulti(
+        string sectionId,
+        string optionName,
+        Type componentType,
+        IMultiValueEditBehavior? behavior = null,
+        IMultiValueOptionValidator? validator = null)
+    {
+        RegisterMultiDescriptor(sectionId, optionName, behavior, validator);
+        RegisterMultiComponent(sectionId, optionName, componentType);
     }
 
     private void RegisterComponent(string sectionId, string optionName, Type componentType)
@@ -100,7 +198,21 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
     {
         _displayComponents[(sectionId, optionName)] = typeof(IntegerValueDisplay);
         _descriptorFactories[(sectionId, optionName)] = (sectionId, optionName, status, getValue, getSource, getItems) =>
-            new EffectiveIntegerConfigFieldDescriptor(sectionId, optionName, false, status, getValue, getSource, getItems, viewSuffix, unit, min, max, defaultValue);
+            new EffectiveIntegerConfigFieldDescriptor(sectionId, optionName, status, getValue, getSource, getItems, viewSuffix, unit, min, max, defaultValue);
+    }
+
+    private void RegisterValidatedSingle(string sectionId, string optionName, EffectiveConfigSingleValueValidator validator)
+    {
+        _descriptorFactories[(sectionId, optionName)] =
+            (sid, name, status, getValue, getSource, getItems) => new EffectiveConfigFieldDescriptor(
+                sid,
+                name,
+                false,
+                status,
+                getValue,
+                getSource,
+                getItems,
+                validator);
     }
 
     /// <inheritdoc />
@@ -131,5 +243,26 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
                 builder.AddAttribute(2, "ValueChanged", onValueChanged);
             builder.CloseComponent();
         };
+    }
+
+    /// <inheritdoc />
+    public RenderFragment<EffectiveConfigFieldDescriptor>? BuildMultiFieldComponentFragment(string sectionId, string optionName, EventCallback<IReadOnlyList<string>> onValuesChanged)
+    {
+        if (!_multiDisplayComponents.TryGetValue((sectionId, optionName), out var componentType))
+            return null;
+
+        return descriptor => builder =>
+        {
+            builder.OpenComponent(0, componentType);
+            builder.AddAttribute(1, "Descriptor", descriptor);
+            builder.AddAttribute(2, "OnValuesChanged", onValuesChanged);
+            builder.CloseComponent();
+        };
+    }
+
+    /// <inheritdoc />
+    public EffectiveConfigMultiDescriptorFactory? GetMultiDescriptorFactory(string sectionId, string optionName)
+    {
+        return _multiDescriptorFactories.TryGetValue((sectionId, optionName), out var factory) ? factory : null;
     }
 }

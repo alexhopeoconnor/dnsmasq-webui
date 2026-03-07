@@ -34,9 +34,20 @@ else
 
     private async Task OnInput(ChangeEventArgs e)
     {
-        int? value = null;
-        if (int.TryParse(e.Value?.ToString(), out var num) && num >= Min && num <= Max)
+        var raw = e.Value?.ToString();
+        object? value = null;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            value = null;
+        }
+        else if (int.TryParse(raw, out var num))
+        {
             value = num;
+        }
+        else
+        {
+            value = raw;
+        }
         await NotifyValueChanged(value);
     }
 }

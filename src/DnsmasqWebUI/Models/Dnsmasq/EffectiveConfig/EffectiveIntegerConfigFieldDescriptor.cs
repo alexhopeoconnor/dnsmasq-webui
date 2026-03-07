@@ -8,7 +8,6 @@ namespace DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 public record EffectiveIntegerConfigFieldDescriptor(
     string SectionId,
     string OptionName,
-    bool IsMultiValue,
     DnsmasqServiceStatus? Status,
     Func<DnsmasqServiceStatus?, object?>? ResolveValue,
     Func<DnsmasqServiceStatus?, ConfigValueSource?>? ResolveSource,
@@ -18,4 +17,20 @@ public record EffectiveIntegerConfigFieldDescriptor(
     int Min = 0,
     int Max = int.MaxValue,
     int? DefaultValue = null
-) : EffectiveConfigFieldDescriptor(SectionId, OptionName, IsMultiValue, Status, ResolveValue, ResolveSource, ResolveItems);
+) : EffectiveConfigFieldDescriptor(
+    SectionId,
+    OptionName,
+    false,
+    Status,
+    ResolveValue,
+    ResolveSource,
+    ResolveItems,
+    value =>
+    {
+        if (value is null) return null;
+        if (value is int n && (n < Min || n > Max))
+            return $"Value must be between {Min} and {Max}.";
+        if (value is int)
+            return null;
+        return $"Value must be a whole number between {Min} and {Max}.";
+    });

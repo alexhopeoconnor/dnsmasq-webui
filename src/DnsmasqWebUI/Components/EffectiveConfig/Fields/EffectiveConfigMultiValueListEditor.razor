@@ -2,33 +2,44 @@
 @using DnsmasqWebUI.Models.Dnsmasq
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 @using Microsoft.AspNetCore.Components.Web
+@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Validation
 @inject IJSRuntime JSRuntime
 
-<span class="ec-field-value ec-field-value-multi ec-multi-list-editor" @onclick:stopPropagation="true">
+<div class="ec-field-value ec-field-value-multi ec-multi-list-editor" @onclick:stopPropagation="true">
     <ol class="ec-field-value-list">
-        @if (SourceItems?.Count > 0)
+        @if (_displayItems.Count > 0)
         {
-            @for (var i = 0; i < SourceItems.Count; i++)
+            @for (var i = 0; i < _displayItems.Count; i++)
             {
-                var item = SourceItems[i];
+                var item = _displayItems[i];
                 var anchorId = $"{ReadonlyBadgeAnchorIdBase}-{i}";
                 var itemReadonly = item.Source?.IsReadOnly == true;
                 var rowIndex = i;
                 var rowValue = item.Value;
+                var rowInlineError = GetInlineErrorForIndex(rowIndex);
 
-                <li class="ec-multi-list-row" @key="anchorId">
+                <li class="ec-multi-list-row @(_editingIndex == rowIndex && !itemReadonly ? "ec-multi-list-row-with-controls" : "")" @key="anchorId">
                     @if (_editingIndex == rowIndex && !itemReadonly)
                     {
-                        <input class="form-control form-control-sm ec-multi-list-input"
-                               @bind="_draftValue" @bind:event="oninput" />
-                        <span class="status-badge-inline">
-                            <StatusBadge Kind="StatusBadgeKind.ActionOk" Text="save" Clickable="true"
-                                         Title="Apply change" AriaLabel="Apply change"
-                                         PreventBlurOnMouseDown="true" OnClick="@(() => SaveEdit(rowIndex))" Class="status-badge-inline" />
-                            <StatusBadge Kind="StatusBadgeKind.ActionCancel" Text="cancel" Clickable="true"
-                                         Title="Discard edit" AriaLabel="Cancel edit"
-                                         PreventBlurOnMouseDown="true" OnClick="CancelInline" Class="status-badge-inline" />
-                        </span>
+                        <div class="ec-multi-list-row-controls">
+                            <div class="ec-multi-list-input-group">
+                                <input class="form-control form-control-sm ec-multi-list-input @(rowInlineError != null ? "is-invalid" : "")"
+                                       placeholder="@(Behavior?.Placeholder ?? "")"
+                                       @bind="_draftValue" @bind:event="oninput" />
+                                @if (rowInlineError != null)
+                                {
+                                    <div class="ec-multi-list-invalid-feedback invalid-feedback d-block">@rowInlineError</div>
+                                }
+                            </div>
+                            <span class="status-badge-inline">
+                                <StatusBadge Kind="StatusBadgeKind.ActionOk" Text="save" Clickable="true"
+                                             Title="Apply change" AriaLabel="Apply change"
+                                             PreventBlurOnMouseDown="true" OnClick="@(() => SaveEdit(rowIndex))" Class="status-badge-inline" />
+                                <StatusBadge Kind="StatusBadgeKind.ActionCancel" Text="cancel" Clickable="true"
+                                             Title="Discard edit" AriaLabel="Cancel edit"
+                                             PreventBlurOnMouseDown="true" OnClick="CancelInline" Class="status-badge-inline" />
+                            </span>
+                        </div>
                     }
                     else
                     {
@@ -48,6 +59,7 @@
                             {
                                 <StatusBadge Kind="StatusBadgeKind.ActionRevert" Text="remove" Clickable="true"
                                              Title="Remove this value" AriaLabel="Remove"
+                                             PreventBlurOnMouseDown="true"
                                              OnClick="@(() => RemoveAt(rowIndex))" Class="status-badge-inline" />
                             }
                         </span>
@@ -64,20 +76,28 @@
 
         @if (AllowAddManagedValue)
         {
-            <li class="ec-multi-list-row ec-multi-list-add-item" @key="AddItemKey">
+            <li class="ec-multi-list-row ec-multi-list-add-item @(_addingNew ? "ec-multi-list-row-with-controls" : "")" @key="AddItemKey">
                 @if (_addingNew)
                 {
-                    <input @ref="_addNewInputRef" class="form-control form-control-sm ec-multi-list-input"
-                           placeholder="New value"
-                           @bind="_draftValue" @bind:event="oninput" />
-                    <span class="status-badge-inline">
-                        <StatusBadge Kind="StatusBadgeKind.ActionOk" Text="add" Clickable="true"
-                                     Title="Add this value" AriaLabel="Add"
-                                     PreventBlurOnMouseDown="true" OnClick="SaveNew" Class="status-badge-inline" />
-                        <StatusBadge Kind="StatusBadgeKind.ActionCancel" Text="cancel" Clickable="true"
-                                     Title="Discard" AriaLabel="Cancel"
-                                     PreventBlurOnMouseDown="true" OnClick="CancelInline" Class="status-badge-inline" />
-                    </span>
+                    <div class="ec-multi-list-row-controls">
+                        <div class="ec-multi-list-input-group">
+                            <input @ref="_addNewInputRef" class="form-control form-control-sm ec-multi-list-input @(AddInlineError != null ? "is-invalid" : "")"
+                                   placeholder="@(Behavior?.Placeholder ?? "New value")"
+                                   @bind="_draftValue" @bind:event="oninput" />
+                            @if (AddInlineError != null)
+                            {
+                                <div class="ec-multi-list-invalid-feedback invalid-feedback d-block">@AddInlineError</div>
+                            }
+                        </div>
+                        <span class="status-badge-inline">
+                            <StatusBadge Kind="StatusBadgeKind.ActionOk" Text="add" Clickable="true"
+                                         Title="Add this value" AriaLabel="Add"
+                                         PreventBlurOnMouseDown="true" OnClick="SaveNew" Class="status-badge-inline" />
+                            <StatusBadge Kind="StatusBadgeKind.ActionCancel" Text="cancel" Clickable="true"
+                                         Title="Discard" AriaLabel="Cancel"
+                                         PreventBlurOnMouseDown="true" OnClick="CancelInline" Class="status-badge-inline" />
+                        </span>
+                    </div>
                 }
                 else
                 {
@@ -88,7 +108,7 @@
             </li>
         }
     </ol>
-</span>
+</div>
 
 @code {
     [Parameter] public IReadOnlyList<ValueWithSource>? SourceItems { get; set; }
@@ -97,6 +117,10 @@
 
     [Parameter] public bool IsEditMode { get; set; }
     [Parameter] public bool AllowAddManagedValue { get; set; } = true;
+
+    [Parameter] public IMultiValueEditBehavior? Behavior { get; set; }
+    [Parameter] public IMultiValueOptionValidator? Validator { get; set; }
+    [Parameter] public string? FieldKey { get; set; }
 
     [Parameter] public EventCallback<IReadOnlyList<string>> OnValuesChanged { get; set; }
 
@@ -107,9 +131,22 @@
     private bool _didAutoOpenAdd;
     private bool _shouldFocusAddInput;
     private ElementReference _addNewInputRef;
+    private int? _inlineErrorIndex;
+    private string? _inlineErrorMessage;
+
+    private List<ValueWithSource> _displayItems = new();
+    private IReadOnlyList<string> _currentValues => _displayItems.Select(x => x.Value).ToList();
+
+    private string? AddInlineError => _addingNew && _inlineErrorIndex is null ? _inlineErrorMessage : null;
+    private string? GetInlineErrorForIndex(int? editIndex)
+    {
+        return _editingIndex == editIndex && _inlineErrorIndex == editIndex ? _inlineErrorMessage : null;
+    }
 
     protected override void OnParametersSet()
     {
+        _displayItems = (SourceItems ?? Array.Empty<ValueWithSource>()).ToList();
+
         if (!_didAutoOpenAdd && (SourceItems?.Count ?? 0) == 0 && AllowAddManagedValue)
         {
             _didAutoOpenAdd = true;
@@ -139,6 +176,7 @@
         _addingNew = false;
         _editingIndex = index;
         _draftValue = current;
+        ClearInlineError();
     }
 
     private void BeginAdd()
@@ -147,6 +185,7 @@
         _addingNew = true;
         _draftValue = "";
         _shouldFocusAddInput = true;
+        ClearInlineError();
     }
 
     private void CancelInline()
@@ -154,46 +193,96 @@
         _editingIndex = null;
         _addingNew = false;
         _draftValue = "";
+        ClearInlineError();
     }
 
     private async Task SaveEdit(int index)
     {
-        var next = (SourceItems ?? Array.Empty<ValueWithSource>())
-            .Select(x => x.Value)
-            .ToList();
+        var current = _currentValues;
+        var next = current.ToList();
         if (index < 0 || index >= next.Count) return;
 
-        next[index] = (_draftValue ?? "").Trim();
+        var raw = _draftValue ?? "";
+        var normalized = Behavior?.Normalize(raw) ?? raw.Trim();
+        if (normalized.Length == 0)
+        {
+            SetInlineError(index, "Value cannot be empty.");
+            return;
+        }
+
+        var validationError = Validator?.ValidateItem(normalized, current, index);
+        if (validationError != null)
+        {
+            SetInlineError(index, validationError);
+            return;
+        }
+
+        if (Behavior?.AllowDuplicates == false && next.Where((v, i) => i != index).Any(v => string.Equals(v, normalized, StringComparison.Ordinal)))
+        {
+            SetInlineError(index, "Duplicate values are not allowed.");
+            return;
+        }
+
+        ClearInlineError();
+        next[index] = normalized;
+        _displayItems[index] = _displayItems[index] with { Value = normalized };
         await OnValuesChanged.InvokeAsync(next);
         CancelInline();
     }
 
     private async Task SaveNew()
     {
-        var value = (_draftValue ?? "").Trim();
-        if (value.Length == 0) return;
+        var raw = _draftValue ?? "";
+        var normalized = Behavior?.Normalize(raw) ?? raw.Trim();
+        if (normalized.Length == 0) return;
 
-        var next = (SourceItems ?? Array.Empty<ValueWithSource>())
-            .Select(x => x.Value)
-            .ToList();
+        var current = _currentValues;
+        var validationError = Validator?.ValidateItem(normalized, current, null);
+        if (validationError != null)
+        {
+            SetInlineError(null, validationError);
+            return;
+        }
 
-        next.Add(value);
+        if (Behavior?.AllowDuplicates == false && current.Contains(normalized, StringComparer.Ordinal))
+        {
+            SetInlineError(null, "Duplicate values are not allowed.");
+            return;
+        }
+
+        ClearInlineError();
+        var next = current.ToList();
+        next.Add(normalized);
+        _displayItems.Add(new ValueWithSource(normalized, null));
         await OnValuesChanged.InvokeAsync(next);
         CancelInline();
     }
 
+    private void SetInlineError(int? itemIndex, string message)
+    {
+        _inlineErrorIndex = itemIndex;
+        _inlineErrorMessage = message;
+        StateHasChanged();
+    }
+
+    private void ClearInlineError()
+    {
+        _inlineErrorIndex = null;
+        _inlineErrorMessage = null;
+    }
+
     private async Task RemoveAt(int index)
     {
-        if (SourceItems == null || index < 0 || index >= SourceItems.Count) return;
-        var item = SourceItems[index];
+        if (index < 0 || index >= _displayItems.Count) return;
+        var item = _displayItems[index];
         if (item?.Source?.IsReadOnly == true) return;
 
-        var next = (SourceItems ?? Array.Empty<ValueWithSource>())
-            .Select(x => x.Value)
-            .ToList();
+        var next = _displayItems.Select(x => x.Value).ToList();
         if (index < 0 || index >= next.Count) return;
 
         next.RemoveAt(index);
+        _displayItems.RemoveAt(index);
         await OnValuesChanged.InvokeAsync(next);
+        StateHasChanged();
     }
 }
