@@ -79,6 +79,24 @@ a:hover, .btn-link:hover {
     outline: 0;
 }
 
+/* Effective-config switch: shared styling for flag, do-0x20-encode, and key-only-or-value displays */
+.ec-effective-switch {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    min-height: 1.25rem;
+    padding-left: 0;
+    margin-bottom: 0;
+}
+
+.ec-effective-switch .form-check-input {
+    float: none;
+    margin: 0;
+    cursor: pointer;
+    position: relative;
+    top: 2px;
+}
+
 .content {
     padding-top: var(--app-spacing-lg);
     padding-bottom: var(--app-spacing-2xl);

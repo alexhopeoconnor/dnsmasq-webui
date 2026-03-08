@@ -3,11 +3,19 @@
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 @inherits EffectiveConfigValueDisplayBase
 
-@* do-0x20-encode / no-0x20-encode: tri-state. Checkbox shows Enabled vs not-Enabled; uncheck maps back to Default when that was the value at activation, else Disabled. *@
+@* do-0x20-encode / no-0x20-encode: tri-state. Switch shows Enabled vs not-Enabled; uncheck maps back to Default when that was the value at activation, else Disabled. *@
 @if (IsActiveEditor && Descriptor.GetSource()?.IsReadOnly != true)
 {
     var isOn = GetState() == ExplicitToggleState.Enabled;
-    <input type="checkbox" class="form-check-input" checked="@isOn" @onchange="OnCheckedChange" @onfocusout="OnCommitRequested" />
+    <div class="form-check form-switch ec-effective-switch">
+        <input type="checkbox"
+               class="form-check-input"
+               checked="@isOn"
+               aria-label="Enable @Descriptor.OptionName"
+               title="Set @Descriptor.OptionName"
+               @onchange="OnCheckedChange"
+               @onfocusout="OnCommitRequested" />
+    </div>
 }
 else
 {
