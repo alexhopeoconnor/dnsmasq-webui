@@ -1,0 +1,6 @@
+<dt><b>--dnssec-timestamp=&lt;path&gt;</b></dt>
+<dd>Enables an alternative way of checking the validity of the system time for DNSSEC (see <b>--dnssec-no-timecheck</b>). In this case, the
+system time is considered to be valid once it becomes later than the timestamp on the specified file. The file is created and 
+its timestamp set automatically by dnsmasq. The file must be stored on a persistent filesystem, so that it and its mtime are carried 
+over system restarts. The timestamp file is created after dnsmasq has dropped root, so it must be in a location writable by the 
+unprivileged user that dnsmasq runs as.</dd>

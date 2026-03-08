@@ -391,7 +391,7 @@ sudo ./scripts/install.sh --uninstall --purge --system
 
 ### scripts/prepare-test-mount.sh
 
-**Purpose:** Prepare the testdata mount and optionally start or stop the Docker test harness (app + dnsmasq + DHCP clients). Syncs a source dir (default: `testdata`) into a mount dir (default: `testdata-mount`), cleans up previous test data, then runs `docker compose -f docker-compose.test.yml up -d` (or only prepares the mount with `--prepare-only`).
+**Purpose:** Prepare the testdata mount and optionally start or stop the Docker test harness (app + dnsmasq + DHCP clients). Syncs a source dir (default: `testdata`) into a mount dir (default: `testdata-mount`), cleans up previous test data, then runs `docker compose -f docker-compose.test.yml up -d` (or only prepares the mount with `--prepare-only`). By default the script resolves and uses the **latest stable upstream dnsmasq version**; you can pin a specific version (or use the distro package) for compatibility testing.
 
 **Usage:** `./scripts/prepare-test-mount.sh [OPTIONS] [--]`
 
@@ -401,9 +401,11 @@ sudo ./scripts/install.sh --uninstall --purge --system
 |--------|-------------|
 | `--source DIR` | Source to copy from (default: `testdata`). |
 | `--mount DIR` | Target mount directory (default: `testdata-mount`). Compose uses `TESTDATA_MOUNT`; script exports it when you use `--mount`. |
-| `--no-clear` | Do not clear mount dir; only sync over existing contents (e.g. preserve leases between runs). |
+| `--dnsmasq-version V` | Dnsmasq version for the harness image: `latest` (default), `distro`, or an exact upstream version like `2.91`. |
+| `--clear` | Clear the mount dir completely before sync for a clean run. Default: preserve existing contents and sync over them. |
 | `--prepare-only` | Only prepare the mount; do not run docker compose. |
 | `--build` | Pass `--build` to docker compose (rebuild images). Default: use existing images. |
+| `--no-cache-build` | Run `docker compose build --pull --no-cache` before start. Use to force a fresh image build and refresh the resolved latest dnsmasq version. |
 | `--no-build` | Do not rebuild (default). |
 | `--recreate` | Pass `--force-recreate` to docker compose. |
 | `--stop` | Stop the harness: `docker compose down` (no prepare, no start). |
@@ -419,12 +421,22 @@ sudo ./scripts/install.sh --uninstall --purge --system
 # Rebuild images then start
 ./scripts/prepare-test-mount.sh --build
 
+# Force a fresh image build with no Docker build cache
+./scripts/prepare-test-mount.sh --no-cache-build
+
+# Rebuild with a specific dnsmasq version
+./scripts/prepare-test-mount.sh --dnsmasq-version 2.91 --build
+
+# Use the distro package instead of an upstream build
+./scripts/prepare-test-mount.sh --dnsmasq-version distro --build
+
 # Only prepare the mount; start manually later
 ./scripts/prepare-test-mount.sh --prepare-only
-# Then: TESTDATA_MOUNT=./testdata-mount docker compose -f docker-compose.test.yml up -d
+# Then use the version printed by the script, e.g.:
+# TESTDATA_MOUNT=./testdata-mount DNSMASQ_VERSION=<resolved-version> docker compose -f docker-compose.test.yml up -d
 
-# Preserve mount contents, sync over it, start
-./scripts/prepare-test-mount.sh --no-clear
+# Preserve mount contents, sync over it, start (default behavior)
+./scripts/prepare-test-mount.sh
 
 # Stop the harness
 ./scripts/prepare-test-mount.sh --stop
@@ -448,6 +460,21 @@ sudo ./scripts/install.sh --uninstall --purge --system
 **Purpose:** Container entrypoint when the app and dnsmasq run in the same container. If `DNSMASQ_CONF` is set, starts dnsmasq in the background with that config file; then exec’s the app (`dotnet DnsmasqWebUI.dll`). Used by this repo’s Dockerfile and by the test harness.
 
 **Usage:** Set `DNSMASQ_CONF` to the path of the dnsmasq config file inside the container (e.g. `/data/dnsmasq-test.conf`). No CLI arguments.
+
+---
+
+### scripts/extract-option-help.sh
+
+**Purpose:** Fetch the dnsmasq man page HTML and extract per-option help fragments into `src/DnsmasqWebUI/wwwroot/option-help/*.html`. The Effective Config UI loads these when the user clicks an option label (tooltip is from code; full help is from these files). Requires Docker (uses a temporary `python:3-slim` container). When adding new options to the UI, add the option key to the script’s `OPTION_KEYS` list (keep in sync with `EffectiveConfigSections` / `DnsmasqOptionTooltips`), then run this script so help is available for the new option (if it exists in the man page).
+
+**Usage:** `./scripts/extract-option-help.sh [--url URL] [--output-dir DIR]`
+
+| Option | Description |
+|--------|-------------|
+| `--url URL` | Man page URL (default: https://thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html). |
+| `--output-dir DIR` | Output directory (default: `src/DnsmasqWebUI/wwwroot/option-help`). |
+
+Run from the repo root. Writes one `.html` file per option that appears in the man page OPTIONS section; options in `OPTION_KEYS` but not in the man page are skipped.
 
 <!-- SUGGESTED SCREENSHOT: TERMINAL WITH PREPARE-TEST-MOUNT.SH USAGE OR DOCKER COMPOSE UP OUTPUT -->
 

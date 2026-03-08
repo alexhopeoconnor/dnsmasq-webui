@@ -1,0 +1,16 @@
+<dt><b>--tag-if=set:&lt;tag&gt;[,set:&lt;tag&gt;[,tag:&lt;tag&gt;[,tag:&lt;tag&gt;]]]</b></dt>
+<dd>Perform boolean operations on tags. All <b>set:&lt;tag&gt;</b> tags are set if
+all <b>tag:&lt;tag&gt;</b> are already set, (or unset when <b>tag:!&lt;tag&gt;</b> is used).
+If no <b>tag:&lt;tag&gt;</b> appears, <b>set:&lt;tag&gt;</b> tags are set unconditionally.
+Any number of <b>set:</b> and <b>tag:</b> forms may appear, in any order. 
+<b>--tag-if</b> lines are executed in order, so if the tag in <b>tag:&lt;tag&gt;</b> is a
+tag set by another
+<b>--tag-if,</b>
+
+the line which sets the tag must precede the line which tests it.
+<p>
+As an extension, the <b>tag:&lt;tag&gt;</b> clauses support limited wildcard matching,
+similar to the matching in the <b>--interface</b> directive. This allows the
+example <b>--tag-if=set:ppp,tag:ppp*</b> to set the tag 'ppp' for all requests
+received on any matching interface (ppp0, ppp1, etc). This can be used in conjunction
+with the <b>tag:!&lt;tag&gt;</b> format meaning that no tag matching the wildcard may be set.</dd>

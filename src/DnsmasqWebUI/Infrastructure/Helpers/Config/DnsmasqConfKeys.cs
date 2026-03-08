@@ -148,4 +148,63 @@ public static class DnsmasqConfKeys
     // --- Niche / platform (Linux conntrack mark for UBus/query filtering) ---
     public const string Conntrack = "conntrack";
 
+    public const string ConnmarkAllowlistEnable = "connmark-allowlist-enable";
+    public const string NoRoundRobin = "no-round-robin";
+    public const string DnssecNoTimecheck = "dnssec-no-timecheck";
+    public const string DnssecDebug = "dnssec-debug";
+    public const string Leasequery = "leasequery";
+    public const string DhcpGenerateNames = "dhcp-generate-names";
+    public const string DhcpBroadcast = "dhcp-broadcast";
+    public const string DhcpSequentialIp = "dhcp-sequential-ip";
+    public const string DhcpIgnoreClid = "dhcp-ignore-clid";
+    public const string BootpDynamic = "bootp-dynamic";
+    public const string NoPing = "no-ping";
+    public const string ScriptArp = "script-arp";
+    public const string ScriptOnRenewal = "script-on-renewal";
+    public const string DhcpNoOverride = "dhcp-no-override";
+    public const string QuietDhcp = "quiet-dhcp";
+    public const string QuietDhcp6 = "quiet-dhcp6";
+    public const string QuietRa = "quiet-ra";
+    public const string QuietTftp = "quiet-tftp";
+
+    public const string DnsForwardMax = "dns-forward-max";
+    public const string Dumpfile = "dumpfile";
+    public const string Dumpmask = "dumpmask";
+    public const string AddCpeId = "add-cpe-id";
+    public const string DnssecTimestamp = "dnssec-timestamp";
+    public const string DnssecLimits = "dnssec-limits";
+    public const string DhcpAlternatePort = "dhcp-alternate-port";
+    public const string DhcpDuid = "dhcp-duid";
+    public const string DhcpLuascript = "dhcp-luascript";
+    public const string DhcpScriptuser = "dhcp-scriptuser";
+    public const string DhcpPxeVendor = "dhcp-pxe-vendor";
+
+    public const string ConnmarkAllowlist = "connmark-allowlist";
+    public const string CaaRecord = "caa-record";
+    public const string DnsRr = "dns-rr";
+    public const string SynthDomain = "synth-domain";
+    public const string AuthZone = "auth-zone";
+    public const string AuthSoa = "auth-soa";
+    public const string AuthSecServers = "auth-sec-servers";
+    public const string AuthPeer = "auth-peer";
+    public const string DhcpRelay = "dhcp-relay";
+    public const string DhcpCircuitid = "dhcp-circuitid";
+    public const string DhcpRemoteid = "dhcp-remoteid";
+    public const string DhcpSubscrid = "dhcp-subscrid";
+    public const string DhcpProxy = "dhcp-proxy";
+    public const string TagIf = "tag-if";
+    public const string BridgeInterface = "bridge-interface";
+    public const string SharedNetwork = "shared-network";
+    public const string DhcpOptionPxe = "dhcp-option-pxe";
+
+    public const string UseStaleCache = "use-stale-cache";
+    public const string AddMac = "add-mac";
+    public const string StripMac = "strip-mac";
+    public const string AddSubnet = "add-subnet";
+    public const string StripSubnet = "strip-subnet";
+    public const string Umbrella = "umbrella";
+
+    public const string Do0x20Encode = "do-0x20-encode";
+    public const string No0x20Encode = "no-0x20-encode";
+
 }

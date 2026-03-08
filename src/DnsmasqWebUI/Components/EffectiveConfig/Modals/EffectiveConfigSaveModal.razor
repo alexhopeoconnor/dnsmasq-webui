@@ -2,6 +2,7 @@
 @using DnsmasqWebUI.Models.Dnsmasq
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 @using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
+@using DnsmasqWebUI.Infrastructure.Helpers.Config
 
 <div class="modal fade show" style="display: block;" tabindex="-1" role="dialog" aria-labelledby="ec-save-modal-title" aria-modal="true">
     <div class="modal-dialog modal-dialog-scrollable" role="document">
@@ -85,6 +86,35 @@
                 }
                 else
                 {
+                    @if (ValidationErrors.Count > 0 || ValidationWarnings.Count > 0)
+                    {
+                        <div class="ec-save-modal-validation mb-3">
+                            @if (ValidationErrors.Count > 0)
+                            {
+                                <div class="alert alert-danger py-2 mb-2">
+                                    <strong>Validation errors</strong>
+                                    <ul class="mb-0 mt-1 ps-3">
+                                        @foreach (var issue in ValidationErrors)
+                                        {
+                                            <li>@issue.Message</li>
+                                        }
+                                    </ul>
+                                </div>
+                            }
+                            @if (ValidationWarnings.Count > 0)
+                            {
+                                <div class="alert alert-warning py-2 mb-2">
+                                    <strong>Validation warnings</strong>
+                                    <ul class="mb-0 mt-1 ps-3">
+                                        @foreach (var issue in ValidationWarnings)
+                                        {
+                                            <li>@issue.Message</li>
+                                        }
+                                    </ul>
+                                </div>
+                            }
+                        </div>
+                    }
                     <p class="text-muted mb-3">These changes will be written to your config. Remove any you don't want to keep.</p>
                     @if (ManagedFilePath != null)
                     {
@@ -114,9 +144,9 @@
                                             @if (!isMultiValue)
                                             {
                                                 <span class="ec-save-modal-diff text-body">
-                                                    <span class="text-muted text-decoration-line-through">@FormatValue(change.OldValue)</span>
+                                                    <span class="text-muted text-decoration-line-through">@FormatValue(change.OldValue, change.OptionName)</span>
                                                     <span class="text-muted mx-1" aria-hidden="true">→</span>
-                                                    <span>@FormatValue(change.NewValue)</span>
+                                                    <span>@FormatValue(change.NewValue, change.OptionName)</span>
                                                 </span>
                                             }
                                         </div>
@@ -180,7 +210,7 @@
                 else if (SaveState != EffectiveConfigSaveFlow.SaveUiState.Saving && SaveState != EffectiveConfigSaveFlow.SaveUiState.RestoreInProgress)
                 {
                     <button type="button" class="btn btn-secondary" @onclick="Close"><i class="bi bi-x me-1" aria-hidden="true"></i>Cancel</button>
-                    <button type="button" class="btn btn-primary" @onclick="Save" disabled="@(PendingChanges.Count == 0)"><i class="bi bi-floppy-fill me-1" aria-hidden="true"></i>Save</button>
+                    <button type="button" class="btn btn-primary" @onclick="Save" disabled="@(PendingChanges.Count == 0 || HasBlockingValidationErrors)"><i class="bi bi-floppy-fill me-1" aria-hidden="true"></i>Save</button>
                 }
             </div>
         </div>
@@ -205,6 +235,10 @@
     private bool AllowClose => SaveState != EffectiveConfigSaveFlow.SaveUiState.Saving && SaveState != EffectiveConfigSaveFlow.SaveUiState.RestoreInProgress;
 
     private string? ManagedFilePath => Status?.ManagedFilePath;
+
+    private IReadOnlyList<FieldIssue> ValidationErrors => Session.GetValidationSummary().Where(i => i.Severity == FieldIssueSeverity.Error).ToList();
+    private IReadOnlyList<FieldIssue> ValidationWarnings => Session.GetValidationSummary().Where(i => i.Severity == FieldIssueSeverity.Warning).ToList();
+    private bool HasBlockingValidationErrors => Session.HasBlockingValidationErrors();
 
     private static string GetValidationFailedOutput(EffectiveConfigSaveResult result)
     {
@@ -248,13 +282,23 @@
         return null;
     }
 
-    private static string FormatValue(object? v)
+    private static string FormatValue(object? v, string? optionName = null)
     {
+        if (optionName != null && EffectiveConfigWriteBehaviorMap.GetBehavior(optionName) == EffectiveConfigWriteBehavior.KeyOnlyOrValue)
+            return FormatKeyOnlyOrValue(v);
         if (v == null) return "(not set)";
         if (v is bool b) return b ? "on" : "off";
         var list = AsStringList(v);
         if (list != null) return list.Count == 0 ? "(none)" : string.Join(", ", list);
         return v.ToString() ?? "(not set)";
+    }
+
+    private static string FormatKeyOnlyOrValue(object? v)
+    {
+        if (v == null) return "(not set)";
+        var s = v.ToString();
+        if (string.IsNullOrEmpty(s)) return "(set)";
+        return s;
     }
 
     private async Task Revert(PendingEffectiveConfigChange change)

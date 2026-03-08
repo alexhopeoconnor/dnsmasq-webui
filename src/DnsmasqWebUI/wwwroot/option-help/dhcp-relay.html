@@ -1,0 +1,39 @@
+<dt><b>--dhcp-relay=&lt;local address&gt;[,&lt;server address&gt;[#&lt;server port&gt;]][,&lt;interface]</b></dt>
+<dd>Configure dnsmasq to do DHCP relay. The local address is an address
+allocated to an interface on the host running dnsmasq. All DHCP
+requests arriving on that interface will be relayed to a remote DHCP
+server at the server address. It is possible to relay from a single local
+address to multiple remote servers by using multiple <b>--dhcp-relay</b>
+configs with the same local address and different server
+addresses. A server address must be an IP literal address, not a
+domain name. If the server address is omitted, the request will be
+forwarded by broadcast (IPv4) or multicast (IPv6). In this case the interface
+must be given and not be wildcard. The server address may specify a non-standard
+port to relay to. If this is used then <b>--dhcp-proxy</b> should likely also be set,
+otherwise parts of the DHCP conversation which do not pass through the relay
+will be delivered to the wrong port.
+<p>
+Access control for DHCP clients has the same rules as for the DHCP
+server, see <b>--interface</b>, <b>--except-interface</b>, etc. The optional
+interface name in the <b>--dhcp-relay</b> config has a different function: it
+controls on which interface DHCP replies from the server will be
+accepted. This is intended for configurations which have three
+interfaces: one being relayed from, a second connecting the DHCP
+server, and a third untrusted network, typically the wider
+internet. It avoids the possibility of spoof replies arriving via this
+third interface.
+<p>
+It is allowed to have dnsmasq act as a DHCP server on one set of
+interfaces and relay from a disjoint set of interfaces. Note that
+whilst it is quite possible to write configurations which appear to
+act as a server and a relay on the same interface, this is not
+supported: the relay function will take precedence.
+<p>
+Both DHCPv4 and DHCPv6 relay is supported. It's not possible to relay
+DHCPv4 to a DHCPv6 server or vice-versa.
+<p>
+The DHCP relay function for IPv6 includes the ability to snoop
+prefix-delegation from relayed DHCP transactions. See
+<b>--dhcp-script</b>
+
+for details.</dd>

@@ -19,7 +19,7 @@ public static class EffectiveConfigCrossOptionEvaluator
     {
         var issues = new List<FieldIssue>();
 
-        var noResolv = GetEffectiveNoResolv(status, pending);
+        var noResolv = GetEffectiveBool(status, pending, DnsmasqConfKeys.NoResolv, s => s?.EffectiveConfig?.NoResolv ?? false);
         var serverValues = GetEffectiveServerValues(status, pending);
 
         // no-resolv set with no upstream servers: DNS may not work
@@ -33,17 +33,51 @@ public static class EffectiveConfigCrossOptionEvaluator
                 ItemIndex: null));
         }
 
+        // conntrack cannot be combined with query-port (dnsmasq man page)
+        var conntrack = GetEffectiveBool(status, pending, DnsmasqConfKeys.Conntrack, s => s?.EffectiveConfig?.Conntrack ?? false);
+        var queryPort = GetEffectiveInt(status, pending, DnsmasqConfKeys.QueryPort, s => s?.EffectiveConfig?.QueryPort);
+        if (conntrack && queryPort is not null)
+        {
+            issues.Add(new FieldIssue(
+                $"{EffectiveConfigSections.SectionResolver}:{DnsmasqConfKeys.QueryPort}",
+                "query-port cannot be combined with conntrack.",
+                FieldIssueSeverity.Error,
+                null));
+        }
+
         return issues;
     }
 
-    private static bool GetEffectiveNoResolv(DnsmasqServiceStatus? status, IReadOnlyList<PendingEffectiveConfigChange> pending)
+    private static bool GetEffectiveBool(
+        DnsmasqServiceStatus? status,
+        IReadOnlyList<PendingEffectiveConfigChange>? pending,
+        string optionName,
+        Func<DnsmasqServiceStatus?, bool> fromConfig)
     {
-        var fromConfig = status?.EffectiveConfig?.NoResolv ?? false;
-        var pendingChange = pending?.FirstOrDefault(c =>
-            string.Equals(c.OptionName, DnsmasqConfKeys.NoResolv, StringComparison.Ordinal));
-        if (pendingChange?.NewValue is bool b)
-            return b;
-        return fromConfig;
+        var pendingChange = pending?.FirstOrDefault(c => string.Equals(c.OptionName, optionName, StringComparison.Ordinal));
+        if (pendingChange != null)
+        {
+            if (pendingChange.NewValue is bool b)
+                return b;
+            return false; // pending change to clear or invalid; treat as off for cross-option purposes
+        }
+        return fromConfig(status);
+    }
+
+    private static int? GetEffectiveInt(
+        DnsmasqServiceStatus? status,
+        IReadOnlyList<PendingEffectiveConfigChange>? pending,
+        string optionName,
+        Func<DnsmasqServiceStatus?, int?> fromConfig)
+    {
+        var pendingChange = pending?.FirstOrDefault(c => string.Equals(c.OptionName, optionName, StringComparison.Ordinal));
+        if (pendingChange != null)
+        {
+            if (pendingChange.NewValue is int i)
+                return i;
+            return null; // pending change to clear the value; use null so conntrack+query-port rule no longer blocks
+        }
+        return fromConfig(status);
     }
 
     private static IReadOnlyList<string>? GetEffectiveServerValues(DnsmasqServiceStatus? status, IReadOnlyList<PendingEffectiveConfigChange> pending)

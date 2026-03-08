@@ -79,6 +79,114 @@ public class DnsmasqConfIncludeParserNewOptionsTests
         WriteFlagAndAssertTrue(DnsmasqConfKeys.ProxyDnssec);
     }
 
+    [Fact]
+    public void GetFlagFromConfigFiles_ConnmarkAllowlistEnable_WhenPresent_ReturnsTrue()
+    {
+        WriteFlagAndAssertTrue(DnsmasqConfKeys.ConnmarkAllowlistEnable);
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_NoRoundRobin_WhenPresent_ReturnsTrue()
+    {
+        WriteFlagAndAssertTrue(DnsmasqConfKeys.NoRoundRobin);
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_DnssecNoTimecheck_WhenPresent_ReturnsTrue()
+    {
+        WriteFlagAndAssertTrue(DnsmasqConfKeys.DnssecNoTimecheck);
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_DnssecDebug_WhenPresent_ReturnsTrue()
+    {
+        WriteFlagAndAssertTrue(DnsmasqConfKeys.DnssecDebug);
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_Leasequery_WhenPresent_ReturnsTrue()
+    {
+        WriteFlagAndAssertTrue(DnsmasqConfKeys.Leasequery);
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_QuietDhcp_WhenPresent_ReturnsTrue()
+    {
+        WriteFlagAndAssertTrue(DnsmasqConfKeys.QuietDhcp);
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_QuietTftp_WhenPresent_ReturnsTrue()
+    {
+        WriteFlagAndAssertTrue(DnsmasqConfKeys.QuietTftp);
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_DhcpGenerateNames_WhenPresent_ReturnsTrue()
+    {
+        WriteFlagAndAssertTrue(DnsmasqConfKeys.DhcpGenerateNames);
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_DhcpBroadcast_WhenPresent_ReturnsTrue()
+    {
+        WriteFlagAndAssertTrue(DnsmasqConfKeys.DhcpBroadcast);
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_DhcpSequentialIp_WhenPresent_ReturnsTrue()
+    {
+        WriteFlagAndAssertTrue(DnsmasqConfKeys.DhcpSequentialIp);
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_DhcpIgnoreClid_WhenPresent_ReturnsTrue()
+    {
+        WriteFlagAndAssertTrue(DnsmasqConfKeys.DhcpIgnoreClid);
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_BootpDynamic_WhenPresent_ReturnsTrue()
+    {
+        WriteFlagAndAssertTrue(DnsmasqConfKeys.BootpDynamic);
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_NoPing_WhenPresent_ReturnsTrue()
+    {
+        WriteFlagAndAssertTrue(DnsmasqConfKeys.NoPing);
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_ScriptArp_WhenPresent_ReturnsTrue()
+    {
+        WriteFlagAndAssertTrue(DnsmasqConfKeys.ScriptArp);
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_ScriptOnRenewal_WhenPresent_ReturnsTrue()
+    {
+        WriteFlagAndAssertTrue(DnsmasqConfKeys.ScriptOnRenewal);
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_DhcpNoOverride_WhenPresent_ReturnsTrue()
+    {
+        WriteFlagAndAssertTrue(DnsmasqConfKeys.DhcpNoOverride);
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_QuietDhcp6_WhenPresent_ReturnsTrue()
+    {
+        WriteFlagAndAssertTrue(DnsmasqConfKeys.QuietDhcp6);
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_QuietRa_WhenPresent_ReturnsTrue()
+    {
+        WriteFlagAndAssertTrue(DnsmasqConfKeys.QuietRa);
+    }
+
     // --- Multi-value (6): key=value line(s) → GetMultiValue returns value(s) ---
 
     [Fact]
@@ -258,16 +366,27 @@ public class DnsmasqConfIncludeParserNewOptionsTests
     }
 
     [Fact]
-    public void GetLastValueFromConfigFiles_Conntrack_WhenSet_ReturnsValue()
+    public void GetFlagFromConfigFiles_Conntrack_WhenPresent_ReturnsTrue()
     {
         var dir = CreateTempDir();
         var conf = Path.Combine(dir, "dnsmasq.conf");
-        var value = "42";
         try
         {
-            File.WriteAllText(conf, $"conntrack={value}\n");
-            var (result, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.Conntrack);
-            Assert.Equal(value, result);
+            File.WriteAllText(conf, "conntrack\n");
+            Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.Conntrack));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void GetFlagFromConfigFiles_Conntrack_WhenAbsent_ReturnsFalse()
+    {
+        var dir = CreateTempDir();
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "port=53\n");
+            Assert.False(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.Conntrack));
         }
         finally { Directory.Delete(dir, recursive: true); }
     }

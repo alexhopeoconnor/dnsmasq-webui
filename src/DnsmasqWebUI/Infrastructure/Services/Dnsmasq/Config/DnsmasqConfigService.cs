@@ -231,8 +231,7 @@ public class DnsmasqConfigService : IDnsmasqConfigService
         var maxLineNumber = list.Count > 0 ? list.Max(l => l.LineNumber) : 0;
         foreach (var c in changes)
         {
-            var behavior = EffectiveConfigParserBehaviorMap.GetBehavior(c.OptionName);
-            var isFlag = behavior == EffectiveConfigParserBehavior.Flag;
+            var writeBehavior = EffectiveConfigWriteBehaviorMap.GetBehavior(c.OptionName);
             var confKey = c.OptionName;
 
             bool MatchesOption(DnsmasqConfLine line)
@@ -241,6 +240,43 @@ public class DnsmasqConfigService : IDnsmasqConfigService
                 var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(raw);
                 return kv != null && string.Equals(kv.Value.key, confKey, StringComparison.Ordinal);
             }
+
+            if (writeBehavior == EffectiveConfigWriteBehavior.KeyOnlyOrValue)
+            {
+                RemoveAllMatchingLines(list, MatchesOption);
+                var value = c.NewValue as string;
+                if (value is null)
+                    continue;
+                var lineText = value.Length == 0 ? confKey : $"{confKey}={value.Trim()}";
+                list.Add(new OtherLine { LineNumber = maxLineNumber + 1, RawLine = lineText });
+                maxLineNumber++;
+                continue;
+            }
+
+            if (writeBehavior == EffectiveConfigWriteBehavior.InversePair)
+            {
+                var pair = EffectiveConfigWriteBehaviorMap.GetInversePairKeys(confKey);
+                if (pair is null)
+                    continue;
+                var (pairKeyA, pairKeyB) = pair.Value;
+                bool MatchesPair(DnsmasqConfLine line)
+                {
+                    var raw = DnsmasqConfFileLineParser.ToLine(line);
+                    var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(raw);
+                    return kv != null && (string.Equals(kv.Value.key, pairKeyA, StringComparison.Ordinal) || string.Equals(kv.Value.key, pairKeyB, StringComparison.Ordinal));
+                }
+                RemoveAllMatchingLines(list, MatchesPair);
+                if (c.NewValue is ExplicitToggleState state && state != ExplicitToggleState.Default)
+                {
+                    var lineKey = state == ExplicitToggleState.Enabled ? pairKeyA : pairKeyB;
+                    list.Add(new OtherLine { LineNumber = maxLineNumber + 1, RawLine = lineKey });
+                    maxLineNumber++;
+                }
+                continue;
+            }
+
+            var behavior = EffectiveConfigParserBehaviorMap.GetBehavior(c.OptionName);
+            var isFlag = behavior == EffectiveConfigParserBehavior.Flag;
 
             if (behavior == EffectiveConfigParserBehavior.Multi && TryGetMultiValues(c.NewValue, out var values))
             {
@@ -297,6 +333,15 @@ public class DnsmasqConfigService : IDnsmasqConfigService
                 list.Add(newLine);
         }
         await WriteManagedConfigAsync(list, ct);
+    }
+
+    private static void RemoveAllMatchingLines(List<DnsmasqConfLine> list, Predicate<DnsmasqConfLine> match)
+    {
+        for (var i = list.Count - 1; i >= 0; i--)
+        {
+            if (match(list[i]))
+                list.RemoveAt(i);
+        }
     }
 
     /// <summary>

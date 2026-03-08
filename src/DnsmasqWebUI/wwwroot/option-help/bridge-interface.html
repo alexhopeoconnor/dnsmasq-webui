@@ -1,0 +1,12 @@
+<dt><b>--bridge-interface=&lt;interface&gt;,&lt;alias&gt;[,&lt;alias&gt;]</b></dt>
+<dd>Treat DHCP (v4 and v6) requests and IPv6 Router Solicit packets
+arriving at any of the &lt;alias&gt; interfaces as if they had arrived at
+&lt;interface&gt;.  This option allows dnsmasq to provide DHCP and RA
+service over unaddressed and unbridged Ethernet interfaces, e.g. on an
+OpenStack compute host where each such interface is a TAP interface to
+a VM, or as in "old style bridging" on BSD platforms.  A trailing '*'
+wildcard can be used in each &lt;alias&gt;.
+<p>
+It is permissible to add more than one alias using more than one <b>--bridge-interface</b> option since
+<b>--bridge-interface=int1,alias1,alias2</b> is exactly equivalent to
+<b>--bridge-interface=int1,alias1 --bridge-interface=int1,alias2</b></dd>

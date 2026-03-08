@@ -22,12 +22,15 @@
         <span class="ec-field-value">
             @if (isActiveEditor)
             {
-                <div class="ec-field-edit-wrapper" @onfocusout="OnBlur" @onclick:stopPropagation="true">
-                    <CascadingValue Value="@true">
-                        <CascadingValue Value="@(EventCallback.Factory.Create<FocusEventArgs>(this, OnBlur))">
-                            @((fragmentWithCallback ?? fragment)(Descriptor))
+                <div class="ec-field-value-when-editing" @onclick:stopPropagation="true">
+                    <div class="ec-field-edit-wrapper">
+                        <CascadingValue Value="@true">
+                            <CascadingValue Value="@(EventCallback.Factory.Create<FocusEventArgs>(this, OnBlur))">
+                                @((fragmentWithCallback ?? fragment)(Descriptor))
+                            </CascadingValue>
                         </CascadingValue>
-                    </CascadingValue>
+                    </div>
+                    <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@Descriptor.GetSource()" OptionName="@Descriptor.OptionName" Value="@effectiveValue" IsInteractive="@IsEditMode" ShowEditableBadge="@showEditableBadge" HasPendingChange="@_hasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@isActiveEditor" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
                 </div>
             }
             else
@@ -35,8 +38,8 @@
                 <CascadingValue Value="@false">
                     @fragment(Descriptor)
                 </CascadingValue>
+                <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@Descriptor.GetSource()" OptionName="@Descriptor.OptionName" Value="@effectiveValue" IsInteractive="@IsEditMode" ShowEditableBadge="@showEditableBadge" HasPendingChange="@_hasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@isActiveEditor" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
             }
-            <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@Descriptor.GetSource()" OptionName="@Descriptor.OptionName" Value="@effectiveValue" IsInteractive="@IsEditMode" ShowEditableBadge="@showEditableBadge" HasPendingChange="@_hasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@isActiveEditor" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
         </span>
     </li>
 }
@@ -111,6 +114,7 @@ else
     private bool _hasPendingChange;
     private object? _valueAtActivation;
     private object? _draftValue;
+    private bool _hasDraftValue;
     private bool _wasActive;
     private ExitAction _exitAction = ExitAction.None;
 
@@ -140,7 +144,12 @@ else
         if (Descriptor.IsMultiValue)
             ComputeMultiValueState(Descriptor.GetItems(), pending?.NewValue as IReadOnlyList<string>, _draftValue as IReadOnlyList<string>);
         if (!_wasActive && IsActive)
-            _valueAtActivation = descriptorValue;
+        {
+            // Use pending.OldValue when present so "revert to original" clears the pending change (e.g. do-0x20-encode: Disabled → Enable → Disable).
+            _valueAtActivation = pending != null ? pending.OldValue : descriptorValue;
+            _hasDraftValue = false;
+            _draftValue = null;
+        }
         if (_wasActive && !IsActive && _exitAction == ExitAction.None)
             _ = InvokeAsync(CommitIfChangedAsync);
         if (_wasActive && !IsActive)
@@ -190,8 +199,7 @@ else
     private void HandleValueChanged(object? value)
     {
         _draftValue = value;
-        if (_hasPendingChange && ValuesEqual(_valueAtActivation, value))
-            _ = InvokeAsync(CommitIfChangedAsync);
+        _hasDraftValue = true;
     }
 
     private async Task OnBlur(FocusEventArgs _)
@@ -202,10 +210,11 @@ else
 
     private async Task<bool> CommitIfChangedAsync()
     {
-        var newValue = _draftValue ?? _effectiveValue;
+        var newValue = _hasDraftValue ? _draftValue : _effectiveValue;
         if (ValuesEqual(_valueAtActivation, newValue))
         {
             _draftValue = null;
+            _hasDraftValue = false;
             if (_hasPendingChange && Ui?.RevertFieldAsync != null)
                 await Ui.RevertFieldAsync(Descriptor.SectionId, Descriptor.OptionName);
             return true;
@@ -228,6 +237,7 @@ else
         if (Ui != null)
             await Ui.CommitFieldAsync(args);
         _draftValue = null;
+        _hasDraftValue = false;
         return true;
     }
 
@@ -236,12 +246,14 @@ else
     private void HandleDefaultValueChanged(string value)
     {
         _draftValue = value;
+        _hasDraftValue = true;
     }
 
     private async Task HandleDefaultBlur(string? value)
     {
         if (!IsActive) return;
         _draftValue = value;
+        _hasDraftValue = true;
         if (!await CommitIfChangedAsync() && Ui != null)
             await Ui.ActivateFieldAsync(FieldKey);
     }
@@ -249,6 +261,7 @@ else
     private void HandleMultiValueChanged(IReadOnlyList<string> values)
     {
         _draftValue = values.ToList();
+        _hasDraftValue = true;
         if (Descriptor.IsMultiValue)
             ComputeMultiValueState(Descriptor.GetItems(), _effectiveValue as IReadOnlyList<string>, _draftValue as IReadOnlyList<string>);
         StateHasChanged();
@@ -266,6 +279,7 @@ else
     private async Task HandleCancelEdit()
     {
         _draftValue = null;
+        _hasDraftValue = false;
         _exitAction = ExitAction.Cancel;
         if (Ui != null)
             await Ui.DeactivateFieldAsync();
@@ -274,6 +288,7 @@ else
     private async Task HandleRevertEdit()
     {
         _draftValue = null;
+        _hasDraftValue = false;
         Session?.RevertChange(Descriptor.SectionId, Descriptor.OptionName);
         _exitAction = ExitAction.Revert;
         if (Ui != null)

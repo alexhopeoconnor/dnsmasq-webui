@@ -151,6 +151,57 @@ public static class EffectiveConfigOptionKindMap
             [DnsmasqConfKeys.KeepInForeground] = EffectiveConfigFieldKind.Single,
             [DnsmasqConfKeys.NoDaemon] = EffectiveConfigFieldKind.Single,
             [DnsmasqConfKeys.Conntrack] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.ConnmarkAllowlistEnable] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.NoRoundRobin] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.DnssecNoTimecheck] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.DnssecDebug] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.Leasequery] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.DhcpGenerateNames] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.DhcpBroadcast] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.DhcpSequentialIp] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.DhcpIgnoreClid] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.BootpDynamic] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.NoPing] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.ScriptArp] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.ScriptOnRenewal] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.DhcpNoOverride] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.QuietDhcp] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.QuietDhcp6] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.QuietRa] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.QuietTftp] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.DnsForwardMax] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.Dumpfile] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.Dumpmask] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.AddCpeId] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.DnssecTimestamp] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.DnssecLimits] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.DhcpAlternatePort] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.DhcpDuid] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.DhcpLuascript] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.DhcpScriptuser] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.DhcpPxeVendor] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.ConnmarkAllowlist] = EffectiveConfigFieldKind.Multi,
+            [DnsmasqConfKeys.CaaRecord] = EffectiveConfigFieldKind.Multi,
+            [DnsmasqConfKeys.DnsRr] = EffectiveConfigFieldKind.Multi,
+            [DnsmasqConfKeys.SynthDomain] = EffectiveConfigFieldKind.Multi,
+            [DnsmasqConfKeys.AuthZone] = EffectiveConfigFieldKind.Multi,
+            [DnsmasqConfKeys.AuthSoa] = EffectiveConfigFieldKind.Multi,
+            [DnsmasqConfKeys.AuthSecServers] = EffectiveConfigFieldKind.Multi,
+            [DnsmasqConfKeys.AuthPeer] = EffectiveConfigFieldKind.Multi,
+            [DnsmasqConfKeys.DhcpRelay] = EffectiveConfigFieldKind.Multi,
+            [DnsmasqConfKeys.DhcpCircuitid] = EffectiveConfigFieldKind.Multi,
+            [DnsmasqConfKeys.DhcpRemoteid] = EffectiveConfigFieldKind.Multi,
+            [DnsmasqConfKeys.DhcpSubscrid] = EffectiveConfigFieldKind.Multi,
+            [DnsmasqConfKeys.DhcpProxy] = EffectiveConfigFieldKind.Multi,
+            [DnsmasqConfKeys.TagIf] = EffectiveConfigFieldKind.Multi,
+            [DnsmasqConfKeys.BridgeInterface] = EffectiveConfigFieldKind.Multi,
+            [DnsmasqConfKeys.SharedNetwork] = EffectiveConfigFieldKind.Multi,
+            [DnsmasqConfKeys.DhcpOptionPxe] = EffectiveConfigFieldKind.Multi,
+            [DnsmasqConfKeys.UseStaleCache] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.AddMac] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.AddSubnet] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.Umbrella] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.Do0x20Encode] = EffectiveConfigFieldKind.Single,
         };
 
     /// <summary>Returns Single or Multi for the given option name; defaults to Single if unknown.</summary>
@@ -287,9 +338,107 @@ public static class EffectiveConfigParserBehaviorMap
             [DnsmasqConfKeys.KeepInForeground] = EffectiveConfigParserBehavior.Flag,
             [DnsmasqConfKeys.NoDaemon] = EffectiveConfigParserBehavior.Flag,
             [DnsmasqConfKeys.Conntrack] = EffectiveConfigParserBehavior.Flag,
+            [DnsmasqConfKeys.ConnmarkAllowlistEnable] = EffectiveConfigParserBehavior.Flag,
+            [DnsmasqConfKeys.NoRoundRobin] = EffectiveConfigParserBehavior.Flag,
+            [DnsmasqConfKeys.DnssecNoTimecheck] = EffectiveConfigParserBehavior.Flag,
+            [DnsmasqConfKeys.DnssecDebug] = EffectiveConfigParserBehavior.Flag,
+            [DnsmasqConfKeys.Leasequery] = EffectiveConfigParserBehavior.Flag,
+            [DnsmasqConfKeys.DhcpGenerateNames] = EffectiveConfigParserBehavior.Flag,
+            [DnsmasqConfKeys.DhcpBroadcast] = EffectiveConfigParserBehavior.Flag,
+            [DnsmasqConfKeys.DhcpSequentialIp] = EffectiveConfigParserBehavior.Flag,
+            [DnsmasqConfKeys.DhcpIgnoreClid] = EffectiveConfigParserBehavior.Flag,
+            [DnsmasqConfKeys.BootpDynamic] = EffectiveConfigParserBehavior.Flag,
+            [DnsmasqConfKeys.NoPing] = EffectiveConfigParserBehavior.Flag,
+            [DnsmasqConfKeys.ScriptArp] = EffectiveConfigParserBehavior.Flag,
+            [DnsmasqConfKeys.ScriptOnRenewal] = EffectiveConfigParserBehavior.Flag,
+            [DnsmasqConfKeys.DhcpNoOverride] = EffectiveConfigParserBehavior.Flag,
+            [DnsmasqConfKeys.QuietDhcp] = EffectiveConfigParserBehavior.Flag,
+            [DnsmasqConfKeys.QuietDhcp6] = EffectiveConfigParserBehavior.Flag,
+            [DnsmasqConfKeys.QuietRa] = EffectiveConfigParserBehavior.Flag,
+            [DnsmasqConfKeys.QuietTftp] = EffectiveConfigParserBehavior.Flag,
+            [DnsmasqConfKeys.DnsForwardMax] = EffectiveConfigParserBehavior.LastWins,
+            [DnsmasqConfKeys.Dumpfile] = EffectiveConfigParserBehavior.LastWins,
+            [DnsmasqConfKeys.Dumpmask] = EffectiveConfigParserBehavior.LastWins,
+            [DnsmasqConfKeys.AddCpeId] = EffectiveConfigParserBehavior.LastWins,
+            [DnsmasqConfKeys.DnssecTimestamp] = EffectiveConfigParserBehavior.LastWins,
+            [DnsmasqConfKeys.DnssecLimits] = EffectiveConfigParserBehavior.LastWins,
+            [DnsmasqConfKeys.DhcpAlternatePort] = EffectiveConfigParserBehavior.LastWins,
+            [DnsmasqConfKeys.DhcpDuid] = EffectiveConfigParserBehavior.LastWins,
+            [DnsmasqConfKeys.DhcpLuascript] = EffectiveConfigParserBehavior.LastWins,
+            [DnsmasqConfKeys.DhcpScriptuser] = EffectiveConfigParserBehavior.LastWins,
+            [DnsmasqConfKeys.DhcpPxeVendor] = EffectiveConfigParserBehavior.LastWins,
+            [DnsmasqConfKeys.ConnmarkAllowlist] = EffectiveConfigParserBehavior.Multi,
+            [DnsmasqConfKeys.CaaRecord] = EffectiveConfigParserBehavior.Multi,
+            [DnsmasqConfKeys.DnsRr] = EffectiveConfigParserBehavior.Multi,
+            [DnsmasqConfKeys.SynthDomain] = EffectiveConfigParserBehavior.Multi,
+            [DnsmasqConfKeys.AuthZone] = EffectiveConfigParserBehavior.Multi,
+            [DnsmasqConfKeys.AuthSoa] = EffectiveConfigParserBehavior.Multi,
+            [DnsmasqConfKeys.AuthSecServers] = EffectiveConfigParserBehavior.Multi,
+            [DnsmasqConfKeys.AuthPeer] = EffectiveConfigParserBehavior.Multi,
+            [DnsmasqConfKeys.DhcpRelay] = EffectiveConfigParserBehavior.Multi,
+            [DnsmasqConfKeys.DhcpCircuitid] = EffectiveConfigParserBehavior.Multi,
+            [DnsmasqConfKeys.DhcpRemoteid] = EffectiveConfigParserBehavior.Multi,
+            [DnsmasqConfKeys.DhcpSubscrid] = EffectiveConfigParserBehavior.Multi,
+            [DnsmasqConfKeys.DhcpProxy] = EffectiveConfigParserBehavior.Multi,
+            [DnsmasqConfKeys.TagIf] = EffectiveConfigParserBehavior.Multi,
+            [DnsmasqConfKeys.BridgeInterface] = EffectiveConfigParserBehavior.Multi,
+            [DnsmasqConfKeys.SharedNetwork] = EffectiveConfigParserBehavior.Multi,
+            [DnsmasqConfKeys.DhcpOptionPxe] = EffectiveConfigParserBehavior.Multi,
+            [DnsmasqConfKeys.UseStaleCache] = EffectiveConfigParserBehavior.LastWins,
+            [DnsmasqConfKeys.AddMac] = EffectiveConfigParserBehavior.LastWins,
+            [DnsmasqConfKeys.AddSubnet] = EffectiveConfigParserBehavior.LastWins,
+            [DnsmasqConfKeys.Umbrella] = EffectiveConfigParserBehavior.LastWins,
+            [DnsmasqConfKeys.Do0x20Encode] = EffectiveConfigParserBehavior.Flag,
+            [DnsmasqConfKeys.No0x20Encode] = EffectiveConfigParserBehavior.Flag,
         };
 
     /// <summary>Returns LastWins, Flag, or Multi for the given option name; defaults to LastWins if unknown.</summary>
     public static EffectiveConfigParserBehavior GetBehavior(string optionName) =>
         BehaviorByOptionName.TryGetValue(optionName, out var b) ? b : EffectiveConfigParserBehavior.LastWins;
+}
+
+/// <summary>
+/// How to serialize an option when writing the managed config file.
+/// Used by DnsmasqConfigService so KeyOnlyOrValue and InversePair options serialize correctly.
+/// </summary>
+public enum EffectiveConfigWriteBehavior
+{
+    Flag,
+    SingleValue,
+    MultiValue,
+    KeyOnlyOrValue,
+    InversePair,
+}
+
+/// <summary>
+/// Maps dnsmasq option names to write behavior. Options not in the map default to SingleValue
+/// (or are inferred from parser behavior in the service). Add entries for KeyOnlyOrValue and InversePair options.
+/// </summary>
+public static class EffectiveConfigWriteBehaviorMap
+{
+    private static readonly IReadOnlyDictionary<string, EffectiveConfigWriteBehavior> BehaviorByOptionName =
+        new Dictionary<string, EffectiveConfigWriteBehavior>(StringComparer.Ordinal)
+        {
+            [DnsmasqConfKeys.Conntrack] = EffectiveConfigWriteBehavior.Flag,
+            [DnsmasqConfKeys.UseStaleCache] = EffectiveConfigWriteBehavior.KeyOnlyOrValue,
+            [DnsmasqConfKeys.AddMac] = EffectiveConfigWriteBehavior.KeyOnlyOrValue,
+            [DnsmasqConfKeys.AddSubnet] = EffectiveConfigWriteBehavior.KeyOnlyOrValue,
+            [DnsmasqConfKeys.Umbrella] = EffectiveConfigWriteBehavior.KeyOnlyOrValue,
+            [DnsmasqConfKeys.Do0x20Encode] = EffectiveConfigWriteBehavior.InversePair,
+        };
+
+    /// <summary>For InversePair options: (key for "enabled", key for "disabled"). Null if not an InversePair or unknown.</summary>
+    private static readonly IReadOnlyDictionary<string, (string KeyA, string KeyB)> InversePairKeysByOptionName =
+        new Dictionary<string, (string, string)>(StringComparer.Ordinal)
+        {
+            [DnsmasqConfKeys.Do0x20Encode] = (DnsmasqConfKeys.Do0x20Encode, DnsmasqConfKeys.No0x20Encode),
+        };
+
+    /// <summary>Returns write behavior for the option; defaults to SingleValue if unknown.</summary>
+    public static EffectiveConfigWriteBehavior GetBehavior(string optionName) =>
+        BehaviorByOptionName.TryGetValue(optionName, out var b) ? b : EffectiveConfigWriteBehavior.SingleValue;
+
+    /// <summary>Returns the pair of config keys (enabled, disabled) for an InversePair option; null otherwise.</summary>
+    public static (string KeyA, string KeyB)? GetInversePairKeys(string optionName) =>
+        InversePairKeysByOptionName.TryGetValue(optionName, out var pair) ? pair : null;
 }

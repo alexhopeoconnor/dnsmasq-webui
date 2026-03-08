@@ -57,6 +57,11 @@ public static class DnsmasqOptionTooltips
         [DnsmasqConfKeys.NoDhcpv6Interface] = "No DHCPv6/RA on these interfaces. Can repeat.",
         [DnsmasqConfKeys.Ipset] = "Add resolved IPs to ipset (domain, set names). Can repeat.",
         [DnsmasqConfKeys.Nftset] = "Add resolved IPs to nftables sets. Can repeat.",
+        [DnsmasqConfKeys.ConnmarkAllowlistEnable] = "Use conntrack marks to allowlist which queries are forwarded (with connmark-allowlist).",
+        [DnsmasqConfKeys.NoRoundRobin] = "Do not rotate the order of upstream servers for each query.",
+        [DnsmasqConfKeys.DnsForwardMax] = "Maximum number of concurrent DNS forwards (default 150).",
+        [DnsmasqConfKeys.ConnmarkAllowlist] = "Conntrack marks that allowlist which queries are forwarded (with connmark-allowlist-enable). Can repeat.",
+        [DnsmasqConfKeys.Do0x20Encode] = "Use 0x20 encoding in queries to detect DNS poisoning (Enabled), disable it (Disabled), or default (not set).",
 
         // --- DNS records ---
         [DnsmasqConfKeys.Domain] = "Local domain(s); optional IP. Can repeat (e.g. domain=home,192.168.1.1).",
@@ -72,12 +77,33 @@ public static class DnsmasqOptionTooltips
         [DnsmasqConfKeys.HostRecord] = "A/AAAA host records (name, IP). Can repeat.",
         [DnsmasqConfKeys.DynamicHost] = "Dynamic host entries. Can repeat.",
         [DnsmasqConfKeys.InterfaceName] = "Name per interface (for localise-queries). Can repeat.",
+        [DnsmasqConfKeys.CaaRecord] = "CAA record (domain, flags, tag, value). Can repeat.",
+        [DnsmasqConfKeys.DnsRr] = "Arbitrary DNS resource record. Can repeat.",
+        [DnsmasqConfKeys.SynthDomain] = "Synthesize answers for a domain. Can repeat.",
+        [DnsmasqConfKeys.AuthZone] = "Authoritative zone (domain, subnet). Can repeat.",
+        [DnsmasqConfKeys.AuthSoa] = "SOA record for authoritative zone. Can repeat.",
+        [DnsmasqConfKeys.AuthSecServers] = "Secondary servers for zone transfer. Can repeat.",
+        [DnsmasqConfKeys.AuthPeer] = "Peers for zone transfer. Can repeat.",
 
         // --- DHCP ---
         [DnsmasqConfKeys.DhcpAuthoritative] = "DHCP server is authoritative; required for DHCP to work.",
         [DnsmasqConfKeys.DhcpRapidCommit] = "DHCPv4 Rapid Commit (RFC 4039); use only if single server or all commit.",
+        [DnsmasqConfKeys.Leasequery] = "Respond to DHCPLEASEQUERY messages (e.g. from relay).",
+        [DnsmasqConfKeys.DhcpGenerateNames] = "Generate names for DHCP clients from their hostname or MAC.",
+        [DnsmasqConfKeys.DhcpBroadcast] = "Use broadcast to communicate with DHCP clients when unicast is not possible.",
+        [DnsmasqConfKeys.DhcpSequentialIp] = "Allocate DHCP addresses sequentially from the range.",
+        [DnsmasqConfKeys.DhcpIgnoreClid] = "Ignore client identifier (use MAC only) for DHCP.",
+        [DnsmasqConfKeys.BootpDynamic] = "Allow dynamic allocation for BOOTP clients.",
+        [DnsmasqConfKeys.NoPing] = "Do not ping the gateway before offering a DHCP lease.",
+        [DnsmasqConfKeys.ScriptArp] = "Call dhcp-script with extra 'arp' or 'arp-old arp-new' for ARP table updates.",
+        [DnsmasqConfKeys.ScriptOnRenewal] = "Call dhcp-script on lease renewal (in addition to first assignment).",
+        [DnsmasqConfKeys.DhcpNoOverride] = "Do not replace existing DNS/DHCP data for a client (e.g. from /etc/hosts).",
         [DnsmasqConfKeys.DhcpScript] = "Script run on lease add/delete (add|del, MAC, IP, hostname).",
         [DnsmasqConfKeys.LeasefileRo] = "Do not create or truncate the DHCP lease file.",
+        [DnsmasqConfKeys.DhcpAlternatePort] = "Use alternate port for DHCP (e.g. 67).",
+        [DnsmasqConfKeys.DhcpDuid] = "DHCP unique identifier (DUID) for the server.",
+        [DnsmasqConfKeys.DhcpLuascript] = "Lua script for DHCP (e.g. for custom logic).",
+        [DnsmasqConfKeys.DhcpScriptuser] = "User to run dhcp-script as (requires root).",
         [DnsmasqConfKeys.DhcpLeasefile] = "Path to the DHCP lease file.",
         [DnsmasqConfKeys.DhcpLeaseMax] = "Maximum number of DHCP leases to hold.",
         [DnsmasqConfKeys.DhcpTtl] = "TTL for DHCP names in the DNS cache.",
@@ -98,6 +124,14 @@ public static class DnsmasqOptionTooltips
         [DnsmasqConfKeys.DhcpUserclass] = "Match by DHCP user class. Can repeat.",
         [DnsmasqConfKeys.RaParam] = "Router advertisement parameters (DHCPv6/RA). Can repeat.",
         [DnsmasqConfKeys.Slaac] = "SLAAC host part for DHCPv6/RA. Can repeat.",
+        [DnsmasqConfKeys.DhcpRelay] = "Relay DHCP to another server. Can repeat.",
+        [DnsmasqConfKeys.DhcpCircuitid] = "Circuit ID for DHCP relay. Can repeat.",
+        [DnsmasqConfKeys.DhcpRemoteid] = "Remote ID for DHCP relay. Can repeat.",
+        [DnsmasqConfKeys.DhcpSubscrid] = "Subscriber ID for DHCP relay. Can repeat.",
+        [DnsmasqConfKeys.DhcpProxy] = "DHCP proxy (relay) configuration. Can repeat.",
+        [DnsmasqConfKeys.TagIf] = "Set tag when request from interface. Can repeat.",
+        [DnsmasqConfKeys.BridgeInterface] = "Bridge interfaces for DHCP. Can repeat.",
+        [DnsmasqConfKeys.SharedNetwork] = "Shared network for DHCP. Can repeat.",
 
         // --- TFTP / PXE ---
         [DnsmasqConfKeys.EnableTftp] = "Enable the built-in TFTP server.",
@@ -107,10 +141,17 @@ public static class DnsmasqOptionTooltips
         [DnsmasqConfKeys.TftpRoot] = "Root directory for TFTP files.",
         [DnsmasqConfKeys.PxePrompt] = "PXE boot prompt (e.g. timeout,0 to disable).",
         [DnsmasqConfKeys.PxeService] = "PXE service definitions. Can repeat.",
+        [DnsmasqConfKeys.DhcpPxeVendor] = "PXE vendor class string (e.g. for PXE matching).",
+        [DnsmasqConfKeys.DhcpOptionPxe] = "PXE option (e.g. option 43). Can repeat.",
 
         // --- DNSSEC ---
         [DnsmasqConfKeys.Dnssec] = "Validate DNSSEC on replies from upstream.",
         [DnsmasqConfKeys.DnssecCheckUnsigned] = "Treat unsigned zones as bogus.",
+        [DnsmasqConfKeys.DnssecNoTimecheck] = "Do not validate DNSSEC signatures against the current time (e.g. for testing).",
+        [DnsmasqConfKeys.DnssecDebug] = "Log DNSSEC validation failures at debug level.",
+        [DnsmasqConfKeys.AddCpeId] = "Add CPE-ID to DHCP requests (for identification).",
+        [DnsmasqConfKeys.DnssecTimestamp] = "Path to file for DNSSEC timestamp (e.g. for validation).",
+        [DnsmasqConfKeys.DnssecLimits] = "DNSSEC validation limits (e.g. max signed zones).",
         [DnsmasqConfKeys.TrustAnchor] = "DNSSEC trust anchors. Can repeat.",
 
         // --- Cache ---
@@ -121,6 +162,12 @@ public static class DnsmasqOptionTooltips
         [DnsmasqConfKeys.MaxTtl] = "Maximum TTL for cached responses (cap on upstream TTL).",
         [DnsmasqConfKeys.MaxCacheTtl] = "Maximum TTL for positive cache entries.",
         [DnsmasqConfKeys.MinCacheTtl] = "Minimum TTL for positive cache entries.",
+        [DnsmasqConfKeys.Dumpfile] = "Dump cache to this file (for debugging).",
+        [DnsmasqConfKeys.Dumpmask] = "Mask for cache dump (which data to include).",
+        [DnsmasqConfKeys.UseStaleCache] = "Use stale cache when upstream is unavailable. Off, On (key-only), or custom seconds.",
+        [DnsmasqConfKeys.AddMac] = "Add MAC address to DNS queries. Off, On (key-only), or custom value.",
+        [DnsmasqConfKeys.AddSubnet] = "Add subnet to DNS queries. Off, On (key-only), or custom value.",
+        [DnsmasqConfKeys.Umbrella] = "Cisco Umbrella device identity. Off, On (key-only), or custom value.",
 
         // --- Process & networking ---
         [DnsmasqConfKeys.NoPoll] = "Do not poll /etc/resolv.conf for changes.",
@@ -143,6 +190,10 @@ public static class DnsmasqOptionTooltips
         [DnsmasqConfKeys.KeepInForeground] = "Do not daemonise; stay in foreground (e.g. under systemd).",
         [DnsmasqConfKeys.NoDaemon] = "Debug mode: no fork, no pid file, log to stderr.",
         [DnsmasqConfKeys.Conntrack] = "Linux connection-tracking mark for UBus/query filtering (platform-dependent).",
+        [DnsmasqConfKeys.QuietDhcp] = "Suppress routine DHCP logging.",
+        [DnsmasqConfKeys.QuietDhcp6] = "Suppress routine DHCPv6 logging.",
+        [DnsmasqConfKeys.QuietRa] = "Suppress routine router advertisement logging.",
+        [DnsmasqConfKeys.QuietTftp] = "Suppress routine TFTP logging.",
     }.ToFrozenDictionary();
 
     /// <summary>Returns a short tooltip for the option, or null if none is defined.</summary>

@@ -1,0 +1,84 @@
+@namespace DnsmasqWebUI.Components.EffectiveConfig.CustomDisplays
+@using DnsmasqWebUI.Models.Dnsmasq
+@inherits EffectiveConfigValueDisplayBase
+
+@* Options that can be: not set, key-only (e.g. use-stale-cache), or key=value (e.g. use-stale-cache=60). Checkbox to enable; when enabled, optional value input. *@
+@if (IsActiveEditor && Descriptor.GetSource()?.IsReadOnly != true)
+{
+    var isEnabled = _editorValue != null;
+    var valuePart = _editorValue is { Length: > 0 } ? _editorValue : "";
+    <div class="ec-key-only-or-value-editor">
+        <div class="form-check form-switch mb-0 ec-key-only-or-value-switch">
+            <input type="checkbox"
+                   class="form-check-input"
+                   checked="@isEnabled"
+                   aria-label="Enable @Descriptor.OptionName"
+                   title="Set @Descriptor.OptionName"
+                   @onchange="OnCheckedChange" />
+        </div>
+        @if (isEnabled)
+        {
+            <input type="text"
+                   class="form-control form-control-sm ec-key-only-or-value-input"
+                   placeholder="Optional value"
+                   value="@valuePart"
+                   @oninput="OnValueInput" />
+        }
+    </div>
+}
+else
+{
+    var v = GetEffectiveDisplayValue() as string;
+    if (v is null)
+    {
+        @("(not set)")
+    }
+    else if (v.Length == 0)
+    {
+        @("Enabled")
+    }
+    else
+    {
+        @v
+    }
+}
+
+@code {
+    private string? _editorValue;
+    private bool _wasActiveEditor;
+
+    protected override void OnParametersSet()
+    {
+        var effective = GetEffectiveDisplayValue() as string;
+        if (!IsActiveEditor)
+        {
+            _editorValue = effective;
+        }
+        else if (!_wasActiveEditor)
+        {
+            _editorValue = effective;
+        }
+
+        _wasActiveEditor = IsActiveEditor;
+    }
+
+    private async Task OnCheckedChange(ChangeEventArgs e)
+    {
+        var isChecked = e.Value switch
+        {
+            bool b => b,
+            string s when bool.TryParse(s, out var parsed) => parsed,
+            _ => false
+        };
+
+        _editorValue = isChecked ? "" : null;
+        await NotifyValueChanged(_editorValue);
+    }
+
+    private async Task OnValueInput(ChangeEventArgs e)
+    {
+        var raw = e.Value?.ToString()?.Trim();
+        _editorValue = string.IsNullOrEmpty(raw) ? "" : raw;
+        await NotifyValueChanged(_editorValue);
+    }
+}

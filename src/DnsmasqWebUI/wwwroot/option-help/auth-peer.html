@@ -1,0 +1,12 @@
+<dt><b>--auth-peer=&lt;ip-address&gt;[,&lt;ip-address&gt;[,&lt;ip-address&gt;...]]</b></dt>
+<dd>Specify the addresses of secondary servers which are allowed to
+initiate zone transfer (AXFR) requests for zones for which dnsmasq is
+authoritative. If this option is not given but --auth-sec-servers is,
+then AXFR requests will be
+accepted from any secondary. Specifying
+<b>--auth-peer</b>
+
+without
+<b>--auth-sec-servers</b>
+
+enables zone transfer but does not advertise the secondary in NS records returned by dnsmasq.</dd>

@@ -1,0 +1,11 @@
+<dt><b>--leasequery[=&lt;addr&gt;[/&lt;prefix&gt;]]</b></dt>
+<dd>Enable RFC 4388 leasequery. The dnsmasq DHCP server will answer LEASEQUERY messages from DHCP relays
+when this option is given. If an address or subnet is given, only queries from a relay at that source are allowed. Repeat
+the --leasequery option to specify multiple allowed sources.
+To correctly answer lease queries it is necessary to store extra data in
+the lease database, and this is also enabled by the <b>--leasequery</b> option. The extra fields
+(agent-info and vendorclass) are stored in the leases file in a somewhat backwards compatible manner.
+Enabling and then disabling leasequery will not cause problems; the extra information will be aged
+out of the database. However, enabling leasequery in release 2.92 or later, storing leases
+which come via DHCP relays which add option-82 agent-info data, and then moving back to a pre-2.92 dnsmasq
+binary may cause problems reading the leases file. As of release 2.92, leasequery is only supported for DHCPv4.</dd>

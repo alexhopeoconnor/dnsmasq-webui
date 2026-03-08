@@ -1,0 +1,18 @@
+<dt><b>--dhcp-proxy[=&lt;ip addr&gt;]......</b></dt>
+<dd>(IPv4 only) A normal DHCP relay agent is only used to forward the initial parts of
+a DHCP interaction to the DHCP server. Once a client is configured, it
+communicates directly with the server. This is undesirable if the
+relay agent is adding extra information to the DHCP packets, such as
+that used by
+<b>--dhcp-circuitid</b>
+
+and
+<b>--dhcp-remoteid.</b>
+
+A full relay implementation can use the RFC 5107 serverid-override
+option to force the DHCP server to use the relay as a full proxy, with all
+packets passing through it. This flag provides an alternative method
+of doing the same thing, for relays which don't support RFC
+5107. Given alone, it manipulates the server-id for all interactions
+via relays. If a list of IP addresses is given, only interactions via
+relays at those addresses are affected.</dd>

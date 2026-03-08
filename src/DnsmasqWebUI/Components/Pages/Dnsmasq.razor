@@ -76,7 +76,7 @@ else if (_status != null)
             </div>
         }
 
-        <StatusSection RefreshIntervalSeconds="@ClientSettingsFields.ServiceStatusPollingInterval.Value" IsReloading="_reloading" OnOpenSettings="OpenServiceStatusSettings" />
+        <StatusSection RefreshIntervalSeconds="@ClientSettingsFields.ServiceStatusPollingInterval.Value" IsReloading="_reloading" OnReloadRequested="ReloadDnsmasq" ReloadCommandConfigured="_status.ReloadCommandConfigured" OnOpenSettings="OpenServiceStatusSettings" />
         <LogsSection Status="_status" RefreshIntervalSeconds="@ClientSettingsFields.RecentLogsPollingInterval.Value" LogsMaxLines="@ClientSettingsFields.RecentLogsMaxLines.Value" LogsAutoScroll="@ClientSettingsFields.RecentLogsAutoScroll.Value" OnOpenSettings="OpenRecentLogsSettings" />
         <AppLogsSection RefreshIntervalSeconds="@ClientSettingsFields.AppLogsPollingInterval.Value" LogsMaxLines="@ClientSettingsFields.AppLogsMaxLines.Value" LogsAutoScroll="@ClientSettingsFields.AppLogsAutoScroll.Value" OnOpenSettings="OpenAppLogsSettings" />
     </section>

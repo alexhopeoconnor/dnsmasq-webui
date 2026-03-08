@@ -1,0 +1,12 @@
+<dt><b>--dhcp-sequential-ip</b></dt>
+<dd>Dnsmasq is designed to choose IP addresses for DHCP clients using a
+hash of the client's MAC address. This normally allows a client's
+address to remain stable long-term, even if the client  sometimes allows its DHCP
+lease to expire. In this default mode IP addresses are distributed
+pseudo-randomly over the entire available address range. There are
+sometimes circumstances (typically server deployment) where it is more
+convenient to have IP
+addresses allocated sequentially, starting from the lowest available
+address, and setting this flag enables this mode. Note that in the
+sequential mode, clients which allow a lease to expire are much more
+likely to move IP address; for this reason it should not be generally used.</dd>

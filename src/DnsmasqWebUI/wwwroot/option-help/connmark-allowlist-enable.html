@@ -1,0 +1,10 @@
+<dt><b>--connmark-allowlist-enable[=&lt;mask&gt;]</b></dt>
+<dd>Enables filtering of incoming DNS queries with associated Linux connection track marks
+according to individual allowlists configured via a series of <b>--connmark-allowlist</b>
+options. Disallowed queries are not forwarded; they are rejected with a REFUSED error code.
+DNS queries are only allowed if they do not have an associated Linux connection
+track mark, or if the queried domains match the configured DNS patterns for the
+associated Linux connection track mark. If no allowlist is configured for a
+Linux connection track mark, all DNS queries associated with that mark are rejected.
+If a mask is specified, Linux connection track marks are first bitwise ANDed
+with the given mask before being processed.</dd>

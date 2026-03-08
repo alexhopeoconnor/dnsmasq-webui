@@ -1,0 +1,10 @@
+<dt><b>--dhcp-circuitid=set:&lt;tag&gt;,&lt;circuit-id&gt;, --dhcp-remoteid=set:&lt;tag&gt;,&lt;remote-id&gt;</b></dt>
+<dd>Map from RFC3046 relay agent options to tags. This data may
+be provided by DHCP relay agents. The circuit-id or remote-id is
+normally given as colon-separated hex, but is also allowed to be a
+simple string. If an exact match is achieved between the circuit or
+agent ID and one provided by a relay agent, the tag is set. 
+<p>
+<b>--dhcp-remoteid</b>
+
+(but not <b>--dhcp-circuitid</b>) is supported in IPv6.</dd>

@@ -13,7 +13,7 @@ Source for the Docker test harness: `scripts/prepare-test-mount.sh` syncs this d
 | **dnsmasq.d/** | Included configs (conf-dir; alphabetical order). In the harness, "Config files (load order)" should list main, then these, then zz-dnsmasq-webui.conf. |
 | **dnsmasq.d/01-other.conf** | `domain=local`. Not managed. |
 | **dnsmasq.d/02-servers.conf** | Extra `server=` / `local=` (readonly in UI). |
-| **dnsmasq.d/03-more.conf** | `resolv-file=`, `dhcp-option=`. Not managed. |
+| **dnsmasq.d/03-more.conf** | `resolv-file=`, `dhcp-option=`, `no-round-robin`, `quiet-dhcp`, `dns-forward-max=`, `use-stale-cache=`. Not managed. |
 | **dnsmasq.d/dhcp.conf** | `dhcp-host=`; managed by app in real use, used as-is in harness. |
 | **hosts** | First addn-hosts file; system hosts when `Dnsmasq:SystemHostsPath` points here. |
 | **hosts.extra** | Second addn-hosts file. |

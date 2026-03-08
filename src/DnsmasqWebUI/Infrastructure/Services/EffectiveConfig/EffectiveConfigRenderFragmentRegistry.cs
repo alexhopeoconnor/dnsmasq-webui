@@ -34,6 +34,7 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
         RegisterInteger(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.PortLimit, max: 65535);
         RegisterInteger(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.MinPort, min: 1, max: 65535);
         RegisterInteger(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.MaxPort, min: 1, max: 65535);
+        RegisterInteger(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.DnsForwardMax, min: 1);
         RegisterInteger(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.CacheSize, min: 0);
         RegisterInteger(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.LocalTtl, unit: "seconds");
         RegisterInteger(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.NegTtl, unit: "seconds");
@@ -82,6 +83,33 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
         RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.NoDaemon);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.Conntrack);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.ProxyDnssec);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.ConnmarkAllowlistEnable);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.NoRoundRobin);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.DnssecNoTimecheck);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.DnssecDebug);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.Leasequery);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpGenerateNames);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpBroadcast);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpSequentialIp);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpIgnoreClid);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.BootpDynamic);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.NoPing);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.ScriptArp);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.ScriptOnRenewal);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpNoOverride);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.QuietDhcp);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.QuietDhcp6);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.QuietRa);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.QuietTftp);
+
+        // do-0x20-encode / no-0x20-encode: tri-state dropdown (Default / Enabled / Disabled).
+        RegisterComponent(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.Do0x20Encode, typeof(Do0x20EncodeDisplay));
+
+        // Key-only or key=value options: checkbox (On) + optional value input.
+        RegisterComponent(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.UseStaleCache, typeof(KeyOnlyOrValueDisplay));
+        RegisterComponent(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.AddMac, typeof(KeyOnlyOrValueDisplay));
+        RegisterComponent(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.AddSubnet, typeof(KeyOnlyOrValueDisplay));
+        RegisterComponent(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.Umbrella, typeof(KeyOnlyOrValueDisplay));
 
         // log-queries: dropdown (Off / On / extra / proto / auth).
         RegisterComponent(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.LogQueries, typeof(LogQueriesDisplay));
@@ -113,6 +141,7 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.FilterRr);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.Ipset);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.Nftset);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.ConnmarkAllowlist);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.Domain);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.Cname);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.MxHost);
@@ -123,6 +152,13 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.HostRecord);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.DynamicHost);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.InterfaceName);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.CaaRecord);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.DnsRr);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.SynthDomain);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.AuthZone);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.AuthSoa);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.AuthSecServers);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.AuthPeer);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpRange);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpHost);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpOption);
@@ -134,6 +170,14 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpHostsfile);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpOptsfile);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpHostsdir);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpRelay);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpCircuitid);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpRemoteid);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpSubscrid);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpProxy);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.TagIf);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.BridgeInterface);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.SharedNetwork);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpBoot);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpIgnore);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpVendorclass);
@@ -141,6 +185,7 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.RaParam);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.Slaac);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionTftpPxe, DnsmasqConfKeys.PxeService);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionTftpPxe, DnsmasqConfKeys.DhcpOptionPxe);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.TrustAnchor);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.CacheRr);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.Interface);

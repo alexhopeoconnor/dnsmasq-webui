@@ -187,11 +187,23 @@
     gap: 0.25rem;
 }
 
-/* Edit wrapper (checkbox/input) shrinks to content so the editable badge stays on the same line */
+/* When a field is active: value + badges in one block so any click inside (checkbox, input, ok/cancel) doesn't deactivate */
+::deep .ec-field-value-when-editing {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 0;
+    max-width: 100%;
+}
+
+/* Edit wrapper (checkbox/input) shrinks to content */
 ::deep .ec-field-edit-wrapper {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
     display: inline-flex;
     align-items: center;
+    min-width: 0;
+    max-width: 100%;
 }
 
 /* Input/select in value area can shrink so the editable badge stays on the same line */
@@ -251,6 +263,21 @@
     display: inline-flex;
     align-items: center;
     line-height: 1;
+}
+
+/* Only when field is in edit mode: push ok/cancel/revert to end and allow them to wrap first on narrow widths */
+::deep .ec-field-value-when-editing > .status-badge-inline {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    margin-left: auto;
+}
+
+@media (max-width: 991.98px) {
+    ::deep .ec-field-value-when-editing > .status-badge-inline {
+        flex-basis: 100%;
+        margin-left: 0;
+        margin-top: 0.15rem;
+    }
 }
 
 @media (max-width: 767.98px) {

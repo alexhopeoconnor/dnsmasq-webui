@@ -1,0 +1,10 @@
+<dt><b>--add-mac[=base64|text]</b></dt>
+<dd>Add the MAC address of the requestor to DNS queries which are
+forwarded upstream. This may be used to DNS filtering by the upstream
+server. The MAC address can only be added if the requestor is on the same
+subnet as the dnsmasq server. Note that the mechanism used to achieve this (an EDNS0 option)
+is not yet standardised, so this should be considered
+experimental. Also note that exposing MAC addresses in this way may
+have security and privacy implications. The warning about caching
+given for <b>--add-subnet</b> applies to <b>--add-mac</b> too. An alternative encoding of the
+MAC, as base64, is enabled by adding the "base64" parameter and a human-readable encoding of hex-and-colons is enabled by added the "text" parameter.</dd>

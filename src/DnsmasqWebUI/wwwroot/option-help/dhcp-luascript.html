@@ -1,0 +1,73 @@
+<dt><b>--dhcp-luascript=&lt;path&gt;</b></dt>
+<dd>Specify a script written in Lua, to be run when leases are created,
+destroyed or changed. To use this option, dnsmasq must be compiled
+with the correct support. The Lua interpreter is initialised once, when
+dnsmasq starts, so that global variables persist between lease
+events. The Lua code must define a
+<b>lease</b>
+
+function, and may provide
+<b>init</b>
+
+and
+<b>shutdown</b>
+
+functions, which are called, without arguments when dnsmasq starts up
+and terminates. It may also provide a 
+<b>tftp</b>
+
+function.
+<p>
+The 
+<b>lease</b>
+
+function receives the information detailed in 
+<b>--dhcp-script. </b>
+
+It gets two arguments, firstly the action, which is a string
+containing, "add", "old" or "del", and secondly a table of tag value
+pairs. The tags mostly correspond to the environment variables
+detailed above, for instance the tag "domain" holds the same data as
+the environment variable DNSMASQ_DOMAIN. There are a few extra tags
+which hold the data supplied as arguments to
+<b>--dhcp-script. </b>
+
+These are 
+<b>mac_address, ip_address</b>
+
+and 
+<b>hostname</b>
+
+for IPv4, and 
+<b>client_duid, ip_address</b>
+
+and 
+<b>hostname</b>
+
+for IPv6.
+<p>
+The  
+<b>tftp</b>
+
+function is called in the same way as the lease function, and the
+table holds the tags 
+<b>destination_address,</b>
+<b>file_name</b>
+
+and 
+<b>file_size.</b>
+<p>
+The 
+<b>arp</b>
+
+and
+<b>arp-old</b>
+
+functions are called only when enabled with
+<b>--script-arp</b>
+
+and have a table which holds the tags
+<b>mac_address</b>
+
+and
+<b>client_address.</b></dd>

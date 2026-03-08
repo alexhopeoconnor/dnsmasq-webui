@@ -17,15 +17,18 @@ From the repo root:
 
 This will:
 
-1. Clear `testdata-mount/` (unless you pass `--no-clear`)
-2. Sync `testdata/` → `testdata-mount/`
-3. Remove any `*dnsmasq-webui*.conf` in the mount so dnsmasq starts clean
+1. Sync `testdata/` to `testdata-mount/` (preserving existing contents unless you pass `--clear`)
+2. Remove any `*dnsmasq-webui*.conf` in the mount so dnsmasq starts clean
+3. Resolve the requested dnsmasq version (`latest` by default) to a concrete value when needed
 4. Run `docker compose -f docker-compose.test.yml up -d --build`
 
 - **Quick restart (no image rebuild):** `./scripts/prepare-test-mount.sh --no-build`
+- **Force a fresh image build:** `./scripts/prepare-test-mount.sh --no-cache-build`
+- **Pin dnsmasq version:** `./scripts/prepare-test-mount.sh --dnsmasq-version 2.91 --build`
+- **Use distro package:** `./scripts/prepare-test-mount.sh --dnsmasq-version distro --build`
 - **Prepare mount only (no start):** `./scripts/prepare-test-mount.sh --prepare-only`  
-  Then start manually: `TESTDATA_MOUNT=./testdata-mount docker compose -f docker-compose.test.yml up -d [--build]`
-- **Preserve mount (e.g. keep leases):** `./scripts/prepare-test-mount.sh --no-clear --no-build`
+  Then start manually with the version printed by the script: `TESTDATA_MOUNT=./testdata-mount DNSMASQ_VERSION=<resolved-version> docker compose -f docker-compose.test.yml up -d [--build]`
+- **Preserve mount (e.g. keep leases):** `./scripts/prepare-test-mount.sh --no-build` (default mount behavior)
 
 App is at **http://localhost:8080**. Main config path in the container is `/data/dnsmasq-test.conf`; managed file is `zz-dnsmasq-webui.conf` in the same directory.
 
@@ -49,6 +52,8 @@ Stops the harness and deletes the contents of `testdata-mount/` so the next run 
 
 - `--source DIR` — Source to sync from (default: `testdata`)
 - `--mount DIR` — Mount directory (default: `testdata-mount`). The script exports `TESTDATA_MOUNT=./DIR` when you use `--mount`, so compose uses it.
+- `--dnsmasq-version V` — Dnsmasq version for the harness image: `latest` (default), `distro`, or an exact upstream version like `2.91`.
+- `--no-cache-build` — Force a fresh image build with `docker compose build --pull --no-cache` before start.
 
 Example: sync from a custom dir and start:
 
@@ -76,5 +81,12 @@ Build only: `dotnet build`
 
 - **testdata/** — Source for the harness mount. Synced to `testdata-mount/` by `prepare-test-mount.sh`. Unit tests read from the copy in the test output dir. See **testdata/README** for the full layout.
 - **testdata/dnsmasq-test.conf** — Harness main config (`/data/dnsmasq-test.conf`). Richer config: multiple `server=`, `addn-hosts=`, `address=`, `listen-address=`, `conf-dir=/data/dnsmasq.d`.
-- **testdata/dnsmasq.d/** — Included configs (01-other.conf, 02-servers.conf, dhcp.conf). App creates `zz-dnsmasq-webui.conf` here when running.
+- **testdata/dnsmasq.d/** — Included configs (01-other.conf, 02-servers.conf, 03-more.conf, dhcp.conf). App creates `zz-dnsmasq-webui.conf` here when running.
 - **testdata/hosts**, **testdata/hosts.extra** — Addn-hosts files so effective config has multiple addn-hosts; UI can show source per path.
+
+## When adding new effective-config options
+
+When adding a new dnsmasq option to the Effective Config UI (new key in `DnsmasqConfKeys`, section, kind map, parser/write behavior, tooltip, etc.):
+
+1. **Option help:** Add the option key (lowercase, e.g. `no-round-robin`) to the `OPTION_KEYS` list in `scripts/extract-option-help.sh` (keep in sync with `EffectiveConfigSections`). Then run `./scripts/extract-option-help.sh` so `wwwroot/option-help/<key>.html` is generated if the option exists in the dnsmasq man page.
+2. **Testdata (optional):** To show the option in the UI when using the harness or testdata, add a line to e.g. `testdata/dnsmasq.d/03-more.conf` and update `testdata/README` if needed.

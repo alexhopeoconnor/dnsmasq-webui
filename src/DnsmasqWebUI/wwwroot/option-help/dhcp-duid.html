@@ -1,0 +1,9 @@
+<dt><b>--dhcp-duid=&lt;enterprise-id&gt;,&lt;uid&gt;</b></dt>
+<dd>(IPv6 only) Specify the server persistent UID which the DHCPv6 server
+will use. This option is not normally required as dnsmasq creates a
+DUID automatically when it is first needed. When given, this option
+provides dnsmasq the data required to create a DUID-EN type DUID. Note
+that once set, the DUID is stored in the lease database, so to change between DUID-EN and
+automatically created DUIDs or vice-versa, the lease database must be
+re-initialised. The enterprise-id is assigned by IANA, and the uid is a
+string of hex octets unique to a particular device.</dd>

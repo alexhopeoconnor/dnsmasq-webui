@@ -293,6 +293,23 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
         var dhcpHostsfilePaths = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DhcpHostsfile);
         var dhcpOptsfilePaths = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DhcpOptsfile);
         var dhcpHostsdirPaths = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DhcpHostsdir);
+        var connmarkAllowlistValues = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.ConnmarkAllowlist);
+        var caaRecordValues = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.CaaRecord);
+        var dnsRrValues = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DnsRr);
+        var synthDomainValues = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.SynthDomain);
+        var authZoneValues = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.AuthZone);
+        var authSoaValues = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.AuthSoa);
+        var authSecServersValues = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.AuthSecServers);
+        var authPeerValues = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.AuthPeer);
+        var dhcpRelayValues = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DhcpRelay);
+        var dhcpCircuitidValues = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DhcpCircuitid);
+        var dhcpRemoteidValues = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DhcpRemoteid);
+        var dhcpSubscridValues = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DhcpSubscrid);
+        var dhcpProxyValues = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DhcpProxy);
+        var tagIfValues = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.TagIf);
+        var bridgeInterfaceValues = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.BridgeInterface);
+        var sharedNetworkValues = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.SharedNetwork);
+        var dhcpOptionPxeValues = (IReadOnlyList<string>)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DhcpOptionPxe);
 
         var expandHosts = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.ExpandHosts);
         var bogusPriv = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.BogusPriv);
@@ -330,6 +347,24 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
         var keepInForeground = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.KeepInForeground);
         var noDaemon = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.NoDaemon);
         var proxyDnssec = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.ProxyDnssec);
+        var connmarkAllowlistEnable = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.ConnmarkAllowlistEnable);
+        var noRoundRobin = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.NoRoundRobin);
+        var dnssecNoTimecheck = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DnssecNoTimecheck);
+        var dnssecDebug = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DnssecDebug);
+        var leasequery = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.Leasequery);
+        var dhcpGenerateNames = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DhcpGenerateNames);
+        var dhcpBroadcast = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DhcpBroadcast);
+        var dhcpSequentialIp = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DhcpSequentialIp);
+        var dhcpIgnoreClid = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DhcpIgnoreClid);
+        var bootpDynamic = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.BootpDynamic);
+        var noPing = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.NoPing);
+        var scriptArp = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.ScriptArp);
+        var scriptOnRenewal = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.ScriptOnRenewal);
+        var dhcpNoOverride = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DhcpNoOverride);
+        var quietDhcp = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.QuietDhcp);
+        var quietDhcp6 = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.QuietDhcp6);
+        var quietRa = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.QuietRa);
+        var quietTftp = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.QuietTftp);
 
         var dhcpLeaseFilePath = DnsmasqConfIncludeParser.GetDhcpLeaseFilePathFromConfigFiles(paths, pathToLines);
 
@@ -391,6 +426,39 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
         var dhcpScriptPath = string.IsNullOrWhiteSpace(dhcpScriptVal) ? null : DnsmasqConfIncludeParser.ResolvePath(dhcpScriptVal?.Trim(), dhcpScriptDir);
         var (mxTargetVal, _) = ((string?, string?))ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.MxTarget);
         var mxTarget = string.IsNullOrWhiteSpace(mxTargetVal) ? null : mxTargetVal.Trim();
+        var (dnsForwardMaxVal, _) = ((string?, string?))ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DnsForwardMax);
+        var dnsForwardMax = TryParseInt(dnsForwardMaxVal);
+        var (dumpfileVal, dumpfileDir) = ((string?, string?))ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.Dumpfile);
+        var dumpfilePath = string.IsNullOrWhiteSpace(dumpfileVal) ? null : DnsmasqConfIncludeParser.ResolvePath(dumpfileVal.Trim(), dumpfileDir);
+        var (dumpmaskVal, _) = ((string?, string?))ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.Dumpmask);
+        var dumpmask = string.IsNullOrWhiteSpace(dumpmaskVal) ? null : dumpmaskVal.Trim();
+        var (addCpeIdVal, _) = ((string?, string?))ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.AddCpeId);
+        var addCpeId = string.IsNullOrWhiteSpace(addCpeIdVal) ? null : addCpeIdVal.Trim();
+        var (dnssecTimestampVal, _) = ((string?, string?))ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DnssecTimestamp);
+        var dnssecTimestamp = string.IsNullOrWhiteSpace(dnssecTimestampVal) ? null : dnssecTimestampVal.Trim();
+        var (dnssecLimitsVal, _) = ((string?, string?))ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DnssecLimits);
+        var dnssecLimits = string.IsNullOrWhiteSpace(dnssecLimitsVal) ? null : dnssecLimitsVal.Trim();
+        var (dhcpAlternatePortVal, _) = ((string?, string?))ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DhcpAlternatePort);
+        var dhcpAlternatePort = string.IsNullOrWhiteSpace(dhcpAlternatePortVal) ? null : dhcpAlternatePortVal.Trim();
+        var (dhcpDuidVal, _) = ((string?, string?))ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DhcpDuid);
+        var dhcpDuid = string.IsNullOrWhiteSpace(dhcpDuidVal) ? null : dhcpDuidVal.Trim();
+        var (dhcpLuascriptVal, dhcpLuascriptDir) = ((string?, string?))ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DhcpLuascript);
+        var dhcpLuascriptPath = string.IsNullOrWhiteSpace(dhcpLuascriptVal) ? null : DnsmasqConfIncludeParser.ResolvePath(dhcpLuascriptVal?.Trim(), dhcpLuascriptDir);
+        var (dhcpScriptuserVal, _) = ((string?, string?))ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DhcpScriptuser);
+        var dhcpScriptuser = string.IsNullOrWhiteSpace(dhcpScriptuserVal) ? null : dhcpScriptuserVal.Trim();
+        var (dhcpPxeVendorVal, _) = ((string?, string?))ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.DhcpPxeVendor);
+        var dhcpPxeVendor = string.IsNullOrWhiteSpace(dhcpPxeVendorVal) ? null : dhcpPxeVendorVal.Trim();
+        var (useStaleCacheVal, _) = ((string?, string?))ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.UseStaleCache);
+        var useStaleCache = useStaleCacheVal == null ? null : (string.IsNullOrWhiteSpace(useStaleCacheVal) ? "" : useStaleCacheVal.Trim());
+        var (addMacVal, _) = ((string?, string?))ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.AddMac);
+        var addMac = addMacVal == null ? null : (string.IsNullOrWhiteSpace(addMacVal) ? "" : addMacVal.Trim());
+        var (addSubnetVal, _) = ((string?, string?))ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.AddSubnet);
+        var addSubnet = addSubnetVal == null ? null : (string.IsNullOrWhiteSpace(addSubnetVal) ? "" : addSubnetVal.Trim());
+        var (umbrellaVal, _) = ((string?, string?))ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.Umbrella);
+        var umbrella = umbrellaVal == null ? null : (string.IsNullOrWhiteSpace(umbrellaVal) ? "" : umbrellaVal.Trim());
+        var do0x20 = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.Do0x20Encode);
+        var no0x20 = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.No0x20Encode);
+        var do0x20EncodeState = do0x20 ? ExplicitToggleState.Enabled : (no0x20 ? ExplicitToggleState.Disabled : ExplicitToggleState.Default);
         var conntrack = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.Conntrack);
 
         return new EffectiveDnsmasqConfig(
@@ -401,14 +469,18 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
             domainValues, cnameValues, mxHostValues, srvValues, ptrRecordValues, txtRecordValues, naptrRecordValues, hostRecordValues, dynamicHostValues, interfaceNameValues,
             dhcpOptionForceLines, ipsetValues, nftsetValues, dhcpMacValues, dhcpNameMatchValues, dhcpIgnoreNamesValues,
             dhcpHostsfilePaths, dhcpOptsfilePaths, dhcpHostsdirPaths,
+            connmarkAllowlistValues, caaRecordValues, dnsRrValues, synthDomainValues, authZoneValues, authSoaValues, authSecServersValues, authPeerValues,
+            dhcpRelayValues, dhcpCircuitidValues, dhcpRemoteidValues, dhcpSubscridValues, dhcpProxyValues, tagIfValues, bridgeInterfaceValues, sharedNetworkValues, dhcpOptionPxeValues,
             expandHosts, bogusPriv, strictOrder, allServers, noResolv, domainNeeded, noPoll, bindInterfaces, bindDynamic, noNegcache,
             dnsLoopDetect, stopDnsRebind, rebindLocalhostOk, clearOnReload, filterwin2k, filterA, filterAaaa, localiseQueries, logDebug, dhcpAuthoritative, leasefileRo,
             enableTftp, tftpSecure, tftpNoFail, tftpNoBlocksize, dnssec, dnssecCheckUnsigned, readEthers, dhcpRapidCommit, localmx, selfmx, enableRa, logDhcp,
             keepInForeground, noDaemon, proxyDnssec,
+            connmarkAllowlistEnable, noRoundRobin, dnssecNoTimecheck, dnssecDebug, leasequery, dhcpGenerateNames, dhcpBroadcast, dhcpSequentialIp, dhcpIgnoreClid, bootpDynamic, noPing, scriptArp, scriptOnRenewal, dhcpNoOverride, quietDhcp, quietDhcp6, quietRa, quietTftp,
             dhcpLeaseFilePath, cacheSize, port, localTtl, pidFilePath, user, group, logFacility, logQueries,
             authTtl, ednsPacketMax, queryPort, portLimit, minPort, maxPort, logAsync, localService, dhcpLeaseMax,
             negTtl, maxTtl, maxCacheTtl, minCacheTtl, dhcpTtl, tftpRootPath, pxePrompt, enableDbus, enableUbus, fastDnsRetry,
-            dhcpScriptPath, mxTarget, conntrack
+            dhcpScriptPath, mxTarget, dnsForwardMax, dumpfilePath, dumpmask, addCpeId, dnssecTimestamp, dnssecLimits, dhcpAlternatePort, dhcpDuid, dhcpLuascriptPath, dhcpScriptuser, dhcpPxeVendor,
+            useStaleCache, addMac, addSubnet, umbrella, do0x20EncodeState, conntrack
         );
     }
 
@@ -466,6 +538,23 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
         var dhcpHostsfileWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpHostsfile, managedFilePath);
         var dhcpOptsfileWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpOptsfile, managedFilePath);
         var dhcpHostsdirWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpHostsdir, managedFilePath);
+        var connmarkAllowlistWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.ConnmarkAllowlist, managedFilePath);
+        var caaRecordWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.CaaRecord, managedFilePath);
+        var dnsRrWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DnsRr, managedFilePath);
+        var synthDomainWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.SynthDomain, managedFilePath);
+        var authZoneWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.AuthZone, managedFilePath);
+        var authSoaWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.AuthSoa, managedFilePath);
+        var authSecServersWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.AuthSecServers, managedFilePath);
+        var authPeerWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.AuthPeer, managedFilePath);
+        var dhcpRelayWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpRelay, managedFilePath);
+        var dhcpCircuitidWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpCircuitid, managedFilePath);
+        var dhcpRemoteidWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpRemoteid, managedFilePath);
+        var dhcpSubscridWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpSubscrid, managedFilePath);
+        var dhcpProxyWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpProxy, managedFilePath);
+        var tagIfWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.TagIf, managedFilePath);
+        var bridgeInterfaceWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.BridgeInterface, managedFilePath);
+        var sharedNetworkWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.SharedNetwork, managedFilePath);
+        var dhcpOptionPxeWithSource = (IReadOnlyList<(string Value, ConfigValueSource Source)>)ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpOptionPxe, managedFilePath);
 
         var (_, expandHostsSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.ExpandHosts, managedFilePath);
         var (_, bogusPrivSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.BogusPriv, managedFilePath);
@@ -503,6 +592,24 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
         var (_, keepInForegroundSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.KeepInForeground, managedFilePath);
         var (_, noDaemonSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.NoDaemon, managedFilePath);
         var (_, proxyDnssecSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.ProxyDnssec, managedFilePath);
+        var (_, connmarkAllowlistEnableSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.ConnmarkAllowlistEnable, managedFilePath);
+        var (_, noRoundRobinSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.NoRoundRobin, managedFilePath);
+        var (_, dnssecNoTimecheckSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DnssecNoTimecheck, managedFilePath);
+        var (_, dnssecDebugSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DnssecDebug, managedFilePath);
+        var (_, leasequerySource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.Leasequery, managedFilePath);
+        var (_, dhcpGenerateNamesSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpGenerateNames, managedFilePath);
+        var (_, dhcpBroadcastSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpBroadcast, managedFilePath);
+        var (_, dhcpSequentialIpSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpSequentialIp, managedFilePath);
+        var (_, dhcpIgnoreClidSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpIgnoreClid, managedFilePath);
+        var (_, bootpDynamicSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.BootpDynamic, managedFilePath);
+        var (_, noPingSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.NoPing, managedFilePath);
+        var (_, scriptArpSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.ScriptArp, managedFilePath);
+        var (_, scriptOnRenewalSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.ScriptOnRenewal, managedFilePath);
+        var (_, dhcpNoOverrideSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpNoOverride, managedFilePath);
+        var (_, quietDhcpSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.QuietDhcp, managedFilePath);
+        var (_, quietDhcp6Source) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.QuietDhcp6, managedFilePath);
+        var (_, quietRaSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.QuietRa, managedFilePath);
+        var (_, quietTftpSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.QuietTftp, managedFilePath);
 
         var (_, dhcpLeaseFilePathSource) = DnsmasqConfIncludeParser.GetDhcpLeaseFilePathFromConfigFilesWithSource(paths, pathToLines, managedFilePath);
         var (_, cacheSizeSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.CacheSize, managedFilePath);
@@ -534,6 +641,24 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
         var (_, fastDnsRetrySource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.FastDnsRetry, managedFilePath);
         var (_, dhcpScriptPathSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpScript, managedFilePath);
         var (_, mxTargetSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.MxTarget, managedFilePath);
+        var (_, dnsForwardMaxSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DnsForwardMax, managedFilePath);
+        var (_, dumpfilePathSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.Dumpfile, managedFilePath);
+        var (_, dumpmaskSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.Dumpmask, managedFilePath);
+        var (_, addCpeIdSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.AddCpeId, managedFilePath);
+        var (_, dnssecTimestampSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DnssecTimestamp, managedFilePath);
+        var (_, dnssecLimitsSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DnssecLimits, managedFilePath);
+        var (_, dhcpAlternatePortSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpAlternatePort, managedFilePath);
+        var (_, dhcpDuidSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpDuid, managedFilePath);
+        var (_, dhcpLuascriptPathSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpLuascript, managedFilePath);
+        var (_, dhcpScriptuserSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpScriptuser, managedFilePath);
+        var (_, dhcpPxeVendorSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpPxeVendor, managedFilePath);
+        var (_, useStaleCacheSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.UseStaleCache, managedFilePath);
+        var (_, addMacSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.AddMac, managedFilePath);
+        var (_, addSubnetSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.AddSubnet, managedFilePath);
+        var (_, umbrellaSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.Umbrella, managedFilePath);
+        var (do0x20Set, do0x20EncodeSourceA) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.Do0x20Encode, managedFilePath);
+        var (no0x20Set, no0x20EncodeSourceB) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.No0x20Encode, managedFilePath);
+        var do0x20EncodeSource = do0x20Set ? do0x20EncodeSourceA : (no0x20Set ? no0x20EncodeSourceB : null);
         var (_, conntrackSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.Conntrack, managedFilePath);
 
         return new EffectiveConfigSources(
@@ -587,6 +712,23 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
             dhcpHostsfileWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
             dhcpOptsfileWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
             dhcpHostsdirWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            connmarkAllowlistWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            caaRecordWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            dnsRrWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            synthDomainWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            authZoneWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            authSoaWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            authSecServersWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            authPeerWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            dhcpRelayWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            dhcpCircuitidWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            dhcpRemoteidWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            dhcpSubscridWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            dhcpProxyWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            tagIfWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            bridgeInterfaceWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            sharedNetworkWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
+            dhcpOptionPxeWithSource.Select(t => new ValueWithSource(t.Value, t.Source)).ToList(),
             expandHostsSource,
             bogusPrivSource,
             strictOrderSource,
@@ -623,6 +765,24 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
             keepInForegroundSource,
             noDaemonSource,
             proxyDnssecSource,
+            connmarkAllowlistEnableSource,
+            noRoundRobinSource,
+            dnssecNoTimecheckSource,
+            dnssecDebugSource,
+            leasequerySource,
+            dhcpGenerateNamesSource,
+            dhcpBroadcastSource,
+            dhcpSequentialIpSource,
+            dhcpIgnoreClidSource,
+            bootpDynamicSource,
+            noPingSource,
+            scriptArpSource,
+            scriptOnRenewalSource,
+            dhcpNoOverrideSource,
+            quietDhcpSource,
+            quietDhcp6Source,
+            quietRaSource,
+            quietTftpSource,
             dhcpLeaseFilePathSource,
             cacheSizeSource,
             portSource,
@@ -653,6 +813,22 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
             fastDnsRetrySource,
             dhcpScriptPathSource,
             mxTargetSource,
+            dnsForwardMaxSource,
+            dumpfilePathSource,
+            dumpmaskSource,
+            addCpeIdSource,
+            dnssecTimestampSource,
+            dnssecLimitsSource,
+            dhcpAlternatePortSource,
+            dhcpDuidSource,
+            dhcpLuascriptPathSource,
+            dhcpScriptuserSource,
+            dhcpPxeVendorSource,
+            useStaleCacheSource,
+            addMacSource,
+            addSubnetSource,
+            umbrellaSource,
+            do0x20EncodeSource,
             conntrackSource
         );
     }
@@ -707,17 +883,23 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
             DhcpOptionForceLines: Array.Empty<string>(), IpsetValues: Array.Empty<string>(), NftsetValues: Array.Empty<string>(),
             DhcpMacValues: Array.Empty<string>(), DhcpNameMatchValues: Array.Empty<string>(), DhcpIgnoreNamesValues: Array.Empty<string>(),
             DhcpHostsfilePaths: Array.Empty<string>(), DhcpOptsfilePaths: Array.Empty<string>(), DhcpHostsdirPaths: Array.Empty<string>(),
+            ConnmarkAllowlistValues: Array.Empty<string>(), CaaRecordValues: Array.Empty<string>(), DnsRrValues: Array.Empty<string>(), SynthDomainValues: Array.Empty<string>(),
+            AuthZoneValues: Array.Empty<string>(), AuthSoaValues: Array.Empty<string>(), AuthSecServersValues: Array.Empty<string>(), AuthPeerValues: Array.Empty<string>(),
+            DhcpRelayValues: Array.Empty<string>(), DhcpCircuitidValues: Array.Empty<string>(), DhcpRemoteidValues: Array.Empty<string>(), DhcpSubscridValues: Array.Empty<string>(), DhcpProxyValues: Array.Empty<string>(),
+            TagIfValues: Array.Empty<string>(), BridgeInterfaceValues: Array.Empty<string>(), SharedNetworkValues: Array.Empty<string>(), DhcpOptionPxeValues: Array.Empty<string>(),
             ExpandHosts: false, BogusPriv: false, StrictOrder: false, AllServers: false, NoResolv: false, DomainNeeded: false, NoPoll: false,
             BindInterfaces: false, BindDynamic: false, NoNegcache: false, DnsLoopDetect: false, StopDnsRebind: false, RebindLocalhostOk: false, ClearOnReload: false,
             Filterwin2k: false, FilterA: false, FilterAaaa: false, LocaliseQueries: false, LogDebug: false, DhcpAuthoritative: false, LeasefileRo: false,
             EnableTftp: false, TftpSecure: false, TftpNoFail: false, TftpNoBlocksize: false, Dnssec: false, DnssecCheckUnsigned: false,
             ReadEthers: false, DhcpRapidCommit: false, Localmx: false, Selfmx: false, EnableRa: false, LogDhcp: false,
             KeepInForeground: false, NoDaemon: false, ProxyDnssec: false,
+            ConnmarkAllowlistEnable: false, NoRoundRobin: false, DnssecNoTimecheck: false, DnssecDebug: false, Leasequery: false, DhcpGenerateNames: false, DhcpBroadcast: false, DhcpSequentialIp: false, DhcpIgnoreClid: false, BootpDynamic: false, NoPing: false, ScriptArp: false, ScriptOnRenewal: false, DhcpNoOverride: false, QuietDhcp: false, QuietDhcp6: false, QuietRa: false, QuietTftp: false,
             DhcpLeaseFilePath: null, CacheSize: null, Port: null, LocalTtl: null, PidFilePath: null, User: null, Group: null,
             LogFacility: null, LogQueries: null, AuthTtl: null, EdnsPacketMax: null, QueryPort: null, PortLimit: null, MinPort: null, MaxPort: null, LogAsync: null, LocalService: null,
             DhcpLeaseMax: null, NegTtl: null, MaxTtl: null, MaxCacheTtl: null, MinCacheTtl: null, DhcpTtl: null,
             TftpRootPath: null, PxePrompt: null, EnableDbus: null, EnableUbus: null, FastDnsRetry: null,
-            DhcpScriptPath: null, MxTarget: null, Conntrack: false
+            DhcpScriptPath: null, MxTarget: null, DnsForwardMax: null, DumpfilePath: null, Dumpmask: null, AddCpeId: null, DnssecTimestamp: null, DnssecLimits: null, DhcpAlternatePort: null, DhcpDuid: null, DhcpLuascriptPath: null, DhcpScriptuser: null, DhcpPxeVendor: null,
+            UseStaleCache: null, AddMac: null, AddSubnet: null, Umbrella: null, Do0x20EncodeState: ExplicitToggleState.Default, Conntrack: false
         );
 
     private static EffectiveConfigSources CreateDefaultEffectiveConfigSources() =>
@@ -742,17 +924,23 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
             DhcpOptionForceLines: Array.Empty<ValueWithSource>(), IpsetValues: Array.Empty<ValueWithSource>(), NftsetValues: Array.Empty<ValueWithSource>(),
             DhcpMacValues: Array.Empty<ValueWithSource>(), DhcpNameMatchValues: Array.Empty<ValueWithSource>(), DhcpIgnoreNamesValues: Array.Empty<ValueWithSource>(),
             DhcpHostsfilePaths: Array.Empty<ValueWithSource>(), DhcpOptsfilePaths: Array.Empty<ValueWithSource>(), DhcpHostsdirPaths: Array.Empty<ValueWithSource>(),
+            ConnmarkAllowlistValues: Array.Empty<ValueWithSource>(), CaaRecordValues: Array.Empty<ValueWithSource>(), DnsRrValues: Array.Empty<ValueWithSource>(), SynthDomainValues: Array.Empty<ValueWithSource>(),
+            AuthZoneValues: Array.Empty<ValueWithSource>(), AuthSoaValues: Array.Empty<ValueWithSource>(), AuthSecServersValues: Array.Empty<ValueWithSource>(), AuthPeerValues: Array.Empty<ValueWithSource>(),
+            DhcpRelayValues: Array.Empty<ValueWithSource>(), DhcpCircuitidValues: Array.Empty<ValueWithSource>(), DhcpRemoteidValues: Array.Empty<ValueWithSource>(), DhcpSubscridValues: Array.Empty<ValueWithSource>(), DhcpProxyValues: Array.Empty<ValueWithSource>(),
+            TagIfValues: Array.Empty<ValueWithSource>(), BridgeInterfaceValues: Array.Empty<ValueWithSource>(), SharedNetworkValues: Array.Empty<ValueWithSource>(), DhcpOptionPxeValues: Array.Empty<ValueWithSource>(),
             ExpandHosts: null, BogusPriv: null, StrictOrder: null, AllServers: null, NoResolv: null, DomainNeeded: null, NoPoll: null,
             BindInterfaces: null, BindDynamic: null, NoNegcache: null, DnsLoopDetect: null, StopDnsRebind: null, RebindLocalhostOk: null, ClearOnReload: null,
             Filterwin2k: null, FilterA: null, FilterAaaa: null, LocaliseQueries: null, LogDebug: null, DhcpAuthoritative: null, LeasefileRo: null,
             EnableTftp: null, TftpSecure: null, TftpNoFail: null, TftpNoBlocksize: null, Dnssec: null, DnssecCheckUnsigned: null,
             ReadEthers: null, DhcpRapidCommit: null, Localmx: null, Selfmx: null, EnableRa: null, LogDhcp: null,
             KeepInForeground: null, NoDaemon: null, ProxyDnssec: null,
+            ConnmarkAllowlistEnable: null, NoRoundRobin: null, DnssecNoTimecheck: null, DnssecDebug: null, Leasequery: null, DhcpGenerateNames: null, DhcpBroadcast: null, DhcpSequentialIp: null, DhcpIgnoreClid: null, BootpDynamic: null, NoPing: null, ScriptArp: null, ScriptOnRenewal: null, DhcpNoOverride: null, QuietDhcp: null, QuietDhcp6: null, QuietRa: null, QuietTftp: null,
             DhcpLeaseFilePath: null, CacheSize: null, Port: null, LocalTtl: null, PidFilePath: null, User: null, Group: null,
             LogFacility: null, LogQueries: null, AuthTtl: null, EdnsPacketMax: null, QueryPort: null, PortLimit: null, MinPort: null, MaxPort: null, LogAsync: null, LocalService: null,
             DhcpLeaseMax: null, NegTtl: null, MaxTtl: null, MaxCacheTtl: null, MinCacheTtl: null, DhcpTtl: null,
             TftpRootPath: null, PxePrompt: null, EnableDbus: null, EnableUbus: null, FastDnsRetry: null,
-            DhcpScriptPath: null, MxTarget: null, Conntrack: null
+            DhcpScriptPath: null, MxTarget: null, DnsForwardMax: null, DumpfilePath: null, Dumpmask: null, AddCpeId: null, DnssecTimestamp: null, DnssecLimits: null, DhcpAlternatePort: null, DhcpDuid: null, DhcpLuascriptPath: null, DhcpScriptuser: null, DhcpPxeVendor: null,
+            UseStaleCache: null, AddMac: null, AddSubnet: null, Umbrella: null, Do0x20Encode: null, Conntrack: null
         );
 
     private static int? TryParseInt(string? value)

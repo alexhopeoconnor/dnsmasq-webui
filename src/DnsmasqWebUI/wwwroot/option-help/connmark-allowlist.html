@@ -1,0 +1,14 @@
+<dt><b>--connmark-allowlist=&lt;connmark&gt;[/&lt;mask&gt;][,&lt;pattern&gt;[/&lt;pattern&gt;...]]</b></dt>
+<dd>Configures the DNS patterns that are allowed in DNS queries associated with
+the given Linux connection track mark.
+If a mask is specified, Linux connection track marks are first bitwise ANDed
+with the given mask before they are compared to the given connection track mark.
+Patterns follow the syntax of DNS names, but additionally allow the wildcard
+character "*" to be used up to twice per label to match 0 or more characters
+within that label. Note that the wildcard never matches a dot (e.g., "*.example.com"
+matches "api.example.com" but not "api.us.example.com"). Patterns must be
+fully qualified, i.e., consist of at least two labels. The final label must not be
+fully numeric, and must not be the "local" pseudo-TLD. A pattern must end with at least
+two literal (non-wildcard) labels.
+Instead of a pattern, "*" can be specified to disable allowlist filtering
+for a given Linux connection track mark entirely.</dd>

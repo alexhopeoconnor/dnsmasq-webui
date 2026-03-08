@@ -35,12 +35,24 @@
                 <span class="small ec-toolbar-validation-count" aria-live="polite">
                     @if (ValidationErrorCount > 0)
                     {
-                        <span class="text-danger fw-medium">errors: @ValidationErrorCount</span>
+                        <span class="text-danger fw-medium ec-toolbar-changes-link" role="button" tabindex="0"
+                              title="@ValidationErrorTooltip"
+                              aria-label="Open save dialog"
+                              @onclick="OnOpenSaveModal"
+                              @onkeydown="OnValidationLinkKeyDown">
+                            @ValidationErrorCount error(s)
+                        </span>
                     }
                     @if (ValidationErrorCount > 0 && ValidationWarningCount > 0) { <span class="text-muted">·</span> }
                     @if (ValidationWarningCount > 0)
                     {
-                        <span class="text-warning">warnings: @ValidationWarningCount</span>
+                        <span class="text-warning ec-toolbar-changes-link" role="button" tabindex="0"
+                              title="@ValidationWarningTooltip"
+                              aria-label="Open save dialog"
+                              @onclick="OnOpenSaveModal"
+                              @onkeydown="OnValidationLinkKeyDown">
+                            @ValidationWarningCount warning(s)
+                        </span>
                     }
                 </span>
             }
@@ -60,8 +72,11 @@
     [Parameter] public EventCallback<string> SearchTermChanged { get; set; }
     [Parameter] public bool IsEditMode { get; set; }
     [Parameter] public int PendingChangesCount { get; set; }
-    [Parameter] public int ValidationErrorCount { get; set; }
-    [Parameter] public int ValidationWarningCount { get; set; }
+    [Parameter] public IReadOnlyList<FieldIssue>? ValidationSummary { get; set; }
+    private int ValidationErrorCount => ValidationSummary?.Count(i => i.Severity == FieldIssueSeverity.Error) ?? 0;
+    private int ValidationWarningCount => ValidationSummary?.Count(i => i.Severity == FieldIssueSeverity.Warning) ?? 0;
+    private string ValidationErrorTooltip => ValidationSummary == null ? "" : string.Join("\n", ValidationSummary.Where(i => i.Severity == FieldIssueSeverity.Error).Select(i => i.Message));
+    private string ValidationWarningTooltip => ValidationSummary == null ? "" : string.Join("\n", ValidationSummary.Where(i => i.Severity == FieldIssueSeverity.Warning).Select(i => i.Message));
     [Parameter] public bool AllSectionsExpanded { get; set; }
     [Parameter] public EventCallback OnExpandAll { get; set; }
     [Parameter] public EventCallback OnCollapseAll { get; set; }
@@ -85,8 +100,12 @@
     private async Task OnChangesLinkKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" || e.Key == " ")
-        {
             await OnOpenSaveModal.InvokeAsync();
-        }
+    }
+
+    private async Task OnValidationLinkKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" || e.Key == " ")
+            await OnOpenSaveModal.InvokeAsync();
     }
 }

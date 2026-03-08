@@ -15,8 +15,10 @@ COMPOSE_FILE="docker-compose.test.yml"
 
 SOURCE_DIR=""
 MOUNT_DIR=""
+DNSMASQ_VERSION=""
 PREPARE_ONLY=false
 BUILD=false
+NO_CACHE_BUILD=false
 RECREATE=false
 CLEAR=false
 STOP=false
@@ -38,6 +40,9 @@ usage() {
   echo "  --source DIR        Source to copy from (default: testdata)"
   echo "  --mount DIR         Target mount directory (default: testdata-mount)"
   echo "                      Compose uses TESTDATA_MOUNT; script exports it if you use --mount."
+  echo "  --dnsmasq-version V Dnsmasq version for the harness image:"
+  echo "                      latest (default), distro, or an exact upstream version like 2.91."
+  echo "                      Non-default values require --build or --no-cache-build; script fails with --no-build."
   echo ""
   echo "Mount behaviour:"
   echo "  (default)           Preserve mount dir; sync source over existing contents."
@@ -50,7 +55,10 @@ usage() {
   echo "                      Use to inspect or edit the mount before starting containers."
   echo "  --build             Pass --build to docker compose (rebuild images before starting)."
   echo "                      Use after changing the app or Dockerfile. Default: use existing images."
+  echo "  --no-cache-build    Rebuild images with --pull --no-cache before starting."
+  echo "                      Use to force a fresh image build and refresh 'latest' dnsmasq."
   echo "  --no-build          Do not rebuild (default). Use existing images for a quick restart."
+  echo "                      With --no-build, 'latest' is not resolved (no network)."
   echo "  --recreate          Pass --force-recreate to docker compose (recreate containers)."
   echo "                      Use to ensure fresh container state and mounts."
   echo ""
@@ -72,6 +80,9 @@ usage() {
   echo "  $0 --recreate"
   echo "                      Sync, then up -d --force-recreate (fresh containers)."
   echo ""
+  echo "  $0 --no-cache-build"
+  echo "                      Force a fresh image build (no Docker build cache), then start containers."
+  echo ""
   echo "  $0 --clear"
   echo "                      Clear mount, sync testdata, start (clean run, no rebuild)."
   echo ""
@@ -91,6 +102,35 @@ usage() {
   echo ""
   echo "  $0 --minimal-conf"
   echo "                      Use dnsmasq-test-minimal.conf (single file, few options) and start."
+  echo ""
+  echo "  $0 --dnsmasq-version 2.91 --build"
+  echo "                      Rebuild the harness image with dnsmasq 2.91."
+}
+
+fetch_url() {
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$1"
+    return $?
+  fi
+  if command -v wget >/dev/null 2>&1; then
+    wget -qO- "$1"
+    return $?
+  fi
+  echo "Error: need curl or wget to resolve the latest upstream dnsmasq version." >&2
+  return 1
+}
+
+resolve_dnsmasq_version() {
+  if [ "$DNSMASQ_VERSION" != "latest" ]; then
+    return 0
+  fi
+
+  RESOLVED_VERSION="$(fetch_url "https://thekelleys.org.uk/dnsmasq/" | sed -n 's/.*LATEST_IS_\([0-9][0-9.]*\).*/\1/p' | head -n1)"
+  if [ -z "$RESOLVED_VERSION" ]; then
+    echo "Error: could not resolve the latest upstream dnsmasq version." >&2
+    exit 1
+  fi
+  DNSMASQ_VERSION="$RESOLVED_VERSION"
 }
 
 while [ $# -gt 0 ]; do
@@ -111,6 +151,12 @@ while [ $# -gt 0 ]; do
       MOUNT_DIR="$1"
       shift
       ;;
+    --dnsmasq-version)
+      shift
+      [ $# -gt 0 ] || { echo "Error: --dnsmasq-version requires VERSION" >&2; exit 1; }
+      DNSMASQ_VERSION="$1"
+      shift
+      ;;
     --clear)
       CLEAR=true
       shift
@@ -123,8 +169,14 @@ while [ $# -gt 0 ]; do
       BUILD=true
       shift
       ;;
+    --no-cache-build)
+      NO_CACHE_BUILD=true
+      BUILD=true
+      shift
+      ;;
     --no-build)
       BUILD=false
+      NO_CACHE_BUILD=false
       shift
       ;;
     --recreate)
@@ -170,6 +222,7 @@ cd "$REPO_ROOT"
 
 : "${SOURCE_DIR:=testdata}"
 : "${MOUNT_DIR:=testdata-mount}"
+: "${DNSMASQ_VERSION:=latest}"
 
 # Stop and/or tidy: no prepare, no start
 if [ "$STOP" = true ] || [ "$TIDY" = true ]; then
@@ -190,6 +243,17 @@ fi
 if [ ! -d "$SOURCE_DIR" ]; then
   echo "Error: source directory '$SOURCE_DIR' does not exist" >&2
   exit 1
+fi
+
+# Resolve "latest" only when we will build; avoid network when doing a no-build run.
+WILL_BUILD=false
+[ "$BUILD" = true ] || [ "$NO_CACHE_BUILD" = true ] && WILL_BUILD=true
+if [ "$WILL_BUILD" = false ] && [ "$DNSMASQ_VERSION" != "latest" ] && [ "$DNSMASQ_VERSION" != "distro" ]; then
+  echo "Error: --dnsmasq-version $DNSMASQ_VERSION has no effect without --build or --no-cache-build. Add --build or omit --dnsmasq-version for a no-build run." >&2
+  exit 1
+fi
+if [ "$WILL_BUILD" = true ]; then
+  resolve_dnsmasq_version
 fi
 
 # Take the harness down so all containers (including one-shot DHCP clients) are recreated on up.
@@ -220,9 +284,14 @@ if [ "$PREPARE_ONLY" = true ]; then
     /*) MOUNT_EXPORT="$MOUNT_DIR" ;;
     *)  MOUNT_EXPORT="./$MOUNT_DIR" ;;
   esac
-  START_CMD="TESTDATA_MOUNT=$MOUNT_EXPORT docker compose -f $COMPOSE_FILE up -d [--build]"
+  START_PREFIX="TESTDATA_MOUNT=$MOUNT_EXPORT DNSMASQ_VERSION=$DNSMASQ_VERSION"
   if [ "$MINIMAL_CONF" = true ]; then
-    START_CMD="TESTDATA_MOUNT=$MOUNT_EXPORT TEST_DNSMASQ_CONF=/data/dnsmasq-test-minimal.conf docker compose -f $COMPOSE_FILE up -d [--build]"
+    START_PREFIX="$START_PREFIX TEST_DNSMASQ_CONF=/data/dnsmasq-test-minimal.conf"
+  fi
+  if [ "$NO_CACHE_BUILD" = true ]; then
+    START_CMD="$START_PREFIX docker compose -f $COMPOSE_FILE build --pull --no-cache && $START_PREFIX docker compose -f $COMPOSE_FILE up -d"
+  else
+    START_CMD="$START_PREFIX docker compose -f $COMPOSE_FILE up -d [--build]"
   fi
   echo "To start the harness: $START_CMD"
   exit 0
@@ -234,13 +303,30 @@ case "$MOUNT_DIR" in
   *)  export TESTDATA_MOUNT="./$MOUNT_DIR" ;;
 esac
 
+export DNSMASQ_VERSION
+
+case "$DNSMASQ_VERSION" in
+  distro)
+    echo "Using distro-packaged dnsmasq for the harness image."
+    ;;
+  *)
+    echo "Using dnsmasq $DNSMASQ_VERSION for the harness image."
+    ;;
+esac
+
 if [ "$MINIMAL_CONF" = true ]; then
   export TEST_DNSMASQ_CONF="/data/dnsmasq-test-minimal.conf"
   echo "Using minimal config: $TEST_DNSMASQ_CONF"
 fi
 
+if [ "$NO_CACHE_BUILD" = true ]; then
+  BUILD_CMD="docker compose -f $COMPOSE_FILE build --pull --no-cache"
+  echo "Running: $BUILD_CMD"
+  $BUILD_CMD
+fi
+
 COMPOSE_CMD="docker compose -f $COMPOSE_FILE up -d"
-if [ "$BUILD" = true ]; then
+if [ "$BUILD" = true ] && [ "$NO_CACHE_BUILD" != true ]; then
   COMPOSE_CMD="$COMPOSE_CMD --build"
 fi
 if [ "$RECREATE" = true ]; then

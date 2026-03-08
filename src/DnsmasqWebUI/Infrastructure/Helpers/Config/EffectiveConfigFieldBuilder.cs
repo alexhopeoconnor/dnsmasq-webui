@@ -87,6 +87,11 @@ public static class EffectiveConfigFieldBuilder
         list.AddDescriptor(registry, DnsmasqConfKeys.FastDnsRetry, status, s => Config(s)?.FastDnsRetry, s => Sources(s)?.FastDnsRetry, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.Ipset, status, null, null, Items(ec => ec?.IpsetValues, src => src?.IpsetValues));
         list.AddDescriptor(registry, DnsmasqConfKeys.Nftset, status, null, null, Items(ec => ec?.NftsetValues, src => src?.NftsetValues));
+        list.AddDescriptor(registry, DnsmasqConfKeys.ConnmarkAllowlistEnable, status, s => Config(s)?.ConnmarkAllowlistEnable, s => Sources(s)?.ConnmarkAllowlistEnable, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.NoRoundRobin, status, s => Config(s)?.NoRoundRobin, s => Sources(s)?.NoRoundRobin, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.DnsForwardMax, status, s => Config(s)?.DnsForwardMax, s => Sources(s)?.DnsForwardMax, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.ConnmarkAllowlist, status, null, null, Items(ec => ec?.ConnmarkAllowlistValues, src => src?.ConnmarkAllowlistValues));
+        list.AddDescriptor(registry, DnsmasqConfKeys.Do0x20Encode, status, s => Config(s)?.Do0x20EncodeState, s => Sources(s)?.Do0x20Encode, null);
 
         // DNS records
         list.AddDescriptor(registry, DnsmasqConfKeys.Domain, status, null, null, Items(ec => ec?.DomainValues, src => src?.DomainValues));
@@ -99,6 +104,13 @@ public static class EffectiveConfigFieldBuilder
         list.AddDescriptor(registry, DnsmasqConfKeys.HostRecord, status, null, null, Items(ec => ec?.HostRecordValues, src => src?.HostRecordValues));
         list.AddDescriptor(registry, DnsmasqConfKeys.DynamicHost, status, null, null, Items(ec => ec?.DynamicHostValues, src => src?.DynamicHostValues));
         list.AddDescriptor(registry, DnsmasqConfKeys.InterfaceName, status, null, null, Items(ec => ec?.InterfaceNameValues, src => src?.InterfaceNameValues));
+        list.AddDescriptor(registry, DnsmasqConfKeys.CaaRecord, status, null, null, Items(ec => ec?.CaaRecordValues, src => src?.CaaRecordValues));
+        list.AddDescriptor(registry, DnsmasqConfKeys.DnsRr, status, null, null, Items(ec => ec?.DnsRrValues, src => src?.DnsRrValues));
+        list.AddDescriptor(registry, DnsmasqConfKeys.SynthDomain, status, null, null, Items(ec => ec?.SynthDomainValues, src => src?.SynthDomainValues));
+        list.AddDescriptor(registry, DnsmasqConfKeys.AuthZone, status, null, null, Items(ec => ec?.AuthZoneValues, src => src?.AuthZoneValues));
+        list.AddDescriptor(registry, DnsmasqConfKeys.AuthSoa, status, null, null, Items(ec => ec?.AuthSoaValues, src => src?.AuthSoaValues));
+        list.AddDescriptor(registry, DnsmasqConfKeys.AuthSecServers, status, null, null, Items(ec => ec?.AuthSecServersValues, src => src?.AuthSecServersValues));
+        list.AddDescriptor(registry, DnsmasqConfKeys.AuthPeer, status, null, null, Items(ec => ec?.AuthPeerValues, src => src?.AuthPeerValues));
         list.AddDescriptor(registry, DnsmasqConfKeys.MxTarget, status, s => Config(s)?.MxTarget, s => Sources(s)?.MxTarget, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.Localmx, status, s => Config(s)?.Localmx, s => Sources(s)?.Localmx, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.Selfmx, status, s => Config(s)?.Selfmx, s => Sources(s)?.Selfmx, null);
@@ -107,7 +119,21 @@ public static class EffectiveConfigFieldBuilder
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpAuthoritative, status, s => Config(s)?.DhcpAuthoritative, s => Sources(s)?.DhcpAuthoritative, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpRapidCommit, status, s => Config(s)?.DhcpRapidCommit, s => Sources(s)?.DhcpRapidCommit, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.LeasefileRo, status, s => Config(s)?.LeasefileRo, s => Sources(s)?.LeasefileRo, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.Leasequery, status, s => Config(s)?.Leasequery, s => Sources(s)?.Leasequery, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.DhcpGenerateNames, status, s => Config(s)?.DhcpGenerateNames, s => Sources(s)?.DhcpGenerateNames, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.DhcpBroadcast, status, s => Config(s)?.DhcpBroadcast, s => Sources(s)?.DhcpBroadcast, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.DhcpSequentialIp, status, s => Config(s)?.DhcpSequentialIp, s => Sources(s)?.DhcpSequentialIp, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.DhcpIgnoreClid, status, s => Config(s)?.DhcpIgnoreClid, s => Sources(s)?.DhcpIgnoreClid, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.BootpDynamic, status, s => Config(s)?.BootpDynamic, s => Sources(s)?.BootpDynamic, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.NoPing, status, s => Config(s)?.NoPing, s => Sources(s)?.NoPing, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.ScriptArp, status, s => Config(s)?.ScriptArp, s => Sources(s)?.ScriptArp, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.ScriptOnRenewal, status, s => Config(s)?.ScriptOnRenewal, s => Sources(s)?.ScriptOnRenewal, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.DhcpNoOverride, status, s => Config(s)?.DhcpNoOverride, s => Sources(s)?.DhcpNoOverride, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpScript, status, s => Config(s)?.DhcpScriptPath, s => Sources(s)?.DhcpScriptPath, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.DhcpAlternatePort, status, s => Config(s)?.DhcpAlternatePort, s => Sources(s)?.DhcpAlternatePort, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.DhcpDuid, status, s => Config(s)?.DhcpDuid, s => Sources(s)?.DhcpDuid, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.DhcpLuascript, status, s => Config(s)?.DhcpLuascriptPath, s => Sources(s)?.DhcpLuascriptPath, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.DhcpScriptuser, status, s => Config(s)?.DhcpScriptuser, s => Sources(s)?.DhcpScriptuser, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpLeasefile, status, s => Config(s)?.DhcpLeaseFilePath, s => Sources(s)?.DhcpLeaseFilePath, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpLeaseMax, status, s => Config(s)?.DhcpLeaseMax, s => Sources(s)?.DhcpLeaseMax, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpTtl, status, s => Config(s)?.DhcpTtl, s => Sources(s)?.DhcpTtl, null);
@@ -122,6 +148,14 @@ public static class EffectiveConfigFieldBuilder
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpHostsfile, status, null, null, Items(ec => ec?.DhcpHostsfilePaths, src => src?.DhcpHostsfilePaths));
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpOptsfile, status, null, null, Items(ec => ec?.DhcpOptsfilePaths, src => src?.DhcpOptsfilePaths));
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpHostsdir, status, null, null, Items(ec => ec?.DhcpHostsdirPaths, src => src?.DhcpHostsdirPaths));
+        list.AddDescriptor(registry, DnsmasqConfKeys.DhcpRelay, status, null, null, Items(ec => ec?.DhcpRelayValues, src => src?.DhcpRelayValues));
+        list.AddDescriptor(registry, DnsmasqConfKeys.DhcpCircuitid, status, null, null, Items(ec => ec?.DhcpCircuitidValues, src => src?.DhcpCircuitidValues));
+        list.AddDescriptor(registry, DnsmasqConfKeys.DhcpRemoteid, status, null, null, Items(ec => ec?.DhcpRemoteidValues, src => src?.DhcpRemoteidValues));
+        list.AddDescriptor(registry, DnsmasqConfKeys.DhcpSubscrid, status, null, null, Items(ec => ec?.DhcpSubscridValues, src => src?.DhcpSubscridValues));
+        list.AddDescriptor(registry, DnsmasqConfKeys.DhcpProxy, status, null, null, Items(ec => ec?.DhcpProxyValues, src => src?.DhcpProxyValues));
+        list.AddDescriptor(registry, DnsmasqConfKeys.TagIf, status, null, null, Items(ec => ec?.TagIfValues, src => src?.TagIfValues));
+        list.AddDescriptor(registry, DnsmasqConfKeys.BridgeInterface, status, null, null, Items(ec => ec?.BridgeInterfaceValues, src => src?.BridgeInterfaceValues));
+        list.AddDescriptor(registry, DnsmasqConfKeys.SharedNetwork, status, null, null, Items(ec => ec?.SharedNetworkValues, src => src?.SharedNetworkValues));
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpBoot, status, null, null, Items(ec => ec?.DhcpBootValues, src => src?.DhcpBootValues));
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpIgnore, status, null, null, Items(ec => ec?.DhcpIgnoreValues, src => src?.DhcpIgnoreValues));
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpVendorclass, status, null, null, Items(ec => ec?.DhcpVendorclassValues, src => src?.DhcpVendorclassValues));
@@ -137,11 +171,18 @@ public static class EffectiveConfigFieldBuilder
         list.AddDescriptor(registry, DnsmasqConfKeys.TftpRoot, status, s => Config(s)?.TftpRootPath, s => Sources(s)?.TftpRootPath, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.PxePrompt, status, s => Config(s)?.PxePrompt, s => Sources(s)?.PxePrompt, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.PxeService, status, null, null, Items(ec => ec?.PxeServiceValues, src => src?.PxeServiceValues));
+        list.AddDescriptor(registry, DnsmasqConfKeys.DhcpPxeVendor, status, s => Config(s)?.DhcpPxeVendor, s => Sources(s)?.DhcpPxeVendor, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.DhcpOptionPxe, status, null, null, Items(ec => ec?.DhcpOptionPxeValues, src => src?.DhcpOptionPxeValues));
 
         // DNSSEC
         list.AddDescriptor(registry, DnsmasqConfKeys.Dnssec, status, s => Config(s)?.Dnssec, s => Sources(s)?.Dnssec, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.DnssecCheckUnsigned, status, s => Config(s)?.DnssecCheckUnsigned, s => Sources(s)?.DnssecCheckUnsigned, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.DnssecNoTimecheck, status, s => Config(s)?.DnssecNoTimecheck, s => Sources(s)?.DnssecNoTimecheck, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.DnssecDebug, status, s => Config(s)?.DnssecDebug, s => Sources(s)?.DnssecDebug, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.ProxyDnssec, status, s => Config(s)?.ProxyDnssec, s => Sources(s)?.ProxyDnssec, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.AddCpeId, status, s => Config(s)?.AddCpeId, s => Sources(s)?.AddCpeId, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.DnssecTimestamp, status, s => Config(s)?.DnssecTimestamp, s => Sources(s)?.DnssecTimestamp, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.DnssecLimits, status, s => Config(s)?.DnssecLimits, s => Sources(s)?.DnssecLimits, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.TrustAnchor, status, null, null, Items(ec => ec?.TrustAnchorValues, src => src?.TrustAnchorValues));
 
         // Cache
@@ -149,6 +190,12 @@ public static class EffectiveConfigFieldBuilder
         list.AddDescriptor(registry, DnsmasqConfKeys.CacheSize, status, s => Config(s)?.CacheSize, s => Sources(s)?.CacheSize, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.LocalTtl, status, s => Config(s)?.LocalTtl, s => Sources(s)?.LocalTtl, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.NoNegcache, status, s => Config(s)?.NoNegcache, s => Sources(s)?.NoNegcache, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.Dumpfile, status, s => Config(s)?.DumpfilePath, s => Sources(s)?.DumpfilePath, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.Dumpmask, status, s => Config(s)?.Dumpmask, s => Sources(s)?.Dumpmask, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.UseStaleCache, status, s => Config(s)?.UseStaleCache, s => Sources(s)?.UseStaleCache, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.AddMac, status, s => Config(s)?.AddMac, s => Sources(s)?.AddMac, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.AddSubnet, status, s => Config(s)?.AddSubnet, s => Sources(s)?.AddSubnet, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.Umbrella, status, s => Config(s)?.Umbrella, s => Sources(s)?.Umbrella, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.NegTtl, status, s => Config(s)?.NegTtl, s => Sources(s)?.NegTtl, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.MaxTtl, status, s => Config(s)?.MaxTtl, s => Sources(s)?.MaxTtl, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.MaxCacheTtl, status, s => Config(s)?.MaxCacheTtl, s => Sources(s)?.MaxCacheTtl, null);
@@ -179,6 +226,10 @@ public static class EffectiveConfigFieldBuilder
         list.AddDescriptor(registry, DnsmasqConfKeys.KeepInForeground, status, s => Config(s)?.KeepInForeground, s => Sources(s)?.KeepInForeground, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.NoDaemon, status, s => Config(s)?.NoDaemon, s => Sources(s)?.NoDaemon, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.Conntrack, status, s => Config(s)?.Conntrack, s => Sources(s)?.Conntrack, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.QuietDhcp, status, s => Config(s)?.QuietDhcp, s => Sources(s)?.QuietDhcp, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.QuietDhcp6, status, s => Config(s)?.QuietDhcp6, s => Sources(s)?.QuietDhcp6, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.QuietRa, status, s => Config(s)?.QuietRa, s => Sources(s)?.QuietRa, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.QuietTftp, status, s => Config(s)?.QuietTftp, s => Sources(s)?.QuietTftp, null);
 
         return list;
     }

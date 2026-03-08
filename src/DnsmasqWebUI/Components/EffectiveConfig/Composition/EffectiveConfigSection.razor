@@ -18,7 +18,7 @@
     }
     <EffectiveConfigToolbar ShowSearchBox="@ShowSearchBox" SearchTerm="@_searchTerm" SearchTermChanged="@OnSearchTermChanged"
         IsEditMode="@Session.IsEditMode" PendingChangesCount="@Session.PendingChanges.Count"
-        ValidationErrorCount="@_validationErrorCount" ValidationWarningCount="@_validationWarningCount"
+        ValidationSummary="@Session.GetValidationSummary()"
         AllSectionsExpanded="@_allSectionsExpanded"
         OnExpandAll="ExpandAll" OnCollapseAll="CollapseAll" OnEnterEditMode="EnterEditMode" OnExitEditModeWithConfirm="ExitEditModeWithConfirmAsync" OnOpenSaveModal="OpenSaveModal" />
     <CascadingValue Value="@Session">
@@ -28,7 +28,7 @@
     </CascadingValue>
     </CascadingValue>
     <EffectiveConfigSaveFlow ShowModal="@_showSaveModal" PendingChanges="@Session.PendingChanges" Status="@Status" Session="@Session"
-        OnClose="CloseSaveModal" OnSaveCompleted="OnSaveCompleted" OnContinueEditingAfterSavedFailure="ContinueEditingAfterSavedFailureAsync" OnCloseAndEndEdit="CloseSaveModalAndEndEdit" />
+        OnClose="CloseSaveModal" OnRevertedNotify="OnRevertedFromSaveModal" OnSaveCompleted="OnSaveCompleted" OnContinueEditingAfterSavedFailure="ContinueEditingAfterSavedFailureAsync" OnCloseAndEndEdit="CloseSaveModalAndEndEdit" />
 </div>
 }
 
@@ -41,9 +41,6 @@
     private string _searchTerm = "";
     private HashSet<string> _openPanels = new();
     private bool _showSaveModal;
-
-    private int _validationErrorCount => Session.GetValidationSummary().Count(i => i.Severity == FieldIssueSeverity.Error);
-    private int _validationWarningCount => Session.GetValidationSummary().Count(i => i.Severity == FieldIssueSeverity.Warning);
 
     private string? _optionHelpKey;
     private string? _optionHelpAnchorId;
@@ -197,6 +194,12 @@
     {
         var issues = EffectiveConfigCrossOptionEvaluator.Evaluate(Status, Session.PendingChanges);
         Session.SetCrossOptionIssues(issues);
+    }
+
+    private void OnRevertedFromSaveModal()
+    {
+        RunCrossOptionEvaluator();
+        StateHasChanged();
     }
 
     private void OpenSaveModal()

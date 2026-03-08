@@ -19,6 +19,11 @@ public partial class StatusSection : IDisposable
 
     [Parameter] public bool IsReloading { get; set; }
 
+    /// <summary>When set and reload is configured, show a "Reload config" button next to Refresh.</summary>
+    [Parameter] public EventCallback OnReloadRequested { get; set; }
+
+    [Parameter] public bool ReloadCommandConfigured { get; set; }
+
     [Parameter] public EventCallback OnOpenSettings { get; set; }
 
     [Inject] private IStatusClient StatusClient { get; set; } = null!;
@@ -54,6 +59,8 @@ public partial class StatusSection : IDisposable
     }
 
     private static readonly TimeSpan MinUpdatingDuration = TimeSpan.FromSeconds(1);
+
+    private Task InvokeReloadAsync() => OnReloadRequested.InvokeAsync();
 
     private async Task RefreshAsync()
     {

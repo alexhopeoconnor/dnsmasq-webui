@@ -1,0 +1,7 @@
+<dt><b>--dhcp-no-override</b></dt>
+<dd>(IPv4 only) Disable re-use of the DHCP servername and filename fields as extra
+option space. If it can, dnsmasq moves the boot server and filename
+information (from <b>--dhcp-boot</b>) out of their dedicated fields into
+DHCP options. This make extra space available in the DHCP packet for
+options but can, rarely, confuse old or broken clients. This flag
+forces "simple and safe" behaviour to avoid problems in such a case.</dd>

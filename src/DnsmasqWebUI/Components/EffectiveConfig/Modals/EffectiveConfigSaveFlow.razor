@@ -39,6 +39,8 @@
     [Parameter] public IReadOnlyList<PendingEffectiveConfigChange> PendingChanges { get; set; } = null!;
     [Parameter] public DnsmasqServiceStatus? Status { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
+    /// <summary>Invoked when the modal reverts a change so the parent can re-run validation (e.g. cross-option evaluator).</summary>
+    [Parameter] public EventCallback OnRevertedNotify { get; set; }
     [Parameter] public EventCallback OnSaveCompleted { get; set; }
     [Parameter] public EventCallback OnContinueEditingAfterSavedFailure { get; set; }
     [Parameter] public EventCallback OnCloseAndEndEdit { get; set; }
@@ -60,6 +62,8 @@
 
     private async Task HandleReverted()
     {
+        if (OnRevertedNotify.HasDelegate)
+            await OnRevertedNotify.InvokeAsync();
         await InvokeAsync(StateHasChanged);
     }
 

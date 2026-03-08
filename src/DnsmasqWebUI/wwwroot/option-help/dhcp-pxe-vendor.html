@@ -1,0 +1,16 @@
+<dt><b>--dhcp-pxe-vendor=&lt;vendor&gt;[,...]</b></dt>
+<dd>According to UEFI and PXE specifications, DHCP packets between PXE clients and
+proxy PXE servers should have 
+<i>PXEClient </i>
+
+in their vendor-class field. However, the firmware of computers from a few
+vendors is customized to carry a different identifier in that field. This option
+is used to consider such identifiers valid for identifying PXE clients. For 
+instance
+<p>
+<b>--dhcp-pxe-vendor=PXEClient,HW-Client</b>
+<p>
+will enable dnsmasq to also provide proxy PXE service to those PXE clients with
+<i>HW-Client</i>
+
+in as their identifier.</dd>
