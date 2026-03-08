@@ -19,6 +19,8 @@ A self-hosted web UI for managing [dnsmasq](https://thekelleys.org.uk/dnsmasq/do
 - **DHCP host entries** (reservations) if you use DHCP; edit in the UI, written into the managed config.
 - **Reload dnsmasq** after config changes (configurable command, e.g. `systemctl reload dnsmasq` or `pkill -HUP -x dnsmasq`).
 - Optional **status** and **recent logs** commands (e.g. systemctl/journalctl or custom scripts) shown on the Dnsmasq page.
+- **Minimum dnsmasq version** check (configurable; e.g. 2.91). The UI can refuse to start or block config save if the detected version is too old. Version is shown on the Dnsmasq page with a link to release notes.
+- **Readiness endpoint** `GET /healthz/ready` for orchestration (Kubernetes, Docker, load balancers). Returns healthy when dnsmasq version meets the minimum and, if configured, dnsmasq is running. The Docker image includes a HEALTHCHECK that uses this endpoint.
 - **Self-contained Linux binaries** per OS/arch (RID); no .NET install required. Can run in Docker or directly on the host.
 
 <!-- SUGGESTED SCREENSHOT: MAIN CONFIG OR CONFIG EDITOR PAGE IN THE BROWSER -->
@@ -163,7 +165,7 @@ COPY entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 ```
 
-Set `Dnsmasq__MainConfigPath`, `Dnsmasq__ReloadCommand`, and other options via environment variables or an `appsettings.json` in `/app`. Mount your config dir and expose 8080.
+Set `Dnsmasq__MainConfigPath`, `Dnsmasq__ReloadCommand`, and other options via environment variables or an `appsettings.json` in `/app`. Mount your config dir and expose 8080. The image includes a **HEALTHCHECK** that calls `GET /healthz/ready`; orchestration (e.g. Kubernetes readiness probe, or Compose `depends_on: condition: service_healthy`) can use the same endpoint.
 
 **Config summary for containers:**
 
@@ -173,7 +175,10 @@ Set `Dnsmasq__MainConfigPath`, `Dnsmasq__ReloadCommand`, and other options via e
 | `Dnsmasq__MainConfigPath` | `/data/dnsmasq.conf` | Main dnsmasq config path (required) |
 | `Dnsmasq__ReloadCommand` | `pkill -HUP -x dnsmasq` | Run after config changes |
 | `Dnsmasq__StatusShowCommand` | `/app/dnsmasq-status.sh` | Optional status output (e.g. our script in test harness) |
+| `Dnsmasq__MinimumVersion` | `2.91` | Minimum dnsmasq version (optional; default 2.91). Set `Dnsmasq__EnforceMinimumVersion=false` to allow older versions. |
 | `ASPNETCORE_URLS` | `http://+:8080` | Port the app listens on |
+
+**Readiness:** `GET http://localhost:8080/healthz/ready` returns JSON `{"status":"ok"}` when dnsmasq version meets the minimum and (if `StatusCommand` is set) dnsmasq is running. Use this for Kubernetes readiness probes, Docker HEALTHCHECK, or load balancer health checks.
 
 See [Configuration](#configuration) for all options.
 
@@ -205,6 +210,9 @@ The app is configured via **appsettings.json**, **environment variables**, and *
 | `StatusCommand` | Optional: check if dnsmasq is running | `pgrep -x dnsmasq` |
 | `StatusShowCommand` | Optional: full status output (e.g. systemctl status) | `systemctl status dnsmasq --no-pager` |
 | `LogsCommand` | Optional: recent logs (e.g. journalctl) | `journalctl -u dnsmasq -n 100 --no-pager` |
+| `VersionCommand` | Command to probe dnsmasq version (used for minimum-version check and UI display) | `dnsmasq --version` |
+| `MinimumVersion` | Minimum dnsmasq version required (e.g. 2.91). Some options need newer dnsmasq. | `2.91` |
+| `EnforceMinimumVersion` | If true, app fails to start when version probe fails or version is below minimum. If false, only save and readiness checks enforce. | `true` |
 
 **Application options** (use `Application__` prefix for env, `Application` section in JSON):
 

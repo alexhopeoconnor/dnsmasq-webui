@@ -64,6 +64,21 @@ public class DnsmasqOptions
     /// <summary>Timeout in seconds for <see cref="ValidateCommand"/>. Default 10.</summary>
     public int ValidateTimeoutSeconds { get; set; } = 10;
 
+    /// <summary>Command to probe dnsmasq version (e.g. "dnsmasq --version"). Used for minimum-version checks.</summary>
+    public string? VersionCommand { get; set; } = "dnsmasq --version";
+
+    /// <summary>Timeout in seconds for <see cref="VersionCommand"/>. Default 5.</summary>
+    public int VersionTimeoutSeconds { get; set; } = 5;
+
+    /// <summary>Minimum dnsmasq version required (e.g. "2.91"). Checked when <see cref="EnforceMinimumVersion"/> is true.</summary>
+    public string MinimumVersion { get; set; } = "2.91";
+
+    /// <summary>When true, application fails to start if dnsmasq version probe fails or version is below <see cref="MinimumVersion"/>.</summary>
+    public bool EnforceMinimumVersion { get; set; } = true;
+
+    /// <summary><see cref="VersionTimeoutSeconds"/> as <see cref="TimeSpan"/>.</summary>
+    public TimeSpan VersionTimeout => TimeSpan.FromSeconds(VersionTimeoutSeconds);
+
     /// <summary><see cref="RestartTimeoutSeconds"/> as <see cref="TimeSpan"/>.</summary>
     public TimeSpan RestartTimeout => TimeSpan.FromSeconds(RestartTimeoutSeconds);
 

@@ -18,6 +18,12 @@ services:
         DNSMASQ_VERSION: ${DNSMASQ_VERSION:-latest}
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-s", "http://localhost:8080/healthz/ready"]
+      interval: 30s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
     cap_add:
       - NET_ADMIN
     environment:
@@ -46,7 +52,8 @@ services:
     networks:
       testnet: {}
     depends_on:
-      - app
+      app:
+        condition: service_healthy
 
   # DHCP + periodic DNS lookups (every 20s) so DNS cache/logs show activity.
   dhcp-client-dns-a:
@@ -65,7 +72,8 @@ services:
     networks:
       testnet: {}
     depends_on:
-      - app
+      app:
+        condition: service_healthy
 
   # DHCP + periodic DNS lookups (every 45s); different interval for variety.
   dhcp-client-dns-b:
@@ -84,7 +92,8 @@ services:
     networks:
       testnet: {}
     depends_on:
-      - app
+      app:
+        condition: service_healthy
 
   # Third DHCP-only client so the leases table has more entries.
   dhcp-client-2:
@@ -93,7 +102,8 @@ services:
     networks:
       testnet: {}
     depends_on:
-      - app
+      app:
+        condition: service_healthy
 
 networks:
   testnet:

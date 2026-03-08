@@ -37,6 +37,10 @@ namespace DnsmasqWebUI.Models.Dnsmasq;
 /// <param name="LogsOutput">Output of LogsCommand (recent logs preview). Null when not configured or command produced no output.</param>
 /// <param name="DhcpRangeStart">Start IP of the first dhcp-range= (e.g. 172.28.0.10). Null when not set or unparseable.</param>
 /// <param name="DhcpRangeEnd">End IP of the first dhcp-range= (e.g. 172.28.0.50). Null when not set or unparseable.</param>
+/// <param name="DnsmasqVersion">Installed dnsmasq version string (e.g. "2.91") from version probe. Null when probe not run or failed.</param>
+/// <param name="MinimumSupportedDnsmasqVersion">Configured minimum required dnsmasq version (e.g. "2.91").</param>
+/// <param name="DnsmasqVersionSupported">True when version probe succeeded and installed version is at least minimum.</param>
+/// <param name="DnsmasqVersionError">Error message when version probe failed or could not parse; null on success.</param>
 public record DnsmasqServiceStatus(
     string? SystemHostsPath,
     bool SystemHostsPathExists,
@@ -68,5 +72,9 @@ public record DnsmasqServiceStatus(
     string? StatusShowOutput,
     string? LogsOutput,
     string? DhcpRangeStart,
-    string? DhcpRangeEnd
+    string? DhcpRangeEnd,
+    string? DnsmasqVersion,
+    string MinimumSupportedDnsmasqVersion,
+    bool DnsmasqVersionSupported,
+    string? DnsmasqVersionError
 );

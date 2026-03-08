@@ -30,7 +30,7 @@ This will:
   Then start manually with the version printed by the script: `TESTDATA_MOUNT=./testdata-mount DNSMASQ_VERSION=<resolved-version> docker compose -f docker-compose.test.yml up -d [--build]`
 - **Preserve mount (e.g. keep leases):** `./scripts/prepare-test-mount.sh --no-build` (default mount behavior)
 
-App is at **http://localhost:8080**. Main config path in the container is `/data/dnsmasq-test.conf`; managed file is `zz-dnsmasq-webui.conf` in the same directory.
+App is at **http://localhost:8080**. Main config path in the container is `/data/dnsmasq-test.conf`; managed file is `zz-dnsmasq-webui.conf` in the same directory. The app service has a healthcheck (`GET /healthz/ready`); DHCP client services use `depends_on: app: condition: service_healthy` so they start only after the app (and dnsmasq) is ready.
 
 ### Stop the harness
 

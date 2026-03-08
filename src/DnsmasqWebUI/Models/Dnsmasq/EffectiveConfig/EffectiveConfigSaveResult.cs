@@ -37,6 +37,9 @@ public record EffectiveConfigSaveResult(
         public const string WriteFailed = "write_failed";
         public const string ValidateFailed = "validate_failed";
         public const string RestartFailed = "restart_failed";
+        public const string UnsupportedVersion = "unsupported_version";
+        /// <summary>Version probe failed (timeout, command missing, unparseable output). Distinct from <see cref="UnsupportedVersion"/> (probe succeeded but version below minimum).</summary>
+        public const string VersionProbeFailed = "version_probe_failed";
     }
 
     /// <summary>True when config was written but validation failed (restart not attempted).</summary>

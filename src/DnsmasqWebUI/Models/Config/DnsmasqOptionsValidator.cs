@@ -46,6 +46,11 @@ public sealed class DnsmasqOptionsValidator : IApplicationOptionsValidator<Dnsma
             failures.Add($"Dnsmasq:LogsTimeoutSeconds must be between {minTimeoutSeconds} and {maxTimeoutSeconds}. Current value: {options.LogsTimeoutSeconds}.");
         if (options.ValidateTimeoutSeconds < minTimeoutSeconds || options.ValidateTimeoutSeconds > maxTimeoutSeconds)
             failures.Add($"Dnsmasq:ValidateTimeoutSeconds must be between {minTimeoutSeconds} and {maxTimeoutSeconds}. Current value: {options.ValidateTimeoutSeconds}.");
+        if (options.VersionTimeoutSeconds < minTimeoutSeconds || options.VersionTimeoutSeconds > maxTimeoutSeconds)
+            failures.Add($"Dnsmasq:VersionTimeoutSeconds must be between {minTimeoutSeconds} and {maxTimeoutSeconds}. Current value: {options.VersionTimeoutSeconds}.");
+
+        if (!string.IsNullOrWhiteSpace(options.VersionCommand) && !Version.TryParse(options.MinimumVersion, out _))
+            failures.Add($"Dnsmasq:MinimumVersion must be a valid version (e.g. 2.91). Current value: {options.MinimumVersion}.");
 
         if (failures.Count == 0)
             return ValidateOptionsResult.Success;

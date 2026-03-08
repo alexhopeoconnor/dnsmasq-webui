@@ -1,6 +1,9 @@
 using System.Net;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace DnsmasqWebUI.Extensions.Hosting;
 
@@ -38,5 +41,23 @@ public static class WebApplicationExtensions
         app.UseHsts();
 
         return app;
+    }
+
+    /// <summary>
+    /// Maps the readiness health check at /healthz/ready (checks with tag "ready", returns JSON status).
+    /// </summary>
+    public static IEndpointRouteBuilder MapReadyHealthCheck(this IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapHealthChecks("/healthz/ready", new HealthCheckOptions
+        {
+            Predicate = check => check.Tags.Contains("ready"),
+            ResponseWriter = static async (context, report) =>
+            {
+                context.Response.ContentType = "application/json";
+                var status = report.Status == HealthStatus.Healthy ? "ok" : "unhealthy";
+                await context.Response.WriteAsync($"{{\"status\":\"{status}\"}}", context.RequestAborted);
+            }
+        });
+        return endpoints;
     }
 }

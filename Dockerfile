@@ -52,8 +52,12 @@ RUN if [ "$DNSMASQ_VERSION" = "distro" ]; then \
     && apt-get autoremove -y --purge \
     && rm -rf /var/lib/apt/lists/*; \
     fi
-COPY scripts/entrypoint.sh scripts/dnsmasq-status.sh .
+COPY scripts/entrypoint.sh scripts/dnsmasq-status.sh ./
 RUN chmod +x entrypoint.sh dnsmasq-status.sh
+# curl for HEALTHCHECK (aspnet image has no curl/wget)
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 # .NET publish last - only this layer invalidates when code changes
 COPY --from=publish /app/publish .
 ENTRYPOINT ["./entrypoint.sh"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD curl -f -s http://localhost:8080/healthz/ready || exit 1

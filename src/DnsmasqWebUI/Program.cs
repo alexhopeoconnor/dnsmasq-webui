@@ -1,9 +1,11 @@
 using DnsmasqWebUI.Components;
 using DnsmasqWebUI.Infrastructure.Realtime.Hubs;
+using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Version;
 using DnsmasqWebUI.Models.Config;
 using DnsmasqWebUI.Extensions.DependencyInjection;
 using DnsmasqWebUI.Extensions.Hosting;
 using DnsmasqWebUI.Infrastructure.Helpers.Http;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 
 // When not in Development, use the app's directory (not CWD) so static assets work when run via symlink or from any CWD.
@@ -38,6 +40,9 @@ builder.Services.AddApplicationServices();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddDnsmasqApiHttpClients();
 
+builder.Services.AddHealthChecks()
+    .AddCheck<DnsmasqVersionHealthCheck>("dnsmasq_version", failureStatus: HealthStatus.Unhealthy, tags: new[] { "ready" });
+
 builder.Services.AddControllers()
     .AddJsonOptions(o => ApiJsonOptions.ConfigureServer(o.JsonSerializerOptions));
 builder.Services.AddSignalR();
@@ -71,6 +76,7 @@ app.UseAntiforgery();
 
 // ---- Endpoints ----
 app.MapControllers();
+app.MapReadyHealthCheck();
 app.MapHub<LogsHub>("/hubs/logs");
 // UseStaticFiles: MapStaticAssets returns 0-byte responses for fingerprinted assets (known bug). Serve from wwwroot directly.
 app.UseStaticFiles();

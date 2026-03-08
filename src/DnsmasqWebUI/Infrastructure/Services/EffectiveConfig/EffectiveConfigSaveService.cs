@@ -1,6 +1,7 @@
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Config.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Reload.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Validation.Abstractions;
+using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Version.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 using Microsoft.Extensions.Logging;
@@ -14,6 +15,7 @@ public sealed class EffectiveConfigSaveService : IEffectiveConfigSaveService
     private readonly IConfigSetCache _configSetCache;
     private readonly IConfigValidationService _validationService;
     private readonly IReloadService _reloadService;
+    private readonly IDnsmasqVersionService _versionService;
     private readonly ILogger<EffectiveConfigSaveService> _logger;
 
     public EffectiveConfigSaveService(
@@ -22,6 +24,7 @@ public sealed class EffectiveConfigSaveService : IEffectiveConfigSaveService
         IConfigSetCache configSetCache,
         IConfigValidationService validationService,
         IReloadService reloadService,
+        IDnsmasqVersionService versionService,
         ILogger<EffectiveConfigSaveService> logger)
     {
         _configSetService = configSetService;
@@ -29,6 +32,7 @@ public sealed class EffectiveConfigSaveService : IEffectiveConfigSaveService
         _configSetCache = configSetCache;
         _validationService = validationService;
         _reloadService = reloadService;
+        _versionService = versionService;
         _logger = logger;
     }
 
@@ -39,6 +43,44 @@ public sealed class EffectiveConfigSaveService : IEffectiveConfigSaveService
     {
         if (changes.Count == 0)
             return EffectiveConfigSaveResult.NoChanges();
+
+        var version = await _versionService.GetVersionInfoAsync(ct);
+        if (!version.ProbeSucceeded)
+        {
+            return new EffectiveConfigSaveResult(
+                BackupCreated: false,
+                BackupPath: null,
+                Saved: false,
+                Validated: false,
+                ValidationExitCode: -1,
+                ValidationStdOut: null,
+                ValidationStdErr: null,
+                Restarted: false,
+                RestartExitCode: -1,
+                RestartStdOut: null,
+                RestartStdErr: null,
+                ErrorCode: EffectiveConfigSaveResult.ErrorCodes.VersionProbeFailed,
+                UserMessage: string.IsNullOrWhiteSpace(version.Error)
+                    ? "Cannot save: dnsmasq version could not be determined."
+                    : $"Cannot save: dnsmasq version could not be determined. {version.Error}");
+        }
+        if (!version.IsSupported)
+        {
+            return new EffectiveConfigSaveResult(
+                BackupCreated: false,
+                BackupPath: null,
+                Saved: false,
+                Validated: false,
+                ValidationExitCode: -1,
+                ValidationStdOut: null,
+                ValidationStdErr: null,
+                Restarted: false,
+                RestartExitCode: -1,
+                RestartStdOut: null,
+                RestartStdErr: null,
+                ErrorCode: EffectiveConfigSaveResult.ErrorCodes.UnsupportedVersion,
+                UserMessage: $"Installed dnsmasq {version.InstalledVersion} is below required {version.MinimumVersion}.");
+        }
 
         var set = await _configSetService.GetConfigSetAsync(ct);
         if (string.IsNullOrWhiteSpace(set.ManagedFilePath))

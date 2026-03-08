@@ -1,5 +1,6 @@
 using DnsmasqWebUI.Infrastructure.Services.Common.Process.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Config.Abstractions;
+using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Version.Abstractions;
 using DnsmasqWebUI.Models.Config;
 using DnsmasqWebUI.Models.Contracts;
 using DnsmasqWebUI.Models.Dnsmasq;
@@ -17,17 +18,20 @@ public class StatusController : ControllerBase
     private readonly DnsmasqOptions _options;
     private readonly IDnsmasqConfigSetService _configSetService;
     private readonly IProcessRunner _processRunner;
+    private readonly IDnsmasqVersionService _versionService;
     private readonly ILogger<StatusController> _logger;
 
     public StatusController(
         IOptions<DnsmasqOptions> options,
         IDnsmasqConfigSetService configSetService,
         IProcessRunner processRunner,
+        IDnsmasqVersionService versionService,
         ILogger<StatusController> logger)
     {
         _options = options.Value;
         _configSetService = configSetService;
         _processRunner = processRunner;
+        _versionService = versionService;
         _logger = logger;
     }
 
@@ -52,14 +56,16 @@ public class StatusController : ControllerBase
             if (statusResult.ExceptionMessage != null)
                 statusCommandStderr = (statusCommandStderr ?? "") + (statusCommandStderr != null ? "\n" : "") + statusResult.ExceptionMessage;
 
+            var versionTask = _versionService.GetVersionInfoAsync(ct);
             var showTask = string.IsNullOrWhiteSpace(_options.StatusShowCommand)
                 ? Task.FromResult(new ProcessRunResult(null, "", "", false))
                 : _processRunner.RunAsync(_options.StatusShowCommand, _options.StatusShowTimeout, ct);
             var logsTask = string.IsNullOrWhiteSpace(_options.LogsCommand)
                 ? Task.FromResult(new ProcessRunResult(null, "", "", false))
                 : _processRunner.RunAsync(_options.LogsCommand, _options.LogsTimeout, ct);
-            await Task.WhenAll(showTask, logsTask);
+            await Task.WhenAll(versionTask, showTask, logsTask);
 
+            var versionInfo = await versionTask;
             var showResult = await showTask;
             var logsResult = await logsTask;
             var statusShowOutput = !string.IsNullOrWhiteSpace(_options.StatusShowCommand)
@@ -100,7 +106,11 @@ public class StatusController : ControllerBase
                 StatusShowOutput: statusShowOutput,
                 LogsOutput: logsOutput,
                 DhcpRangeStart: dhcpRangeStart,
-                DhcpRangeEnd: dhcpRangeEnd
+                DhcpRangeEnd: dhcpRangeEnd,
+                DnsmasqVersion: versionInfo.InstalledVersion?.ToString(),
+                MinimumSupportedDnsmasqVersion: versionInfo.MinimumVersion.ToString(),
+                DnsmasqVersionSupported: versionInfo.IsSupported,
+                DnsmasqVersionError: versionInfo.Error
             );
             return Ok(status);
         }
