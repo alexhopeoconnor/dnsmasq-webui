@@ -183,7 +183,9 @@ public record EffectiveConfigSources(
     ConfigValueSource? DhcpPxeVendor,
     ConfigValueSource? UseStaleCache,
     ConfigValueSource? AddMac,
+    ConfigValueSource? StripMac,
     ConfigValueSource? AddSubnet,
+    ConfigValueSource? StripSubnet,
     ConfigValueSource? Umbrella,
     ConfigValueSource? Do0x20Encode,
     ConfigValueSource? Conntrack

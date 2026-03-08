@@ -11,6 +11,7 @@
 }
 else
 {
+    @* Intentionally show both Default and Disabled as "Disabled" (product choice: collapse unset and off). Do not "fix" to show "Default" for unset. *@
     @(GetState() == ExplicitToggleState.Enabled ? "Enabled" : "Disabled")
 }
 

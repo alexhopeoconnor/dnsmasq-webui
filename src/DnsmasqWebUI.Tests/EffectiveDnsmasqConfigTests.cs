@@ -168,7 +168,9 @@ public class EffectiveDnsmasqConfigTests
             DhcpPxeVendor: null,
             UseStaleCache: null,
             AddMac: null,
+            StripMac: false,
             AddSubnet: null,
+            StripSubnet: false,
             Umbrella: null,
             Do0x20EncodeState: ExplicitToggleState.Default,
             Conntrack: false

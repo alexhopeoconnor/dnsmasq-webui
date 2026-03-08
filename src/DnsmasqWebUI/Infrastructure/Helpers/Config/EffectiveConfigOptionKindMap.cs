@@ -199,7 +199,9 @@ public static class EffectiveConfigOptionKindMap
             [DnsmasqConfKeys.DhcpOptionPxe] = EffectiveConfigFieldKind.Multi,
             [DnsmasqConfKeys.UseStaleCache] = EffectiveConfigFieldKind.Single,
             [DnsmasqConfKeys.AddMac] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.StripMac] = EffectiveConfigFieldKind.Single,
             [DnsmasqConfKeys.AddSubnet] = EffectiveConfigFieldKind.Single,
+            [DnsmasqConfKeys.StripSubnet] = EffectiveConfigFieldKind.Single,
             [DnsmasqConfKeys.Umbrella] = EffectiveConfigFieldKind.Single,
             [DnsmasqConfKeys.Do0x20Encode] = EffectiveConfigFieldKind.Single,
         };
@@ -386,7 +388,9 @@ public static class EffectiveConfigParserBehaviorMap
             [DnsmasqConfKeys.DhcpOptionPxe] = EffectiveConfigParserBehavior.Multi,
             [DnsmasqConfKeys.UseStaleCache] = EffectiveConfigParserBehavior.LastWins,
             [DnsmasqConfKeys.AddMac] = EffectiveConfigParserBehavior.LastWins,
+            [DnsmasqConfKeys.StripMac] = EffectiveConfigParserBehavior.Flag,
             [DnsmasqConfKeys.AddSubnet] = EffectiveConfigParserBehavior.LastWins,
+            [DnsmasqConfKeys.StripSubnet] = EffectiveConfigParserBehavior.Flag,
             [DnsmasqConfKeys.Umbrella] = EffectiveConfigParserBehavior.LastWins,
             [DnsmasqConfKeys.Do0x20Encode] = EffectiveConfigParserBehavior.Flag,
             [DnsmasqConfKeys.No0x20Encode] = EffectiveConfigParserBehavior.Flag,
@@ -397,48 +401,3 @@ public static class EffectiveConfigParserBehaviorMap
         BehaviorByOptionName.TryGetValue(optionName, out var b) ? b : EffectiveConfigParserBehavior.LastWins;
 }
 
-/// <summary>
-/// How to serialize an option when writing the managed config file.
-/// Used by DnsmasqConfigService so KeyOnlyOrValue and InversePair options serialize correctly.
-/// </summary>
-public enum EffectiveConfigWriteBehavior
-{
-    Flag,
-    SingleValue,
-    MultiValue,
-    KeyOnlyOrValue,
-    InversePair,
-}
-
-/// <summary>
-/// Maps dnsmasq option names to write behavior. Options not in the map default to SingleValue
-/// (or are inferred from parser behavior in the service). Add entries for KeyOnlyOrValue and InversePair options.
-/// </summary>
-public static class EffectiveConfigWriteBehaviorMap
-{
-    private static readonly IReadOnlyDictionary<string, EffectiveConfigWriteBehavior> BehaviorByOptionName =
-        new Dictionary<string, EffectiveConfigWriteBehavior>(StringComparer.Ordinal)
-        {
-            [DnsmasqConfKeys.Conntrack] = EffectiveConfigWriteBehavior.Flag,
-            [DnsmasqConfKeys.UseStaleCache] = EffectiveConfigWriteBehavior.KeyOnlyOrValue,
-            [DnsmasqConfKeys.AddMac] = EffectiveConfigWriteBehavior.KeyOnlyOrValue,
-            [DnsmasqConfKeys.AddSubnet] = EffectiveConfigWriteBehavior.KeyOnlyOrValue,
-            [DnsmasqConfKeys.Umbrella] = EffectiveConfigWriteBehavior.KeyOnlyOrValue,
-            [DnsmasqConfKeys.Do0x20Encode] = EffectiveConfigWriteBehavior.InversePair,
-        };
-
-    /// <summary>For InversePair options: (key for "enabled", key for "disabled"). Null if not an InversePair or unknown.</summary>
-    private static readonly IReadOnlyDictionary<string, (string KeyA, string KeyB)> InversePairKeysByOptionName =
-        new Dictionary<string, (string, string)>(StringComparer.Ordinal)
-        {
-            [DnsmasqConfKeys.Do0x20Encode] = (DnsmasqConfKeys.Do0x20Encode, DnsmasqConfKeys.No0x20Encode),
-        };
-
-    /// <summary>Returns write behavior for the option; defaults to SingleValue if unknown.</summary>
-    public static EffectiveConfigWriteBehavior GetBehavior(string optionName) =>
-        BehaviorByOptionName.TryGetValue(optionName, out var b) ? b : EffectiveConfigWriteBehavior.SingleValue;
-
-    /// <summary>Returns the pair of config keys (enabled, disabled) for an InversePair option; null otherwise.</summary>
-    public static (string KeyA, string KeyB)? GetInversePairKeys(string optionName) =>
-        InversePairKeysByOptionName.TryGetValue(optionName, out var pair) ? pair : null;
-}

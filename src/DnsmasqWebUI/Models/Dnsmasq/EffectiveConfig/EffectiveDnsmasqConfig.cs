@@ -187,7 +187,9 @@ public record EffectiveDnsmasqConfig(
     string? DhcpPxeVendor,
     string? UseStaleCache,
     string? AddMac,
+    bool StripMac,
     string? AddSubnet,
+    bool StripSubnet,
     string? Umbrella,
     ExplicitToggleState Do0x20EncodeState,
     bool Conntrack

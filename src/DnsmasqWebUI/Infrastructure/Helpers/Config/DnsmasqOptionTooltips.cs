@@ -166,7 +166,9 @@ public static class DnsmasqOptionTooltips
         [DnsmasqConfKeys.Dumpmask] = "Mask for cache dump (which data to include).",
         [DnsmasqConfKeys.UseStaleCache] = "Use stale cache when upstream is unavailable. Off, On (key-only), or custom seconds.",
         [DnsmasqConfKeys.AddMac] = "Add MAC address to DNS queries. Off, On (key-only), or custom value.",
+        [DnsmasqConfKeys.StripMac] = "Strip MAC address information from forwarded DNS queries.",
         [DnsmasqConfKeys.AddSubnet] = "Add subnet to DNS queries. Off, On (key-only), or custom value.",
+        [DnsmasqConfKeys.StripSubnet] = "Strip subnet (ECS) information from forwarded DNS queries.",
         [DnsmasqConfKeys.Umbrella] = "Cisco Umbrella device identity. Off, On (key-only), or custom value.",
 
         // --- Process & networking ---

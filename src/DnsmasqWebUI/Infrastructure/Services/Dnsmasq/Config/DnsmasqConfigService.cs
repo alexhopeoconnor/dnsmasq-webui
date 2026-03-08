@@ -231,7 +231,7 @@ public class DnsmasqConfigService : IDnsmasqConfigService
         var maxLineNumber = list.Count > 0 ? list.Max(l => l.LineNumber) : 0;
         foreach (var c in changes)
         {
-            var writeBehavior = EffectiveConfigWriteBehaviorMap.GetBehavior(c.OptionName);
+            var writeBehavior = EffectiveConfigWriteSemantics.GetBehavior(c.OptionName);
             var confKey = c.OptionName;
 
             bool MatchesOption(DnsmasqConfLine line)
@@ -255,7 +255,7 @@ public class DnsmasqConfigService : IDnsmasqConfigService
 
             if (writeBehavior == EffectiveConfigWriteBehavior.InversePair)
             {
-                var pair = EffectiveConfigWriteBehaviorMap.GetInversePairKeys(confKey);
+                var pair = EffectiveConfigWriteSemantics.GetInversePairKeys(confKey);
                 if (pair is null)
                     continue;
                 var (pairKeyA, pairKeyB) = pair.Value;
@@ -275,10 +275,9 @@ public class DnsmasqConfigService : IDnsmasqConfigService
                 continue;
             }
 
-            var behavior = EffectiveConfigParserBehaviorMap.GetBehavior(c.OptionName);
-            var isFlag = behavior == EffectiveConfigParserBehavior.Flag;
+            var isFlag = writeBehavior == EffectiveConfigWriteBehavior.Flag;
 
-            if (behavior == EffectiveConfigParserBehavior.Multi && TryGetMultiValues(c.NewValue, out var values))
+            if (writeBehavior == EffectiveConfigWriteBehavior.MultiValue && TryGetMultiValues(c.NewValue, out var values))
             {
                 IReadOnlyList<string> readonlyValues = readonlyByOption.TryGetValue(confKey, out var listValues) ? listValues : Array.Empty<string>();
                 var valuesToWrite = FilterManagedOnly(values, readonlyValues);

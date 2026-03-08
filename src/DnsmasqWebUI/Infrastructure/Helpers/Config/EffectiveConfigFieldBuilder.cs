@@ -194,7 +194,9 @@ public static class EffectiveConfigFieldBuilder
         list.AddDescriptor(registry, DnsmasqConfKeys.Dumpmask, status, s => Config(s)?.Dumpmask, s => Sources(s)?.Dumpmask, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.UseStaleCache, status, s => Config(s)?.UseStaleCache, s => Sources(s)?.UseStaleCache, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.AddMac, status, s => Config(s)?.AddMac, s => Sources(s)?.AddMac, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.StripMac, status, s => Config(s)?.StripMac, s => Sources(s)?.StripMac, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.AddSubnet, status, s => Config(s)?.AddSubnet, s => Sources(s)?.AddSubnet, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.StripSubnet, status, s => Config(s)?.StripSubnet, s => Sources(s)?.StripSubnet, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.Umbrella, status, s => Config(s)?.Umbrella, s => Sources(s)?.Umbrella, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.NegTtl, status, s => Config(s)?.NegTtl, s => Sources(s)?.NegTtl, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.MaxTtl, status, s => Config(s)?.MaxTtl, s => Sources(s)?.MaxTtl, null);

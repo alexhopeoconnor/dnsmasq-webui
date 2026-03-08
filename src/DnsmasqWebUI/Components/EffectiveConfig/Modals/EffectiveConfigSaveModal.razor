@@ -284,7 +284,7 @@
 
     private static string FormatValue(object? v, string? optionName = null)
     {
-        if (optionName != null && EffectiveConfigWriteBehaviorMap.GetBehavior(optionName) == EffectiveConfigWriteBehavior.KeyOnlyOrValue)
+        if (optionName != null && EffectiveConfigWriteSemantics.GetBehavior(optionName) == EffectiveConfigWriteBehavior.KeyOnlyOrValue)
             return FormatKeyOnlyOrValue(v);
         if (v == null) return "(not set)";
         if (v is bool b) return b ? "on" : "off";

@@ -452,13 +452,16 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
         var useStaleCache = useStaleCacheVal == null ? null : (string.IsNullOrWhiteSpace(useStaleCacheVal) ? "" : useStaleCacheVal.Trim());
         var (addMacVal, _) = ((string?, string?))ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.AddMac);
         var addMac = addMacVal == null ? null : (string.IsNullOrWhiteSpace(addMacVal) ? "" : addMacVal.Trim());
+        var stripMac = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.StripMac);
         var (addSubnetVal, _) = ((string?, string?))ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.AddSubnet);
         var addSubnet = addSubnetVal == null ? null : (string.IsNullOrWhiteSpace(addSubnetVal) ? "" : addSubnetVal.Trim());
+        var stripSubnet = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.StripSubnet);
         var (umbrellaVal, _) = ((string?, string?))ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.Umbrella);
         var umbrella = umbrellaVal == null ? null : (string.IsNullOrWhiteSpace(umbrellaVal) ? "" : umbrellaVal.Trim());
         var do0x20 = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.Do0x20Encode);
         var no0x20 = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.No0x20Encode);
-        var do0x20EncodeState = do0x20 ? ExplicitToggleState.Enabled : (no0x20 ? ExplicitToggleState.Disabled : ExplicitToggleState.Default);
+        // dnsmasq docs: no-0x20-encode overrides do-0x20-encode
+        var do0x20EncodeState = no0x20 ? ExplicitToggleState.Disabled : (do0x20 ? ExplicitToggleState.Enabled : ExplicitToggleState.Default);
         var conntrack = (bool)ParseOptionValue(paths, pathToLines, DnsmasqConfKeys.Conntrack);
 
         return new EffectiveDnsmasqConfig(
@@ -480,7 +483,7 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
             authTtl, ednsPacketMax, queryPort, portLimit, minPort, maxPort, logAsync, localService, dhcpLeaseMax,
             negTtl, maxTtl, maxCacheTtl, minCacheTtl, dhcpTtl, tftpRootPath, pxePrompt, enableDbus, enableUbus, fastDnsRetry,
             dhcpScriptPath, mxTarget, dnsForwardMax, dumpfilePath, dumpmask, addCpeId, dnssecTimestamp, dnssecLimits, dhcpAlternatePort, dhcpDuid, dhcpLuascriptPath, dhcpScriptuser, dhcpPxeVendor,
-            useStaleCache, addMac, addSubnet, umbrella, do0x20EncodeState, conntrack
+            useStaleCache, addMac, stripMac, addSubnet, stripSubnet, umbrella, do0x20EncodeState, conntrack
         );
     }
 
@@ -654,11 +657,14 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
         var (_, dhcpPxeVendorSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.DhcpPxeVendor, managedFilePath);
         var (_, useStaleCacheSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.UseStaleCache, managedFilePath);
         var (_, addMacSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.AddMac, managedFilePath);
+        var (_, stripMacSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.StripMac, managedFilePath);
         var (_, addSubnetSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.AddSubnet, managedFilePath);
+        var (_, stripSubnetSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.StripSubnet, managedFilePath);
         var (_, umbrellaSource) = ((string?, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.Umbrella, managedFilePath);
         var (do0x20Set, do0x20EncodeSourceA) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.Do0x20Encode, managedFilePath);
         var (no0x20Set, no0x20EncodeSourceB) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.No0x20Encode, managedFilePath);
-        var do0x20EncodeSource = do0x20Set ? do0x20EncodeSourceA : (no0x20Set ? no0x20EncodeSourceB : null);
+        // no-0x20-encode overrides do-0x20-encode; source reflects the effective directive
+        var do0x20EncodeSource = no0x20Set ? no0x20EncodeSourceB : (do0x20Set ? do0x20EncodeSourceA : null);
         var (_, conntrackSource) = ((bool, ConfigValueSource?))ParseOptionWithSource(paths, pathToLines, DnsmasqConfKeys.Conntrack, managedFilePath);
 
         return new EffectiveConfigSources(
@@ -826,7 +832,9 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
             dhcpPxeVendorSource,
             useStaleCacheSource,
             addMacSource,
+            stripMacSource,
             addSubnetSource,
+            stripSubnetSource,
             umbrellaSource,
             do0x20EncodeSource,
             conntrackSource
@@ -899,7 +907,7 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
             DhcpLeaseMax: null, NegTtl: null, MaxTtl: null, MaxCacheTtl: null, MinCacheTtl: null, DhcpTtl: null,
             TftpRootPath: null, PxePrompt: null, EnableDbus: null, EnableUbus: null, FastDnsRetry: null,
             DhcpScriptPath: null, MxTarget: null, DnsForwardMax: null, DumpfilePath: null, Dumpmask: null, AddCpeId: null, DnssecTimestamp: null, DnssecLimits: null, DhcpAlternatePort: null, DhcpDuid: null, DhcpLuascriptPath: null, DhcpScriptuser: null, DhcpPxeVendor: null,
-            UseStaleCache: null, AddMac: null, AddSubnet: null, Umbrella: null, Do0x20EncodeState: ExplicitToggleState.Default, Conntrack: false
+            UseStaleCache: null, AddMac: null, StripMac: false, AddSubnet: null, StripSubnet: false, Umbrella: null, Do0x20EncodeState: ExplicitToggleState.Default, Conntrack: false
         );
 
     private static EffectiveConfigSources CreateDefaultEffectiveConfigSources() =>
@@ -940,7 +948,7 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
             DhcpLeaseMax: null, NegTtl: null, MaxTtl: null, MaxCacheTtl: null, MinCacheTtl: null, DhcpTtl: null,
             TftpRootPath: null, PxePrompt: null, EnableDbus: null, EnableUbus: null, FastDnsRetry: null,
             DhcpScriptPath: null, MxTarget: null, DnsForwardMax: null, DumpfilePath: null, Dumpmask: null, AddCpeId: null, DnssecTimestamp: null, DnssecLimits: null, DhcpAlternatePort: null, DhcpDuid: null, DhcpLuascriptPath: null, DhcpScriptuser: null, DhcpPxeVendor: null,
-            UseStaleCache: null, AddMac: null, AddSubnet: null, Umbrella: null, Do0x20Encode: null, Conntrack: null
+            UseStaleCache: null, AddMac: null, StripMac: null, AddSubnet: null, StripSubnet: null, Umbrella: null, Do0x20Encode: null, Conntrack: null
         );
 
     private static int? TryParseInt(string? value)

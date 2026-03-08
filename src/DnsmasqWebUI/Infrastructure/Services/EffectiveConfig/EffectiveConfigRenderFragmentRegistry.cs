@@ -101,15 +101,21 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
         RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.QuietDhcp6);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.QuietRa);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.QuietTftp);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.StripMac);
+        RegisterFlag(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.StripSubnet);
 
         // do-0x20-encode / no-0x20-encode: tri-state dropdown (Default / Enabled / Disabled).
         RegisterComponent(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.Do0x20Encode, typeof(Do0x20EncodeDisplay));
 
-        // Key-only or key=value options: checkbox (On) + optional value input.
+        // Key-only or key=value options: checkbox (On) + optional value input; with semantic validators.
         RegisterComponent(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.UseStaleCache, typeof(KeyOnlyOrValueDisplay));
+        RegisterValidatedSingle(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.UseStaleCache, SpecialOptionValidators.ValidateUseStaleCache);
         RegisterComponent(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.AddMac, typeof(KeyOnlyOrValueDisplay));
+        RegisterValidatedSingle(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.AddMac, SpecialOptionValidators.ValidateAddMac);
         RegisterComponent(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.AddSubnet, typeof(KeyOnlyOrValueDisplay));
+        RegisterValidatedSingle(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.AddSubnet, SpecialOptionValidators.ValidateAddSubnet);
         RegisterComponent(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.Umbrella, typeof(KeyOnlyOrValueDisplay));
+        RegisterValidatedSingle(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.Umbrella, SpecialOptionValidators.ValidateUmbrella);
 
         // log-queries: dropdown (Off / On / extra / proto / auth).
         RegisterComponent(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.LogQueries, typeof(LogQueriesDisplay));

@@ -178,7 +178,9 @@ public static class EffectiveConfigSections
             DnsmasqConfKeys.Dumpmask,
             DnsmasqConfKeys.UseStaleCache,
             DnsmasqConfKeys.AddMac,
+            DnsmasqConfKeys.StripMac,
             DnsmasqConfKeys.AddSubnet,
+            DnsmasqConfKeys.StripSubnet,
             DnsmasqConfKeys.Umbrella,
         ]),
         new SectionDef(SectionProcess, "Process & networking", [

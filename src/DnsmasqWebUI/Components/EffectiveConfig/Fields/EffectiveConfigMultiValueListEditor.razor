@@ -3,7 +3,9 @@
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 @using Microsoft.AspNetCore.Components.Web
 @using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Validation
+@using DnsmasqWebUI.Infrastructure.Services.UI.Notifications.Abstractions
 @inject IJSRuntime JSRuntime
+@inject INotificationService NotificationService
 
 <div class="ec-field-value ec-field-value-multi ec-multi-list-editor" @onclick:stopPropagation="true">
     <ol class="ec-field-value-list">
@@ -16,20 +18,15 @@
                 var itemReadonly = item.Source?.IsReadOnly == true;
                 var rowIndex = i;
                 var rowValue = item.Value;
-                var rowInlineError = GetInlineErrorForIndex(rowIndex);
 
                 <li class="ec-multi-list-row @(_editingIndex == rowIndex && !itemReadonly ? "ec-multi-list-row-with-controls" : "")" @key="anchorId">
                     @if (_editingIndex == rowIndex && !itemReadonly)
                     {
                         <div class="ec-multi-list-row-controls">
                             <div class="ec-multi-list-input-group">
-                                <input class="form-control form-control-sm ec-multi-list-input @(rowInlineError != null ? "is-invalid" : "")"
+                                <input class="form-control form-control-sm ec-multi-list-input"
                                        placeholder="@(Behavior?.Placeholder ?? "")"
                                        @bind="_draftValue" @bind:event="oninput" />
-                                @if (rowInlineError != null)
-                                {
-                                    <div class="ec-multi-list-invalid-feedback invalid-feedback d-block">@rowInlineError</div>
-                                }
                             </div>
                             <span class="status-badge-inline">
                                 <StatusBadge Kind="StatusBadgeKind.ActionOk" Text="save" Clickable="true"
@@ -81,13 +78,9 @@
                 {
                     <div class="ec-multi-list-row-controls">
                         <div class="ec-multi-list-input-group">
-                            <input @ref="_addNewInputRef" class="form-control form-control-sm ec-multi-list-input @(AddInlineError != null ? "is-invalid" : "")"
+                            <input @ref="_addNewInputRef" class="form-control form-control-sm ec-multi-list-input"
                                    placeholder="@(Behavior?.Placeholder ?? "New value")"
                                    @bind="_draftValue" @bind:event="oninput" />
-                            @if (AddInlineError != null)
-                            {
-                                <div class="ec-multi-list-invalid-feedback invalid-feedback d-block">@AddInlineError</div>
-                            }
                         </div>
                         <span class="status-badge-inline">
                             <StatusBadge Kind="StatusBadgeKind.ActionOk" Text="add" Clickable="true"
@@ -125,23 +118,19 @@
     [Parameter] public EventCallback<IReadOnlyList<string>> OnValuesChanged { get; set; }
 
     private const string AddItemKey = "add-item";
+    private static readonly TimeSpan ValidationToastDedupeWindow = TimeSpan.FromSeconds(2);
+
     private int? _editingIndex;
     private bool _addingNew;
     private string _draftValue = "";
     private bool _didAutoOpenAdd;
     private bool _shouldFocusAddInput;
     private ElementReference _addNewInputRef;
-    private int? _inlineErrorIndex;
-    private string? _inlineErrorMessage;
+    private string? _lastValidationErrorMessage;
+    private DateTime _lastValidationErrorUtc;
 
     private List<ValueWithSource> _displayItems = new();
     private IReadOnlyList<string> _currentValues => _displayItems.Select(x => x.Value).ToList();
-
-    private string? AddInlineError => _addingNew && _inlineErrorIndex is null ? _inlineErrorMessage : null;
-    private string? GetInlineErrorForIndex(int? editIndex)
-    {
-        return _editingIndex == editIndex && _inlineErrorIndex == editIndex ? _inlineErrorMessage : null;
-    }
 
     protected override void OnParametersSet()
     {
@@ -176,7 +165,6 @@
         _addingNew = false;
         _editingIndex = index;
         _draftValue = current;
-        ClearInlineError();
     }
 
     private void BeginAdd()
@@ -185,7 +173,6 @@
         _addingNew = true;
         _draftValue = "";
         _shouldFocusAddInput = true;
-        ClearInlineError();
     }
 
     private void CancelInline()
@@ -193,7 +180,18 @@
         _editingIndex = null;
         _addingNew = false;
         _draftValue = "";
-        ClearInlineError();
+        _lastValidationErrorMessage = null;
+    }
+
+    private void ShowValidationError(string message)
+    {
+        var now = DateTime.UtcNow;
+        if (string.Equals(_lastValidationErrorMessage, message, StringComparison.Ordinal) &&
+            (now - _lastValidationErrorUtc) < ValidationToastDedupeWindow)
+            return;
+        _lastValidationErrorMessage = message;
+        _lastValidationErrorUtc = now;
+        NotificationService.ShowError(message);
     }
 
     private async Task SaveEdit(int index)
@@ -206,24 +204,23 @@
         var normalized = Behavior?.Normalize(raw) ?? raw.Trim();
         if (normalized.Length == 0)
         {
-            SetInlineError(index, "Value cannot be empty.");
+            ShowValidationError("Value cannot be empty.");
             return;
         }
 
         var validationError = Validator?.ValidateItem(normalized, current, index);
         if (validationError != null)
         {
-            SetInlineError(index, validationError);
+            ShowValidationError(validationError);
             return;
         }
 
         if (Behavior?.AllowDuplicates == false && next.Where((v, i) => i != index).Any(v => string.Equals(v, normalized, StringComparison.Ordinal)))
         {
-            SetInlineError(index, "Duplicate values are not allowed.");
+            ShowValidationError("Duplicate values are not allowed.");
             return;
         }
 
-        ClearInlineError();
         next[index] = normalized;
         _displayItems[index] = _displayItems[index] with { Value = normalized };
         await OnValuesChanged.InvokeAsync(next);
@@ -234,41 +231,31 @@
     {
         var raw = _draftValue ?? "";
         var normalized = Behavior?.Normalize(raw) ?? raw.Trim();
-        if (normalized.Length == 0) return;
+        if (normalized.Length == 0)
+        {
+            ShowValidationError("Value cannot be empty.");
+            return;
+        }
 
         var current = _currentValues;
         var validationError = Validator?.ValidateItem(normalized, current, null);
         if (validationError != null)
         {
-            SetInlineError(null, validationError);
+            ShowValidationError(validationError);
             return;
         }
 
         if (Behavior?.AllowDuplicates == false && current.Contains(normalized, StringComparer.Ordinal))
         {
-            SetInlineError(null, "Duplicate values are not allowed.");
+            ShowValidationError("Duplicate values are not allowed.");
             return;
         }
 
-        ClearInlineError();
         var next = current.ToList();
         next.Add(normalized);
         _displayItems.Add(new ValueWithSource(normalized, null));
         await OnValuesChanged.InvokeAsync(next);
         CancelInline();
-    }
-
-    private void SetInlineError(int? itemIndex, string message)
-    {
-        _inlineErrorIndex = itemIndex;
-        _inlineErrorMessage = message;
-        StateHasChanged();
-    }
-
-    private void ClearInlineError()
-    {
-        _inlineErrorIndex = null;
-        _inlineErrorMessage = null;
     }
 
     private async Task RemoveAt(int index)
