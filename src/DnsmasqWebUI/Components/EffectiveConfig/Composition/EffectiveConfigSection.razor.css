@@ -125,6 +125,22 @@
     opacity: 1;
 }
 
+/* Animated expand/collapse: grid 0fr → 1fr */
+::deep .ec-section-collapse {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.25s ease-out;
+}
+
+::deep .ec-section-collapse-open {
+    grid-template-rows: 1fr;
+}
+
+::deep .ec-section-collapse-inner {
+    min-height: 0;
+    overflow: hidden;
+}
+
 ::deep .ec-section-body {
     padding: 0.25rem 1rem 0.5rem 1rem;
     padding-left: 1rem;

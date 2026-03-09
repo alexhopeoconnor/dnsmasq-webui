@@ -1,0 +1,30 @@
+@namespace DnsmasqWebUI.Components.Dnsmasq
+@using DnsmasqWebUI.Models.Dnsmasq
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+
+<li>
+    @if (Entry.IsManaged)
+    {
+        <StatusBadge Kind="StatusBadgeKind.Managed" Text="managed" Class="me-1" />
+    }
+    else
+    {
+        <StatusBadge Kind="StatusBadgeKind.SourceMain" Text="@(Entry.Source.ToString().ToLowerInvariant())" Class="me-1" />
+    }
+    @Entry.Path
+    @{
+        var isMain = string.Equals(Entry.Path, Status.MainConfigPath, StringComparison.Ordinal);
+        var isManaged = Entry.IsManaged;
+        var exists = isMain ? Status.MainConfigPathExists : (isManaged ? Status.ManagedFilePathExists : (bool?)null);
+    }
+    @if (exists == true) { <text> ✓</text> }
+    @if (exists == false) { <text> @(isManaged ? "(not created yet)" : "(missing)")</text> }
+</li>
+
+@code {
+    [Parameter, EditorRequired]
+    public DnsmasqConfigSetEntry Entry { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public DnsmasqServiceStatus Status { get; set; } = null!;
+}

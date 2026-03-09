@@ -8,8 +8,9 @@
             <span class="ec-section-title fw-bold">@Title</span>
             <i class="bi @(IsOpen ? "bi-chevron-down" : "bi-chevron-right") ec-section-chevron" aria-hidden="true"></i>
         </button>
-        <div class="collapse @(IsOpen ? "show" : "")">
-            <div class="ec-section-body">
+        <div class="ec-section-collapse @(IsOpen ? "ec-section-collapse-open" : "")">
+            <div class="ec-section-collapse-inner">
+                <div class="ec-section-body">
                 <ul class="list-unstyled mb-0">
                     @foreach (var f in Descriptors)
                     {
@@ -18,6 +19,7 @@
                             IsEditMode="@IsEditMode" IsActive="@(ActiveFieldKey == fieldKey)" />
                     }
                 </ul>
+                </div>
             </div>
         </div>
     </div>

@@ -1,0 +1,72 @@
+@namespace DnsmasqWebUI.Components.Dnsmasq
+@using DnsmasqWebUI.Models.Dnsmasq
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+
+<div class="config-file-list">
+    @{
+        var configFileList = Status.ConfigFiles?.Count > 0 ? Status.ConfigFiles : ConfigSet?.Files;
+        var hasList = configFileList != null && configFileList.Count > 0;
+        var mainEntry = hasList ? configFileList![0] : null;
+        var hasMoreThanOne = hasList && configFileList!.Count > 1;
+        var fileCount = hasList ? configFileList!.Count : 2;
+        var showToggle = hasMoreThanOne || (!hasList && Status.ManagedFilePath != null);
+    }
+    <p class="config-file-list-title mb-0">Config files (load order)</p>
+    <div class="config-file-list-content-row">
+        <div class="config-file-list-list">
+            <ul class="list-unstyled config-file-list-main">
+                @if (hasList)
+                {
+                    <ConfigFileListItem Entry="@mainEntry" Status="Status" />
+                }
+                else
+                {
+                    <li><strong>Main config:</strong> @(Status.MainConfigPath ?? "—") @(Status.MainConfigPathExists ? "✓" : "(missing)")</li>
+                }
+            </ul>
+            @if (showToggle)
+            {
+                <div class="config-file-list-expandable @(_expanded ? "expanded" : null)">
+                    <div class="config-file-list-expandable-inner">
+                        <ul class="list-unstyled">
+                            @if (hasList)
+                            {
+                                @foreach (var f in configFileList!.Skip(1))
+                                {
+                                    <ConfigFileListItem Entry="f" Status="Status" />
+                                }
+                            }
+                            else
+                            {
+                                <li><strong>Managed file:</strong> @(Status.ManagedFilePath ?? "—") @(Status.ManagedFilePathExists ? "✓" : "(not created yet)")</li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            }
+        </div>
+        @if (showToggle)
+        {
+            <button type="button"
+                    class="config-file-list-toggle"
+                    @onclick="ToggleExpanded"
+                    aria-expanded="@_expanded"
+                    aria-label="@(_expanded ? "Show only main config" : "Show all config files")">
+                <i class="bi @(_expanded ? "bi-chevron-up" : "bi-chevron-down")" aria-hidden="true"></i>
+                <span>@(_expanded ? "Show less" : $"Show all ({fileCount} files)")</span>
+            </button>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public DnsmasqServiceStatus Status { get; set; } = null!;
+
+    [Parameter]
+    public DnsmasqConfigSet? ConfigSet { get; set; }
+
+    private bool _expanded;
+
+    private void ToggleExpanded() => _expanded = !_expanded;
+}
