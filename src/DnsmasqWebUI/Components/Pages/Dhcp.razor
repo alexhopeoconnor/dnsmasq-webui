@@ -13,7 +13,7 @@
 
 <PageTitle>DHCP | @AppTitle</PageTitle>
 
-<h1 class="page-title">DHCP</h1>
+<h1 class="page-title">DHCP Configuration</h1>
 
 @if (_status == null)
 {
@@ -24,6 +24,10 @@
 }
 else
 {
+    <section class="page-section">
+        <EffectiveConfigSection Status="_status" Context="EffectiveConfigContext.Dhcp" ShowSearchBox="true" OnSaveCompleted="RefreshStatusAsync" />
+    </section>
+
     @* ---- Static hosts (dhcp-host= in managed file) ---- *@
     <section class="page-section">
         <h2 class="page-section-title">Static hosts</h2>
@@ -323,10 +327,6 @@ else
         }
     </section>
 
-    <section class="page-section">
-        <h2 class="page-section-title">Config affecting DHCP</h2>
-        <EffectiveConfigSection Status="_status" Context="EffectiveConfigContext.Dhcp" ShowSearchBox="true" OnSaveCompleted="RefreshStatusAsync" />
-    </section>
 }
 
 @code {

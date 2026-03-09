@@ -20,6 +20,8 @@ public static class EffectiveConfigViews
             EffectiveConfigContext.All => GetAllSections(),
             EffectiveConfigContext.Hosts => GetHostsView(),
             EffectiveConfigContext.Dhcp => GetDhcpView(),
+            EffectiveConfigContext.DnsRecords => GetDnsRecordsView(),
+            EffectiveConfigContext.Filters => GetFiltersView(),
             _ => [],
         };
     }
@@ -38,6 +40,7 @@ public static class EffectiveConfigViews
             DnsmasqConfKeys.AddnHosts,
             DnsmasqConfKeys.Hostsdir,
             DnsmasqConfKeys.ReadEthers,
+            DnsmasqConfKeys.ExpandHosts,
         ]),
     ];
 
@@ -45,6 +48,38 @@ public static class EffectiveConfigViews
     [
         new(EffectiveConfigSections.SectionDhcp, "DHCP", null),
         new(EffectiveConfigSections.SectionTftpPxe, "TFTP / PXE", null),
+    ];
+
+    private static IReadOnlyList<EffectiveConfigSectionView> GetDnsRecordsView() =>
+    [
+        new(EffectiveConfigSections.SectionDnsRecords, "DNS records", null),
+    ];
+
+    private static IReadOnlyList<EffectiveConfigSectionView> GetFiltersView() =>
+    [
+        new(EffectiveConfigSections.SectionResolver, "Resolver / DNS", [
+            DnsmasqConfKeys.DomainNeeded,
+            DnsmasqConfKeys.Local,
+            DnsmasqConfKeys.Server,
+            DnsmasqConfKeys.RevServer,
+            DnsmasqConfKeys.Address,
+            DnsmasqConfKeys.BogusPriv,
+            DnsmasqConfKeys.BogusNxdomain,
+            DnsmasqConfKeys.IgnoreAddress,
+            DnsmasqConfKeys.Alias,
+            DnsmasqConfKeys.Filterwin2k,
+            DnsmasqConfKeys.FilterA,
+            DnsmasqConfKeys.FilterAaaa,
+            DnsmasqConfKeys.FilterRr,
+            DnsmasqConfKeys.StopDnsRebind,
+            DnsmasqConfKeys.RebindLocalhostOk,
+            DnsmasqConfKeys.RebindDomainOk,
+            DnsmasqConfKeys.Ipset,
+            DnsmasqConfKeys.Nftset,
+            DnsmasqConfKeys.ConnmarkAllowlistEnable,
+            DnsmasqConfKeys.ConnmarkAllowlist,
+            DnsmasqConfKeys.NoRoundRobin,
+        ]),
     ];
 
     /// <summary>

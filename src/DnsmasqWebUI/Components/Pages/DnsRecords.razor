@@ -1,0 +1,64 @@
+@page "/dns-records"
+@rendermode InteractiveServer
+@namespace DnsmasqWebUI.Components.Pages
+@inject IStatusClient StatusClient
+@inject IOptions<ApplicationOptions> AppOptions
+
+<PageTitle>DNS records | @AppTitle</PageTitle>
+
+<h1 class="page-title">DNS Records Configuration</h1>
+
+@if (_status == null)
+{
+    <p class="d-flex align-items-center gap-2">
+        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+        Loading...
+    </p>
+}
+else
+{
+    <section class="page-section">
+        <EffectiveConfigSection Status="_status" Context="EffectiveConfigContext.DnsRecords" ShowSearchBox="true" OnSaveCompleted="RefreshStatusAsync" />
+    </section>
+    <div class="page-chips" role="group" aria-label="Record type">
+        <span class="page-chip active">All</span>
+        <span class="page-chip">CNAME</span>
+        <span class="page-chip">MX / SRV</span>
+        <span class="page-chip">PTR</span>
+        <span class="page-chip">TXT</span>
+        <span class="page-chip">A / AAAA</span>
+        <span class="page-chip">Other</span>
+    </div>
+}
+
+@code {
+    private string AppTitle => AppOptions!.Value!.EffectiveTitle;
+    private DnsmasqServiceStatus? _status;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Load();
+    }
+
+    private async Task RefreshStatusAsync()
+    {
+        try
+        {
+            _status = await StatusClient.GetStatusAsync();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch { /* ignore */ }
+    }
+
+    private async Task Load()
+    {
+        try
+        {
+            _status = await StatusClient.GetStatusAsync();
+        }
+        catch
+        {
+            // Status will stay null; UI shows loading or empty
+        }
+    }
+}

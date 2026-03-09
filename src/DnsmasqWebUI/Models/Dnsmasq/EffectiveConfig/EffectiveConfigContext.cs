@@ -13,4 +13,10 @@ public enum EffectiveConfigContext
 
     /// <summary>DHCP page: DHCP and TFTP/PXE sections.</summary>
     Dhcp,
+
+    /// <summary>DNS records page: only DNS records section.</summary>
+    DnsRecords,
+
+    /// <summary>Filters page: resolver options for blocking, split DNS, safety, ipset/nftset.</summary>
+    Filters,
 }

@@ -6,7 +6,7 @@
 @inject IOptions<ApplicationOptions> AppOptions
 <PageTitle>Hosts | @AppTitle</PageTitle>
 
-<h1 class="page-title">Hosts file</h1>
+<h1 class="page-title">Hosts Configuration</h1>
 
 @if (_status == null)
 {
@@ -18,7 +18,6 @@
 else
 {
     <section class="page-section mb-4">
-        <h2 class="page-section-title">Config affecting hosts</h2>
         <EffectiveConfigSection Status="_status" Context="EffectiveConfigContext.Hosts" ShowSearchBox="true" OnSaveCompleted="RefreshStatusAsync" />
     </section>
     @if (string.IsNullOrEmpty(_status.ManagedHostsFilePath))
