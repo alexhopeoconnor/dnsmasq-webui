@@ -55,6 +55,8 @@ public static class EffectiveConfigFieldDescriptorListExtensions
         var sectionId = EffectiveConfigSections.GetSectionId(optionName);
         var factory = registry?.GetMultiDescriptorFactory(sectionId, optionName)
             ?? throw new InvalidOperationException($"No multi descriptor factory registered for option '{optionName}' (section '{sectionId}'). Register all multi options via RegisterMultiDescriptor.");
-        list.Add(factory(sectionId, optionName, status, getItems));
+        var descriptor = factory(sectionId, optionName, status, getItems);
+        var (isDisabled, reason) = EffectiveConfigFeatureRequirements.GetCapabilityDisabled(optionName, status);
+        list.Add(descriptor with { IsCapabilityDisabled = isDisabled, CapabilityDisabledReason = reason });
     }
 }

@@ -29,13 +29,15 @@ public sealed class DnsmasqVersionService : IDnsmasqVersionService
 
         if (string.IsNullOrWhiteSpace(command))
         {
+            var emptyCaps = new DnsmasqCompileCapabilities(false, false, false, false, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
             return new DnsmasqVersionInfo(
                 InstalledVersion: null,
                 MinimumVersion: minimumVersion,
                 ProbeSucceeded: false,
                 IsSupported: false,
                 ProbeCommand: "",
-                Error: "Version command is not configured.");
+                Error: "Version command is not configured.",
+                Capabilities: emptyCaps);
         }
 
         var result = await _processRunner.RunAsync(command, _options.VersionTimeout, ct);
@@ -52,6 +54,7 @@ public sealed class DnsmasqVersionService : IDnsmasqVersionService
 
         var probeSucceeded = installed != null;
         var isSupported = probeSucceeded && installed!.CompareTo(minimumVersion) >= 0;
+        var capabilities = DnsmasqCompileOptionsParser.Parse(result.Stdout, result.Stderr);
 
         return new DnsmasqVersionInfo(
             InstalledVersion: installed,
@@ -59,6 +62,7 @@ public sealed class DnsmasqVersionService : IDnsmasqVersionService
             ProbeSucceeded: probeSucceeded,
             IsSupported: isSupported,
             ProbeCommand: command,
-            Error: error);
+            Error: error,
+            Capabilities: capabilities);
     }
 }

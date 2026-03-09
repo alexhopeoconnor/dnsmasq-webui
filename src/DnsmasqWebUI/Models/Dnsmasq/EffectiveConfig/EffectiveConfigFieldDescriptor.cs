@@ -17,7 +17,9 @@ public record EffectiveConfigFieldDescriptor(
     Func<DnsmasqServiceStatus?, object?>? ResolveValue,
     Func<DnsmasqServiceStatus?, ConfigValueSource?>? ResolveSource,
     Func<DnsmasqServiceStatus?, IReadOnlyList<ValueWithSource>?>? ResolveItems,
-    EffectiveConfigSingleValueValidator? ValidateValue = null
+    EffectiveConfigSingleValueValidator? ValidateValue = null,
+    bool IsCapabilityDisabled = false,
+    string? CapabilityDisabledReason = null
 ) : IEffectiveConfigFieldDescriptor
 {
     public object? GetValue() => ResolveValue?.Invoke(Status);

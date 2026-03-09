@@ -13,8 +13,8 @@
 {
     var labelTooltip = DnsmasqOptionTooltips.Get(Descriptor.OptionName);
     var isReadonly = Descriptor.GetSource()?.IsReadOnly == true;
-    var showEditableBadge = !isReadonly;
-    var isActiveEditor = IsEditMode && IsActive;
+    var showEditableBadge = !isReadonly && !Descriptor.IsCapabilityDisabled;
+    var isActiveEditor = IsEditMode && IsActive && !Descriptor.IsCapabilityDisabled;
     var fragmentWithCallback = isActiveEditor ? _fragmentWithCallback : null;
     var effectiveValue = _effectiveValue;
     <li class="ec-field @(isActiveEditor ? "ec-field-editing" : "")" title="@(Descriptor.GetSource()?.GetReadOnlyTooltip())">
@@ -30,7 +30,7 @@
                             </CascadingValue>
                         </CascadingValue>
                     </div>
-                    <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@Descriptor.GetSource()" OptionName="@Descriptor.OptionName" Value="@effectiveValue" IsInteractive="@IsEditMode" ShowEditableBadge="@showEditableBadge" HasPendingChange="@_hasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@isActiveEditor" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
+                    <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@Descriptor.GetSource()" OptionName="@Descriptor.OptionName" Value="@effectiveValue" IsInteractive="@IsEditMode" ShowEditableBadge="@showEditableBadge" HasPendingChange="@_hasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@isActiveEditor" IsCapabilityDisabled="@Descriptor.IsCapabilityDisabled" CapabilityDisabledReason="@Descriptor.CapabilityDisabledReason" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
                 </div>
             }
             else
@@ -38,7 +38,7 @@
                 <CascadingValue Value="@false">
                     @fragment(Descriptor)
                 </CascadingValue>
-                <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@Descriptor.GetSource()" OptionName="@Descriptor.OptionName" Value="@effectiveValue" IsInteractive="@IsEditMode" ShowEditableBadge="@showEditableBadge" HasPendingChange="@_hasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@isActiveEditor" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
+                <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@Descriptor.GetSource()" OptionName="@Descriptor.OptionName" Value="@effectiveValue" IsInteractive="@IsEditMode" ShowEditableBadge="@showEditableBadge" HasPendingChange="@_hasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@isActiveEditor" IsCapabilityDisabled="@Descriptor.IsCapabilityDisabled" CapabilityDisabledReason="@Descriptor.CapabilityDisabledReason" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
             }
         </span>
     </li>
@@ -49,17 +49,18 @@ else if (Descriptor.IsMultiValue)
     if (customMulti is not null)
     {
         @* Custom multi editor (e.g. server): same row shell as generic multi, value slot uses custom fragment. *@
-        <li class="ec-field @(IsEditMode && IsActive ? "ec-field-editing" : "")">
+        <li class="ec-field @(IsEditMode && IsActive && !Descriptor.IsCapabilityDisabled ? "ec-field-editing" : "")">
             <OptionHelpLabel AnchorId="@_anchorId" HelpKey="@_optionHelpKey" OptionLabel="@Descriptor.OptionName" Title="@(_labelTooltip ?? Descriptor.GetSource()?.GetReadOnlyTooltip())"><strong>@Descriptor.OptionName:</strong></OptionHelpLabel>
             <span class="ec-field-value">
-                <CascadingValue Value="@(IsEditMode && IsActive)">
+                <CascadingValue Value="@(IsEditMode && IsActive && !Descriptor.IsCapabilityDisabled)">
                     <CascadingValue Value="@IsEditMode">
                         @customMulti(Descriptor)
                     </CascadingValue>
                 </CascadingValue>
             </span>
             <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@_multiValueRowSource" OptionName="@Descriptor.OptionName" Value="@_multiValueItems"
-                IsInteractive="@IsEditMode" ShowEditableBadge="@IsEditMode" HasPendingChange="@_multiValueHasPendingOrDraft" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@(IsEditMode && IsActive)"
+                IsInteractive="@(IsEditMode && !Descriptor.IsCapabilityDisabled)" ShowEditableBadge="@(IsEditMode && !Descriptor.IsCapabilityDisabled)" HasPendingChange="@_multiValueHasPendingOrDraft" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@(IsEditMode && IsActive && !Descriptor.IsCapabilityDisabled)"
+                IsCapabilityDisabled="@Descriptor.IsCapabilityDisabled" CapabilityDisabledReason="@Descriptor.CapabilityDisabledReason"
                 OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
         </li>
     }
@@ -67,8 +68,8 @@ else if (Descriptor.IsMultiValue)
     {
         @* Multi-value state is computed in OnParametersSet and in HandleMultiValueChanged; we only read cached fields here. *@
         <EffectiveConfigMultiValueRow Descriptor="@Descriptor" Label="@Descriptor.OptionName" Items="@_multiValueItems" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId"
-            IsActiveEditor="@(IsEditMode && IsActive)" IsEditMode="@IsEditMode" ReadonlyBadgeAnchorIdBase="@_readonlyBadgeAnchorId"
-            Source="@_multiValueRowSource" ShowEditableBadge="@IsEditMode" HasPendingChange="@_multiValueHasPendingOrDraft" FieldKey="@FieldKey"
+            IsActiveEditor="@(IsEditMode && IsActive && !Descriptor.IsCapabilityDisabled)" IsEditMode="@IsEditMode" ReadonlyBadgeAnchorIdBase="@_readonlyBadgeAnchorId"
+            Source="@_multiValueRowSource" ShowEditableBadge="@(IsEditMode && !Descriptor.IsCapabilityDisabled)" HasPendingChange="@_multiValueHasPendingOrDraft" FieldKey="@FieldKey"
             ItemsChanged="@HandleMultiValueChanged" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
     }
 }
@@ -78,7 +79,8 @@ else
     var displayValue = value == null ? "(not set)" : (value is IReadOnlyList<string> list ? (list.Count == 0 ? "(none)" : string.Join(", ", list)) : value.ToString());
     var isReadonly = Descriptor.GetSource()?.IsReadOnly == true;
     var showReadonlyHint = IsEditMode && isReadonly;
-    var isActiveEditor = IsEditMode && IsActive;
+    var isActiveEditor = IsEditMode && IsActive && !Descriptor.IsCapabilityDisabled;
+    var showEditableForDefault = !Descriptor.IsCapabilityDisabled;
     @if (showReadonlyHint)
     {
         <li class="ec-field" title="@(Descriptor.GetSource()?.GetReadOnlyTooltip())">
@@ -90,8 +92,9 @@ else
     {
         <li class="ec-field @(isActiveEditor ? "ec-field-editing" : "")" title="@(Descriptor.GetSource()?.GetReadOnlyTooltip())">
             <EffectiveConfigOptionItem Label="@Descriptor.OptionName" DisplayValue="@(displayValue ?? "(not set)")" Source="@Descriptor.GetSource()" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId"
-                ShowEditableBadge="true" FieldKey="@FieldKey" IsActive="@IsActive"
+                ShowEditableBadge="@showEditableForDefault" FieldKey="@FieldKey" IsActive="@IsActive"
                 ReadonlyBadgeAnchorId="@_readonlyBadgeAnchorId" RawValue="@value" HasPendingChange="@_hasPendingChange"
+                IsCapabilityDisabled="@Descriptor.IsCapabilityDisabled" CapabilityDisabledReason="@Descriptor.CapabilityDisabledReason"
                 DisplayValueChanged="@HandleDefaultValueChanged" OnBlur="@HandleDefaultBlur" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
         </li>
     }

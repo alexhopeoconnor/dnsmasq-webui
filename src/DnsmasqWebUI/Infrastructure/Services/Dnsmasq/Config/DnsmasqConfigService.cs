@@ -253,6 +253,19 @@ public class DnsmasqConfigService : IDnsmasqConfigService
                 continue;
             }
 
+            if (writeBehavior == EffectiveConfigWriteBehavior.MultiKeyOnlyOrValue && TryGetMultiValues(c.NewValue, out var multiKeyOnlyValues))
+            {
+                IReadOnlyList<string> readonlyValues = readonlyByOption.TryGetValue(confKey, out var listValues) ? listValues : Array.Empty<string>();
+                var valuesToWrite = FilterManagedOnly(multiKeyOnlyValues, readonlyValues);
+                RemoveAllMatchingLines(list, MatchesOption);
+                foreach (var v in valuesToWrite)
+                {
+                    var raw = string.IsNullOrEmpty(v) ? confKey : $"{confKey}={v.Trim()}";
+                    list.Add(new OtherLine { LineNumber = ++maxLineNumber, RawLine = raw });
+                }
+                continue;
+            }
+
             if (writeBehavior == EffectiveConfigWriteBehavior.InversePair)
             {
                 var pair = EffectiveConfigWriteSemantics.GetInversePairKeys(confKey);

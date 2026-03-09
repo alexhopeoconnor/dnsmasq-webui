@@ -160,6 +160,41 @@ public class DnsmasqConfigServiceApplyChangesTests
     }
 
     [Fact]
+    public async Task ApplyEffectiveConfigChangesAsync_DnssecCheckUnsignedNo_WritesEqualsNo()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-apply-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var mainPath = Path.Combine(dir, "dnsmasq.conf");
+        var managedName = "zz-managed.conf";
+        var managedPath = Path.Combine(dir, managedName);
+        ConfigSetCache? cache = null;
+        try
+        {
+            File.WriteAllText(mainPath, "port=53\n");
+            var options = Options.Create(new DnsmasqOptions { MainConfigPath = mainPath, ManagedFileName = managedName });
+            cache = new ConfigSetCache(options, NullLogger<ConfigSetCache>.Instance);
+            var setService = new DnsmasqConfigSetService(cache);
+            var configService = new DnsmasqConfigService(setService, cache, NullLogger<DnsmasqConfigService>.Instance);
+
+            var changes = new List<PendingEffectiveConfigChange>
+            {
+                new(EffectiveConfigSections.SectionDnssec, DnsmasqConfKeys.DnssecCheckUnsigned, null, "no", null)
+            };
+            await configService.ApplyEffectiveConfigChangesAsync(changes);
+
+            Assert.True(File.Exists(managedPath));
+            var text = await File.ReadAllTextAsync(managedPath);
+            Assert.Contains("dnssec-check-unsigned=no", text);
+        }
+        finally
+        {
+            cache?.Dispose();
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ApplyEffectiveConfigChangesAsync_KeyOnlyOrValue_KeyOnly_WritesBareKey()
     {
         var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-apply-" + Guid.NewGuid().ToString("N"));
@@ -467,6 +502,57 @@ public class DnsmasqConfigServiceApplyChangesTests
             var content = await File.ReadAllTextAsync(managedPath);
             Assert.Contains("umbrella", content);
             Assert.DoesNotContain("umbrella=", content);
+        }
+        finally
+        {
+            cache?.Dispose();
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ApplyEffectiveConfigChangesAsync_Leasequery_MultiKeyOnlyOrValue_DoesNotDuplicateReadonlyValues()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-apply-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var mainPath = Path.Combine(dir, "dnsmasq.conf");
+        var readonlyPath = Path.Combine(dir, "readonly.conf");
+        var managedName = "zz-managed.conf";
+        var managedPath = Path.Combine(dir, managedName);
+        ConfigSetCache? cache = null;
+        try
+        {
+            File.WriteAllText(mainPath, $"port=53\nconf-file={readonlyPath}\n");
+            File.WriteAllText(readonlyPath, "leasequery\nleasequery=10.0.0.0/24\n");
+            File.WriteAllText(managedPath, "leasequery=172.16.0.0/16\n");
+
+            var options = Options.Create(new DnsmasqOptions { MainConfigPath = mainPath, ManagedFileName = managedName });
+            cache = new ConfigSetCache(options, NullLogger<ConfigSetCache>.Instance);
+            cache.Invalidate();
+            var setService = new DnsmasqConfigSetService(cache);
+            var configService = new DnsmasqConfigService(setService, cache, NullLogger<DnsmasqConfigService>.Instance);
+
+            // Simulate UI effective values (readonly + managed). Save should write only managed-only values.
+            var changes = new List<PendingEffectiveConfigChange>
+            {
+                new(
+                    EffectiveConfigSections.SectionDhcp,
+                    DnsmasqConfKeys.Leasequery,
+                    null,
+                    new List<string> { "", "10.0.0.0/24", "192.168.50.0/24" },
+                    null)
+            };
+
+            await configService.ApplyEffectiveConfigChangesAsync(changes);
+
+            var lines = (await File.ReadAllLinesAsync(managedPath))
+                .Select(l => l.Trim())
+                .Where(l => l.StartsWith("leasequery", StringComparison.Ordinal))
+                .ToList();
+
+            Assert.Single(lines);
+            Assert.Equal("leasequery=192.168.50.0/24", lines[0]);
         }
         finally
         {

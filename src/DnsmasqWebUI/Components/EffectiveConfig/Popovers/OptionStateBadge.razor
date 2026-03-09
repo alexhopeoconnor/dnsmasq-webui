@@ -2,7 +2,14 @@
 @using DnsmasqWebUI.Models.Dnsmasq
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 
-@if (Source?.IsReadOnly == true)
+@if (IsCapabilityDisabled)
+{
+    <StatusBadge Kind="StatusBadgeKind.ReadOnly"
+                 Text="disabled"
+                 Title="@CapabilityDisabledReason"
+                 Class="status-badge-inline" />
+}
+else if (Source?.IsReadOnly == true)
 {
     var readonlyTitle = !string.IsNullOrEmpty(ReadonlyTitleOverride) ? ReadonlyTitleOverride : Source?.GetReadOnlyTooltip();
     if (ReadonlyClickActivatesField && Ui != null && !string.IsNullOrEmpty(FieldKey))
@@ -85,6 +92,10 @@ else if (ShowEditableBadge)
     [Parameter] public bool ReadonlyClickActivatesField { get; set; }
     /// <summary>Optional tooltip for readonly badge when <see cref="ReadonlyClickActivatesField"/> is true (e.g. "New values can still be added. Click to edit.").</summary>
     [Parameter] public string? ReadonlyTitleOverride { get; set; }
+    /// <summary>When true, option is disabled because dnsmasq build does not support it (e.g. no DNSSEC).</summary>
+    [Parameter] public bool IsCapabilityDisabled { get; set; }
+    /// <summary>Tooltip shown when <see cref="IsCapabilityDisabled"/> is true (e.g. "This dnsmasq build does not support DNSSEC; option not written.").</summary>
+    [Parameter] public string? CapabilityDisabledReason { get; set; }
     [CascadingParameter] public EffectiveConfigUiContext? Ui { get; set; }
 
     private async Task OnConfirmClick()

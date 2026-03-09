@@ -118,6 +118,7 @@ public static class DnsmasqOptionTooltips
         [DnsmasqConfKeys.DhcpHostsfile] = "File(s) containing dhcp-host-style lines. Can repeat.",
         [DnsmasqConfKeys.DhcpOptsfile] = "File containing dhcp-option-style lines.",
         [DnsmasqConfKeys.DhcpHostsdir] = "Directory of files read like dhcp-hostsfile (watched for changes). Can repeat.",
+        [DnsmasqConfKeys.DhcpOptsdir] = "Directory of files read like dhcp-optsfile (watched for changes). Can repeat.",
         [DnsmasqConfKeys.DhcpBoot] = "Boot file and server for PXE. Can repeat.",
         [DnsmasqConfKeys.DhcpIgnore] = "Ignore DHCP clients (e.g. by tag). Can repeat.",
         [DnsmasqConfKeys.DhcpVendorclass] = "Match by DHCP vendor class. Can repeat.",

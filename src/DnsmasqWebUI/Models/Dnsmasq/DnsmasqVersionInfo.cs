@@ -7,10 +7,12 @@ namespace DnsmasqWebUI.Models.Dnsmasq;
 /// <param name="IsSupported">True when probe succeeded and installed version is at least minimum.</param>
 /// <param name="ProbeCommand">The command that was run (e.g. "dnsmasq --version").</param>
 /// <param name="Error">Error message when probe failed or version could not be parsed; null on success.</param>
+/// <param name="Capabilities">Compile-time options parsed from version output (DHCP, TFTP, DNSSEC, DBus). Empty when probe failed or line not found.</param>
 public record DnsmasqVersionInfo(
     Version? InstalledVersion,
     Version MinimumVersion,
     bool ProbeSucceeded,
     bool IsSupported,
     string ProbeCommand,
-    string? Error);
+    string? Error,
+    DnsmasqCompileCapabilities Capabilities);

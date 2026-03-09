@@ -45,4 +45,35 @@ public static class SpecialOptionValidators
         if (s.Length == 0) return null; // key-only
         return null; // token parsing can be tightened later
     }
+
+    /// <summary>connmark-allowlist-enable: key-only or optional mask (decimal uint or 0x hex).</summary>
+    public static string? ValidateConnmarkAllowlistEnable(object? value)
+    {
+        if (value is null) return null;
+        var s = value.ToString()?.Trim() ?? "";
+        if (s.Length == 0) return null; // key-only
+        if (s.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            return uint.TryParse(s[2..], System.Globalization.NumberStyles.HexNumber, null, out _)
+                ? null
+                : "Mask must be valid hex after 0x.";
+        return uint.TryParse(s, out _) ? null : "Mask must be empty, decimal uint, or hex (0x...).";
+    }
+
+    /// <summary>dnssec-check-unsigned: key-only (enable check) or 'no' (disable).</summary>
+    public static string? ValidateDnssecCheckUnsigned(object? value)
+    {
+        if (value is null) return null;
+        var s = value.ToString()?.Trim() ?? "";
+        return s is "" or "no" ? null : "Allowed values: empty (enable check) or 'no'.";
+    }
+
+    /// <summary>Per-item validation for leasequery: key-only or IP[/prefix].</summary>
+    public static string? ValidateLeasequeryValue(string? s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return null; // key-only
+        var parts = s.Trim().Split('/', 2);
+        if (!System.Net.IPAddress.TryParse(parts[0], out _)) return "Leasequery source must be an IP address.";
+        if (parts.Length == 2 && !int.TryParse(parts[1], out _)) return "Prefix must be numeric.";
+        return null;
+    }
 }

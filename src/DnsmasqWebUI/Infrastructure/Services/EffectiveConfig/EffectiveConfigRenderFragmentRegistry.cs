@@ -76,23 +76,17 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
         RegisterFlag(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.Localmx);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.Selfmx);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.Dnssec);
-        RegisterFlag(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.DnssecCheckUnsigned);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.EnableRa);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.LogDhcp);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.KeepInForeground);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.NoDaemon);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.Conntrack);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.ProxyDnssec);
-        RegisterFlag(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.ConnmarkAllowlistEnable);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.NoRoundRobin);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.DnssecNoTimecheck);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.DnssecDebug);
-        RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.Leasequery);
-        RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpGenerateNames);
-        RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpBroadcast);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpSequentialIp);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpIgnoreClid);
-        RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.BootpDynamic);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.NoPing);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.ScriptArp);
         RegisterFlag(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.ScriptOnRenewal);
@@ -116,6 +110,17 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
         RegisterValidatedSingle(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.AddSubnet, SpecialOptionValidators.ValidateAddSubnet);
         RegisterComponent(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.Umbrella, typeof(KeyOnlyOrValueDisplay));
         RegisterValidatedSingle(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.Umbrella, SpecialOptionValidators.ValidateUmbrella);
+
+        // connmark-allowlist-enable, dnssec-check-unsigned: key-only or key=value with validation.
+        RegisterComponent(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.ConnmarkAllowlistEnable, typeof(KeyOnlyOrValueDisplay));
+        RegisterValidatedSingle(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.ConnmarkAllowlistEnable, SpecialOptionValidators.ValidateConnmarkAllowlistEnable);
+        RegisterComponent(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.DnssecCheckUnsigned, typeof(KeyOnlyOrValueDisplay));
+        RegisterValidatedSingle(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.DnssecCheckUnsigned, SpecialOptionValidators.ValidateDnssecCheckUnsigned);
+
+        // DHCP key-only-or-value options (optional value; no custom validator).
+        RegisterComponent(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpGenerateNames, typeof(KeyOnlyOrValueDisplay));
+        RegisterComponent(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpBroadcast, typeof(KeyOnlyOrValueDisplay));
+        RegisterComponent(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.BootpDynamic, typeof(KeyOnlyOrValueDisplay));
 
         // log-queries: dropdown (Off / On / extra / proto / auth).
         RegisterComponent(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.LogQueries, typeof(LogQueriesDisplay));
@@ -176,6 +181,8 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpHostsfile);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpOptsfile);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpHostsdir);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpOptsdir);
+        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.Leasequery);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpRelay);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpCircuitid);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpRemoteid);

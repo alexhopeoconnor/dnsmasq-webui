@@ -19,6 +19,7 @@
         <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorIdBase ?? "")" Source="@Source" OptionName="@Label" Value="@Items"
                          IsInteractive="@IsEditMode" ShowEditableBadge="@ShowEditableBadge" HasPendingChange="@HasPendingChange"
                          EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@IsActiveEditor"
+                         IsCapabilityDisabled="@(Descriptor?.IsCapabilityDisabled == true)" CapabilityDisabledReason="@Descriptor?.CapabilityDisabledReason"
                          OnConfirmRequested="@OnConfirmRequested" OnCancelRequested="@OnCancelRequested" OnRevertRequested="@OnRevertRequested" />
     }
     else
@@ -37,8 +38,8 @@
             else
             {
                 <span class="text-muted">(none)</span>
-                <OptionStateBadge OptionName="@Label" ShowEditableBadge="true" EditableAsButton="true"
-                    FieldKey="@FieldKey" IsActiveEditor="false" IsInteractive="true" />
+                <OptionStateBadge OptionName="@Label" ShowEditableBadge="@(!(Descriptor?.IsCapabilityDisabled == true))" EditableAsButton="true"
+                    FieldKey="@FieldKey" IsActiveEditor="false" IsInteractive="true" IsCapabilityDisabled="@(Descriptor?.IsCapabilityDisabled == true)" CapabilityDisabledReason="@Descriptor?.CapabilityDisabledReason" />
             }
         </div>
     }

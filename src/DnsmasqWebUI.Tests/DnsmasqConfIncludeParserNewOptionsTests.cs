@@ -80,9 +80,9 @@ public class DnsmasqConfIncludeParserNewOptionsTests
     }
 
     [Fact]
-    public void GetFlagFromConfigFiles_ConnmarkAllowlistEnable_WhenPresent_ReturnsTrue()
+    public void GetLastValueFromConfigFiles_ConnmarkAllowlistEnable_WhenPresent_ReturnsValue()
     {
-        WriteFlagAndAssertTrue(DnsmasqConfKeys.ConnmarkAllowlistEnable);
+        WriteLastWinsKeyOnlyAndAssertPresent(DnsmasqConfKeys.ConnmarkAllowlistEnable);
     }
 
     [Fact]
@@ -104,9 +104,32 @@ public class DnsmasqConfIncludeParserNewOptionsTests
     }
 
     [Fact]
-    public void GetFlagFromConfigFiles_Leasequery_WhenPresent_ReturnsTrue()
+    public void GetMultiValueFromConfigFiles_Leasequery_WhenPresent_ReturnsValues()
     {
-        WriteFlagAndAssertTrue(DnsmasqConfKeys.Leasequery);
+        var dir = CreateTempDir();
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "leasequery\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.Leasequery);
+            Assert.Single(result);
+            Assert.Equal("", result[0]);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void GetMultiValueFromConfigFiles_Leasequery_WithValue_IsParsed()
+    {
+        var dir = CreateTempDir();
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "leasequery=10.0.0.0/24\n");
+            var result = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.Leasequery);
+            Assert.Equal("10.0.0.0/24", Assert.Single(result));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
     }
 
     [Fact]
@@ -122,15 +145,15 @@ public class DnsmasqConfIncludeParserNewOptionsTests
     }
 
     [Fact]
-    public void GetFlagFromConfigFiles_DhcpGenerateNames_WhenPresent_ReturnsTrue()
+    public void GetLastValueFromConfigFiles_DhcpGenerateNames_WhenPresent_ReturnsValue()
     {
-        WriteFlagAndAssertTrue(DnsmasqConfKeys.DhcpGenerateNames);
+        WriteLastWinsKeyOnlyAndAssertPresent(DnsmasqConfKeys.DhcpGenerateNames);
     }
 
     [Fact]
-    public void GetFlagFromConfigFiles_DhcpBroadcast_WhenPresent_ReturnsTrue()
+    public void GetLastValueFromConfigFiles_DhcpBroadcast_WhenPresent_ReturnsValue()
     {
-        WriteFlagAndAssertTrue(DnsmasqConfKeys.DhcpBroadcast);
+        WriteLastWinsKeyOnlyAndAssertPresent(DnsmasqConfKeys.DhcpBroadcast);
     }
 
     [Fact]
@@ -146,9 +169,9 @@ public class DnsmasqConfIncludeParserNewOptionsTests
     }
 
     [Fact]
-    public void GetFlagFromConfigFiles_BootpDynamic_WhenPresent_ReturnsTrue()
+    public void GetLastValueFromConfigFiles_BootpDynamic_WhenPresent_ReturnsValue()
     {
-        WriteFlagAndAssertTrue(DnsmasqConfKeys.BootpDynamic);
+        WriteLastWinsKeyOnlyAndAssertPresent(DnsmasqConfKeys.BootpDynamic);
     }
 
     [Fact]
@@ -399,6 +422,19 @@ public class DnsmasqConfIncludeParserNewOptionsTests
         {
             File.WriteAllText(conf, key + "\n");
             Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, key));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    private static void WriteLastWinsKeyOnlyAndAssertPresent(string key)
+    {
+        var dir = CreateTempDir();
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, key + "\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, key);
+            Assert.NotNull(value);
         }
         finally { Directory.Delete(dir, recursive: true); }
     }

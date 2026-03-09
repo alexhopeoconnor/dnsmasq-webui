@@ -50,6 +50,36 @@ public static class EffectiveConfigSpecialOptionSemantics
                 EffectiveConfigParserBehavior.Flag,
                 EffectiveConfigWriteBehavior.InversePair,
                 Validator: null),
+            [DnsmasqConfKeys.ConnmarkAllowlistEnable] = new OptionSemantics(
+                DnsmasqConfKeys.ConnmarkAllowlistEnable,
+                EffectiveConfigParserBehavior.LastWins,
+                EffectiveConfigWriteBehavior.KeyOnlyOrValue,
+                SpecialOptionValidators.ValidateConnmarkAllowlistEnable),
+            [DnsmasqConfKeys.DnssecCheckUnsigned] = new OptionSemantics(
+                DnsmasqConfKeys.DnssecCheckUnsigned,
+                EffectiveConfigParserBehavior.LastWins,
+                EffectiveConfigWriteBehavior.KeyOnlyOrValue,
+                SpecialOptionValidators.ValidateDnssecCheckUnsigned),
+            [DnsmasqConfKeys.Leasequery] = new OptionSemantics(
+                DnsmasqConfKeys.Leasequery,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiKeyOnlyOrValue,
+                null),
+            [DnsmasqConfKeys.DhcpGenerateNames] = new OptionSemantics(
+                DnsmasqConfKeys.DhcpGenerateNames,
+                EffectiveConfigParserBehavior.LastWins,
+                EffectiveConfigWriteBehavior.KeyOnlyOrValue,
+                null),
+            [DnsmasqConfKeys.DhcpBroadcast] = new OptionSemantics(
+                DnsmasqConfKeys.DhcpBroadcast,
+                EffectiveConfigParserBehavior.LastWins,
+                EffectiveConfigWriteBehavior.KeyOnlyOrValue,
+                null),
+            [DnsmasqConfKeys.BootpDynamic] = new OptionSemantics(
+                DnsmasqConfKeys.BootpDynamic,
+                EffectiveConfigParserBehavior.LastWins,
+                EffectiveConfigWriteBehavior.KeyOnlyOrValue,
+                null),
         };
 
     /// <summary>Keys (enabled, disabled) for InversePair options only. Used by write path and readonly hints.</summary>

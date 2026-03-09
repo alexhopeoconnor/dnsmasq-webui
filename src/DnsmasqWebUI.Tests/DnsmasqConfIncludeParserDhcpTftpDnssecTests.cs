@@ -283,7 +283,7 @@ public class DnsmasqConfIncludeParserDhcpTftpDnssecTests
     }
 
     [Fact]
-    public void GetFlagFromConfigFiles_DnssecCheckUnsigned_WhenPresent_ReturnsTrue()
+    public void GetLastValueFromConfigFiles_DnssecCheckUnsigned_WhenPresent_ReturnsValue()
     {
         var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-dnsseccu-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
@@ -291,8 +291,26 @@ public class DnsmasqConfIncludeParserDhcpTftpDnssecTests
         try
         {
             File.WriteAllText(conf, "dnssec-check-unsigned\n");
-            var result = DnsmasqConfIncludeParser.GetFlagFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DnssecCheckUnsigned);
-            Assert.True(result);
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DnssecCheckUnsigned);
+            Assert.NotNull(value);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetLastValueFromConfigFiles_DnssecCheckUnsigned_WhenEqualsNo_ReturnsNo()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-dnsseccu-no-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var conf = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(conf, "dnssec-check-unsigned=no\n");
+            var (value, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(new[] { conf }, DnsmasqConfKeys.DnssecCheckUnsigned);
+            Assert.Equal("no", value);
         }
         finally
         {

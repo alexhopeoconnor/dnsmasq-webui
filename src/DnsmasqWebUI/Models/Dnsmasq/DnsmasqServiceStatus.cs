@@ -41,6 +41,10 @@ namespace DnsmasqWebUI.Models.Dnsmasq;
 /// <param name="MinimumSupportedDnsmasqVersion">Configured minimum required dnsmasq version (e.g. "2.91").</param>
 /// <param name="DnsmasqVersionSupported">True when version probe succeeded and installed version is at least minimum.</param>
 /// <param name="DnsmasqVersionError">Error message when version probe failed or could not parse; null on success.</param>
+/// <param name="DnsmasqSupportsDhcp">True when dnsmasq was compiled with DHCP support (from --version compile options).</param>
+/// <param name="DnsmasqSupportsTftp">True when dnsmasq was compiled with TFTP support.</param>
+/// <param name="DnsmasqSupportsDnssec">True when dnsmasq was compiled with DNSSEC support.</param>
+/// <param name="DnsmasqSupportsDbus">True when dnsmasq was compiled with DBus support.</param>
 public record DnsmasqServiceStatus(
     string? SystemHostsPath,
     bool SystemHostsPathExists,
@@ -76,5 +80,9 @@ public record DnsmasqServiceStatus(
     string? DnsmasqVersion,
     string MinimumSupportedDnsmasqVersion,
     bool DnsmasqVersionSupported,
-    string? DnsmasqVersionError
+    string? DnsmasqVersionError,
+    bool DnsmasqSupportsDhcp,
+    bool DnsmasqSupportsTftp,
+    bool DnsmasqSupportsDnssec,
+    bool DnsmasqSupportsDbus
 );

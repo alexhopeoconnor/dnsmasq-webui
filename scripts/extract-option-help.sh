@@ -122,6 +122,7 @@ OPTION_KEYS = [
     "dhcp-hostsfile",
     "dhcp-optsfile",
     "dhcp-hostsdir",
+    "dhcp-optsdir",
     "dhcp-boot",
     "dhcp-ignore",
     "dhcp-vendorclass",

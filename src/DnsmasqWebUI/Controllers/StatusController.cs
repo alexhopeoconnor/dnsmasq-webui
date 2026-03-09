@@ -110,7 +110,11 @@ public class StatusController : ControllerBase
                 DnsmasqVersion: versionInfo.InstalledVersion?.ToString(),
                 MinimumSupportedDnsmasqVersion: versionInfo.MinimumVersion.ToString(),
                 DnsmasqVersionSupported: versionInfo.IsSupported,
-                DnsmasqVersionError: versionInfo.Error
+                DnsmasqVersionError: versionInfo.Error,
+                DnsmasqSupportsDhcp: versionInfo.Capabilities.Dhcp,
+                DnsmasqSupportsTftp: versionInfo.Capabilities.Tftp,
+                DnsmasqSupportsDnssec: versionInfo.Capabilities.Dnssec,
+                DnsmasqSupportsDbus: versionInfo.Capabilities.Dbus
             );
             return Ok(status);
         }

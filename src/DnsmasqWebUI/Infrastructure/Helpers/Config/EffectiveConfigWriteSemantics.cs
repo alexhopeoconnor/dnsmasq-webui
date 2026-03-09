@@ -10,6 +10,7 @@ public enum EffectiveConfigWriteBehavior
     SingleValue,
     MultiValue,
     KeyOnlyOrValue,
+    MultiKeyOnlyOrValue,
     InversePair,
 }
 

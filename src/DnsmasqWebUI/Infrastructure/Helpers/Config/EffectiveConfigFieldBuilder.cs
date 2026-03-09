@@ -44,7 +44,12 @@ public static class EffectiveConfigFieldBuilder
             return Array.Empty<EffectiveConfigFieldDescriptor>();
 
         var list = new List<EffectiveConfigFieldDescriptor>();
+        AddAllDescriptors(list, status, registry);
+        return list;
+    }
 
+    private static void AddAllDescriptors(List<EffectiveConfigFieldDescriptor> list, DnsmasqServiceStatus? status, IEffectiveConfigRenderFragmentRegistry? registry)
+    {
         // Hosts
         list.AddDescriptor(registry, DnsmasqConfKeys.NoHosts, status, s => Config(s)?.NoHosts, s => Sources(s)?.NoHosts, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.AddnHosts, status, null, null, s => ToValueWithSourceList(s?.AddnHostsPaths, Sources(s)?.AddnHostsPaths));
@@ -119,7 +124,7 @@ public static class EffectiveConfigFieldBuilder
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpAuthoritative, status, s => Config(s)?.DhcpAuthoritative, s => Sources(s)?.DhcpAuthoritative, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpRapidCommit, status, s => Config(s)?.DhcpRapidCommit, s => Sources(s)?.DhcpRapidCommit, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.LeasefileRo, status, s => Config(s)?.LeasefileRo, s => Sources(s)?.LeasefileRo, null);
-        list.AddDescriptor(registry, DnsmasqConfKeys.Leasequery, status, s => Config(s)?.Leasequery, s => Sources(s)?.Leasequery, null);
+        list.AddDescriptor(registry, DnsmasqConfKeys.Leasequery, status, null, null, Items(ec => ec?.LeasequeryValues, src => src?.LeasequeryValues));
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpGenerateNames, status, s => Config(s)?.DhcpGenerateNames, s => Sources(s)?.DhcpGenerateNames, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpBroadcast, status, s => Config(s)?.DhcpBroadcast, s => Sources(s)?.DhcpBroadcast, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpSequentialIp, status, s => Config(s)?.DhcpSequentialIp, s => Sources(s)?.DhcpSequentialIp, null);
@@ -148,6 +153,7 @@ public static class EffectiveConfigFieldBuilder
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpHostsfile, status, null, null, Items(ec => ec?.DhcpHostsfilePaths, src => src?.DhcpHostsfilePaths));
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpOptsfile, status, null, null, Items(ec => ec?.DhcpOptsfilePaths, src => src?.DhcpOptsfilePaths));
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpHostsdir, status, null, null, Items(ec => ec?.DhcpHostsdirPaths, src => src?.DhcpHostsdirPaths));
+        list.AddDescriptor(registry, DnsmasqConfKeys.DhcpOptsdir, status, null, null, Items(ec => ec?.DhcpOptsdirPaths, src => src?.DhcpOptsdirPaths));
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpRelay, status, null, null, Items(ec => ec?.DhcpRelayValues, src => src?.DhcpRelayValues));
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpCircuitid, status, null, null, Items(ec => ec?.DhcpCircuitidValues, src => src?.DhcpCircuitidValues));
         list.AddDescriptor(registry, DnsmasqConfKeys.DhcpRemoteid, status, null, null, Items(ec => ec?.DhcpRemoteidValues, src => src?.DhcpRemoteidValues));
@@ -232,8 +238,6 @@ public static class EffectiveConfigFieldBuilder
         list.AddDescriptor(registry, DnsmasqConfKeys.QuietDhcp6, status, s => Config(s)?.QuietDhcp6, s => Sources(s)?.QuietDhcp6, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.QuietRa, status, s => Config(s)?.QuietRa, s => Sources(s)?.QuietRa, null);
         list.AddDescriptor(registry, DnsmasqConfKeys.QuietTftp, status, s => Config(s)?.QuietTftp, s => Sources(s)?.QuietTftp, null);
-
-        return list;
     }
 
     /// <summary>Creates a single-value descriptor; uses registry factory when registered (e.g. integer), otherwise a plain descriptor. Used by <see cref="EffectiveConfigFieldDescriptorListExtensions.AddSingleDescriptor"/>.</summary>
@@ -247,9 +251,11 @@ public static class EffectiveConfigFieldBuilder
     {
         var sectionId = EffectiveConfigSections.GetSectionId(optionName);
         var factory = registry?.GetDescriptorFactory(sectionId, optionName);
-        if (factory != null)
-            return (EffectiveConfigFieldDescriptor)factory(sectionId, optionName, status, getValue, getSource, getItems);
-        return Single(optionName, status, getValue, getSource, getItems);
+        var descriptor = factory != null
+            ? (EffectiveConfigFieldDescriptor)factory(sectionId, optionName, status, getValue, getSource, getItems)
+            : Single(optionName, status, getValue, getSource, getItems);
+        var (isDisabled, reason) = EffectiveConfigFeatureRequirements.GetCapabilityDisabled(optionName, status);
+        return descriptor with { IsCapabilityDisabled = isDisabled, CapabilityDisabledReason = reason };
     }
 
     private static EffectiveConfigFieldDescriptor Single(string optionName, DnsmasqServiceStatus? status,

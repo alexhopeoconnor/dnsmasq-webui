@@ -1,3 +1,4 @@
+using DnsmasqWebUI.Infrastructure.Helpers.Config;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Config.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Reload.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Validation.Abstractions;
@@ -93,6 +94,38 @@ public sealed class EffectiveConfigSaveService : IEffectiveConfigSaveService
 
         var managedPath = set.ManagedFilePath!;
         var backupPath = BuildBackupPath(managedPath);
+
+        // Reject changes for options not supported by this dnsmasq build (e.g. DNSSEC when built without DNSSEC).
+        var unsupported = changes
+            .Where(c => !EffectiveConfigFeatureRequirements.IsSupportedByCapabilities(c.OptionName, version.Capabilities))
+            .Select(c => c.OptionName)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (unsupported.Count > 0)
+        {
+            var firstReason = EffectiveConfigFeatureRequirements.GetRequiredFeature(unsupported[0]) is { } f
+                ? EffectiveConfigFeatureRequirements.GetUnsupportedReason(f)
+                : "This option isn't available with your current dnsmasq build.";
+            var optionList = string.Join(", ", unsupported);
+            _logger.LogWarning("Save rejected: unsupported options in pending changes: {Options}", optionList);
+            var userMessage = unsupported.Count == 1
+                ? firstReason
+                : $"Some of the options you changed aren't supported by your dnsmasq build. Options not saved: {optionList}.";
+            return new EffectiveConfigSaveResult(
+                BackupCreated: false,
+                BackupPath: null,
+                Saved: false,
+                Validated: false,
+                ValidationExitCode: -1,
+                ValidationStdOut: null,
+                ValidationStdErr: null,
+                Restarted: false,
+                RestartExitCode: -1,
+                RestartStdOut: null,
+                RestartStdErr: null,
+                ErrorCode: EffectiveConfigSaveResult.ErrorCodes.UnsupportedCapabilities,
+                UserMessage: userMessage);
+        }
 
         try
         {

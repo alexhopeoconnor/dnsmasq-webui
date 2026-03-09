@@ -35,6 +35,8 @@ public record EffectiveConfigSaveResult(
         public const string NoChanges = "no_changes";
         public const string MissingManagedPath = "missing_managed_path";
         public const string WriteFailed = "write_failed";
+        /// <summary>Save blocked before write because one or more changed options require dnsmasq capabilities not present in this build.</summary>
+        public const string UnsupportedCapabilities = "unsupported_capabilities";
         public const string ValidateFailed = "validate_failed";
         public const string RestartFailed = "restart_failed";
         public const string UnsupportedVersion = "unsupported_version";

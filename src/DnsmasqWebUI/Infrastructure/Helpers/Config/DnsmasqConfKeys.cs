@@ -25,6 +25,7 @@ public static class DnsmasqConfKeys
     public const string DhcpHostsfile = "dhcp-hostsfile";
     public const string DhcpOptsfile = "dhcp-optsfile";
     public const string DhcpHostsdir = "dhcp-hostsdir";
+    public const string DhcpOptsdir = "dhcp-optsdir";
 
     // --- Multi-value (ARG_DUP) ---
     public const string Server = "server";

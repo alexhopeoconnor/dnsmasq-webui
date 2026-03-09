@@ -128,6 +128,7 @@ public static class EffectiveConfigSections
             DnsmasqConfKeys.DhcpHostsfile,
             DnsmasqConfKeys.DhcpOptsfile,
             DnsmasqConfKeys.DhcpHostsdir,
+            DnsmasqConfKeys.DhcpOptsdir,
             DnsmasqConfKeys.DhcpBoot,
             DnsmasqConfKeys.DhcpIgnore,
             DnsmasqConfKeys.DhcpVendorclass,
