@@ -37,6 +37,8 @@ public record EffectiveConfigSaveResult(
         public const string WriteFailed = "write_failed";
         /// <summary>Save blocked before write because one or more changed options require dnsmasq capabilities not present in this build.</summary>
         public const string UnsupportedCapabilities = "unsupported_capabilities";
+        /// <summary>Save blocked before write because semantic validation failed (invalid values).</summary>
+        public const string SemanticValidationFailed = "semantic_validation_failed";
         public const string ValidateFailed = "validate_failed";
         public const string RestartFailed = "restart_failed";
         public const string UnsupportedVersion = "unsupported_version";

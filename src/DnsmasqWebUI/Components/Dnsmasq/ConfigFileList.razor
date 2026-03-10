@@ -11,7 +11,20 @@
         var fileCount = hasList ? configFileList!.Count : 2;
         var showToggle = hasMoreThanOne || (!hasList && Status.ManagedFilePath != null);
     }
-    <p class="config-file-list-title mb-0">Config files (load order)</p>
+    <div class="config-file-list-header">
+        <p class="config-file-list-title mb-0">Config files (load order)</p>
+        @if (showToggle)
+        {
+            <button type="button"
+                    class="config-file-list-toggle"
+                    @onclick="ToggleExpanded"
+                    aria-expanded="@_expanded"
+                    aria-label="@(_expanded ? "Show only main config" : "Show all config files")">
+                <i class="bi @(_expanded ? "bi-chevron-up" : "bi-chevron-down")" aria-hidden="true"></i>
+                <span>@(_expanded ? "Show less" : $"Show all ({fileCount} files)")</span>
+            </button>
+        }
+    </div>
     <div class="config-file-list-content-row">
         <div class="config-file-list-list">
             <ul class="list-unstyled config-file-list-main">
@@ -45,17 +58,6 @@
                 </div>
             }
         </div>
-        @if (showToggle)
-        {
-            <button type="button"
-                    class="config-file-list-toggle"
-                    @onclick="ToggleExpanded"
-                    aria-expanded="@_expanded"
-                    aria-label="@(_expanded ? "Show only main config" : "Show all config files")">
-                <i class="bi @(_expanded ? "bi-chevron-up" : "bi-chevron-down")" aria-hidden="true"></i>
-                <span>@(_expanded ? "Show less" : $"Show all ({fileCount} files)")</span>
-            </button>
-        }
     </div>
 </div>
 

@@ -48,12 +48,13 @@ public static class ServiceCollectionExtensions
 
     delegate void RegisterService(IServiceCollection s, Type iface, Type impl);
 
-    static readonly (Type MarkerInterface, RegisterService Register)[] ApplicationRegistrations =
+    static readonly (Type MarkerInterface, RegisterService Register, bool AllowMultipleImplementations)[] ApplicationRegistrations =
     [
-        (typeof(IApplicationScopedService), (s, i, impl) => s.AddScoped(i, impl)),
-        (typeof(IApplicationScopedConcrete), (s, i, impl) => s.AddScoped(impl, impl)),
-        (typeof(IApplicationSingleton), (s, i, impl) => s.AddSingleton(i, impl)),
-        (typeof(IApplicationHostedService), (s, i, impl) => AddHostedServiceConcrete(s, impl)),
+        (typeof(IApplicationScopedService), (s, i, impl) => s.AddScoped(i, impl), false),
+        (typeof(IApplicationScopedConcrete), (s, i, impl) => s.AddScoped(impl, impl), false),
+        (typeof(IApplicationSingleton), (s, i, impl) => s.AddSingleton(i, impl), false),
+        (typeof(IApplicationMultiSingleton), (s, i, impl) => s.AddSingleton(i, impl), true),
+        (typeof(IApplicationHostedService), (s, i, impl) => AddHostedServiceConcrete(s, impl), true),
     ];
 
     /// <summary>
@@ -65,8 +66,8 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
-        foreach (var (markerInterface, register) in ApplicationRegistrations)
-            ScanAndRegister(services, markerInterface, register);
+        foreach (var (markerInterface, register, allowMultipleImplementations) in ApplicationRegistrations)
+            ScanAndRegister(services, markerInterface, register, allowMultipleImplementations);
         AddOptionsValidatorsFromAssembly(services, Assembly.GetExecutingAssembly());
         return services;
     }
@@ -98,7 +99,8 @@ public static class ServiceCollectionExtensions
     static void ScanAndRegister(
         IServiceCollection services,
         Type markerInterface,
-        RegisterService register)
+        RegisterService register,
+        bool allowMultipleImplementations)
     {
         var assembly = Assembly.GetExecutingAssembly();
 
@@ -116,12 +118,20 @@ public static class ServiceCollectionExtensions
 
                 if (implementations.Count == 0)
                     continue;
-                if (implementations.Count > 1)
+                if (!allowMultipleImplementations && implementations.Count > 1)
                     throw new InvalidOperationException(
                         $"Multiple implementations for {iface.FullName}: {string.Join(", ", implementations.Select(x => x.FullName))}. " +
                         "Register one explicitly or exclude the others from the scan.");
 
-                register(services, iface, implementations[0]);
+                if (allowMultipleImplementations)
+                {
+                    foreach (var impl in implementations)
+                        register(services, iface, impl);
+                }
+                else
+                {
+                    register(services, iface, implementations[0]);
+                }
             }
         }
         else

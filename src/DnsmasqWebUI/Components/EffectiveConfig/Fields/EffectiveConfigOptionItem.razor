@@ -1,4 +1,5 @@
 @namespace DnsmasqWebUI.Components.EffectiveConfig
+@using DnsmasqWebUI.Infrastructure.Helpers.Config
 @using DnsmasqWebUI.Models.Dnsmasq
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 
@@ -6,7 +7,12 @@
 @if (DisplayMode == EffectiveConfigDisplayMode.Edit && IsActive && Source?.IsReadOnly != true && !IsCapabilityDisabled)
 {
     <span class="ec-field-value" @onclick:stopPropagation="true">
-        <input type="text" class="form-control form-control-sm" value="@(_editValue ?? DisplayValue)" @oninput="OnValueInput" @onfocusout="OnInputBlur" />
+        <input type="text"
+               class="form-control form-control-sm"
+               placeholder="@(DnsmasqOptionPlaceholders.Get(Label) ?? "Value")"
+               value="@(_editValue ?? EditValue)"
+               @oninput="OnValueInput"
+               @onfocusout="OnInputBlur" />
         <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorId ?? "")" Source="@Source" OptionName="@Label" Value="@(RawValue ?? DisplayValue)" IsInteractive="@(DisplayMode == EffectiveConfigDisplayMode.Edit && !string.IsNullOrEmpty(ReadonlyBadgeAnchorId))" ShowEditableBadge="@ShowEditableBadge" HasPendingChange="@HasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="true" IsCapabilityDisabled="@IsCapabilityDisabled" CapabilityDisabledReason="@CapabilityDisabledReason" OnConfirmRequested="@OnConfirmRequested" OnCancelRequested="@OnCancelRequested" OnRevertRequested="@OnRevertRequested" />
     </span>
 }
@@ -21,6 +27,7 @@ else
 @code {
     [Parameter] public string Label { get; set; } = "";
     [Parameter] public string DisplayValue { get; set; } = "";
+    [Parameter] public string EditValue { get; set; } = "";
     [Parameter] public ConfigValueSource? Source { get; set; }
     /// <summary>Optional explainer shown on hover over the label (e.g. from DnsmasqOptionTooltips).</summary>
     [Parameter] public string? LabelTooltip { get; set; }
@@ -72,6 +79,6 @@ else
     private async Task OnInputBlur(FocusEventArgs _)
     {
         if (OnBlur.HasDelegate)
-            await OnBlur.InvokeAsync(_editValue ?? DisplayValue);
+            await OnBlur.InvokeAsync(_editValue ?? EditValue);
     }
 }

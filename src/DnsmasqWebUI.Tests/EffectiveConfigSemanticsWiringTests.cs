@@ -1,5 +1,7 @@
 using DnsmasqWebUI.Infrastructure.Helpers.Config;
 using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig;
+using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Validation;
+using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 
 namespace DnsmasqWebUI.Tests;
 
@@ -9,35 +11,19 @@ namespace DnsmasqWebUI.Tests;
 public class EffectiveConfigSemanticsWiringTests
 {
     [Fact]
-    public void ParserBehaviorMap_UsesSpecialSemantics_ForSpecialOptions()
+    public void ParserBehaviorMap_UsesSpecialSemantics_ForAllSpecialOptions()
     {
-        var specialOptions = new[]
+        foreach (var option in EffectiveConfigSpecialOptionSemantics.GetAllOptionNames())
         {
-            DnsmasqConfKeys.UseStaleCache,
-            DnsmasqConfKeys.AddMac,
-            DnsmasqConfKeys.AddSubnet,
-            DnsmasqConfKeys.Umbrella,
-            DnsmasqConfKeys.Do0x20Encode,
-            DnsmasqConfKeys.ConnmarkAllowlistEnable,
-            DnsmasqConfKeys.DnssecCheckUnsigned,
-            DnsmasqConfKeys.Leasequery,
-            DnsmasqConfKeys.DhcpGenerateNames,
-            DnsmasqConfKeys.DhcpBroadcast,
-            DnsmasqConfKeys.BootpDynamic,
-        };
-
-        foreach (var option in specialOptions)
-        {
-            var semantics = EffectiveConfigSpecialOptionSemantics.TryGetSemantics(option);
-            Assert.NotNull(semantics);
-            Assert.Equal(semantics!.ParserBehavior, EffectiveConfigParserBehaviorMap.GetBehavior(option));
+            var semantics = EffectiveConfigSpecialOptionSemantics.TryGetSemantics(option)!;
+            Assert.Equal(semantics.ParserBehavior, EffectiveConfigParserBehaviorMap.GetBehavior(option));
         }
     }
 
     [Fact]
     public void Registry_WiresLeasequeryMultiValidator_FromSpecialSemantics()
     {
-        var registry = new EffectiveConfigRenderFragmentRegistry();
+        var registry = new EffectiveConfigRenderFragmentRegistry(new OptionSemanticValidator([new LeasequerySemanticHandler()]));
         var factory = registry.GetMultiDescriptorFactory(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.Leasequery);
         Assert.NotNull(factory);
 
@@ -50,5 +36,21 @@ public class EffectiveConfigSemanticsWiringTests
         Assert.NotNull(descriptor.Validator);
         Assert.NotNull(descriptor.Validator!.ValidateItem("not-an-ip", Array.Empty<string>()));
         Assert.Null(descriptor.Validator.ValidateItem("10.0.0.0/24", Array.Empty<string>()));
+    }
+
+    /// <summary>Pre-save semantic blocking: invalid leasequery value produces errors; SaveService uses this and returns SemanticValidationFailed before write.</summary>
+    [Fact]
+    public void SemanticValidationService_InvalidLeasequery_ReturnsError()
+    {
+        var validator = new OptionSemanticValidator([new LeasequerySemanticHandler()]);
+        var service = new EffectiveConfigSemanticValidationService(validator);
+        var changes = new List<PendingEffectiveConfigChange>
+        {
+            new(EffectiveConfigSections.SectionDhcp, DnsmasqConfKeys.Leasequery, null,
+                new List<string> { "not-an-ip" }, null)
+        };
+        var issues = service.Validate(changes);
+        Assert.NotEmpty(issues);
+        Assert.Contains(issues, i => i.Severity == FieldIssueSeverity.Error);
     }
 }

@@ -1,3 +1,4 @@
+using System.Linq;
 using DnsmasqWebUI.Infrastructure.Helpers.Config;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Config.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Reload.Abstractions;
@@ -15,6 +16,7 @@ public sealed class EffectiveConfigSaveService : IEffectiveConfigSaveService
     private readonly IDnsmasqConfigService _configService;
     private readonly IConfigSetCache _configSetCache;
     private readonly IConfigValidationService _validationService;
+    private readonly IEffectiveConfigSemanticValidationService _semanticValidationService;
     private readonly IReloadService _reloadService;
     private readonly IDnsmasqVersionService _versionService;
     private readonly ILogger<EffectiveConfigSaveService> _logger;
@@ -24,6 +26,7 @@ public sealed class EffectiveConfigSaveService : IEffectiveConfigSaveService
         IDnsmasqConfigService configService,
         IConfigSetCache configSetCache,
         IConfigValidationService validationService,
+        IEffectiveConfigSemanticValidationService semanticValidationService,
         IReloadService reloadService,
         IDnsmasqVersionService versionService,
         ILogger<EffectiveConfigSaveService> logger)
@@ -32,6 +35,7 @@ public sealed class EffectiveConfigSaveService : IEffectiveConfigSaveService
         _configService = configService;
         _configSetCache = configSetCache;
         _validationService = validationService;
+        _semanticValidationService = semanticValidationService;
         _reloadService = reloadService;
         _versionService = versionService;
         _logger = logger;
@@ -124,6 +128,36 @@ public sealed class EffectiveConfigSaveService : IEffectiveConfigSaveService
                 RestartStdOut: null,
                 RestartStdErr: null,
                 ErrorCode: EffectiveConfigSaveResult.ErrorCodes.UnsupportedCapabilities,
+                UserMessage: userMessage);
+        }
+
+        var semanticIssues = _semanticValidationService.Validate(changes);
+        if (semanticIssues.Any(i => i.Severity == FieldIssueSeverity.Error))
+        {
+            var errorIssues = semanticIssues.Where(i => i.Severity == FieldIssueSeverity.Error).ToList();
+            var messages = errorIssues.Select(i => i.Message).Distinct().Take(5).ToList();
+            var userMessage = messages.Count == 1
+                ? messages[0]
+                : "Some values are invalid. Fix validation errors before saving. " + string.Join("; ", messages);
+            var failedFields = errorIssues.Select(i => i.FieldKey).Distinct().ToList();
+            _logger.LogWarning(
+                "Save blocked: semantic validation failed for {ErrorCount} error(s) on field(s) {FailedFields}. First message: {FirstMessage}",
+                errorIssues.Count,
+                failedFields,
+                messages.FirstOrDefault());
+            return new EffectiveConfigSaveResult(
+                BackupCreated: false,
+                BackupPath: null,
+                Saved: false,
+                Validated: false,
+                ValidationExitCode: -1,
+                ValidationStdOut: null,
+                ValidationStdErr: null,
+                Restarted: false,
+                RestartExitCode: -1,
+                RestartStdOut: null,
+                RestartStdErr: null,
+                ErrorCode: EffectiveConfigSaveResult.ErrorCodes.SemanticValidationFailed,
                 UserMessage: userMessage);
         }
 

@@ -1,11 +1,9 @@
-using DnsmasqWebUI.Infrastructure.Helpers.Config;
-
 namespace DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Validation;
 
 /// <summary>
-/// Adapts a semantics multi-item validator delegate to <see cref="IMultiValueOptionValidator"/>.
+/// Adapts a simple per-item validation delegate to <see cref="IMultiValueOptionValidator"/>.
 /// </summary>
-public sealed class DelegateMultiValueOptionValidator(EffectiveConfigMultiItemValidator validate)
+public sealed class DelegateMultiValueOptionValidator(Func<string?, string?> validate)
     : IMultiValueOptionValidator
 {
     public string? ValidateItem(string normalized, IReadOnlyList<string> current, int? editIndex = null) =>

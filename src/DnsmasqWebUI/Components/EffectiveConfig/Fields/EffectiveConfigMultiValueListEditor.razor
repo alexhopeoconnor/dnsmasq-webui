@@ -1,4 +1,5 @@
 @namespace DnsmasqWebUI.Components.EffectiveConfig
+@using DnsmasqWebUI.Infrastructure.Helpers.Config
 @using DnsmasqWebUI.Models.Dnsmasq
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 @using Microsoft.AspNetCore.Components.Web
@@ -25,7 +26,7 @@
                         <div class="ec-multi-list-row-controls">
                             <div class="ec-multi-list-input-group">
                                 <input class="form-control form-control-sm ec-multi-list-input"
-                                       placeholder="@(Behavior?.Placeholder ?? "")"
+                                       placeholder="@(DnsmasqOptionPlaceholders.Get(OptionName) ?? "Value")"
                                        @bind="_draftValue" @bind:event="oninput" />
                             </div>
                             <span class="status-badge-inline">
@@ -79,7 +80,7 @@
                     <div class="ec-multi-list-row-controls">
                         <div class="ec-multi-list-input-group">
                             <input @ref="_addNewInputRef" class="form-control form-control-sm ec-multi-list-input"
-                                   placeholder="@(Behavior?.Placeholder ?? "New value")"
+                                   placeholder="@(DnsmasqOptionPlaceholders.Get(OptionName) ?? "Value")"
                                    @bind="_draftValue" @bind:event="oninput" />
                         </div>
                         <span class="status-badge-inline">

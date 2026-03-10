@@ -77,6 +77,7 @@ else
 {
     var value = _effectiveValue;
     var displayValue = value == null ? "(not set)" : (value is IReadOnlyList<string> list ? (list.Count == 0 ? "(none)" : string.Join(", ", list)) : value.ToString());
+    var editValue = value?.ToString() ?? "";
     var isReadonly = Descriptor.GetSource()?.IsReadOnly == true;
     var showReadonlyHint = IsEditMode && isReadonly;
     var isActiveEditor = IsEditMode && IsActive && !Descriptor.IsCapabilityDisabled;
@@ -92,6 +93,7 @@ else
     {
         <li class="ec-field @(isActiveEditor ? "ec-field-editing" : "")" title="@(Descriptor.GetSource()?.GetReadOnlyTooltip())">
             <EffectiveConfigOptionItem Label="@Descriptor.OptionName" DisplayValue="@(displayValue ?? "(not set)")" Source="@Descriptor.GetSource()" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId"
+                EditValue="@editValue"
                 ShowEditableBadge="@showEditableForDefault" FieldKey="@FieldKey" IsActive="@IsActive"
                 ReadonlyBadgeAnchorId="@_readonlyBadgeAnchorId" RawValue="@value" HasPendingChange="@_hasPendingChange"
                 IsCapabilityDisabled="@Descriptor.IsCapabilityDisabled" CapabilityDisabledReason="@Descriptor.CapabilityDisabledReason"
@@ -214,6 +216,8 @@ else
     private async Task<bool> CommitIfChangedAsync()
     {
         var newValue = _hasDraftValue ? _draftValue : _effectiveValue;
+        if (IsDefaultSingleValueField)
+            newValue = NormalizeDefaultSingleCommitValue(newValue);
         if (ValuesEqual(_valueAtActivation, newValue))
         {
             _draftValue = null;
@@ -244,6 +248,9 @@ else
         return true;
     }
 
+    private bool IsDefaultSingleValueField =>
+        !Descriptor.IsMultiValue && _customFragment is null;
+
     [CascadingParameter] private EffectiveConfigUiContext? Ui { get; set; }
 
     private void HandleDefaultValueChanged(string value)
@@ -255,10 +262,17 @@ else
     private async Task HandleDefaultBlur(string? value)
     {
         if (!IsActive) return;
-        _draftValue = value;
+        _draftValue = NormalizeDefaultSingleCommitValue(value);
         _hasDraftValue = true;
         if (!await CommitIfChangedAsync() && Ui != null)
             await Ui.ActivateFieldAsync(FieldKey);
+    }
+
+    private static object? NormalizeDefaultSingleCommitValue(object? value)
+    {
+        if (value is string s && string.IsNullOrWhiteSpace(s))
+            return null;
+        return value;
     }
 
     private void HandleMultiValueChanged(IReadOnlyList<string> values)
