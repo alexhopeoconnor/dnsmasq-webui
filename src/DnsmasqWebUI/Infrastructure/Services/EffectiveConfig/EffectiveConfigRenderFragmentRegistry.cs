@@ -4,8 +4,8 @@ using DnsmasqWebUI.Models.Dnsmasq;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions;
-using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Validation;
 using DnsmasqWebUI.Components.EffectiveConfig.CustomDisplays;
+using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Validation;
 
 namespace DnsmasqWebUI.Infrastructure.Services.EffectiveConfig;
 
@@ -103,19 +103,19 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
 
         // Key-only or key=value options: checkbox (On) + optional value input; with semantic validators.
         RegisterComponent(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.UseStaleCache, typeof(KeyOnlyOrValueDisplay));
-        RegisterValidatedSingle(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.UseStaleCache, SpecialOptionValidators.ValidateUseStaleCache);
+        RegisterSemanticSingleValidator(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.UseStaleCache);
         RegisterComponent(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.AddMac, typeof(KeyOnlyOrValueDisplay));
-        RegisterValidatedSingle(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.AddMac, SpecialOptionValidators.ValidateAddMac);
+        RegisterSemanticSingleValidator(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.AddMac);
         RegisterComponent(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.AddSubnet, typeof(KeyOnlyOrValueDisplay));
-        RegisterValidatedSingle(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.AddSubnet, SpecialOptionValidators.ValidateAddSubnet);
+        RegisterSemanticSingleValidator(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.AddSubnet);
         RegisterComponent(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.Umbrella, typeof(KeyOnlyOrValueDisplay));
-        RegisterValidatedSingle(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.Umbrella, SpecialOptionValidators.ValidateUmbrella);
+        RegisterSemanticSingleValidator(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.Umbrella);
 
         // connmark-allowlist-enable, dnssec-check-unsigned: key-only or key=value with validation.
         RegisterComponent(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.ConnmarkAllowlistEnable, typeof(KeyOnlyOrValueDisplay));
-        RegisterValidatedSingle(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.ConnmarkAllowlistEnable, SpecialOptionValidators.ValidateConnmarkAllowlistEnable);
+        RegisterSemanticSingleValidator(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.ConnmarkAllowlistEnable);
         RegisterComponent(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.DnssecCheckUnsigned, typeof(KeyOnlyOrValueDisplay));
-        RegisterValidatedSingle(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.DnssecCheckUnsigned, SpecialOptionValidators.ValidateDnssecCheckUnsigned);
+        RegisterSemanticSingleValidator(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.DnssecCheckUnsigned);
 
         // DHCP key-only-or-value options (optional value; no custom validator).
         RegisterComponent(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpGenerateNames, typeof(KeyOnlyOrValueDisplay));
@@ -182,7 +182,7 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpOptsfile);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpHostsdir);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpOptsdir);
-        RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.Leasequery);
+        RegisterSemanticMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.Leasequery);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpRelay);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpCircuitid);
         RegisterMultiDescriptor(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpRemoteid);
@@ -271,6 +271,21 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
                 getSource,
                 getItems,
                 validator);
+    }
+
+    private void RegisterSemanticSingleValidator(string sectionId, string optionName)
+    {
+        var validator = EffectiveConfigSpecialOptionSemantics.GetValidator(optionName);
+        if (validator is not null)
+            RegisterValidatedSingle(sectionId, optionName, validator);
+    }
+
+    private void RegisterSemanticMultiDescriptor(string sectionId, string optionName, IMultiValueEditBehavior? behavior = null)
+    {
+        var validator = EffectiveConfigSpecialOptionSemantics.GetMultiItemValidator(optionName) is { } validate
+            ? new DelegateMultiValueOptionValidator(validate)
+            : null;
+        RegisterMultiDescriptor(sectionId, optionName, behavior, validator);
     }
 
     /// <inheritdoc />

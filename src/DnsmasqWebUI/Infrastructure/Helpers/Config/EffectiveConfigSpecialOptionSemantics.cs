@@ -13,8 +13,14 @@ public sealed record OptionSemantics(
     string OptionName,
     EffectiveConfigParserBehavior ParserBehavior,
     EffectiveConfigWriteBehavior WriteBehavior,
-    EffectiveConfigSingleValueValidator? Validator
+    EffectiveConfigSingleValueValidator? SingleValueValidator,
+    EffectiveConfigMultiItemValidator? MultiItemValidator
 );
+
+/// <summary>
+/// Delegate for validating one item in a multi-value option editor.
+/// </summary>
+public delegate string? EffectiveConfigMultiItemValidator(string? value);
 
 /// <summary>
 /// Lookup for special-option semantics. Used by EffectiveConfigWriteSemantics and registry for validators.
@@ -29,57 +35,68 @@ public static class EffectiveConfigSpecialOptionSemantics
                 DnsmasqConfKeys.UseStaleCache,
                 EffectiveConfigParserBehavior.LastWins,
                 EffectiveConfigWriteBehavior.KeyOnlyOrValue,
-                SpecialOptionValidators.ValidateUseStaleCache),
+                SpecialOptionValidators.ValidateUseStaleCache,
+                MultiItemValidator: null),
             [DnsmasqConfKeys.AddMac] = new OptionSemantics(
                 DnsmasqConfKeys.AddMac,
                 EffectiveConfigParserBehavior.LastWins,
                 EffectiveConfigWriteBehavior.KeyOnlyOrValue,
-                SpecialOptionValidators.ValidateAddMac),
+                SpecialOptionValidators.ValidateAddMac,
+                MultiItemValidator: null),
             [DnsmasqConfKeys.AddSubnet] = new OptionSemantics(
                 DnsmasqConfKeys.AddSubnet,
                 EffectiveConfigParserBehavior.LastWins,
                 EffectiveConfigWriteBehavior.KeyOnlyOrValue,
-                SpecialOptionValidators.ValidateAddSubnet),
+                SpecialOptionValidators.ValidateAddSubnet,
+                MultiItemValidator: null),
             [DnsmasqConfKeys.Umbrella] = new OptionSemantics(
                 DnsmasqConfKeys.Umbrella,
                 EffectiveConfigParserBehavior.LastWins,
                 EffectiveConfigWriteBehavior.KeyOnlyOrValue,
-                SpecialOptionValidators.ValidateUmbrella),
+                SpecialOptionValidators.ValidateUmbrella,
+                MultiItemValidator: null),
             [DnsmasqConfKeys.Do0x20Encode] = new OptionSemantics(
                 DnsmasqConfKeys.Do0x20Encode,
                 EffectiveConfigParserBehavior.Flag,
                 EffectiveConfigWriteBehavior.InversePair,
-                Validator: null),
+                SingleValueValidator: null,
+                MultiItemValidator: null),
             [DnsmasqConfKeys.ConnmarkAllowlistEnable] = new OptionSemantics(
                 DnsmasqConfKeys.ConnmarkAllowlistEnable,
                 EffectiveConfigParserBehavior.LastWins,
                 EffectiveConfigWriteBehavior.KeyOnlyOrValue,
-                SpecialOptionValidators.ValidateConnmarkAllowlistEnable),
+                SpecialOptionValidators.ValidateConnmarkAllowlistEnable,
+                MultiItemValidator: null),
             [DnsmasqConfKeys.DnssecCheckUnsigned] = new OptionSemantics(
                 DnsmasqConfKeys.DnssecCheckUnsigned,
                 EffectiveConfigParserBehavior.LastWins,
                 EffectiveConfigWriteBehavior.KeyOnlyOrValue,
-                SpecialOptionValidators.ValidateDnssecCheckUnsigned),
+                SpecialOptionValidators.ValidateDnssecCheckUnsigned,
+                MultiItemValidator: null),
             [DnsmasqConfKeys.Leasequery] = new OptionSemantics(
                 DnsmasqConfKeys.Leasequery,
                 EffectiveConfigParserBehavior.Multi,
                 EffectiveConfigWriteBehavior.MultiKeyOnlyOrValue,
-                null),
+                SingleValueValidator: null,
+                SpecialOptionValidators.ValidateLeasequeryValue),
             [DnsmasqConfKeys.DhcpGenerateNames] = new OptionSemantics(
                 DnsmasqConfKeys.DhcpGenerateNames,
                 EffectiveConfigParserBehavior.LastWins,
                 EffectiveConfigWriteBehavior.KeyOnlyOrValue,
-                null),
+                SingleValueValidator: null,
+                MultiItemValidator: null),
             [DnsmasqConfKeys.DhcpBroadcast] = new OptionSemantics(
                 DnsmasqConfKeys.DhcpBroadcast,
                 EffectiveConfigParserBehavior.LastWins,
                 EffectiveConfigWriteBehavior.KeyOnlyOrValue,
-                null),
+                SingleValueValidator: null,
+                MultiItemValidator: null),
             [DnsmasqConfKeys.BootpDynamic] = new OptionSemantics(
                 DnsmasqConfKeys.BootpDynamic,
                 EffectiveConfigParserBehavior.LastWins,
                 EffectiveConfigWriteBehavior.KeyOnlyOrValue,
-                null),
+                SingleValueValidator: null,
+                MultiItemValidator: null),
         };
 
     /// <summary>Keys (enabled, disabled) for InversePair options only. Used by write path and readonly hints.</summary>
@@ -103,5 +120,9 @@ public static class EffectiveConfigSpecialOptionSemantics
 
     /// <summary>Returns validator from semantics for special options; otherwise null.</summary>
     public static EffectiveConfigSingleValueValidator? GetValidator(string optionName) =>
-        TryGetSemantics(optionName)?.Validator;
+        TryGetSemantics(optionName)?.SingleValueValidator;
+
+    /// <summary>Returns per-item multi validator from semantics for special options; otherwise null.</summary>
+    public static EffectiveConfigMultiItemValidator? GetMultiItemValidator(string optionName) =>
+        TryGetSemantics(optionName)?.MultiItemValidator;
 }

@@ -216,6 +216,8 @@ public static class EffectiveConfigOptionKindMap
 /// Maps dnsmasq option names to parser behavior (LastWins / Flag / Multi). Used by ConfigSetCache so it
 /// dispatches to GetLastValue, GetFlag, or GetMultiValue from one place. Special cases (NoHosts value,
 /// AddnHosts, DhcpLeaseFilePath) remain explicit in the cache.
+/// For special options, behavior is sourced from <see cref="EffectiveConfigSpecialOptionSemantics"/>
+/// to keep parse/write/validation semantics centralized.
 /// </summary>
 public static class EffectiveConfigParserBehaviorMap
 {
@@ -400,6 +402,7 @@ public static class EffectiveConfigParserBehaviorMap
 
     /// <summary>Returns LastWins, Flag, or Multi for the given option name; defaults to LastWins if unknown.</summary>
     public static EffectiveConfigParserBehavior GetBehavior(string optionName) =>
-        BehaviorByOptionName.TryGetValue(optionName, out var b) ? b : EffectiveConfigParserBehavior.LastWins;
+        EffectiveConfigSpecialOptionSemantics.TryGetSemantics(optionName)?.ParserBehavior
+        ?? (BehaviorByOptionName.TryGetValue(optionName, out var b) ? b : EffectiveConfigParserBehavior.LastWins);
 }
 
