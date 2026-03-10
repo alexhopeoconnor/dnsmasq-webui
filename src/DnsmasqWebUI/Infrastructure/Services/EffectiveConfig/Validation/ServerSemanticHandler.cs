@@ -15,9 +15,6 @@ public sealed partial class ServerSemanticHandler : IOptionSemanticHandler
     [GeneratedRegex(@"^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$", RegexOptions.CultureInvariant)]
     private static partial Regex HostnamePattern();
 
-    [GeneratedRegex(@"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*$", RegexOptions.CultureInvariant)]
-    private static partial Regex DomainPattern();
-
     public bool CanHandle(string optionName) =>
         optionName == DnsmasqConfKeys.Server;
 
@@ -36,27 +33,13 @@ public sealed partial class ServerSemanticHandler : IOptionSemanticHandler
 
     private static string? ValidateScopedServer(string value)
     {
-        var lastSlash = value.LastIndexOf('/');
-        if (lastSlash <= 0)
+        if (!DnsmasqScopedDomainSyntax.TrySplitScopedValue(value, out var domains, out var targetPart, out var error))
             return "Scoped server must use /domain/.../server syntax, for example /example.local/192.168.1.1.";
 
-        var domainPart = value[1..lastSlash];
-        var targetPart = value[(lastSlash + 1)..];
-
-        var domains = domainPart.Split('/');
-        if (domains.Length == 0)
-            return "Scoped server must include at least one domain pattern.";
-
-        if (!(domains.Length == 1 && domains[0].Length == 0))
-        {
-            foreach (var domain in domains)
-            {
-                if (string.IsNullOrWhiteSpace(domain))
-                    return "Scoped server contains an empty domain pattern.";
-                if (!IsValidDomainPattern(domain))
-                    return $"Invalid domain pattern '{domain}'. Use server=/domain/server and keep domain labels to letters, digits, '-', '.', or a leading '*'.";
-            }
-        }
+        error = DnsmasqScopedDomainSyntax.ValidateDomainPatterns(domains);
+        if (error is not null)
+            return error.Replace("Value", "Scoped server", StringComparison.Ordinal) +
+                   " Use server=/domain/server and keep domain labels to letters, digits, '-', '.', or a leading '*'.";
 
         if (targetPart.Length == 0)
             return null; // local-only form
@@ -116,19 +99,6 @@ public sealed partial class ServerSemanticHandler : IOptionSemanticHandler
             return ip.AddressFamily is AddressFamily.InterNetwork or AddressFamily.InterNetworkV6;
 
         return value.Length <= 253 && HostnamePattern().IsMatch(value);
-    }
-
-    private static bool IsValidDomainPattern(string value)
-    {
-        var normalized = value;
-        if (normalized.StartsWith("*", StringComparison.Ordinal))
-            normalized = normalized[1..];
-        if (normalized.StartsWith(".", StringComparison.Ordinal))
-            normalized = normalized[1..];
-
-        return normalized.Length > 0 &&
-               normalized.Length <= 253 &&
-               DomainPattern().IsMatch(normalized);
     }
 
     private static bool IsValidInterfaceName(string value) =>

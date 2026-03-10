@@ -1,6 +1,7 @@
 using DnsmasqWebUI.Models.Dnsmasq;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 using DnsmasqWebUI.Models.Contracts;
+using DnsmasqWebUI.Infrastructure.Helpers.Config;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Config.Abstractions;
 
 namespace DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Config;
@@ -56,22 +57,7 @@ public class DnsmasqConfigSetService : IDnsmasqConfigSetService
 
     /// <summary>Parses dhcp-range value to (startIp, endIp). Format is typically start,end,mask,lease or tag:...,start,end,...; finds first two IPv4-looking tokens.</summary>
     internal static (string? Start, string? End) ParseDhcpRangeStartEnd(string? raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw)) return (null, null);
-        var parts = raw.Split(',');
-        string? start = null;
-        string? end = null;
-        foreach (var p in parts)
-        {
-            var t = p.Trim();
-            if (string.IsNullOrEmpty(t)) continue;
-            if (!System.Net.IPAddress.TryParse(t, out var ip) || ip.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
-                continue;
-            if (start == null) { start = t; continue; }
-            if (end == null) { end = t; break; }
-        }
-        return (start, end);
-    }
+        => DnsmasqDhcpRangeValueParser.GetIPv4StartEnd(raw);
 
     private ConfigSetSnapshot GetSnapshot() =>
         _cache.GetSnapshotAsync(CancellationToken.None).GetAwaiter().GetResult();

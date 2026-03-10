@@ -96,6 +96,11 @@ public static class EffectiveConfigSpecialOptionSemantics
                 EffectiveConfigParserBehavior.Multi,
                 EffectiveConfigWriteBehavior.MultiValue,
                 ComplexMulti),
+            [DnsmasqConfKeys.Local] = new OptionSemantics(
+                DnsmasqConfKeys.Local,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
             [DnsmasqConfKeys.RevServer] = new OptionSemantics(
                 DnsmasqConfKeys.RevServer,
                 EffectiveConfigParserBehavior.Multi,
@@ -103,6 +108,36 @@ public static class EffectiveConfigSpecialOptionSemantics
                 ComplexMulti),
             [DnsmasqConfKeys.Address] = new OptionSemantics(
                 DnsmasqConfKeys.Address,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.RebindDomainOk] = new OptionSemantics(
+                DnsmasqConfKeys.RebindDomainOk,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.BogusNxdomain] = new OptionSemantics(
+                DnsmasqConfKeys.BogusNxdomain,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.IgnoreAddress] = new OptionSemantics(
+                DnsmasqConfKeys.IgnoreAddress,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.Alias] = new OptionSemantics(
+                DnsmasqConfKeys.Alias,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.Ipset] = new OptionSemantics(
+                DnsmasqConfKeys.Ipset,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.Nftset] = new OptionSemantics(
+                DnsmasqConfKeys.Nftset,
                 EffectiveConfigParserBehavior.Multi,
                 EffectiveConfigWriteBehavior.MultiValue,
                 ComplexMulti),
@@ -176,6 +211,61 @@ public static class EffectiveConfigSpecialOptionSemantics
                 EffectiveConfigParserBehavior.LastWins,
                 EffectiveConfigWriteBehavior.SingleValue,
                 PathFileSingleMustExist),
+            [DnsmasqConfKeys.DhcpRange] = new OptionSemantics(
+                DnsmasqConfKeys.DhcpRange,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.DhcpHost] = new OptionSemantics(
+                DnsmasqConfKeys.DhcpHost,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.DhcpOption] = new OptionSemantics(
+                DnsmasqConfKeys.DhcpOption,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.DhcpOptionForce] = new OptionSemantics(
+                DnsmasqConfKeys.DhcpOptionForce,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.DhcpMatch] = new OptionSemantics(
+                DnsmasqConfKeys.DhcpMatch,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.DhcpMac] = new OptionSemantics(
+                DnsmasqConfKeys.DhcpMac,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.DhcpIgnoreNames] = new OptionSemantics(
+                DnsmasqConfKeys.DhcpIgnoreNames,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.DhcpNameMatch] = new OptionSemantics(
+                DnsmasqConfKeys.DhcpNameMatch,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.DhcpIgnore] = new OptionSemantics(
+                DnsmasqConfKeys.DhcpIgnore,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.DhcpVendorclass] = new OptionSemantics(
+                DnsmasqConfKeys.DhcpVendorclass,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.DhcpUserclass] = new OptionSemantics(
+                DnsmasqConfKeys.DhcpUserclass,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
             [DnsmasqConfKeys.DhcpHostsfile] = new OptionSemantics(
                 DnsmasqConfKeys.DhcpHostsfile,
                 EffectiveConfigParserBehavior.Multi,
@@ -196,6 +286,66 @@ public static class EffectiveConfigSpecialOptionSemantics
                 EffectiveConfigParserBehavior.Multi,
                 EffectiveConfigWriteBehavior.MultiValue,
                 PathDirectoryMulti),
+            [DnsmasqConfKeys.DhcpRelay] = new OptionSemantics(
+                DnsmasqConfKeys.DhcpRelay,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.DhcpProxy] = new OptionSemantics(
+                DnsmasqConfKeys.DhcpProxy,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.RaParam] = new OptionSemantics(
+                DnsmasqConfKeys.RaParam,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.TagIf] = new OptionSemantics(
+                DnsmasqConfKeys.TagIf,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.BridgeInterface] = new OptionSemantics(
+                DnsmasqConfKeys.BridgeInterface,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.SharedNetwork] = new OptionSemantics(
+                DnsmasqConfKeys.SharedNetwork,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.DhcpBoot] = new OptionSemantics(
+                DnsmasqConfKeys.DhcpBoot,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.DhcpOptionPxe] = new OptionSemantics(
+                DnsmasqConfKeys.DhcpOptionPxe,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.PxeService] = new OptionSemantics(
+                DnsmasqConfKeys.PxeService,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.Slaac] = new OptionSemantics(
+                DnsmasqConfKeys.Slaac,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.TrustAnchor] = new OptionSemantics(
+                DnsmasqConfKeys.TrustAnchor,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
+            [DnsmasqConfKeys.ConnmarkAllowlist] = new OptionSemantics(
+                DnsmasqConfKeys.ConnmarkAllowlist,
+                EffectiveConfigParserBehavior.Multi,
+                EffectiveConfigWriteBehavior.MultiValue,
+                ComplexMulti),
         };
 
     /// <summary>Keys (enabled, disabled) for InversePair options only. Used by write path and readonly hints.</summary>
