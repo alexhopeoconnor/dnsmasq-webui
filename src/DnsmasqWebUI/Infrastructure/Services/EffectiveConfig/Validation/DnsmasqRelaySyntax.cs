@@ -31,4 +31,20 @@ internal static class DnsmasqRelaySyntax
         value.Length <= 64 &&
         value.Count(c => c == '.') <= 1 &&
         value.All(c => char.IsLetterOrDigit(c) || c is '-' or '_' or '.');
+
+    /// <summary>
+    /// Interface name with optional trailing <c>*</c> wildcard (for --interface, --except-interface, etc.).
+    /// Only a single trailing asterisk is allowed, not <c>*</c> in the middle.
+    /// </summary>
+    public static bool IsInterfaceNameWithOptionalTrailingWildcard(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+        var v = value.Trim();
+        if (v.Length == 0)
+            return false;
+        if (v.EndsWith('*'))
+            return v.Length > 1 && IsInterfaceName(v[..^1]);
+        return IsInterfaceName(v);
+    }
 }

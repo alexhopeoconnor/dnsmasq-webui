@@ -23,8 +23,8 @@ public sealed class RaParamSemanticHandler : IOptionSemanticHandler
         if (tokens.Length == 0 || tokens.Any(t => t.Length == 0))
             return "ra-param contains an empty comma-separated segment.";
 
-        if (!IsInterfaceName(tokens[0]))
-            return "ra-param must start with an interface name.";
+        if (!DnsmasqRelaySyntax.IsInterfaceNameWithOptionalTrailingWildcard(tokens[0]))
+            return "ra-param must start with an interface name (optionally ending with *).";
 
         var seenPriority = false;
         var seenMtu = false;
@@ -68,7 +68,4 @@ public sealed class RaParamSemanticHandler : IOptionSemanticHandler
 
         return null;
     }
-
-    private static bool IsInterfaceName(string value) =>
-        value.Length > 0 && value.All(c => char.IsLetterOrDigit(c) || c is '-' or '_' or '.' or '*');
 }

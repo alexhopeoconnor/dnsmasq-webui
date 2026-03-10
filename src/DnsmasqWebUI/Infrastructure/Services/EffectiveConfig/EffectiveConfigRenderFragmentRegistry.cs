@@ -230,29 +230,29 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
             DnsmasqConfKeys.DhcpUserclass,
             DnsmasqConfKeys.Slaac);
 
-        RegisterMultis(
+        RegisterSemanticMultis(
             EffectiveConfigFieldBuilder.SectionResolver,
             DnsmasqConfKeys.FilterRr);
-        RegisterMultis(
+        RegisterSemanticMultis(
             EffectiveConfigFieldBuilder.SectionDnsRecords,
             DnsmasqConfKeys.Domain,
             DnsmasqConfKeys.Cname,
             DnsmasqConfKeys.MxHost,
-            DnsmasqConfKeys.Srv,
             DnsmasqConfKeys.PtrRecord,
-            DnsmasqConfKeys.TxtRecord,
-            DnsmasqConfKeys.NaptrRecord,
-            DnsmasqConfKeys.HostRecord,
-            DnsmasqConfKeys.DynamicHost,
             DnsmasqConfKeys.InterfaceName,
             DnsmasqConfKeys.CaaRecord,
+            DnsmasqConfKeys.Srv,
+            DnsmasqConfKeys.NaptrRecord,
+            DnsmasqConfKeys.TxtRecord,
+            DnsmasqConfKeys.HostRecord,
+            DnsmasqConfKeys.DynamicHost,
             DnsmasqConfKeys.DnsRr,
             DnsmasqConfKeys.SynthDomain,
             DnsmasqConfKeys.AuthZone,
             DnsmasqConfKeys.AuthSoa,
             DnsmasqConfKeys.AuthSecServers,
             DnsmasqConfKeys.AuthPeer);
-        RegisterMultis(
+        RegisterSemanticMultis(
             EffectiveConfigFieldBuilder.SectionDhcp,
             DnsmasqConfKeys.DhcpCircuitid,
             DnsmasqConfKeys.DhcpRemoteid,
@@ -264,8 +264,8 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
             EffectiveConfigFieldBuilder.SectionTftpPxe,
             DnsmasqConfKeys.DhcpOptionPxe);
         RegisterSemanticMultis(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.TrustAnchor);
-        RegisterMultis(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.CacheRr);
-        RegisterMultis(
+        RegisterSemanticMultis(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.CacheRr);
+        RegisterSemanticMultis(
             EffectiveConfigFieldBuilder.SectionProcess,
             DnsmasqConfKeys.Interface,
             DnsmasqConfKeys.ExceptInterface,

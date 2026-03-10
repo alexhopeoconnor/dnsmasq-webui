@@ -43,6 +43,30 @@ public class OptionSemanticValidatorTests
         new DhcpBootSemanticHandler(),
         new SlaacSemanticHandler(),
         new PxeServiceSemanticHandler(),
+        new DhcpCircuitidSemanticHandler(),
+        new DhcpRemoteidSemanticHandler(),
+        new DhcpSubscridSemanticHandler(),
+        new FilterRrSemanticHandler(),
+        new CacheRrSemanticHandler(),
+        new InterfaceNameSemanticHandler(),
+        new AuthServerSemanticHandler(),
+        new CnameSemanticHandler(),
+        new MxHostSemanticHandler(),
+        new PtrRecordSemanticHandler(),
+        new InterfaceNameRecordSemanticHandler(),
+        new CaaRecordSemanticHandler(),
+        new SrvHostSemanticHandler(),
+        new NaptrRecordSemanticHandler(),
+        new DnsRrSemanticHandler(),
+        new DynamicHostSemanticHandler(),
+        new AuthSoaSemanticHandler(),
+        new AuthSecServersSemanticHandler(),
+        new AuthPeerSemanticHandler(),
+        new HostRecordSemanticHandler(),
+        new TxtRecordSemanticHandler(),
+        new DomainSemanticHandler(),
+        new SynthDomainSemanticHandler(),
+        new AuthZoneSemanticHandler(),
     ]);
 
     [Fact]
@@ -457,6 +481,9 @@ public class OptionSemanticValidatorTests
     [InlineData("eth0,60", true)]
     [InlineData("eth0,mtu:1280,low,60,1200", true)]
     [InlineData("eth0,high", true)]
+    [InlineData("eth*,60", true)]
+    [InlineData("eth*0,60", false)]
+    [InlineData("*eth0,60", false)]
     [InlineData(",60", false)]
     [InlineData("eth0,mtu:", false)]
     public void ValidateMultiItem_RaParam_UsesHandler(string value, bool valid)
@@ -654,5 +681,258 @@ public class OptionSemanticValidatorTests
         {
             dir.Delete(recursive: true);
         }
+    }
+
+    [Fact]
+    public void ValidateMultiItem_DhcpCircuitid_RequiresSetTagValue()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.DhcpCircuitid, "set:uplink,aa:bb:cc", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.DhcpCircuitid, "set:mytag,simple-string", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.DhcpCircuitid, "", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.DhcpCircuitid, "tag:uplink,id", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.DhcpCircuitid, "set:only", semantics));
+    }
+
+    [Fact]
+    public void ValidateMultiItem_DhcpRemoteid_RequiresSetTagValue()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.DhcpRemoteid, "set:uplink,remote-id", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.DhcpRemoteid, "set:tag,", semantics));
+    }
+
+    [Fact]
+    public void ValidateMultiItem_DhcpSubscrid_RequiresSetTagValue()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.DhcpSubscrid, "set:sub,subscriber-id", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.DhcpSubscrid, "bad", semantics));
+    }
+
+    [Fact]
+    public void ValidateMultiItem_FilterRr_AcceptsRrTypes()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.FilterRr, "A", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.FilterRr, "A,AAAA,TXT,MX", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.FilterRr, "ANY", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.FilterRr, "255", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.FilterRr, "", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.FilterRr, "A,,B", semantics));
+    }
+
+    [Fact]
+    public void ValidateMultiItem_CacheRr_AcceptsRrTypes()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.CacheRr, "TXT", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.CacheRr, "A,AAAA,CNAME,SRV", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.CacheRr, "ANY", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.CacheRr, "", semantics));
+    }
+
+    [Fact]
+    public void ValidateMultiItem_InterfaceNameOptions_AcceptInterfaceNameWithOptionalTrailingWildcard()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        foreach (var key in new[] { DnsmasqConfKeys.Interface, DnsmasqConfKeys.ExceptInterface, DnsmasqConfKeys.NoDhcpInterface, DnsmasqConfKeys.NoDhcpv4Interface, DnsmasqConfKeys.NoDhcpv6Interface })
+        {
+            Assert.Null(_validator.ValidateMultiItem(key, "eth0", semantics));
+            Assert.Null(_validator.ValidateMultiItem(key, "eth0*", semantics));
+            Assert.Null(_validator.ValidateMultiItem(key, "br-lan", semantics));
+            Assert.NotNull(_validator.ValidateMultiItem(key, "", semantics));
+            Assert.NotNull(_validator.ValidateMultiItem(key, "eth*0", semantics));
+        }
+    }
+
+    [Fact]
+    public void ValidateMultiItem_AuthServer_RequiresDomain_AcceptsInterfaceOrIp()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthServer, "example.com", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthServer, "example.com,eth0", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthServer, "example.com,192.168.1.1,eth1/4", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthServer, "ns.example.com,::1,eth0/6", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthServer, "", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthServer, ",eth0", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthServer, "example.com,invalid@", semantics));
+    }
+
+    [Fact]
+    public void ValidateMultiItem_Cname_RequiresCnameAndTarget_AcceptsOptionalTtl()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.Cname, "router.example.local,router", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.Cname, "cname1,cname2,target", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.Cname, "alias,host.example.com,60", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.Cname, "", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.Cname, "only", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.Cname, "bad..name,target", semantics));
+    }
+
+    [Fact]
+    public void ValidateMultiItem_MxHost_AcceptsMxNameWithOptionalHostnameAndPreference()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.MxHost, "example.local", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.MxHost, "example.local,mail.example.local,10", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.MxHost, "mx.local,5", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.MxHost, "", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.MxHost, "bad..name", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.MxHost, "mx.local,mail,99999", semantics));
+    }
+
+    [Fact]
+    public void ValidateMultiItem_PtrRecord_NameAndOptionalTarget()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.PtrRecord, "1.0.168.192.in-addr.arpa,host.example.com", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.PtrRecord, "name.only", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.PtrRecord, "", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.PtrRecord, "bad..name,target", semantics));
+    }
+
+    [Fact]
+    public void ValidateMultiItem_InterfaceNameRecord_NameAndInterface()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.InterfaceName, "router.example.local,eth0", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.InterfaceName, "host.local,eth1/4", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.InterfaceName, "name", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.InterfaceName, "name,", semantics));
+    }
+
+    [Fact]
+    public void ValidateMultiItem_CaaRecord_FourParts()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.CaaRecord, "example.com,0,issue,letsencrypt.org", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.CaaRecord, "a,b", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.CaaRecord, "x,y,z,w", semantics)); // 4 but invalid name possible - "x" is valid DNS name
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.CaaRecord, "x,256,tag,val", semantics));
+    }
+
+    [Fact]
+    public void ValidateMultiItem_SrvHost_ServiceNameAndOptionalTargetPortPriorityWeight()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.Srv, "_sip._udp.example.com", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.Srv, "_sip._udp,sip.example.com,5060,0,0", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.Srv, "", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.Srv, "_sip._udp,host,70000", semantics));
+    }
+
+    [Fact]
+    public void ValidateMultiItem_NaptrRecord_SixOrSevenParts()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.NaptrRecord, "name.example.com,0,0,s,a,x,replacement", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.NaptrRecord, "n.zone,1,10,flags,svc,regex", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.NaptrRecord, "a,b,c", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.NaptrRecord, "bad..name,0,0,f,s,r", semantics));
+    }
+
+    [Fact]
+    public void ValidateMultiItem_DnsRr_NameAndRrNumber_OptionalHex()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.DnsRr, "example.com,255", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.DnsRr, "name.example,1,01:02:03", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.DnsRr, "x", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.DnsRr, "x,99999", semantics));
+    }
+
+    [Fact]
+    public void ValidateMultiItem_DynamicHost_FourFields_NameAndInterface()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.DynamicHost, "example.com,0.0.0.8,eth0", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.DynamicHost, "example.com,,,eth0", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.DynamicHost, "host.local,0.0.0.8,,eth0", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.DynamicHost, "x,y", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.DynamicHost, "x,1.2.3.4,::1,bad if", semantics));
+    }
+
+    [Fact]
+    public void ValidateMultiItem_AuthSoa_SerialAndOptionalFields()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthSoa, "1", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthSoa, "1,hostmaster.example.com,3600,600,86400", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthSoa, "", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthSoa, "x", semantics));
+    }
+
+    [Fact]
+    public void ValidateMultiItem_AuthSecServers_OneOrMoreDomains()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthSecServers, "ns1.example.com", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthSecServers, "a.com,b.com", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthSecServers, "", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthSecServers, "bad..name", semantics));
+    }
+
+    [Fact]
+    public void ValidateMultiItem_AuthPeer_OneOrMoreIps()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthPeer, "192.168.1.1", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthPeer, "::1,10.0.0.1", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthPeer, "", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthPeer, "not-an-ip", semantics));
+    }
+
+    [Fact]
+    public void ValidateMultiItem_HostRecord_AtLeastOneName_OptionalIpv4Ipv6Ttl()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.HostRecord, "laptop,192.168.0.1", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.HostRecord, "host.example.com,192.168.0.1,::1,60", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.HostRecord, "", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.HostRecord, "bad..name,1.2.3.4", semantics));
+    }
+
+    [Fact]
+    public void ValidateMultiItem_TxtRecord_NameRequired()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.TxtRecord, "example.com", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.TxtRecord, "name.example.com,some text", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.TxtRecord, "", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.TxtRecord, "bad..name,text", semantics));
+    }
+
+    [Fact]
+    public void ValidateMultiItem_Domain_DomainOrHash_OptionalRangeOrInterface()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.Domain, "thekelleys.org.uk", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.Domain, "#", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.Domain, "lan,192.168.0.0/24,local", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.Domain, "local.zone,eth0", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.Domain, "", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.Domain, "bad..name", semantics));
+    }
+
+    [Fact]
+    public void ValidateMultiItem_SynthDomain_DomainAndRange_OptionalPrefix()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.SynthDomain, "zone.example.com,192.168.0.50,192.168.0.70", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.SynthDomain, "zone,192.168.0.0/24,internal-*", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.SynthDomain, "only", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.SynthDomain, "bad..name,1.2.3.4", semantics));
+    }
+
+    [Fact]
+    public void ValidateMultiItem_AuthZone_DomainRequired_OptionalSubnets()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthZone, "example.com", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthZone, "zone,192.168.0.0/24", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthZone, "", semantics));
+        Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthZone, "bad..name", semantics));
     }
 }

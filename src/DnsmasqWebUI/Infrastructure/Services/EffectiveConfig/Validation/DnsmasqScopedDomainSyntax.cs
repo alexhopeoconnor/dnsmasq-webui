@@ -11,6 +11,27 @@ internal static partial class DnsmasqScopedDomainSyntax
     [GeneratedRegex(@"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*$", RegexOptions.CultureInvariant)]
     private static partial Regex DomainPattern();
 
+    /// <summary>Returns true if the value is a valid DNS name (hostname/domain) for record options like cname, mx-host.</summary>
+    public static bool IsValidDnsName(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+        var v = value.Trim();
+        return v.Length >= 1 && v.Length <= 253 && DomainPattern().IsMatch(v);
+    }
+
+    /// <summary>Returns true if the value looks like an SRV service name (e.g. _sip._udp or _sip._udp.example.com). Allows leading underscore in labels.</summary>
+    public static bool IsValidSrvServiceName(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+        var v = value.Trim();
+        if (v.Length > 253)
+            return false;
+        return v.Split('.').All(label => label.Length > 0 && label.Length <= 63 &&
+            label.All(c => char.IsLetterOrDigit(c) || c is '-' or '_'));
+    }
+
     public static bool TrySplitScopedValue(string value, out string[] domains, out string tail, out string? error)
     {
         domains = Array.Empty<string>();

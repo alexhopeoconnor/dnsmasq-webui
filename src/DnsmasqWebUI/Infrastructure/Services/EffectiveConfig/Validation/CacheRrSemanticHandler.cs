@@ -1,0 +1,28 @@
+using DnsmasqWebUI.Infrastructure.Helpers.Config;
+
+namespace DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Validation;
+
+/// <summary>
+/// Semantic validation for <c>cache-rr</c> values: RR-type or comma-separated list (e.g. A,AAAA,TXT or ANY).
+/// </summary>
+public sealed class CacheRrSemanticHandler : IOptionSemanticHandler
+{
+    public bool CanHandle(string optionName) => optionName == DnsmasqConfKeys.CacheRr;
+
+    public string? ValidateSingle(object? value) => null;
+
+    public string? ValidateMultiItem(string? value)
+    {
+        var s = (value ?? "").Trim();
+        if (s.Length == 0)
+            return "cache-rr value cannot be empty.";
+        foreach (var token in s.Split(',', StringSplitOptions.TrimEntries))
+        {
+            if (token.Length == 0)
+                return "cache-rr list cannot contain empty RR-type.";
+            if (!DnsmasqRrTypeSyntax.IsValidRrType(token))
+                return "cache-rr RR-type must be a name (e.g. A, TXT, ANY) or decimal number.";
+        }
+        return null;
+    }
+}
