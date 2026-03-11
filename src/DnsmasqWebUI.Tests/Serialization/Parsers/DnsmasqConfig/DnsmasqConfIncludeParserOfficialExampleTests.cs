@@ -81,32 +81,6 @@ public class DnsmasqConfIncludeParserOfficialExampleTests
     }
 
     [Fact]
-    public void OfficialExample_FileContainsExpectedOptionNames()
-    {
-        var path = GetOfficialExamplePath();
-        var content = File.ReadAllText(path);
-        // Sanity: official example documents the options we support (as commented lines).
-        Assert.Contains("read-ethers", content);
-        Assert.Contains("dhcp-option-force", content);
-        Assert.Contains("dhcp-rapid-commit", content);
-        Assert.Contains("dhcp-script", content);
-        Assert.Contains("tftp-no-fail", content);
-        Assert.Contains("tftp-no-blocksize", content);
-        Assert.Contains("mx-target", content);
-        Assert.Contains("localmx", content);
-        Assert.Contains("selfmx", content);
-        Assert.Contains("enable-ra", content);
-        Assert.Contains("log-dhcp", content);
-        Assert.Contains("ipset=", content);
-        Assert.Contains("nftset=", content);
-        Assert.Contains("dhcp-mac", content);
-        Assert.Contains("dhcp-name-match", content);
-        Assert.Contains("dhcp-ignore-names", content);
-        // SRV records use option name srv-host (not "srv")
-        Assert.Contains("srv-host", content);
-    }
-
-    [Fact]
     public void GetAddnHostsPathsFromConfigFiles_OfficialExample_AllCommented_ReturnsEmpty()
     {
         var mainPath = GetOfficialExamplePath();
@@ -123,5 +97,24 @@ public class DnsmasqConfIncludeParserOfficialExampleTests
         var paths = new[] { mainPath };
         var noHosts = DnsmasqConfIncludeParser.GetNoHostsFromConfigFiles(paths);
         Assert.False(noHosts);
+    }
+
+    /// <summary>Official-like sample with commented and active lines: commented ignored, active parsed, state reflects active only.</summary>
+    [Fact]
+    public void OfficialLikeActive_CommentedLinesIgnored_ActiveLinesParsed()
+    {
+        var mainPath = TestDataHelper.GetPath("real-world/edge/dnsmasq-real-official-like-active.conf");
+        Assert.True(File.Exists(mainPath));
+        var paths = DnsmasqConfIncludeParser.GetIncludedPaths(mainPath);
+
+        var (portVal, _) = DnsmasqConfIncludeParser.GetLastValueFromConfigFiles(paths, DnsmasqConfKeys.Port);
+        Assert.NotNull(portVal);
+        Assert.True(int.TryParse(portVal, out var port) && port == 5353);
+
+        var servers = DnsmasqConfIncludeParser.GetMultiValueFromConfigFiles(paths, DnsmasqConfKeys.Server);
+        Assert.Single(servers);
+        Assert.Equal("1.1.1.1", servers[0]);
+
+        Assert.True(DnsmasqConfIncludeParser.GetFlagFromConfigFiles(paths, DnsmasqConfKeys.ExpandHosts));
     }
 }

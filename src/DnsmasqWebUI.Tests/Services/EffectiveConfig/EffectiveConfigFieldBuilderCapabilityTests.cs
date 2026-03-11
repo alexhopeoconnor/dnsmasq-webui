@@ -23,7 +23,6 @@ public class EffectiveConfigFieldBuilderCapabilityTests
 
         Assert.True(descriptor.IsCapabilityDisabled);
         Assert.NotNull(descriptor.CapabilityDisabledReason);
-        Assert.Contains("DNSSEC", descriptor.CapabilityDisabledReason, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

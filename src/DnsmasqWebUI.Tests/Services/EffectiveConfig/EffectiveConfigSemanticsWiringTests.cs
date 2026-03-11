@@ -13,13 +13,15 @@ namespace DnsmasqWebUI.Tests.Services.EffectiveConfig;
 public class EffectiveConfigSemanticsWiringTests
 {
     [Fact]
-    public void ParserBehaviorMap_UsesSpecialSemantics_ForAllSpecialOptions()
+    public void Registry_WiresSemanticValidator_ForDnsRr()
     {
-        foreach (var option in EffectiveConfigSpecialOptionSemantics.GetAllOptionNames())
-        {
-            var semantics = EffectiveConfigSpecialOptionSemantics.TryGetSemantics(option)!;
-            Assert.Equal(semantics.ParserBehavior, EffectiveConfigParserBehaviorMap.GetBehavior(option));
-        }
+        var registry = new EffectiveConfigRenderFragmentRegistry(new OptionSemanticValidator([new DnsRrSemanticHandler()]));
+        var factory = registry.GetMultiDescriptorFactory(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.DnsRr);
+        Assert.NotNull(factory);
+        var descriptor = factory!(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.DnsRr, status: null, getItems: _ => null);
+        Assert.NotNull(descriptor.Validator);
+        Assert.Null(descriptor.Validator!.ValidateItem("example.com,16,01:02", Array.Empty<string>()));
+        Assert.NotNull(descriptor.Validator.ValidateItem("example.com,not-a-number", Array.Empty<string>()));
     }
 
     [Fact]

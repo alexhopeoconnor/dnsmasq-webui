@@ -4,6 +4,7 @@ using DnsmasqWebUI.Models.Config;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using DnsmasqWebUI.Tests.Helpers;
 
 namespace DnsmasqWebUI.Tests.Services.Dnsmasq.Config;
 
@@ -133,5 +134,53 @@ public class ConfigSetCacheEffectiveConfigTests
             cache.Dispose();
             if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
         }
+    }
+
+    [Fact]
+    public async Task RealWorldCorpus_EdgeCommentedActiveMix_Do0x20StateAndSource()
+    {
+        var mainPath = TestDataHelper.GetPath("real-world/edge/dnsmasq-real-edge-commented-active-mix.conf");
+        Assert.True(File.Exists(mainPath));
+        var dir = Path.GetDirectoryName(mainPath)!;
+        var managedName = "zz-managed.conf";
+        var options = Options.Create(new DnsmasqOptions { MainConfigPath = mainPath, ManagedFileName = managedName });
+        using var cache = new ConfigSetCache(options, NullLogger<ConfigSetCache>.Instance);
+        cache.Invalidate();
+        var snapshot = await cache.GetSnapshotAsync();
+        Assert.Equal(ExplicitToggleState.Disabled, snapshot.Config.Do0x20EncodeState);
+        Assert.NotNull(snapshot.Sources.Do0x20Encode);
+        Assert.Single(snapshot.Config.ServerValues);
+        Assert.Equal("1.1.1.1", snapshot.Config.ServerValues[0]);
+    }
+
+    [Fact]
+    public async Task RealWorldCorpus_GoodHomeBasic_ServerCountAndSource()
+    {
+        var mainPath = TestDataHelper.GetPath("real-world/good/dnsmasq-real-home-basic.conf");
+        Assert.True(File.Exists(mainPath));
+        var options = Options.Create(new DnsmasqOptions { MainConfigPath = mainPath, ManagedFileName = "zz-managed.conf" });
+        using var cache = new ConfigSetCache(options, NullLogger<ConfigSetCache>.Instance);
+        cache.Invalidate();
+        var snapshot = await cache.GetSnapshotAsync();
+        Assert.True(snapshot.Config.ServerValues.Count >= 2);
+        Assert.Equal(2, snapshot.Sources.ServerValues.Count);
+    }
+
+    [Fact]
+    public async Task RealWorldCorpus_GoodResolverRich_LocalAddressCacheSizeFlags()
+    {
+        var mainPath = TestDataHelper.GetPath("real-world/good/dnsmasq-real-resolver-rich.conf");
+        Assert.True(File.Exists(mainPath));
+        var options = Options.Create(new DnsmasqOptions { MainConfigPath = mainPath, ManagedFileName = "zz-managed.conf" });
+        using var cache = new ConfigSetCache(options, NullLogger<ConfigSetCache>.Instance);
+        cache.Invalidate();
+        var snapshot = await cache.GetSnapshotAsync();
+        Assert.True(snapshot.Config.ServerValues.Count >= 2);
+        Assert.True(snapshot.Config.LocalValues.Count >= 2);
+        Assert.True(snapshot.Config.AddressValues.Count >= 2);
+        Assert.Equal(1000, snapshot.Config.CacheSize);
+        Assert.True(snapshot.Config.NoResolv);
+        Assert.True(snapshot.Config.BogusPriv);
+        Assert.True(snapshot.Config.ExpandHosts);
     }
 }

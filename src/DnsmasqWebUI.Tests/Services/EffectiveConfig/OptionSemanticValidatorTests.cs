@@ -937,4 +937,72 @@ public class OptionSemanticValidatorTests
         Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthZone, "", semantics));
         Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthZone, "bad..name", semantics));
     }
+
+    [Fact]
+    public void ValidateMultiItem_AuthServer_InvalidGlueDomain_IsRejected()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex, allowEmpty: true);
+        var err = _validator.ValidateMultiItem(DnsmasqConfKeys.AuthServer, ",eth0", semantics);
+        Assert.NotNull(err);
+    }
+
+    [Fact]
+    public void ValidateMultiItem_SynthDomain_InvalidAddressRange_IsRejected()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex, allowEmpty: true);
+        var err = _validator.ValidateMultiItem(DnsmasqConfKeys.SynthDomain, "example.com,", semantics);
+        Assert.NotNull(err);
+    }
+
+    [Fact]
+    public void ValidateMultiItem_Domain_ExtraFields_AreRejected()
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex, allowEmpty: true);
+        var err = _validator.ValidateMultiItem(DnsmasqConfKeys.Domain, "example.com,192.168.1.0/24,local,extra", semantics);
+        Assert.NotNull(err);
+    }
+
+    [Theory]
+    [InlineData("example.com,not-a-number")]
+    [InlineData(",16,01:02")]
+    [InlineData("bad..name,16,01:02")]
+    public void ValidateMultiItem_DnsRr_Malformed_IsRejected(string value)
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex, allowEmpty: true);
+        var err = _validator.ValidateMultiItem(DnsmasqConfKeys.DnsRr, value, semantics);
+        Assert.NotNull(err);
+    }
+
+    [Theory]
+    [InlineData("_sip._tcp,host,not-a-port")]
+    [InlineData("")]
+    [InlineData("_sip._tcp,target,99999")] // port out of range
+    public void ValidateMultiItem_SrvHost_Malformed_IsRejected(string value)
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex, allowEmpty: true);
+        var err = _validator.ValidateMultiItem(DnsmasqConfKeys.Srv, value, semantics);
+        Assert.NotNull(err);
+    }
+
+    [Theory]
+    [InlineData("example.com,not-num,0,a,s,r")]
+    [InlineData("bad..name,0,0,a,s,r")]
+    [InlineData("short,0,0,a,s")] // fewer than 6 fields
+    public void ValidateMultiItem_NaptrRecord_Malformed_IsRejected(string value)
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex, allowEmpty: true);
+        var err = _validator.ValidateMultiItem(DnsmasqConfKeys.NaptrRecord, value, semantics);
+        Assert.NotNull(err);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("bad..name,text")]
+    [InlineData(",only-text")]
+    public void ValidateMultiItem_TxtRecord_Malformed_IsRejected(string value)
+    {
+        var semantics = new OptionValidationSemantics(OptionValidationKind.Complex, allowEmpty: true);
+        var err = _validator.ValidateMultiItem(DnsmasqConfKeys.TxtRecord, value, semantics);
+        Assert.NotNull(err);
+    }
 }

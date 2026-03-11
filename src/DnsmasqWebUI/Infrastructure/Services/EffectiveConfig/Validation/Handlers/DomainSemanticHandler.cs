@@ -26,6 +26,8 @@ public sealed class DomainSemanticHandler : IOptionSemanticHandler
         var domain = tokens[0];
         if (domain != "#" && !DnsmasqScopedDomainSyntax.IsValidDnsName(domain))
             return "domain must be a valid DNS name or #.";
+        if (tokens.Length > 3)
+            return "domain has at most 3 fields: domain[,address range[,local]] or domain,interface.";
         if (tokens.Length >= 2 && tokens[1].Length == 0)
             return "domain cannot have empty fields.";
         if (tokens.Length >= 2 && !IsValidSecondToken(tokens[1]))

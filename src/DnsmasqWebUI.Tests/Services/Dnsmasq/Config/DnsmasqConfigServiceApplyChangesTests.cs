@@ -304,6 +304,140 @@ public class DnsmasqConfigServiceApplyChangesTests
     }
 
     [Fact]
+    public async Task ApplyChanges_Do0x20Enabled_RoundTripsToEffectiveState()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-roundtrip-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var mainPath = Path.Combine(dir, "dnsmasq.conf");
+        var managedName = "zz-managed.conf";
+        ConfigSetCache? cache = null;
+        try
+        {
+            File.WriteAllText(mainPath, "port=53\n");
+            var options = Options.Create(new DnsmasqOptions { MainConfigPath = mainPath, ManagedFileName = managedName });
+            cache = new ConfigSetCache(options, NullLogger<ConfigSetCache>.Instance);
+            var setService = new DnsmasqConfigSetService(cache);
+            var configService = new DnsmasqConfigService(setService, cache, NullLogger<DnsmasqConfigService>.Instance);
+            var changes = new List<PendingEffectiveConfigChange>
+            {
+                new(EffectiveConfigSections.SectionResolver, DnsmasqConfKeys.Do0x20Encode, ExplicitToggleState.Default, ExplicitToggleState.Enabled, null)
+            };
+            await configService.ApplyEffectiveConfigChangesAsync(changes);
+            cache.Invalidate();
+            var snapshot = await cache.GetSnapshotAsync();
+            Assert.Equal(ExplicitToggleState.Enabled, snapshot.Config.Do0x20EncodeState);
+            Assert.NotNull(snapshot.Sources.Do0x20Encode);
+        }
+        finally
+        {
+            cache?.Dispose();
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ApplyChanges_UseStaleCache_RoundTripsToEffectiveState()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-roundtrip-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var mainPath = Path.Combine(dir, "dnsmasq.conf");
+        var managedName = "zz-managed.conf";
+        ConfigSetCache? cache = null;
+        try
+        {
+            File.WriteAllText(mainPath, "port=53\n");
+            var options = Options.Create(new DnsmasqOptions { MainConfigPath = mainPath, ManagedFileName = managedName });
+            cache = new ConfigSetCache(options, NullLogger<ConfigSetCache>.Instance);
+            var setService = new DnsmasqConfigSetService(cache);
+            var configService = new DnsmasqConfigService(setService, cache, NullLogger<DnsmasqConfigService>.Instance);
+            var changes = new List<PendingEffectiveConfigChange>
+            {
+                new(EffectiveConfigSections.SectionCache, DnsmasqConfKeys.UseStaleCache, null, "60", null)
+            };
+            await configService.ApplyEffectiveConfigChangesAsync(changes);
+            cache.Invalidate();
+            var snapshot = await cache.GetSnapshotAsync();
+            Assert.Equal("60", snapshot.Config.UseStaleCache);
+            Assert.NotNull(snapshot.Sources.UseStaleCache);
+        }
+        finally
+        {
+            cache?.Dispose();
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ApplyChanges_Server_RoundTripsToEffectiveState()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-roundtrip-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var mainPath = Path.Combine(dir, "dnsmasq.conf");
+        var managedName = "zz-managed.conf";
+        ConfigSetCache? cache = null;
+        try
+        {
+            File.WriteAllText(mainPath, "port=53\n");
+            var options = Options.Create(new DnsmasqOptions { MainConfigPath = mainPath, ManagedFileName = managedName });
+            cache = new ConfigSetCache(options, NullLogger<ConfigSetCache>.Instance);
+            var setService = new DnsmasqConfigSetService(cache);
+            var configService = new DnsmasqConfigService(setService, cache, NullLogger<DnsmasqConfigService>.Instance);
+            var changes = new List<PendingEffectiveConfigChange>
+            {
+                new(EffectiveConfigSections.SectionResolver, DnsmasqConfKeys.Server, null, new List<string> { "1.1.1.1", "8.8.8.8" }, null)
+            };
+            await configService.ApplyEffectiveConfigChangesAsync(changes);
+            cache.Invalidate();
+            var snapshot = await cache.GetSnapshotAsync();
+            Assert.Equal(2, snapshot.Config.ServerValues.Count);
+            Assert.Contains("1.1.1.1", snapshot.Config.ServerValues);
+            Assert.Contains("8.8.8.8", snapshot.Config.ServerValues);
+            Assert.Equal(2, snapshot.Sources.ServerValues.Count);
+        }
+        finally
+        {
+            cache?.Dispose();
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ApplyChanges_Conntrack_RoundTripsToEffectiveState()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-roundtrip-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var mainPath = Path.Combine(dir, "dnsmasq.conf");
+        var managedName = "zz-managed.conf";
+        ConfigSetCache? cache = null;
+        try
+        {
+            File.WriteAllText(mainPath, "port=53\n");
+            var options = Options.Create(new DnsmasqOptions { MainConfigPath = mainPath, ManagedFileName = managedName });
+            cache = new ConfigSetCache(options, NullLogger<ConfigSetCache>.Instance);
+            var setService = new DnsmasqConfigSetService(cache);
+            var configService = new DnsmasqConfigService(setService, cache, NullLogger<DnsmasqConfigService>.Instance);
+            var changes = new List<PendingEffectiveConfigChange>
+            {
+                new(EffectiveConfigSections.SectionResolver, DnsmasqConfKeys.Conntrack, false, true, null)
+            };
+            await configService.ApplyEffectiveConfigChangesAsync(changes);
+            cache.Invalidate();
+            var snapshot = await cache.GetSnapshotAsync();
+            Assert.True(snapshot.Config.Conntrack);
+            Assert.NotNull(snapshot.Sources.Conntrack);
+        }
+        finally
+        {
+            cache?.Dispose();
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ApplyChanges_Do0x20_Disabled_WritesNo0x20Encode()
     {
         var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-apply-" + Guid.NewGuid().ToString("N"));

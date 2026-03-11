@@ -1,0 +1,104 @@
+[
+  {
+    "file": "real-world/good/dnsmasq-real-home-basic.conf",
+    "expected": {
+      "serverCountMin": 2,
+      "noHosts": false,
+      "cacheSize": 500,
+      "domainCountMin": 1,
+      "expandHosts": true
+    },
+    "semanticInvalidOptions": []
+  },
+  {
+    "file": "real-world/good/dnsmasq-real-dhcp-pxe.conf",
+    "expected": {},
+    "semanticInvalidOptions": []
+  },
+  {
+    "file": "real-world/good/dnsmasq-real-resolver-rich.conf",
+    "expected": {
+      "serverCountMin": 2,
+      "localCountMin": 2,
+      "addressCountMin": 2,
+      "cacheSize": 1000,
+      "domainCountMin": 1,
+      "noResolv": true,
+      "bogusPriv": true,
+      "expandHosts": true
+    },
+    "semanticInvalidOptions": []
+  },
+  {
+    "file": "real-world/good/dnsmasq-real-dns-records.conf",
+    "expected": {
+      "cnameCountMin": 1,
+      "txtRecordCountMin": 1,
+      "srvCountMin": 1,
+      "ptrRecordCountMin": 1,
+      "mxHostCountMin": 1
+    },
+    "semanticInvalidOptions": []
+  },
+  {
+    "file": "real-world/good/dnsmasq-real-auth-synth.conf",
+    "expected": {
+      "authZoneCountMin": 1,
+      "synthDomainCountMin": 1,
+      "authServerCountMin": 1
+    },
+    "semanticInvalidOptions": []
+  },
+  {
+    "file": "real-world/bad/dnsmasq-real-bad-domain-extra-fields.conf",
+    "expected": {},
+    "semanticInvalidOptions": ["domain"]
+  },
+  {
+    "file": "real-world/bad/dnsmasq-real-bad-dns-rr-type.conf",
+    "expected": {},
+    "semanticInvalidOptions": ["dns-rr"]
+  },
+  {
+    "file": "real-world/bad/dnsmasq-real-bad-synth-domain-missing-range.conf",
+    "expected": {},
+    "semanticInvalidOptions": ["synth-domain"]
+  },
+  {
+    "file": "real-world/bad/dnsmasq-real-bad-auth-server.conf",
+    "expected": {},
+    "semanticInvalidOptions": ["auth-server"]
+  },
+  {
+    "file": "real-world/bad/dnsmasq-real-bad-srv-host.conf",
+    "expected": {},
+    "semanticInvalidOptions": ["srv-host"]
+  },
+  {
+    "file": "real-world/edge/dnsmasq-real-edge-commented-active-mix.conf",
+    "expected": {
+      "serverCountMin": 1,
+      "do0x20State": "Disabled"
+    },
+    "semanticInvalidOptions": []
+  },
+  {
+    "file": "real-world/edge/dnsmasq-real-edge-flags-mix.conf",
+    "expected": {
+      "noResolv": true,
+      "bogusPriv": true,
+      "expandHosts": true,
+      "cacheSize": 200
+    },
+    "semanticInvalidOptions": []
+  },
+  {
+    "file": "real-world/edge/dnsmasq-real-official-like-active.conf",
+    "expected": {
+      "serverCountMin": 1,
+      "port": 5353,
+      "expandHosts": true
+    },
+    "semanticInvalidOptions": []
+  }
+]
