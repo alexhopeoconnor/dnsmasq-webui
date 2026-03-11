@@ -9,9 +9,12 @@ namespace DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions;
 /// </summary>
 public interface IEffectiveConfigEditSession : IApplicationScopedService
 {
+    /// <summary>Raised when session state changes so UI (section and external widgets) can refresh.</summary>
+    event Action? Changed;
+
     bool IsEditMode { get; }
     string? ActiveFieldKey { get; }
-    IReadOnlyList<PendingEffectiveConfigChange> PendingChanges { get; }
+    IReadOnlyList<PendingDnsmasqChange> PendingChanges { get; }
 
     /// <summary>Per-field validation issues (errors block save; warnings can be confirmed).</summary>
     IReadOnlyDictionary<string, IReadOnlyList<FieldIssue>> FieldIssues { get; }
@@ -23,6 +26,8 @@ public interface IEffectiveConfigEditSession : IApplicationScopedService
 
     void TrackCommit(EffectiveConfigEditCommittedArgs args);
     void RevertChange(string sectionId, string optionName);
+    void TrackManagedHostsChange(PendingManagedHostsChange change);
+    void RevertManagedHostsChange();
 
     void SetFieldIssues(string fieldKey, IReadOnlyList<FieldIssue> issues);
     void ClearFieldIssues(string fieldKey);

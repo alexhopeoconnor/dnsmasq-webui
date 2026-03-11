@@ -1,9 +1,8 @@
 namespace DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 
 /// <summary>Result of the effective-config save flow (backup, write, validate, restart). Used by UI to drive state and show restore/continue options.</summary>
-/// <param name="BackupCreated">True when a backup file was created before write.</param>
-/// <param name="BackupPath">Path to the backup file when one was created; null otherwise.</param>
-/// <param name="Saved">True when the managed config was written successfully.</param>
+/// <param name="Backups">Backups created before write (one per target file touched). Empty when no write occurred or no backups were created.</param>
+/// <param name="Saved">True when all managed files were written successfully.</param>
 /// <param name="Validated">True when validation was run and succeeded (or was skipped). When validation ran and failed, restart is not attempted.</param>
 /// <param name="ValidationExitCode">Validation command exit code; -1 when not run or failed to start.</param>
 /// <param name="ValidationStdOut">Standard output from the validation command.</param>
@@ -15,8 +14,7 @@ namespace DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 /// <param name="ErrorCode">Machine-readable code: see <see cref="ErrorCodes"/>; null when success.</param>
 /// <param name="UserMessage">Short message for the user.</param>
 public record EffectiveConfigSaveResult(
-    bool BackupCreated,
-    string? BackupPath,
+    IReadOnlyList<DnsmasqManagedBackup> Backups,
     bool Saved,
     bool Validated,
     int ValidationExitCode,
@@ -29,6 +27,8 @@ public record EffectiveConfigSaveResult(
     string? ErrorCode,
     string? UserMessage)
 {
+    /// <summary>True when at least one backup was created (for restore UI).</summary>
+    public bool BackupCreated => Backups.Count > 0;
     /// <summary>Machine-readable error codes for <see cref="ErrorCode"/>.</summary>
     public static class ErrorCodes
     {
@@ -51,5 +51,5 @@ public record EffectiveConfigSaveResult(
 
     /// <summary>Result when there are no pending changes to apply.</summary>
     public static EffectiveConfigSaveResult NoChanges() =>
-        new(false, null, false, false, -1, null, null, false, -1, null, null, ErrorCodes.NoChanges, "No pending changes.");
+        new(Array.Empty<DnsmasqManagedBackup>(), false, false, -1, null, null, false, -1, null, null, ErrorCodes.NoChanges, "No pending changes.");
 }

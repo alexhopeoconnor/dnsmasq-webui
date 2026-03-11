@@ -1,12 +1,13 @@
 @namespace DnsmasqWebUI.Components.EffectiveConfig
+@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
 @using DnsmasqWebUI.Models.Dnsmasq
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
-@inject IEffectiveConfigRenderFragmentRegistry RenderFragmentRegistry
+@inject IEffectiveConfigDescriptorProvider DescriptorProvider
 
 <div class="ec-sections small">
     @{
         var views = EffectiveConfigViews.GetViewsForContext(Context);
-        var descriptorsBySection = EffectiveConfigViews.GetDescriptorsBySection(Status, views, RenderFragmentRegistry);
+        var descriptorsBySection = Status != null ? DescriptorProvider.GetBySection(Status, views) : new Dictionary<string, IReadOnlyList<EffectiveConfigFieldDescriptor>>();
         var hasSearch = !string.IsNullOrWhiteSpace(SearchTerm);
         var term = SearchTerm?.Trim() ?? "";
     }

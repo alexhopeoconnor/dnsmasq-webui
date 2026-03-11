@@ -1,8 +1,11 @@
 @page "/hosts"
 @rendermode InteractiveServer
 @namespace DnsmasqWebUI.Components.Pages
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
 @inject IStatusClient StatusClient
 @inject IHostsClient HostsClient
+@inject IEffectiveConfigEditSession Session
 @inject IOptions<ApplicationOptions> AppOptions
 <PageTitle>Hosts | @AppTitle</PageTitle>
 
@@ -38,13 +41,9 @@ else
         {
             <div class="alert alert-danger">@_error</div>
         }
-        @if (_message != null)
-        {
-            <div class="alert alert-success">@_message</div>
-        }
 
         <HostsFileSection Path="@(_status.ManagedHostsFilePath ?? "")" Entries="_entries" IsEditable="true" IsFirst="true" />
-        <button class="btn btn-primary mt-2" @onclick="Save" disabled="@_saving"><i class="bi bi-floppy-fill me-1" aria-hidden="true"></i>Save</button>
+        <p class="text-muted small mt-2 mb-0">Save changes via the toolbar above.</p>
 
         @if (_readOnlyHosts?.Count > 0)
         {
@@ -60,10 +59,36 @@ else
     private string AppTitle => AppOptions!.Value!.EffectiveTitle;
     private DnsmasqServiceStatus? _status;
     private List<HostEntry> _entries = new();
+    private List<HostEntry> _originalManagedEntries = new();
     private IReadOnlyList<ReadOnlyHostsFile>? _readOnlyHosts;
     private string? _error;
-    private string? _message;
-    private bool _saving;
+
+    private static List<HostEntry> CloneEntries(IReadOnlyList<HostEntry> entries)
+    {
+        return entries.Select(e => new HostEntry
+        {
+            LineNumber = e.LineNumber,
+            Id = e.Id,
+            Address = e.Address,
+            Names = e.Names != null ? new List<string>(e.Names) : new List<string>(),
+            RawLine = e.RawLine,
+            IsComment = e.IsComment,
+            IsPassthrough = e.IsPassthrough
+        }).ToList();
+    }
+
+    private void SyncManagedHostsDraft()
+    {
+        if (_status == null || string.IsNullOrWhiteSpace(_status.ManagedHostsFilePath))
+            return;
+        var draft = CloneEntries(_entries);
+        var original = CloneEntries(_originalManagedEntries);
+        var pending = new PendingManagedHostsChange(original, draft, _status.ManagedHostsFilePath);
+        if (pending.HasChanges)
+            Session.TrackManagedHostsChange(pending);
+        else
+            Session.RevertManagedHostsChange();
+    }
 
     /// <summary>Returns MarkupString so Blazor renders raw HTML (path + source label).</summary>
     private MarkupString RenderAddnHostsList()
@@ -93,7 +118,7 @@ else
     {
         try
         {
-            _status = await StatusClient.GetStatusAsync();
+            await Load();
             await InvokeAsync(StateHasChanged);
         }
         catch { /* ignore */ }
@@ -102,13 +127,14 @@ else
     private async Task Load()
     {
         _error = null;
-        _message = null;
         try
         {
             _status = await StatusClient.GetStatusAsync();
             var entries = await HostsClient.GetHostsAsync();
             _entries = entries?.ToList() ?? new List<HostEntry>();
+            _originalManagedEntries = CloneEntries(_entries);
             _readOnlyHosts = await HostsClient.GetReadOnlyHostsAsync();
+            SyncManagedHostsDraft();
         }
         catch (Exception ex)
         {
@@ -116,29 +142,4 @@ else
         }
     }
 
-    private async Task Save()
-    {
-        _saving = true;
-        _error = null;
-        _message = null;
-        try
-        {
-            var result = await HostsClient.SaveHostsAsync(_entries);
-            if (result.Reload.Success)
-                _message = "Saved and dnsmasq reloaded.";
-            else if (!string.IsNullOrEmpty(result.Reload.StdErr))
-                _error = "Saved but dnsmasq reload failed: " + result.Reload.StdErr;
-            else
-                _message = "Saved.";
-            _status = await StatusClient.GetStatusAsync();
-        }
-        catch (Exception ex)
-        {
-            _error = ex.Message;
-        }
-        finally
-        {
-            _saving = false;
-        }
-    }
 }

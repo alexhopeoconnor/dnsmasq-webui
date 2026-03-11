@@ -1,3 +1,5 @@
+using DnsmasqWebUI.Infrastructure.Serialization;
+using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata;
 using DnsmasqWebUI.Models.Dhcp;
 using Superpower;
 using Superpower.Model;
@@ -9,9 +11,12 @@ namespace DnsmasqWebUI.Infrastructure.Serialization.Parsers.DnsmasqConfig;
 /// Parses a single <c>dhcp-host=</c> line from a dnsmasq .conf file. Same format as long option without <c>--</c>.
 /// Official format: --dhcp-host=[hwaddr][,id:client_id|*][,set:tag][,tag:tag][,ipaddr][,hostname][,lease_time][,ignore]
 /// Multiple hwaddr allowed (one IP for several MACs). See: https://thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html
+/// Directive text from <see cref="DnsmasqConfKeys.DhcpHost"/> and <see cref="DnsmasqConfText"/>.
 /// </summary>
 public static class DnsmasqConfDhcpHostLineParser
 {
+    private static readonly string OptionName = DnsmasqConfKeys.DhcpHost;
+    private static readonly string DirectivePrefix = DnsmasqConfText.DirectivePrefix(OptionName);
     // Hostname: letter then (letter/digit/_/-)*. Full string.
     private static readonly TextParser<string> HostnameParser =
         Character.Letter.Then(first => (Character.LetterOrDigit.Or(Character.In('_', '-')).Many().Text())
@@ -47,7 +52,7 @@ public static class DnsmasqConfDhcpHostLineParser
 
     // Literal "dhcp-host=" (consumed, value discarded)
     private static readonly TextParser<Unit> DhcpHostTag =
-        ConfParserHelpers.Token(Span.EqualTo("dhcp-host=")).Value(Unit.Value);
+        ConfParserHelpers.Token(Span.EqualTo(DirectivePrefix)).Value(Unit.Value);
 
     // One field: no comma, no # (stops at next comma or trailing comment)
     private static readonly TextParser<string> Field =
@@ -61,19 +66,24 @@ public static class DnsmasqConfDhcpHostLineParser
             .Select(s => (string?)s).OptionalOrDefault(null)
         select (fields.ToList(), string.IsNullOrEmpty(comment) ? null : comment.Trim());
 
-    // Full line: optional ##/# prefix, "dhcp-host=", comma-separated fields, optional # comment
+    // Optional ## or # at start of value (after "dhcp-host=") for value-level comment/deleted (e.g. "dhcp-host=#mac,addr")
+    private static readonly TextParser<(bool isComment, bool isDeleted)> ValueLevelPrefix =
+        Character.EqualTo('#').Repeat(2).Select(_ => (true, true)).Try()
+            .Or(Character.EqualTo('#').Select(_ => (true, false)))
+            .OptionalOrDefault((false, false));
+
+    // Full line: optional ##/# prefix, "dhcp-host=", optional value-level ##/#, comma-separated fields, optional # comment
     private static readonly TextParser<(bool isComment, bool isDeleted, List<string> fields, string? comment)> LineParser =
         from prefix in Prefix
         from _ in DhcpHostTag
+        from valuePrefix in ValueLevelPrefix
         from fc in FieldsAndComment
-        select (prefix.isComment, prefix.isDeleted, fc.fields, fc.comment);
+        select (prefix.isComment || valuePrefix.isComment, prefix.isDeleted || valuePrefix.isDeleted, fc.fields, fc.comment);
 
     public static DhcpHostEntry? ParseLine(string line, int lineNumber)
     {
         var remain = line.Trim();
-        if (!remain.StartsWith("dhcp-host=", StringComparison.Ordinal) &&
-            !remain.StartsWith("#dhcp-host=", StringComparison.Ordinal) &&
-            !remain.StartsWith("##dhcp-host=", StringComparison.Ordinal))
+        if (!DnsmasqConfText.HasDirectivePrefix(OptionName, remain))
             return null;
 
         var result = LineParser.TryParse(remain);
@@ -143,7 +153,7 @@ public static class DnsmasqConfDhcpHostLineParser
         if (h.Ignore)
             parts.Add("ignore");
 
-        var line = prefix + "dhcp-host=" + string.Join(", ", parts);
+        var line = prefix + DnsmasqConfText.DirectivePrefix(OptionName) + string.Join(", ", parts);
         if (!string.IsNullOrEmpty(h.Comment))
             line += " # " + h.Comment;
         return line;

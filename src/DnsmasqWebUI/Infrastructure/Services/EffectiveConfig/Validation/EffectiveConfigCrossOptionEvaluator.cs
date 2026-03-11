@@ -15,7 +15,7 @@ public static class EffectiveConfigCrossOptionEvaluator
     /// </summary>
     public static IReadOnlyList<FieldIssue> Evaluate(
         DnsmasqServiceStatus? status,
-        IReadOnlyList<PendingEffectiveConfigChange> pending)
+        IReadOnlyList<PendingOptionChange> pending)
     {
         var issues = new List<FieldIssue>();
 
@@ -50,7 +50,7 @@ public static class EffectiveConfigCrossOptionEvaluator
 
     private static bool GetEffectiveBool(
         DnsmasqServiceStatus? status,
-        IReadOnlyList<PendingEffectiveConfigChange>? pending,
+        IReadOnlyList<PendingOptionChange>? pending,
         string optionName,
         Func<DnsmasqServiceStatus?, bool> fromConfig)
     {
@@ -66,7 +66,7 @@ public static class EffectiveConfigCrossOptionEvaluator
 
     private static int? GetEffectiveInt(
         DnsmasqServiceStatus? status,
-        IReadOnlyList<PendingEffectiveConfigChange>? pending,
+        IReadOnlyList<PendingOptionChange>? pending,
         string optionName,
         Func<DnsmasqServiceStatus?, int?> fromConfig)
     {
@@ -80,7 +80,7 @@ public static class EffectiveConfigCrossOptionEvaluator
         return fromConfig(status);
     }
 
-    private static IReadOnlyList<string>? GetEffectiveServerValues(DnsmasqServiceStatus? status, IReadOnlyList<PendingEffectiveConfigChange> pending)
+    private static IReadOnlyList<string>? GetEffectiveServerValues(DnsmasqServiceStatus? status, IReadOnlyList<PendingOptionChange> pending)
     {
         var fromConfig = status?.EffectiveConfig?.ServerValues;
         var pendingChange = pending?.FirstOrDefault(c =>

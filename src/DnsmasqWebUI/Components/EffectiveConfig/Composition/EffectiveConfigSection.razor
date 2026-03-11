@@ -5,6 +5,7 @@
 @using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Validation
 @inject IEffectiveConfigEditSession Session
 @inject IJSRuntime JSRuntime
+@implements IDisposable
 
 @if (Status != null)
 {
@@ -58,6 +59,7 @@
 
     protected override void OnInitialized()
     {
+        Session.Changed += HandleSessionChanged;
         _uiContext = new EffectiveConfigUiContext
         {
             RequestOptionHelpAsync = HandleOptionHelpRequested,
@@ -72,6 +74,13 @@
             CommitFieldAsync = args => { HandleFieldEditCommitted(args); return Task.CompletedTask; },
             RevertFieldAsync = (sectionId, optionName) => { Session.RevertChange(sectionId, optionName); RunCrossOptionEvaluator(); return InvokeAsync(StateHasChanged); }
         };
+    }
+
+    private void HandleSessionChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Session.Changed -= HandleSessionChanged;
     }
 
     private async Task OnSearchTermChanged(string value)
@@ -191,7 +200,8 @@
 
     private void RunCrossOptionEvaluator()
     {
-        var issues = EffectiveConfigCrossOptionEvaluator.Evaluate(Status, Session.PendingChanges);
+        var optionChanges = Session.PendingChanges.OfType<PendingOptionChange>().ToList();
+        var issues = EffectiveConfigCrossOptionEvaluator.Evaluate(Status, optionChanges);
         Session.SetCrossOptionIssues(issues);
     }
 

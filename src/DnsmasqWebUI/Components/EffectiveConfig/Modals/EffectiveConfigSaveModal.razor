@@ -24,13 +24,19 @@
                         <div class="alert alert-danger mb-3 d-flex align-items-center gap-2 ec-save-modal-alert">
                             <i class="bi bi-exclamation-triangle-fill ec-save-modal-alert-icon" aria-hidden="true"></i>
                             <div class="ec-save-modal-alert-text">
-                                <strong>Config was saved, but validation failed.</strong> Restart was not attempted. You can restore the backup or keep editing.
+                                <strong>Changes were saved, but validation failed.</strong> Restart was not attempted. You can restore the backups or keep editing.
                             </div>
                         </div>
-                        @if (SaveResult.BackupPath != null)
+                        @if (SaveResult.Backups.Count > 0)
                         {
-                            <p class="ec-save-modal-backup-path mb-2">
-                                <span class="text-muted">Backup:</span> <code class="small ec-save-modal-backup-code">@SaveResult.BackupPath</code>
+                            <p class="ec-save-modal-backups mb-2">
+                                <span class="text-muted">Backups created:</span>
+                                <ul class="small ec-save-modal-backup-list mb-0 mt-1">
+                                    @foreach (var b in SaveResult.Backups)
+                                    {
+                                        <li><code class="ec-save-modal-backup-code">@System.IO.Path.GetFileName(b.TargetPath)</code> → <code class="ec-save-modal-backup-code">@System.IO.Path.GetFileName(b.BackupPath)</code></li>
+                                    }
+                                </ul>
                             </p>
                         }
                         <div class="ec-save-modal-stderr mb-3">
@@ -41,11 +47,25 @@
                 }
                 else if (SaveState == EffectiveConfigSaveFlow.SaveUiState.WriteFailed && SaveResult != null)
                 {
-                    <div class="alert alert-danger mb-0">
-                        <strong>Save failed.</strong> @SaveResult.UserMessage
-                        @if (!string.IsNullOrEmpty(SaveResult.RestartStdErr))
+                    <div class="ec-save-modal-reload-failed">
+                        <div class="alert alert-danger mb-3 d-flex align-items-center gap-2 ec-save-modal-alert">
+                            <i class="bi bi-exclamation-triangle-fill ec-save-modal-alert-icon" aria-hidden="true"></i>
+                            <div class="ec-save-modal-alert-text">
+                                <strong>Save failed.</strong> @SaveResult.UserMessage
+                                @(SaveResult.Backups?.Count > 0 ? " You can restore the backups to revert any partial write, or continue editing." : "")
+                            </div>
+                        </div>
+                        @if (SaveResult.Backups?.Count > 0)
                         {
-                            <pre class="ec-save-modal-pre border rounded p-2 bg-light small mt-2 mb-0">@SaveResult.RestartStdErr</pre>
+                            <p class="ec-save-modal-backups mb-2">
+                                <span class="text-muted">Backups created:</span>
+                                <ul class="small ec-save-modal-backup-list mb-0 mt-1">
+                                    @foreach (var b in SaveResult.Backups)
+                                    {
+                                        <li><code class="ec-save-modal-backup-code">@System.IO.Path.GetFileName(b.TargetPath)</code> → <code class="ec-save-modal-backup-code">@System.IO.Path.GetFileName(b.BackupPath)</code></li>
+                                    }
+                                </ul>
+                            </p>
                         }
                     </div>
                 }
@@ -55,13 +75,19 @@
                         <div class="alert alert-danger mb-3 d-flex align-items-center gap-2 ec-save-modal-alert">
                             <i class="bi bi-exclamation-triangle-fill ec-save-modal-alert-icon" aria-hidden="true"></i>
                             <div class="ec-save-modal-alert-text">
-                                <strong>Config was saved, but the restart command failed.</strong> You can restore the backup or keep editing.
+                                <strong>Changes were saved, but the restart command failed.</strong> You can restore the backups or keep editing.
                             </div>
                         </div>
-                        @if (SaveResult.BackupPath != null)
+                        @if (SaveResult.Backups.Count > 0)
                         {
-                            <p class="ec-save-modal-backup-path mb-2">
-                                <span class="text-muted">Backup:</span> <code class="small ec-save-modal-backup-code">@SaveResult.BackupPath</code>
+                            <p class="ec-save-modal-backups mb-2">
+                                <span class="text-muted">Backups created:</span>
+                                <ul class="small ec-save-modal-backup-list mb-0 mt-1">
+                                    @foreach (var b in SaveResult.Backups)
+                                    {
+                                        <li><code class="ec-save-modal-backup-code">@System.IO.Path.GetFileName(b.TargetPath)</code> → <code class="ec-save-modal-backup-code">@System.IO.Path.GetFileName(b.BackupPath)</code></li>
+                                    }
+                                </ul>
                             </p>
                         }
                         <div class="ec-save-modal-stderr mb-3">
@@ -115,10 +141,16 @@
                         </div>
                     }
                     <p class="text-muted mb-3">These changes will be written to your config. Remove any you don't want to keep.</p>
-                    @if (ManagedFilePath != null)
+                    @if (TargetFileNames.Count > 0)
                     {
-                        <p class="ec-save-modal-target mb-3">
-                            <span class="text-muted">Target file:</span> <code class="small">@ManagedFilePath</code>
+                        <p class="ec-save-modal-targets mb-3">
+                            <span class="text-muted">Targets:</span>
+                            <ul class="small mb-0 mt-1">
+                                @foreach (var name in TargetFileNames)
+                                {
+                                    <li><code class="small">@name</code></li>
+                                }
+                            </ul>
                         </p>
                     }
                     @if (PendingChanges.Count == 0)
@@ -132,79 +164,96 @@
                         <div class="ec-save-modal-changes list-group list-group-flush">
                             @foreach (var c in PendingChanges)
                             {
-                                var change = c;
-                                var oldList = AsStringList(change.OldValue);
-                                var newList = AsStringList(change.NewValue);
-                                var isMultiValue = oldList != null || newList != null;
-                                <div class="list-group-item ec-save-modal-item d-flex align-items-start gap-3 py-3 px-0 border-0 border-bottom">
-                                    <div class="ec-save-modal-item-body flex-grow-1 min-width-0">
-                                        <div class="d-flex align-items-center gap-2">
-                                            <StatusBadge Kind="StatusBadgeKind.NeutralPill" Text="@change.OptionName" Class="ec-save-modal-option me-2" />
-                                            @if (!isMultiValue)
-                                            {
-                                                <span class="ec-save-modal-diff text-body">
-                                                    <span class="text-muted text-decoration-line-through">@FormatValue(change.OldValue, change.OptionName)</span>
-                                                    <span class="text-muted mx-1" aria-hidden="true">→</span>
-                                                    <span>@FormatValue(change.NewValue, change.OptionName)</span>
-                                                </span>
-                                            }
-                                        </div>
-                                        @if (isMultiValue)
-                                        {
-                                            var oldSeq = oldList ?? Array.Empty<string>();
-                                            var newSeq = newList ?? Array.Empty<string>();
-                                            var added = newSeq.Except(oldSeq).ToList();
-                                            var removed = oldSeq.Except(newSeq).ToList();
-                                            var orderOrDuplicatesChanged = added.Count == 0 && removed.Count == 0 && !oldSeq.SequenceEqual(newSeq, StringComparer.Ordinal);
-                                            <div class="ec-save-modal-multidiff ps-3 mt-1 small">
-                                                @if (orderOrDuplicatesChanged)
+                                @if (c is PendingOptionChange change)
+                                {
+                                    var oldList = AsStringList(change.OldValue);
+                                    var newList = AsStringList(change.NewValue);
+                                    var isMultiValue = oldList != null || newList != null;
+                                    <div class="list-group-item ec-save-modal-item d-flex align-items-start gap-3 py-3 px-0 border-0 border-bottom">
+                                        <div class="ec-save-modal-item-body flex-grow-1 min-width-0">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <StatusBadge Kind="StatusBadgeKind.NeutralPill" Text="@change.OptionName" Class="ec-save-modal-option me-2" />
+                                                @if (!isMultiValue)
                                                 {
-                                                    <div class="text-muted">Order or duplicates changed:</div>
-                                                    <div class="text-muted text-decoration-line-through">Before: @string.Join(", ", oldSeq)</div>
-                                                    <div class="text-success">After: @string.Join(", ", newSeq)</div>
-                                                }
-                                                else
-                                                {
-                                                    @foreach (var val in removed)
-                                                    {
-                                                        <div class="text-muted text-decoration-line-through">− @val</div>
-                                                    }
-                                                    @foreach (var val in added)
-                                                    {
-                                                        <div class="text-success">+ @val</div>
-                                                    }
+                                                    <span class="ec-save-modal-diff text-body">
+                                                        <span class="text-muted text-decoration-line-through">@FormatValue(change.OldValue, change.OptionName)</span>
+                                                        <span class="text-muted mx-1" aria-hidden="true">→</span>
+                                                        <span>@FormatValue(change.NewValue, change.OptionName)</span>
+                                                    </span>
                                                 }
                                             </div>
-                                        }
-                                        @if (change.CurrentSourceFilePath != null)
-                                        {
-                                            <div class="ec-save-modal-override small text-muted mt-1">Overrides @System.IO.Path.GetFileName(change.CurrentSourceFilePath)</div>
-                                        }
+                                            @if (isMultiValue)
+                                            {
+                                                var oldSeq = oldList ?? Array.Empty<string>();
+                                                var newSeq = newList ?? Array.Empty<string>();
+                                                var added = newSeq.Except(oldSeq).ToList();
+                                                var removed = oldSeq.Except(newSeq).ToList();
+                                                var orderOrDuplicatesChanged = added.Count == 0 && removed.Count == 0 && !oldSeq.SequenceEqual(newSeq, StringComparer.Ordinal);
+                                                <div class="ec-save-modal-multidiff ps-3 mt-1 small">
+                                                    @if (orderOrDuplicatesChanged)
+                                                    {
+                                                        <div class="text-muted">Order or duplicates changed:</div>
+                                                        <div class="text-muted text-decoration-line-through">Before: @string.Join(", ", oldSeq)</div>
+                                                        <div class="text-success">After: @string.Join(", ", newSeq)</div>
+                                                    }
+                                                    else
+                                                    {
+                                                        @foreach (var val in removed)
+                                                        {
+                                                            <div class="text-muted text-decoration-line-through">− @val</div>
+                                                        }
+                                                        @foreach (var val in added)
+                                                        {
+                                                            <div class="text-success">+ @val</div>
+                                                        }
+                                                    }
+                                                </div>
+                                            }
+                                            @if (change.CurrentSourceFilePath != null)
+                                            {
+                                                <div class="ec-save-modal-override small text-muted mt-1">Overrides @System.IO.Path.GetFileName(change.CurrentSourceFilePath)</div>
+                                            }
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-danger flex-shrink-0" @onclick="() => RevertOption(change)" title="Revert this change" aria-label="Revert @change.OptionName">
+                                            <i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Revert
+                                        </button>
                                     </div>
-                                    <button type="button" class="btn btn-sm btn-outline-danger flex-shrink-0" @onclick="() => Revert(change)" title="Revert this change" aria-label="Revert @change.OptionName">
-                                        <i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Revert
-                                    </button>
-                                </div>
+                                }
+                                else if (c is PendingManagedHostsChange hostChange)
+                                {
+                                    <div class="list-group-item ec-save-modal-item d-flex align-items-start gap-3 py-3 px-0 border-0 border-bottom">
+                                        <div class="ec-save-modal-item-body flex-grow-1 min-width-0">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <StatusBadge Kind="StatusBadgeKind.NeutralPill" Text="Managed hosts" Class="ec-save-modal-option me-2" />
+                                                <span class="ec-save-modal-diff text-body">@hostChange.OldEntries.Count entries → @hostChange.NewEntries.Count entries</span>
+                                            </div>
+                                            <div class="small text-muted mt-1">@System.IO.Path.GetFileName(hostChange.ManagedHostsFilePath)</div>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-danger flex-shrink-0" @onclick="RevertManagedHosts" title="Revert managed hosts change" aria-label="Revert managed hosts">
+                                            <i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Revert
+                                        </button>
+                                    </div>
+                                }
                             }
                         </div>
                     }
                 }
             </div>
             <div class="modal-footer ec-save-modal-footer">
-                @if ((SaveState == EffectiveConfigSaveFlow.SaveUiState.ReloadFailed || SaveState == EffectiveConfigSaveFlow.SaveUiState.ValidateFailed) && SaveResult?.BackupPath != null)
+                @if ((SaveState == EffectiveConfigSaveFlow.SaveUiState.ReloadFailed || SaveState == EffectiveConfigSaveFlow.SaveUiState.ValidateFailed || SaveState == EffectiveConfigSaveFlow.SaveUiState.WriteFailed) && SaveResult?.Backups?.Count > 0)
                 {
-                    <button type="button" class="btn btn-primary" @onclick="() => Restore(SaveResult.BackupPath)"><i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Restore backup</button>
+                    <button type="button" class="btn btn-primary" @onclick="RestoreAll"><i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Restore backups</button>
                     <button type="button" class="btn btn-outline-warning" @onclick="ContinueEditing"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Continue editing</button>
-                    <button type="button" class="btn btn-danger" @onclick="CloseAndEndEdit"><i class="bi bi-x-circle me-1" aria-hidden="true"></i>Stop editing</button>
-                }
-                else if (SaveState == EffectiveConfigSaveFlow.SaveUiState.RestoreFailed)
-                {
-                    <button type="button" class="btn btn-outline-warning" @onclick="Close"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Continue editing</button>
                     <button type="button" class="btn btn-danger" @onclick="CloseAndEndEdit"><i class="bi bi-x-circle me-1" aria-hidden="true"></i>Stop editing</button>
                 }
                 else if (SaveState == EffectiveConfigSaveFlow.SaveUiState.WriteFailed)
                 {
                     <button type="button" class="btn btn-outline-warning" @onclick="Close"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Continue editing</button>
+                }
+                else if (SaveState == EffectiveConfigSaveFlow.SaveUiState.RestoreFailed)
+                {
+                    <button type="button" class="btn btn-outline-warning" @onclick="Close"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Continue editing</button>
+                    <button type="button" class="btn btn-danger" @onclick="CloseAndEndEdit"><i class="bi bi-x-circle me-1" aria-hidden="true"></i>Stop editing</button>
                 }
                 else if (SaveState != EffectiveConfigSaveFlow.SaveUiState.Saving && SaveState != EffectiveConfigSaveFlow.SaveUiState.RestoreInProgress)
                 {
@@ -218,7 +267,7 @@
 </div>
 
 @code {
-    [Parameter] public IReadOnlyList<PendingEffectiveConfigChange> PendingChanges { get; set; } = null!;
+    [Parameter] public IReadOnlyList<PendingDnsmasqChange> PendingChanges { get; set; } = null!;
     [Parameter] public DnsmasqServiceStatus? Status { get; set; }
     [Parameter] public IEffectiveConfigEditSession Session { get; set; } = null!;
     [Parameter] public EffectiveConfigSaveFlow.SaveUiState SaveState { get; set; }
@@ -227,13 +276,26 @@
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback OnContinueEditing { get; set; }
     [Parameter] public EventCallback OnSave { get; set; }
-    [Parameter] public EventCallback<string> OnRestore { get; set; }
+    [Parameter] public EventCallback<IReadOnlyList<DnsmasqManagedBackup>> OnRestore { get; set; }
     [Parameter] public EventCallback OnReverted { get; set; }
     [Parameter] public EventCallback OnCloseAndEndEdit { get; set; }
 
     private bool AllowClose => SaveState != EffectiveConfigSaveFlow.SaveUiState.Saving && SaveState != EffectiveConfigSaveFlow.SaveUiState.RestoreInProgress;
 
-    private string? ManagedFilePath => Status?.ManagedFilePath;
+    private IReadOnlyList<string> TargetFileNames => GetTargetFileNames();
+
+    private IReadOnlyList<string> GetTargetFileNames()
+    {
+        var list = new List<string>();
+        if (Status == null) return list;
+        var hasOptions = PendingChanges.OfType<PendingOptionChange>().Any();
+        if (hasOptions && !string.IsNullOrEmpty(Status.ManagedFilePath))
+            list.Add(System.IO.Path.GetFileName(Status.ManagedFilePath));
+        var hostsChange = PendingChanges.OfType<PendingManagedHostsChange>().FirstOrDefault();
+        if (hostsChange != null)
+            list.Add(System.IO.Path.GetFileName(hostsChange.ManagedHostsFilePath));
+        return list;
+    }
 
     private IReadOnlyList<FieldIssue> ValidationErrors => Session.GetValidationSummary().Where(i => i.Severity == FieldIssueSeverity.Error).ToList();
     private IReadOnlyList<FieldIssue> ValidationWarnings => Session.GetValidationSummary().Where(i => i.Severity == FieldIssueSeverity.Warning).ToList();
@@ -300,9 +362,15 @@
         return s;
     }
 
-    private async Task Revert(PendingEffectiveConfigChange change)
+    private async Task RevertOption(PendingOptionChange change)
     {
         Session.RevertChange(change.SectionId, change.OptionName);
+        await OnReverted.InvokeAsync();
+    }
+
+    private async Task RevertManagedHosts()
+    {
+        Session.RevertManagedHostsChange();
         await OnReverted.InvokeAsync();
     }
 
@@ -329,9 +397,10 @@
         await OnSave.InvokeAsync();
     }
 
-    private async Task Restore(string backupPath)
+    private async Task RestoreAll()
     {
-        await OnRestore.InvokeAsync(backupPath);
+        if (SaveResult == null || SaveResult.Backups.Count == 0) return;
+        await OnRestore.InvokeAsync(SaveResult.Backups);
     }
 
     private async Task CloseAndEndEdit()

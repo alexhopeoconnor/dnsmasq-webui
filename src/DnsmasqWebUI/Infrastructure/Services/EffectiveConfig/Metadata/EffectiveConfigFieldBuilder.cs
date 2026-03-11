@@ -1,3 +1,4 @@
+using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Rendering.Abstractions;
 using DnsmasqWebUI.Models.Dnsmasq;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
@@ -6,9 +7,17 @@ namespace DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata;
 
 /// <summary>
 /// Builds field descriptors for viewing and editing. Mapping is done once here via delegates passed to each descriptor.
+/// Full graph is built via DI so the registry dependency remains explicit.
 /// </summary>
-public static class EffectiveConfigFieldBuilder
+public sealed class EffectiveConfigFieldBuilder : IEffectiveConfigFieldBuilder
 {
+    private readonly IEffectiveConfigRenderFragmentRegistry _registry;
+
+    public EffectiveConfigFieldBuilder(IEffectiveConfigRenderFragmentRegistry registry)
+    {
+        _registry = registry ?? throw new ArgumentNullException(nameof(registry));
+    }
+
     private static EffectiveDnsmasqConfig? Config(DnsmasqServiceStatus? s) => s?.EffectiveConfig;
     private static EffectiveConfigSources? Sources(DnsmasqServiceStatus? s) => s?.EffectiveConfigSources;
 
@@ -28,27 +37,18 @@ public static class EffectiveConfigFieldBuilder
         };
     }
 
-    /// <summary>Section IDs for use by registry/views. Prefer EffectiveConfigSections for section list and option→section mapping.</summary>
-    public static string SectionHosts => EffectiveConfigSections.SectionHosts;
-    public static string SectionResolver => EffectiveConfigSections.SectionResolver;
-    public static string SectionDnsRecords => EffectiveConfigSections.SectionDnsRecords;
-    public static string SectionDhcp => EffectiveConfigSections.SectionDhcp;
-    public static string SectionTftpPxe => EffectiveConfigSections.SectionTftpPxe;
-    public static string SectionDnssec => EffectiveConfigSections.SectionDnssec;
-    public static string SectionCache => EffectiveConfigSections.SectionCache;
-    public static string SectionProcess => EffectiveConfigSections.SectionProcess;
-
-    public static IReadOnlyList<EffectiveConfigFieldDescriptor> BuildFieldDescriptors(DnsmasqServiceStatus? status, IEffectiveConfigRenderFragmentRegistry? registry = null)
+    /// <inheritdoc />
+    public IReadOnlyList<EffectiveConfigFieldDescriptor> BuildFieldDescriptors(DnsmasqServiceStatus status)
     {
         if (status == null || status.EffectiveConfig == null)
             return Array.Empty<EffectiveConfigFieldDescriptor>();
 
         var list = new List<EffectiveConfigFieldDescriptor>();
-        AddAllDescriptors(list, status, registry);
+        AddAllDescriptors(list, status, _registry);
         return list;
     }
 
-    private static void AddAllDescriptors(List<EffectiveConfigFieldDescriptor> list, DnsmasqServiceStatus? status, IEffectiveConfigRenderFragmentRegistry? registry)
+    private static void AddAllDescriptors(List<EffectiveConfigFieldDescriptor> list, DnsmasqServiceStatus? status, IEffectiveConfigRenderFragmentRegistry registry)
     {
         // Hosts
         list.AddDescriptor(registry, DnsmasqConfKeys.NoHosts, status, s => Config(s)?.NoHosts, s => Sources(s)?.NoHosts, null);

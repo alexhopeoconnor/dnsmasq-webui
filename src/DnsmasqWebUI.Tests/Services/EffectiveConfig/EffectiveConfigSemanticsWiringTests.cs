@@ -16,9 +16,9 @@ public class EffectiveConfigSemanticsWiringTests
     public void Registry_WiresSemanticValidator_ForDnsRr()
     {
         var registry = new EffectiveConfigRenderFragmentRegistry(new OptionSemanticValidator([new DnsRrSemanticHandler()]));
-        var factory = registry.GetMultiDescriptorFactory(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.DnsRr);
+        var factory = registry.GetMultiDescriptorFactory(EffectiveConfigSections.SectionDnsRecords, DnsmasqConfKeys.DnsRr);
         Assert.NotNull(factory);
-        var descriptor = factory!(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.DnsRr, status: null, getItems: _ => null);
+        var descriptor = factory!(EffectiveConfigSections.SectionDnsRecords, DnsmasqConfKeys.DnsRr, status: null, getItems: _ => null);
         Assert.NotNull(descriptor.Validator);
         Assert.Null(descriptor.Validator!.ValidateItem("example.com,16,01:02", Array.Empty<string>()));
         Assert.NotNull(descriptor.Validator.ValidateItem("example.com,not-a-number", Array.Empty<string>()));
@@ -28,11 +28,11 @@ public class EffectiveConfigSemanticsWiringTests
     public void Registry_WiresLeasequeryMultiValidator_FromSpecialSemantics()
     {
         var registry = new EffectiveConfigRenderFragmentRegistry(new OptionSemanticValidator([new LeasequerySemanticHandler()]));
-        var factory = registry.GetMultiDescriptorFactory(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.Leasequery);
+        var factory = registry.GetMultiDescriptorFactory(EffectiveConfigSections.SectionDhcp, DnsmasqConfKeys.Leasequery);
         Assert.NotNull(factory);
 
         var descriptor = factory!(
-            EffectiveConfigFieldBuilder.SectionDhcp,
+            EffectiveConfigSections.SectionDhcp,
             DnsmasqConfKeys.Leasequery,
             status: null,
             getItems: _ => null);

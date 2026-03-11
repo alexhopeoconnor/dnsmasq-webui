@@ -18,7 +18,7 @@
         OnClose="@OnClose"
         OnContinueEditing="@(EventCallback.Factory.Create(this, HandleContinueEditing))"
         OnSave="@HandleSave"
-        OnRestore="@HandleRestore"
+        OnRestore="@HandleRestoreBackups"
         OnReverted="@HandleReverted"
         OnCloseAndEndEdit="@HandleCloseAndEndEdit" />
 }
@@ -36,7 +36,7 @@
     }
 
     [Parameter] public bool ShowModal { get; set; }
-    [Parameter] public IReadOnlyList<PendingEffectiveConfigChange> PendingChanges { get; set; } = null!;
+    [Parameter] public IReadOnlyList<PendingDnsmasqChange> PendingChanges { get; set; } = null!;
     [Parameter] public DnsmasqServiceStatus? Status { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
     /// <summary>Invoked when the modal reverts a change so the parent can re-run validation (e.g. cross-option evaluator).</summary>
@@ -107,15 +107,15 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    private async Task HandleRestore(string backupPath)
+    private async Task HandleRestoreBackups(IReadOnlyList<DnsmasqManagedBackup> backups)
     {
-        if (string.IsNullOrEmpty(backupPath)) return;
+        if (backups == null || backups.Count == 0) return;
 
         _saveState = SaveUiState.RestoreInProgress;
         _restoreResult = null;
         await InvokeAsync(StateHasChanged);
 
-        var result = await SaveService.RestoreAsync(backupPath);
+        var result = await SaveService.RestoreAsync(backups);
 
         _restoreResult = result;
         if (result.Restored && result.Restarted)

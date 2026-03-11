@@ -1,8 +1,10 @@
 using System.Text;
 using DnsmasqWebUI.Infrastructure.Helpers.Config;
-using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata;
+using DnsmasqWebUI.Infrastructure.Serialization;
+using DnsmasqWebUI.Infrastructure.Serialization.Abstractions;
 using DnsmasqWebUI.Infrastructure.Serialization.Parsers.DnsmasqConfig;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Config.Abstractions;
+using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata;
 using DnsmasqWebUI.Models.Config;
 using DnsmasqWebUI.Models.Contracts;
 using DnsmasqWebUI.Models.Dhcp;
@@ -16,12 +18,18 @@ public class DnsmasqConfigService : IDnsmasqConfigService
 {
     private readonly IDnsmasqConfigSetService _configSetService;
     private readonly IConfigSetCache _configSetCache;
+    private readonly IEffectiveConfigDirectiveSerializer _directiveSerializer;
     private readonly ILogger<DnsmasqConfigService> _logger;
 
-    public DnsmasqConfigService(IDnsmasqConfigSetService configSetService, IConfigSetCache configSetCache, ILogger<DnsmasqConfigService> logger)
+    public DnsmasqConfigService(
+        IDnsmasqConfigSetService configSetService,
+        IConfigSetCache configSetCache,
+        ILogger<DnsmasqConfigService> logger,
+        IEffectiveConfigDirectiveSerializer? directiveSerializer = null)
     {
         _configSetService = configSetService;
         _configSetCache = configSetCache;
+        _directiveSerializer = directiveSerializer ?? new EffectiveConfigDirectiveSerializer();
         _logger = logger;
     }
 
@@ -104,13 +112,21 @@ public class DnsmasqConfigService : IDnsmasqConfigService
 
         if (matchingIndices.Count == 0)
         {
-            configLines.Insert(0, lineFactory?.Invoke(1) ?? new OtherLine { LineNumber = 1, RawLine = $"{key}={value}" });
+            configLines.Insert(0, lineFactory?.Invoke(1) ?? new OtherLine
+            {
+                LineNumber = 1,
+                RawLine = DnsmasqConfText.DirectiveLine(key, value)
+            });
             return;
         }
 
         var keepIdx = matchingIndices[0];
         var keepLineNumber = configLines[keepIdx].LineNumber;
-        configLines[keepIdx] = lineFactory?.Invoke(keepLineNumber) ?? new OtherLine { LineNumber = keepLineNumber, RawLine = $"{key}={value}" };
+        configLines[keepIdx] = lineFactory?.Invoke(keepLineNumber) ?? new OtherLine
+        {
+            LineNumber = keepLineNumber,
+            RawLine = DnsmasqConfText.DirectiveLine(key, value)
+        };
         for (var i = matchingIndices.Count - 1; i >= 1; i--)
             configLines.RemoveAt(matchingIndices[i]);
     }
@@ -248,7 +264,7 @@ public class DnsmasqConfigService : IDnsmasqConfigService
                 var value = c.NewValue as string;
                 if (value is null)
                     continue;
-                var lineText = value.Length == 0 ? confKey : $"{confKey}={value.Trim()}";
+                var lineText = _directiveSerializer.SerializeSingle(confKey, value.Trim());
                 list.Add(new OtherLine { LineNumber = maxLineNumber + 1, RawLine = lineText });
                 maxLineNumber++;
                 continue;
@@ -259,9 +275,8 @@ public class DnsmasqConfigService : IDnsmasqConfigService
                 IReadOnlyList<string> readonlyValues = readonlyByOption.TryGetValue(confKey, out var listValues) ? listValues : Array.Empty<string>();
                 var valuesToWrite = FilterManagedOnly(multiKeyOnlyValues, readonlyValues);
                 RemoveAllMatchingLines(list, MatchesOption);
-                foreach (var v in valuesToWrite)
+                foreach (var raw in _directiveSerializer.SerializeMulti(confKey, valuesToWrite.Select(v => v.Trim()).ToList()))
                 {
-                    var raw = string.IsNullOrEmpty(v) ? confKey : $"{confKey}={v.Trim()}";
                     list.Add(new OtherLine { LineNumber = ++maxLineNumber, RawLine = raw });
                 }
                 continue;
@@ -303,11 +318,10 @@ public class DnsmasqConfigService : IDnsmasqConfigService
                 for (var i = matchingIndices.Count - 1; i >= 0; i--)
                     list.RemoveAt(matchingIndices[i]);
                 var insertIdx = matchingIndices.Count > 0 ? matchingIndices[0] : list.Count;
-                for (var i = 0; i < valuesToWrite.Count; i++)
+                var serialized = _directiveSerializer.SerializeMulti(confKey, valuesToWrite.Select(v => v.Trim()).ToList());
+                for (var i = 0; i < serialized.Count; i++)
                 {
-                    var lineKey = confKey;
-                    var lineText = string.IsNullOrEmpty(valuesToWrite[i]) ? lineKey : lineKey + "=" + valuesToWrite[i];
-                    var lineObj = new OtherLine { LineNumber = maxLineNumber + 1, RawLine = lineText };
+                    var lineObj = new OtherLine { LineNumber = maxLineNumber + 1, RawLine = serialized[i] };
                     maxLineNumber++;
                     list.Insert(insertIdx + i, lineObj);
                 }
@@ -320,23 +334,18 @@ public class DnsmasqConfigService : IDnsmasqConfigService
                 if (idx >= 0) list.RemoveAt(idx);
                 continue;
             }
-            if (!isFlag)
+            if (writeBehavior == EffectiveConfigWriteBehavior.SingleValue &&
+                string.IsNullOrWhiteSpace(c.NewValue?.ToString()))
             {
-                var v = ToConfValue(c.NewValue);
-                if (string.IsNullOrWhiteSpace(v))
-                {
-                    // Non-flag option with no value: remove existing line if any; never write key-only (malformed).
-                    if (idx >= 0) list.RemoveAt(idx);
-                    continue;
-                }
+                if (idx >= 0) list.RemoveAt(idx);
+                continue;
             }
-            string rawLine;
-            if (isFlag)
-                rawLine = confKey;
-            else
+
+            var rawLine = _directiveSerializer.SerializeSingle(confKey, c.NewValue);
+            if (string.IsNullOrWhiteSpace(rawLine))
             {
-                var v = ToConfValue(c.NewValue).Trim();
-                rawLine = confKey + "=" + v;
+                if (idx >= 0) list.RemoveAt(idx);
+                continue;
             }
             var newLine = new OtherLine { LineNumber = maxLineNumber + 1, RawLine = rawLine };
             maxLineNumber++;
@@ -432,15 +441,6 @@ public class DnsmasqConfigService : IDnsmasqConfigService
             return true;
         }
         return false;
-    }
-
-    private static string ToConfValue(object? value)
-    {
-        if (value == null) return "";
-        if (value is bool b) return b ? "1" : "0";
-        if (value is IReadOnlyList<string> list)
-            return string.Join(", ", list);
-        return value.ToString() ?? "";
     }
 
     public async Task WriteManagedConfigAsync(IReadOnlyList<DnsmasqConfLine> lines, CancellationToken ct = default)

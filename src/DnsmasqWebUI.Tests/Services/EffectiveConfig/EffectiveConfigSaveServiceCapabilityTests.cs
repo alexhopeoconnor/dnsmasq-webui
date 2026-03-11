@@ -1,7 +1,9 @@
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Config;
+using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Hosts.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Reload.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Validation.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Version.Abstractions;
+using DnsmasqWebUI.Models.Hosts;
 using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig;
 using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata;
 using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Validation;
@@ -43,15 +45,16 @@ public class EffectiveConfigSaveServiceCapabilityTests
                 setService,
                 configService,
                 cache,
+                new StubHostsFileService(),
                 new UnexpectedValidationService(),
                 semanticValidationService,
                 new UnexpectedReloadService(),
                 versionService,
                 NullLogger<EffectiveConfigSaveService>.Instance);
 
-            var changes = new List<PendingEffectiveConfigChange>
+            var changes = new List<PendingDnsmasqChange>
             {
-                new(EffectiveConfigSections.SectionDnssec, DnsmasqConfKeys.DnssecCheckUnsigned, null, "no", null)
+                new PendingOptionChange(EffectiveConfigSections.SectionDnssec, DnsmasqConfKeys.DnssecCheckUnsigned, null, "no", null)
             };
 
             var result = await saveService.SaveAsync(changes);
@@ -106,5 +109,11 @@ public class EffectiveConfigSaveServiceCapabilityTests
     {
         public Task<ReloadResult> ReloadAsync(CancellationToken ct = default) =>
             throw new InvalidOperationException("ReloadAsync should not be called when capabilities are unsupported.");
+    }
+
+    private sealed class StubHostsFileService : IHostsFileService
+    {
+        public Task<IReadOnlyList<HostEntry>> ReadAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<HostEntry>>(new List<HostEntry>());
+        public Task WriteAsync(IReadOnlyList<HostEntry> entries, CancellationToken ct = default) => Task.CompletedTask;
     }
 }

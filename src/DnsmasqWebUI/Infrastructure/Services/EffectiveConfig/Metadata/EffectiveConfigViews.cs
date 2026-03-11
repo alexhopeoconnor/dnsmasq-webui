@@ -1,12 +1,11 @@
-using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Rendering.Abstractions;
-using DnsmasqWebUI.Models.Dnsmasq;
+using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 
 namespace DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata;
 
 /// <summary>
 /// Defines which sections and (optionally) which fields are visible per EffectiveConfigContext.
-/// Single place to add new contexts or change what shows on Hosts/DHCP/etc.
+/// Visibility only; descriptor construction is done by <see cref="IEffectiveConfigDescriptorProvider"/>.
 /// </summary>
 public static class EffectiveConfigViews
 {
@@ -81,34 +80,4 @@ public static class EffectiveConfigViews
             DnsmasqConfKeys.NoRoundRobin,
         ]),
     ];
-
-    /// <summary>
-    /// For each section in the view, returns the context-visible descriptors for that section.
-    /// Does not apply search; component applies search to each section's list and hides sections with no matches.
-    /// </summary>
-    /// <param name="registry">When provided, used to create the correct descriptor type per field (e.g. integer options).</param>
-    public static IReadOnlyDictionary<string, IReadOnlyList<EffectiveConfigFieldDescriptor>> GetDescriptorsBySection(
-        DnsmasqServiceStatus? status,
-        IReadOnlyList<EffectiveConfigSectionView> views,
-        IEffectiveConfigRenderFragmentRegistry? registry = null)
-    {
-        if (status == null || views.Count == 0)
-            return new Dictionary<string, IReadOnlyList<EffectiveConfigFieldDescriptor>>();
-
-        var allDescriptors = EffectiveConfigFieldBuilder.BuildFieldDescriptors(status, registry);
-        var result = new Dictionary<string, List<EffectiveConfigFieldDescriptor>>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var view in views)
-        {
-            var list = allDescriptors
-                .Where(d => string.Equals(d.SectionId, view.SectionId, StringComparison.OrdinalIgnoreCase))
-                .Where(d => view.AllowedOptionNames == null
-                    || view.AllowedOptionNames.Contains(d.OptionName, StringComparer.OrdinalIgnoreCase))
-                .ToList();
-            if (list.Count > 0)
-                result[view.SectionId] = list;
-        }
-
-        return result.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<EffectiveConfigFieldDescriptor>)kv.Value, StringComparer.OrdinalIgnoreCase);
-    }
 }

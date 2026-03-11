@@ -44,36 +44,36 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
 
     private void RegisterCustomSingles()
     {
-        RegisterComponent(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.Port, typeof(PortValueDisplay));
-        RegisterComponent(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.Do0x20Encode, typeof(Do0x20EncodeDisplay));
-        RegisterComponent(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.LogQueries, typeof(LogQueriesDisplay));
-        RegisterComponent(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.LocalService, typeof(LocalServiceDisplay));
+        RegisterComponent(EffectiveConfigSections.SectionResolver, DnsmasqConfKeys.Port, typeof(PortValueDisplay));
+        RegisterComponent(EffectiveConfigSections.SectionResolver, DnsmasqConfKeys.Do0x20Encode, typeof(Do0x20EncodeDisplay));
+        RegisterComponent(EffectiveConfigSections.SectionResolver, DnsmasqConfKeys.LogQueries, typeof(LogQueriesDisplay));
+        RegisterComponent(EffectiveConfigSections.SectionProcess, DnsmasqConfKeys.LocalService, typeof(LocalServiceDisplay));
     }
 
     private void RegisterIntegerDescriptors()
     {
-        RegisterInteger(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.AuthTtl, unit: "seconds");
-        RegisterInteger(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.EdnsPacketMax, max: 65535);
-        RegisterInteger(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.QueryPort, max: 65535, defaultValue: 0);
-        RegisterInteger(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.PortLimit, max: 65535);
-        RegisterInteger(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.MinPort, min: 1, max: 65535);
-        RegisterInteger(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.MaxPort, min: 1, max: 65535);
-        RegisterInteger(EffectiveConfigFieldBuilder.SectionResolver, DnsmasqConfKeys.DnsForwardMax, min: 1);
-        RegisterInteger(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.CacheSize, min: 0);
-        RegisterInteger(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.LocalTtl, unit: "seconds");
-        RegisterInteger(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.NegTtl, unit: "seconds");
-        RegisterInteger(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.MaxTtl, unit: "seconds");
-        RegisterInteger(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.MaxCacheTtl, unit: "seconds");
-        RegisterInteger(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.MinCacheTtl, unit: "seconds");
-        RegisterInteger(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpLeaseMax, min: 0);
-        RegisterInteger(EffectiveConfigFieldBuilder.SectionDhcp, DnsmasqConfKeys.DhcpTtl);
+        RegisterInteger(EffectiveConfigSections.SectionResolver, DnsmasqConfKeys.AuthTtl, unit: "seconds");
+        RegisterInteger(EffectiveConfigSections.SectionResolver, DnsmasqConfKeys.EdnsPacketMax, max: 65535);
+        RegisterInteger(EffectiveConfigSections.SectionResolver, DnsmasqConfKeys.QueryPort, max: 65535, defaultValue: 0);
+        RegisterInteger(EffectiveConfigSections.SectionResolver, DnsmasqConfKeys.PortLimit, max: 65535);
+        RegisterInteger(EffectiveConfigSections.SectionResolver, DnsmasqConfKeys.MinPort, min: 1, max: 65535);
+        RegisterInteger(EffectiveConfigSections.SectionResolver, DnsmasqConfKeys.MaxPort, min: 1, max: 65535);
+        RegisterInteger(EffectiveConfigSections.SectionResolver, DnsmasqConfKeys.DnsForwardMax, min: 1);
+        RegisterInteger(EffectiveConfigSections.SectionCache, DnsmasqConfKeys.CacheSize, min: 0);
+        RegisterInteger(EffectiveConfigSections.SectionCache, DnsmasqConfKeys.LocalTtl, unit: "seconds");
+        RegisterInteger(EffectiveConfigSections.SectionCache, DnsmasqConfKeys.NegTtl, unit: "seconds");
+        RegisterInteger(EffectiveConfigSections.SectionCache, DnsmasqConfKeys.MaxTtl, unit: "seconds");
+        RegisterInteger(EffectiveConfigSections.SectionCache, DnsmasqConfKeys.MaxCacheTtl, unit: "seconds");
+        RegisterInteger(EffectiveConfigSections.SectionCache, DnsmasqConfKeys.MinCacheTtl, unit: "seconds");
+        RegisterInteger(EffectiveConfigSections.SectionDhcp, DnsmasqConfKeys.DhcpLeaseMax, min: 0);
+        RegisterInteger(EffectiveConfigSections.SectionDhcp, DnsmasqConfKeys.DhcpTtl);
     }
 
     private void RegisterFlagDisplays()
     {
-        RegisterFlags(EffectiveConfigFieldBuilder.SectionHosts, DnsmasqConfKeys.NoHosts, DnsmasqConfKeys.ReadEthers);
+        RegisterFlags(EffectiveConfigSections.SectionHosts, DnsmasqConfKeys.NoHosts, DnsmasqConfKeys.ReadEthers);
         RegisterFlags(
-            EffectiveConfigFieldBuilder.SectionResolver,
+            EffectiveConfigSections.SectionResolver,
             DnsmasqConfKeys.ExpandHosts,
             DnsmasqConfKeys.BogusPriv,
             DnsmasqConfKeys.StrictOrder,
@@ -90,7 +90,7 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
             DnsmasqConfKeys.LocaliseQueries,
             DnsmasqConfKeys.NoRoundRobin);
         RegisterFlags(
-            EffectiveConfigFieldBuilder.SectionDhcp,
+            EffectiveConfigSections.SectionDhcp,
             DnsmasqConfKeys.DhcpAuthoritative,
             DnsmasqConfKeys.DhcpRapidCommit,
             DnsmasqConfKeys.LeasefileRo,
@@ -101,25 +101,25 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
             DnsmasqConfKeys.ScriptOnRenewal,
             DnsmasqConfKeys.DhcpNoOverride);
         RegisterFlags(
-            EffectiveConfigFieldBuilder.SectionTftpPxe,
+            EffectiveConfigSections.SectionTftpPxe,
             DnsmasqConfKeys.EnableTftp,
             DnsmasqConfKeys.TftpSecure,
             DnsmasqConfKeys.TftpNoFail,
             DnsmasqConfKeys.TftpNoBlocksize);
-        RegisterFlags(EffectiveConfigFieldBuilder.SectionDnsRecords, DnsmasqConfKeys.Localmx, DnsmasqConfKeys.Selfmx);
+        RegisterFlags(EffectiveConfigSections.SectionDnsRecords, DnsmasqConfKeys.Localmx, DnsmasqConfKeys.Selfmx);
         RegisterFlags(
-            EffectiveConfigFieldBuilder.SectionDnssec,
+            EffectiveConfigSections.SectionDnssec,
             DnsmasqConfKeys.Dnssec,
             DnsmasqConfKeys.ProxyDnssec,
             DnsmasqConfKeys.DnssecNoTimecheck,
             DnsmasqConfKeys.DnssecDebug);
         RegisterFlags(
-            EffectiveConfigFieldBuilder.SectionCache,
+            EffectiveConfigSections.SectionCache,
             DnsmasqConfKeys.NoNegcache,
             DnsmasqConfKeys.StripMac,
             DnsmasqConfKeys.StripSubnet);
         RegisterFlags(
-            EffectiveConfigFieldBuilder.SectionProcess,
+            EffectiveConfigSections.SectionProcess,
             DnsmasqConfKeys.NoPoll,
             DnsmasqConfKeys.BindInterfaces,
             DnsmasqConfKeys.BindDynamic,
@@ -138,22 +138,22 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
     private void RegisterKeyOnlyOrValueDisplays()
     {
         RegisterSemanticSingleComponent(
-            EffectiveConfigFieldBuilder.SectionCache,
+            EffectiveConfigSections.SectionCache,
             typeof(KeyOnlyOrValueDisplay),
             DnsmasqConfKeys.UseStaleCache,
             DnsmasqConfKeys.AddMac,
             DnsmasqConfKeys.AddSubnet,
             DnsmasqConfKeys.Umbrella);
         RegisterSemanticSingleComponent(
-            EffectiveConfigFieldBuilder.SectionResolver,
+            EffectiveConfigSections.SectionResolver,
             typeof(KeyOnlyOrValueDisplay),
             DnsmasqConfKeys.ConnmarkAllowlistEnable);
         RegisterSemanticSingleComponent(
-            EffectiveConfigFieldBuilder.SectionDnssec,
+            EffectiveConfigSections.SectionDnssec,
             typeof(KeyOnlyOrValueDisplay),
             DnsmasqConfKeys.DnssecCheckUnsigned);
         RegisterComponents(
-            EffectiveConfigFieldBuilder.SectionDhcp,
+            EffectiveConfigSections.SectionDhcp,
             typeof(KeyOnlyOrValueDisplay),
             DnsmasqConfKeys.DhcpGenerateNames,
             DnsmasqConfKeys.DhcpBroadcast,
@@ -163,38 +163,38 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
     private void RegisterPathValidatedSingles()
     {
         RegisterSemanticSingles(
-            EffectiveConfigFieldBuilder.SectionHosts,
+            EffectiveConfigSections.SectionHosts,
             DnsmasqConfKeys.Hostsdir);
         RegisterSemanticSingles(
-            EffectiveConfigFieldBuilder.SectionDhcp,
+            EffectiveConfigSections.SectionDhcp,
             DnsmasqConfKeys.DhcpLeasefile,
             DnsmasqConfKeys.DhcpScript,
             DnsmasqConfKeys.DhcpLuascript);
         RegisterSemanticSingles(
-            EffectiveConfigFieldBuilder.SectionTftpPxe,
+            EffectiveConfigSections.SectionTftpPxe,
             DnsmasqConfKeys.TftpRoot);
         RegisterSemanticSingles(
-            EffectiveConfigFieldBuilder.SectionDnssec,
+            EffectiveConfigSections.SectionDnssec,
             DnsmasqConfKeys.DnssecTimestamp);
         RegisterSemanticSingles(
-            EffectiveConfigFieldBuilder.SectionCache,
+            EffectiveConfigSections.SectionCache,
             DnsmasqConfKeys.Dumpfile);
         RegisterSemanticSingles(
-            EffectiveConfigFieldBuilder.SectionProcess,
+            EffectiveConfigSections.SectionProcess,
             DnsmasqConfKeys.PidFile);
     }
 
     private void RegisterMultiValueDescriptors()
     {
         RegisterSemanticMultiDescriptor(
-            EffectiveConfigFieldBuilder.SectionResolver,
+            EffectiveConfigSections.SectionResolver,
             DnsmasqConfKeys.Server,
             behavior: new DistinctMultiValueEditBehavior());
-        RegisterSemanticMultiDescriptor(EffectiveConfigFieldBuilder.SectionProcess, DnsmasqConfKeys.ListenAddress);
+        RegisterSemanticMultiDescriptor(EffectiveConfigSections.SectionProcess, DnsmasqConfKeys.ListenAddress);
 
-        RegisterSemanticMultis(EffectiveConfigFieldBuilder.SectionHosts, DnsmasqConfKeys.AddnHosts);
+        RegisterSemanticMultis(EffectiveConfigSections.SectionHosts, DnsmasqConfKeys.AddnHosts);
         RegisterSemanticMultis(
-            EffectiveConfigFieldBuilder.SectionResolver,
+            EffectiveConfigSections.SectionResolver,
             DnsmasqConfKeys.Local,
             DnsmasqConfKeys.ResolvFile,
             DnsmasqConfKeys.RevServer,
@@ -207,7 +207,7 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
             DnsmasqConfKeys.Nftset,
             DnsmasqConfKeys.ConnmarkAllowlist);
         RegisterSemanticMultis(
-            EffectiveConfigFieldBuilder.SectionDhcp,
+            EffectiveConfigSections.SectionDhcp,
             DnsmasqConfKeys.DhcpRange,
             DnsmasqConfKeys.DhcpHost,
             DnsmasqConfKeys.DhcpOption,
@@ -234,10 +234,10 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
             DnsmasqConfKeys.Slaac);
 
         RegisterSemanticMultis(
-            EffectiveConfigFieldBuilder.SectionResolver,
+            EffectiveConfigSections.SectionResolver,
             DnsmasqConfKeys.FilterRr);
         RegisterSemanticMultis(
-            EffectiveConfigFieldBuilder.SectionDnsRecords,
+            EffectiveConfigSections.SectionDnsRecords,
             DnsmasqConfKeys.Domain,
             DnsmasqConfKeys.Cname,
             DnsmasqConfKeys.MxHost,
@@ -256,20 +256,20 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
             DnsmasqConfKeys.AuthSecServers,
             DnsmasqConfKeys.AuthPeer);
         RegisterSemanticMultis(
-            EffectiveConfigFieldBuilder.SectionDhcp,
+            EffectiveConfigSections.SectionDhcp,
             DnsmasqConfKeys.DhcpCircuitid,
             DnsmasqConfKeys.DhcpRemoteid,
             DnsmasqConfKeys.DhcpSubscrid);
         RegisterSemanticMultis(
-            EffectiveConfigFieldBuilder.SectionTftpPxe,
+            EffectiveConfigSections.SectionTftpPxe,
             DnsmasqConfKeys.PxeService);
         RegisterSemanticMultis(
-            EffectiveConfigFieldBuilder.SectionTftpPxe,
+            EffectiveConfigSections.SectionTftpPxe,
             DnsmasqConfKeys.DhcpOptionPxe);
-        RegisterSemanticMultis(EffectiveConfigFieldBuilder.SectionDnssec, DnsmasqConfKeys.TrustAnchor);
-        RegisterSemanticMultis(EffectiveConfigFieldBuilder.SectionCache, DnsmasqConfKeys.CacheRr);
+        RegisterSemanticMultis(EffectiveConfigSections.SectionDnssec, DnsmasqConfKeys.TrustAnchor);
+        RegisterSemanticMultis(EffectiveConfigSections.SectionCache, DnsmasqConfKeys.CacheRr);
         RegisterSemanticMultis(
-            EffectiveConfigFieldBuilder.SectionProcess,
+            EffectiveConfigSections.SectionProcess,
             DnsmasqConfKeys.Interface,
             DnsmasqConfKeys.ExceptInterface,
             DnsmasqConfKeys.AuthServer,

@@ -1,7 +1,11 @@
 @page "/dns-records"
 @rendermode InteractiveServer
 @namespace DnsmasqWebUI.Components.Pages
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
+@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata
 @inject IStatusClient StatusClient
+@inject IEffectiveConfigPageEditor PageEditor
 @inject IOptions<ApplicationOptions> AppOptions
 
 <PageTitle>DNS records | @AppTitle</PageTitle>
@@ -20,6 +24,30 @@ else
     <section class="page-section">
         <EffectiveConfigSection Status="_status" Context="EffectiveConfigContext.DnsRecords" ShowSearchBox="true" OnSaveCompleted="RefreshStatusAsync" />
     </section>
+    <section class="page-section">
+        <h2 class="page-section-title">Quick add</h2>
+        <div class="d-flex flex-wrap gap-3 align-items-end">
+            <div class="d-flex flex-wrap gap-2 align-items-end">
+                <input class="form-control form-control-sm" style="width:12rem" placeholder="Alias (e.g. www.example.com)" @bind="_cnameAlias" />
+                <input class="form-control form-control-sm" style="width:12rem" placeholder="Target (e.g. example.com)" @bind="_cnameTarget" />
+                <button type="button" class="btn btn-sm btn-primary" @onclick="AddCname">Add CNAME</button>
+            </div>
+            <div class="d-flex flex-wrap gap-2 align-items-end">
+                <input class="form-control form-control-sm" style="width:10rem" placeholder="Host name" @bind="_hostRecordName" />
+                <input class="form-control form-control-sm" style="width:10rem" placeholder="IP address" @bind="_hostRecordIp" />
+                <button type="button" class="btn btn-sm btn-primary" @onclick="AddHostRecord">Add A/AAAA record</button>
+            </div>
+            <div class="d-flex flex-wrap gap-2 align-items-end">
+                <input class="form-control form-control-sm" style="width:10rem" placeholder="Name" @bind="_txtName" />
+                <input class="form-control form-control-sm" style="width:12rem" placeholder="Text value" @bind="_txtValue" />
+                <button type="button" class="btn btn-sm btn-primary" @onclick="AddTxtRecord">Add TXT record</button>
+            </div>
+        </div>
+        @if (_recordError != null)
+        {
+            <p class="text-danger small mt-2 mb-0">@_recordError</p>
+        }
+    </section>
     <div class="page-chips" role="group" aria-label="Record type">
         <span class="page-chip active">All</span>
         <span class="page-chip">CNAME</span>
@@ -34,6 +62,80 @@ else
 @code {
     private string AppTitle => AppOptions!.Value!.EffectiveTitle;
     private DnsmasqServiceStatus? _status;
+    private string _cnameAlias = "";
+    private string _cnameTarget = "";
+    private string _hostRecordName = "";
+    private string _hostRecordIp = "";
+    private string _txtName = "";
+    private string _txtValue = "";
+    private string? _recordError;
+
+    private static EffectiveConfigFieldRef CnameField(string sectionId) => EffectiveConfigFieldRef.For(sectionId, DnsmasqConfKeys.Cname);
+    private static EffectiveConfigFieldRef HostRecordField(string sectionId) => EffectiveConfigFieldRef.For(sectionId, DnsmasqConfKeys.HostRecord);
+    private static EffectiveConfigFieldRef TxtRecordField(string sectionId) => EffectiveConfigFieldRef.For(sectionId, DnsmasqConfKeys.TxtRecord);
+
+    private void AddCname()
+    {
+        _recordError = null;
+        if (string.IsNullOrWhiteSpace(_cnameAlias) || string.IsNullOrWhiteSpace(_cnameTarget))
+        {
+            PageEditor.SetFieldIssues(CnameField(EffectiveConfigSections.SectionDnsRecords), [new FieldIssue(CnameField(EffectiveConfigSections.SectionDnsRecords).FieldKey, "Alias and target are required.", FieldIssueSeverity.Error, null)]);
+            _recordError = "Alias and target are required.";
+            return;
+        }
+        var field = PageEditor.Field(EffectiveConfigSections.SectionDnsRecords, DnsmasqConfKeys.Cname);
+        PageEditor.ClearFieldIssues(field);
+        var current = PageEditor.GetEffectiveMultiValues(_status!, field);
+        var next = current.Append($"{_cnameAlias.Trim()},{_cnameTarget.Trim()}").ToList();
+        PageEditor.ReplaceMultiValues(_status!, field, next);
+        PageEditor.Activate(field);
+        _cnameAlias = "";
+        _cnameTarget = "";
+        StateHasChanged();
+    }
+
+    private void AddHostRecord()
+    {
+        _recordError = null;
+        var hostField = PageEditor.Field(EffectiveConfigSections.SectionDnsRecords, DnsmasqConfKeys.HostRecord);
+        if (string.IsNullOrWhiteSpace(_hostRecordName) || string.IsNullOrWhiteSpace(_hostRecordIp))
+        {
+            PageEditor.SetFieldIssues(hostField, [new FieldIssue(hostField.FieldKey, "Host name and IP are required.", FieldIssueSeverity.Error, null)]);
+            _recordError = "Host name and IP are required.";
+            return;
+        }
+        var field = hostField;
+        PageEditor.ClearFieldIssues(field);
+        var current = PageEditor.GetEffectiveMultiValues(_status!, field);
+        var next = current.Append($"{_hostRecordName.Trim()},{_hostRecordIp.Trim()}").ToList();
+        PageEditor.ReplaceMultiValues(_status!, field, next);
+        PageEditor.Activate(field);
+        _hostRecordName = "";
+        _hostRecordIp = "";
+        StateHasChanged();
+    }
+
+    private void AddTxtRecord()
+    {
+        _recordError = null;
+        var txtField = PageEditor.Field(EffectiveConfigSections.SectionDnsRecords, DnsmasqConfKeys.TxtRecord);
+        if (string.IsNullOrWhiteSpace(_txtName))
+        {
+            PageEditor.SetFieldIssues(txtField, [new FieldIssue(txtField.FieldKey, "Name is required.", FieldIssueSeverity.Error, null)]);
+            _recordError = "Name is required.";
+            return;
+        }
+        var field = txtField;
+        PageEditor.ClearFieldIssues(field);
+        var current = PageEditor.GetEffectiveMultiValues(_status!, field);
+        var value = string.IsNullOrWhiteSpace(_txtValue) ? _txtName.Trim() : $"{_txtName.Trim()},\"{_txtValue.Trim()}\"";
+        var next = current.Append(value).ToList();
+        PageEditor.ReplaceMultiValues(_status!, field, next);
+        PageEditor.Activate(field);
+        _txtName = "";
+        _txtValue = "";
+        StateHasChanged();
+    }
 
     protected override async Task OnInitializedAsync()
     {

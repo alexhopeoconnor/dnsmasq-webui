@@ -137,7 +137,7 @@ else
         _fragmentWithCallback = RenderFragmentRegistry.BuildFieldComponentFragment(Descriptor.SectionId, Descriptor.OptionName, EventCallback.Factory.Create<object?>(this, HandleValueChanged));
         _labelTooltip = DnsmasqOptionTooltips.Get(Descriptor.OptionName);
         _optionHelpKey = Descriptor.OptionName;
-        var pending = Session?.PendingChanges.FirstOrDefault(c =>
+        var pending = Session?.PendingChanges.OfType<PendingOptionChange>().FirstOrDefault(c =>
             string.Equals(c.SectionId, Descriptor.SectionId, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(c.OptionName, Descriptor.OptionName, StringComparison.OrdinalIgnoreCase));
         var descriptorValue = Descriptor.IsMultiValue

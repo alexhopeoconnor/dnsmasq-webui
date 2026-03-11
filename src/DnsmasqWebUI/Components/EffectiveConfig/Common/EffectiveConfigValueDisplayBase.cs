@@ -31,7 +31,7 @@ public abstract class EffectiveConfigValueDisplayBase : ComponentBase
     /// <summary>Returns the value to display: pending change NewValue if this field has one, else descriptor value (not yet written to disk).</summary>
     protected object? GetEffectiveDisplayValue()
     {
-        var pending = Session?.PendingChanges.FirstOrDefault(c =>
+        var pending = Session?.PendingChanges.OfType<PendingOptionChange>().FirstOrDefault(c =>
             string.Equals(c.SectionId, Descriptor.SectionId, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(c.OptionName, Descriptor.OptionName, StringComparison.OrdinalIgnoreCase));
         return pending != null ? pending.NewValue : Descriptor.GetValue();

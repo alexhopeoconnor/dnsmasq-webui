@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using DnsmasqWebUI.Models.Dhcp;
 
 namespace DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata;
 
@@ -7,12 +8,14 @@ namespace DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata;
 /// Single source of truth for options with special parse/write/validation semantics.
 /// Prevents drift between parse, write, hint, and validation for UseStaleCache, AddMac, AddSubnet, Umbrella, Do0x20Encode.
 /// Inverse-pair key names are not stored here; see <see cref="EffectiveConfigSpecialOptionSemantics.GetInversePairKeys"/>.
+/// When set, <see cref="StructuredValueType"/> indicates the option has a typed structured value handler (e.g. dhcp-host → <see cref="DhcpHostEntry"/>).
 /// </summary>
 public sealed record OptionSemantics(
     string OptionName,
     EffectiveConfigParserBehavior ParserBehavior,
     EffectiveConfigWriteBehavior WriteBehavior,
-    OptionValidationSemantics Validation
+    OptionValidationSemantics Validation,
+    Type? StructuredValueType = null
 );
 
 /// <summary>
@@ -220,7 +223,8 @@ public static class EffectiveConfigSpecialOptionSemantics
                 DnsmasqConfKeys.DhcpHost,
                 EffectiveConfigParserBehavior.Multi,
                 EffectiveConfigWriteBehavior.MultiValue,
-                ComplexMulti),
+                ComplexMulti,
+                typeof(DhcpHostEntry)),
             [DnsmasqConfKeys.DhcpOption] = new OptionSemantics(
                 DnsmasqConfKeys.DhcpOption,
                 EffectiveConfigParserBehavior.Multi,
@@ -506,6 +510,10 @@ public static class EffectiveConfigSpecialOptionSemantics
     /// <summary>Returns the pair of config keys (enabled, disabled) for an InversePair option; null otherwise.</summary>
     public static (string KeyA, string KeyB)? GetInversePairKeys(string optionName) =>
         InversePairKeysByOptionName.TryGetValue(optionName, out var pair) ? pair : null;
+
+    /// <summary>Returns the structured value type for an option that has a typed handler (e.g. dhcp-host → DhcpHostEntry); null otherwise.</summary>
+    public static Type? GetStructuredValueType(string optionName) =>
+        TryGetSemantics(optionName)?.StructuredValueType;
 
     /// <summary>Returns all option names that have special semantics. Used by wiring tests to avoid hardcoded lists.</summary>
     public static IReadOnlyCollection<string> GetAllOptionNames() => ByOptionName.Keys.ToList();

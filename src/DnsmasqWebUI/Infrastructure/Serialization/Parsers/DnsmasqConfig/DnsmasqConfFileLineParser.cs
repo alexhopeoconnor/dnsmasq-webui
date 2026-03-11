@@ -1,3 +1,5 @@
+using DnsmasqWebUI.Infrastructure.Serialization;
+using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata;
 using DnsmasqWebUI.Models.Config;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 using Superpower;
@@ -13,6 +15,8 @@ namespace DnsmasqWebUI.Infrastructure.Serialization.Parsers.DnsmasqConfig;
 /// </summary>
 public static class DnsmasqConfFileLineParser
 {
+    private static readonly string DhcpHostPrefix = DnsmasqConfText.DirectivePrefix(DnsmasqConfKeys.DhcpHost);
+
     private enum ConfLineParseKind { Blank, Comment, AddnHosts, DhcpHostCandidate, Other }
 
     private static readonly TextParser<(ConfLineParseKind kind, string content)> Blank =
@@ -23,12 +27,12 @@ public static class DnsmasqConfFileLineParser
             .Select(_ => (ConfLineParseKind.Comment, "")).Named("comment");
 
     private static readonly TextParser<(ConfLineParseKind kind, string content)> AddnHosts =
-        ConfParserHelpers.OptionalCommentPrefix.IgnoreThen(Span.EqualTo("addn-hosts="))
+        ConfParserHelpers.OptionalCommentPrefix.IgnoreThen(Span.EqualTo(DnsmasqConfText.DirectivePrefix(DnsmasqConfKeys.AddnHosts)))
             .IgnoreThen(Character.AnyChar.Many().Text())
             .Select(s => (ConfLineParseKind.AddnHosts, s.Trim())).Named("addn-hosts line");
 
     private static readonly TextParser<(ConfLineParseKind kind, string content)> DhcpHostCandidate =
-        ConfParserHelpers.OptionalCommentPrefix.IgnoreThen(Span.EqualTo("dhcp-host="))
+        ConfParserHelpers.OptionalCommentPrefix.IgnoreThen(Span.EqualTo(DhcpHostPrefix))
             .IgnoreThen(Character.AnyChar.Many())
             .Select(_ => (ConfLineParseKind.DhcpHostCandidate, "")).Named("dhcp-host line");
 
@@ -96,7 +100,7 @@ public static class DnsmasqConfFileLineParser
         {
             BlankLine b => b.RawLine.Length > 0 ? b.RawLine : "",
             CommentLine c => c.RawLine,
-            AddnHostsLine a => "addn-hosts=" + a.AddnHostsPath,
+            AddnHostsLine a => DnsmasqConfText.DirectiveLine(DnsmasqConfKeys.AddnHosts, a.AddnHostsPath),
             DhcpHostLine d => DnsmasqConfDhcpHostLineParser.ToLine(d.DhcpHost),
             OtherLine o => o.RawLine,
             _ => ""

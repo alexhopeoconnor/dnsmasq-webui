@@ -6,7 +6,7 @@ namespace DnsmasqWebUI.Infrastructure.Services.EffectiveConfig;
 public sealed class EffectiveConfigEditSession : IEffectiveConfigEditSession
 {
     private readonly IEffectiveConfigSaveService _saveService;
-    private readonly List<PendingEffectiveConfigChange> _pending = new();
+    private readonly List<PendingDnsmasqChange> _pending = new();
     private readonly Dictionary<string, List<FieldIssue>> _fieldIssues = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<FieldIssue> _crossOptionIssues = new();
 
@@ -15,9 +15,13 @@ public sealed class EffectiveConfigEditSession : IEffectiveConfigEditSession
         _saveService = saveService;
     }
 
+    public event Action? Changed;
+
+    private void NotifyChanged() => Changed?.Invoke();
+
     public bool IsEditMode { get; private set; }
     public string? ActiveFieldKey { get; private set; }
-    public IReadOnlyList<PendingEffectiveConfigChange> PendingChanges => _pending;
+    public IReadOnlyList<PendingDnsmasqChange> PendingChanges => _pending;
     public IReadOnlyDictionary<string, IReadOnlyList<FieldIssue>> FieldIssues
     {
         get
@@ -42,6 +46,7 @@ public sealed class EffectiveConfigEditSession : IEffectiveConfigEditSession
         _pending.Clear();
         _fieldIssues.Clear();
         _crossOptionIssues.Clear();
+        NotifyChanged();
     }
 
     public void ExitEditModeDiscard()
@@ -51,29 +56,34 @@ public sealed class EffectiveConfigEditSession : IEffectiveConfigEditSession
         _crossOptionIssues.Clear();
         ActiveFieldKey = null;
         IsEditMode = false;
+        NotifyChanged();
     }
 
     public void ActivateField(string fieldKey)
     {
         IsEditMode = true;
         ActiveFieldKey = fieldKey;
+        NotifyChanged();
     }
 
     public void DeactivateField()
     {
         ActiveFieldKey = null;
+        NotifyChanged();
     }
 
     public void SetFieldIssues(string fieldKey, IReadOnlyList<FieldIssue> issues)
     {
         if (string.IsNullOrEmpty(fieldKey)) return;
         _fieldIssues[fieldKey] = issues.ToList();
+        NotifyChanged();
     }
 
     public void ClearFieldIssues(string fieldKey)
     {
         if (string.IsNullOrEmpty(fieldKey)) return;
         _fieldIssues.Remove(fieldKey);
+        NotifyChanged();
     }
 
     public void SetCrossOptionIssues(IReadOnlyList<FieldIssue> issues)
@@ -81,6 +91,7 @@ public sealed class EffectiveConfigEditSession : IEffectiveConfigEditSession
         _crossOptionIssues.Clear();
         if (issues != null)
             _crossOptionIssues.AddRange(issues);
+        NotifyChanged();
     }
 
     public bool HasBlockingValidationErrors()
@@ -99,23 +110,32 @@ public sealed class EffectiveConfigEditSession : IEffectiveConfigEditSession
 
     public void TrackCommit(EffectiveConfigEditCommittedArgs args)
     {
-        var existing = _pending.FirstOrDefault(c =>
-            c.SectionId == args.SectionId && c.OptionName == args.OptionName);
-        if (existing != null)
-            _pending.Remove(existing);
+        _pending.RemoveAll(c => c is PendingOptionChange o && o.SectionId == args.SectionId && o.OptionName == args.OptionName);
         if (!ValuesEqual(args.OldValue, args.NewValue))
-            _pending.Add(new PendingEffectiveConfigChange(
+            _pending.Add(new PendingOptionChange(
                 args.SectionId, args.OptionName, args.OldValue, args.NewValue, args.CurrentSourceFilePath));
         ActiveFieldKey = null;
+        NotifyChanged();
     }
 
     public void RevertChange(string sectionId, string optionName)
     {
-        var existing = _pending.FirstOrDefault(c =>
-            c.SectionId == sectionId && c.OptionName == optionName);
-        if (existing != null)
-            _pending.Remove(existing);
+        _pending.RemoveAll(c => c is PendingOptionChange o && o.SectionId == sectionId && o.OptionName == optionName);
         ClearFieldIssues($"{sectionId}:{optionName}");
+        NotifyChanged();
+    }
+
+    public void TrackManagedHostsChange(PendingManagedHostsChange change)
+    {
+        _pending.RemoveAll(c => c is PendingManagedHostsChange);
+        _pending.Add(change);
+        NotifyChanged();
+    }
+
+    public void RevertManagedHostsChange()
+    {
+        _pending.RemoveAll(c => c is PendingManagedHostsChange);
+        NotifyChanged();
     }
 
     public async Task<EffectiveConfigSaveResult> ApplyAsync(CancellationToken ct = default)
@@ -126,6 +146,8 @@ public sealed class EffectiveConfigEditSession : IEffectiveConfigEditSession
         var result = await _saveService.SaveAsync(_pending.ToList(), ct);
         if (result.Saved && result.Restarted)
             ExitEditModeDiscard();
+        else
+            NotifyChanged();
         return result;
     }
 

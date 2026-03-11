@@ -195,6 +195,43 @@ public class DnsmasqConfigServiceApplyChangesTests
     }
 
     [Fact]
+    public async Task ApplyEffectiveConfigChangesAsync_SingleValueNull_RemovesExistingLine()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-apply-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var mainPath = Path.Combine(dir, "dnsmasq.conf");
+        var managedName = "zz-managed.conf";
+        var managedPath = Path.Combine(dir, managedName);
+        ConfigSetCache? cache = null;
+        try
+        {
+            File.WriteAllText(mainPath, "port=53\n");
+            File.WriteAllText(managedPath, "port=54\n");
+            var options = Options.Create(new DnsmasqOptions { MainConfigPath = mainPath, ManagedFileName = managedName });
+            cache = new ConfigSetCache(options, NullLogger<ConfigSetCache>.Instance);
+            cache.Invalidate();
+            var setService = new DnsmasqConfigSetService(cache);
+            var configService = new DnsmasqConfigService(setService, cache, NullLogger<DnsmasqConfigService>.Instance);
+
+            var changes = new List<PendingEffectiveConfigChange>
+            {
+                new(EffectiveConfigSections.SectionResolver, DnsmasqConfKeys.Port, "54", null, null)
+            };
+            await configService.ApplyEffectiveConfigChangesAsync(changes);
+
+            var content = await File.ReadAllTextAsync(managedPath);
+            var lines = content.TrimEnd().Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
+            Assert.DoesNotContain(lines, l => l == DnsmasqConfKeys.Port || l.StartsWith($"{DnsmasqConfKeys.Port}=", StringComparison.Ordinal));
+        }
+        finally
+        {
+            cache?.Dispose();
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ApplyEffectiveConfigChangesAsync_KeyOnlyOrValue_KeyOnly_WritesBareKey()
     {
         var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-apply-" + Guid.NewGuid().ToString("N"));
