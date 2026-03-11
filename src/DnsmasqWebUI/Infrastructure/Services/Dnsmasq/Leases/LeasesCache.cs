@@ -1,6 +1,6 @@
 using System.Text;
 using DnsmasqWebUI.Models.Dhcp;
-using DnsmasqWebUI.Infrastructure.Parsers;
+using DnsmasqWebUI.Infrastructure.Serialization.Parsers.DnsmasqConfig;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Config.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Leases.Abstractions;
 

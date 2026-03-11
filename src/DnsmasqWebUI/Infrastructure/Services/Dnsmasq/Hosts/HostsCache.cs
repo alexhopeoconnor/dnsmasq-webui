@@ -2,7 +2,7 @@ using System.Text;
 using DnsmasqWebUI.Models.Config;
 using DnsmasqWebUI.Models.Contracts;
 using DnsmasqWebUI.Models.Hosts;
-using DnsmasqWebUI.Infrastructure.Parsers;
+using DnsmasqWebUI.Infrastructure.Serialization.Parsers.DnsmasqConfig;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Config.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Hosts.Abstractions;
 using Microsoft.Extensions.Options;

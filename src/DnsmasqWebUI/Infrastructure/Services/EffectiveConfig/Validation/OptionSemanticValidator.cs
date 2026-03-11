@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
-using DnsmasqWebUI.Infrastructure.Helpers.Config;
+using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata;
+using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Validation.Abstractions;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 
 namespace DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Validation;

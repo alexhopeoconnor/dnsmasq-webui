@@ -1,7 +1,8 @@
 using DnsmasqWebUI.Models.Dnsmasq;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 using DnsmasqWebUI.Models.Contracts;
-using DnsmasqWebUI.Infrastructure.Helpers.Config;
+using DnsmasqWebUI.Infrastructure.Serialization.Parsers.EffectiveConfig;
+using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Config.Abstractions;
 
 namespace DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Config;

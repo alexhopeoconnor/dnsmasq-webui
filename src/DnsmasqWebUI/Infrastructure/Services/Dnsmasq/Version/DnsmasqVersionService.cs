@@ -1,4 +1,4 @@
-using DnsmasqWebUI.Infrastructure.Helpers.Dnsmasq;
+using DnsmasqWebUI.Infrastructure.Serialization.Parsers.Dnsmasq;
 using DnsmasqWebUI.Infrastructure.Services.Common.Process.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Version.Abstractions;
 using DnsmasqWebUI.Models.Config;

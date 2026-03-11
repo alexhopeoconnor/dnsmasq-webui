@@ -1,4 +1,4 @@
-using DnsmasqWebUI.Infrastructure.Helpers.Config;
+using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata;
 using DnsmasqWebUI.Models.Dnsmasq;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 

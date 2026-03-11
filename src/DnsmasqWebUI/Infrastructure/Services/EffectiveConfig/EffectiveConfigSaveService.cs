@@ -1,5 +1,5 @@
 using System.Linq;
-using DnsmasqWebUI.Infrastructure.Helpers.Config;
+using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Config.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Reload.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Validation.Abstractions;
