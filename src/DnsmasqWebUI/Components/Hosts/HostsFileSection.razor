@@ -24,9 +24,10 @@
                     }
                     else
                     {
-                        @foreach (var e in _visibleEntries)
+                        @for (var i = 0; i < _visibleEntries.Count; i++)
                         {
-                            <tr class="@(e.IsComment ? "table-secondary" : "")" @key="@(e.Id ?? ("line:" + e.LineNumber))">
+                            var e = _visibleEntries[i];
+                            <tr class="@(e.IsComment ? "table-secondary" : "")" @key="@(i + ":" + (e.Id ?? ("line:" + e.LineNumber)))">
                                 <td>@e.LineNumber</td>
                                 <td>@e.Address</td>
                                 <td>@string.Join(", ", e.Names)</td>
@@ -43,9 +44,10 @@
             }
             else
             {
-                @foreach (var e in _visibleEntries)
+                @for (var i = 0; i < _visibleEntries.Count; i++)
                 {
-                    <div class="card mb-2 @(e.IsComment ? "table-secondary" : "")" @key="@(e.Id ?? ("line:" + e.LineNumber))">
+                    var e = _visibleEntries[i];
+                    <div class="card mb-2 @(e.IsComment ? "table-secondary" : "")" @key="@(i + ":" + (e.Id ?? ("line:" + e.LineNumber)))">
                         <div class="card-body py-2">
                             <div class="table-card-row"><span class="table-card-label">#</span> @e.LineNumber</div>
                             <div class="table-card-row"><span class="table-card-label">Address</span> @e.Address</div>
