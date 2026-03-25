@@ -84,6 +84,13 @@
         var result = await Session.ApplyAsync();
 
         _saveResult = result;
+        if (result.Saved)
+        {
+            // Changes were written to disk, so clear them from session state.
+            // Whether to stay in edit mode depends on whether restart succeeded.
+            Session.AcceptAppliedChanges(stayInEditMode: result.IsValidateFailed || !result.Restarted);
+        }
+
         if (result.Saved && result.Restarted)
         {
             var message = result.UserMessage ?? "Config saved and dnsmasq restarted.";
@@ -118,6 +125,12 @@
         var result = await SaveService.RestoreAsync(backups);
 
         _restoreResult = result;
+        if (result.Restored)
+        {
+            // Restore wrote to disk, so clear any pending changes from session.
+            Session.AcceptAppliedChanges(stayInEditMode: false);
+        }
+
         if (result.Restored && result.Restarted)
         {
             var message = result.UserMessage ?? "Backup restored and dnsmasq restarted.";

@@ -258,6 +258,139 @@ h1:focus {
     align-items: center;
 }
 
+/* Shared table shell for rich data tables that need horizontal scrolling. */
+.app-table-scroll-shell {
+    position: relative;
+    width: 100%;
+    overflow: visible;
+    border: 1px solid #e7ebf0;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 12px 28px -22px rgba(15, 23, 42, 0.45);
+}
+
+.app-table-scroll-region {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: clip;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 16px;
+    scrollbar-width: thin;
+    scrollbar-color: #b8c3d1 #eef2f6;
+}
+
+.app-table-scroll-region::-webkit-scrollbar {
+    height: 8px;
+}
+
+.app-table-scroll-region::-webkit-scrollbar-track {
+    background: #eef2f6;
+    border-radius: 0 0 16px 16px;
+}
+
+.app-table-scroll-region::-webkit-scrollbar-thumb {
+    background: #c6cfda;
+    border-radius: 999px;
+}
+
+.app-table-scroll-region::-webkit-scrollbar-thumb:hover {
+    background: #aeb9c7;
+}
+
+.app-table-scroll-region:focus {
+    outline: 2px solid rgba(13, 110, 253, 0.25);
+    outline-offset: 2px;
+}
+
+.app-table-cue-btn {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 34px;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    z-index: 2;
+    opacity: 0.92;
+    transition: opacity 0.15s ease;
+    color: #1f2937;
+    font-size: 1.1rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.app-table-cue-btn:hover {
+    opacity: 1;
+}
+
+.app-table-cue-btn:focus {
+    outline: 2px solid rgba(13, 110, 253, 0.25);
+    outline-offset: 2px;
+}
+
+.app-table-scroll-shell .app-table-cue-btn--left {
+    left: 0;
+    background: linear-gradient(to right, rgba(248, 250, 252, 0.98), rgba(248, 250, 252, 0.68), transparent);
+}
+
+.app-table-scroll-shell:not(.can-scroll-left) .app-table-cue-btn--left {
+    display: none;
+}
+
+.app-table-scroll-shell .app-table-cue-btn--right {
+    right: 0;
+    background: linear-gradient(to left, rgba(248, 250, 252, 0.98), rgba(248, 250, 252, 0.68), transparent);
+}
+
+.app-table-scroll-shell:not(.can-scroll-right) .app-table-cue-btn--right {
+    display: none;
+}
+
+.app-data-table {
+    margin-bottom: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.app-data-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    color: #334155;
+    font-size: 0.825rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-top: none;
+    white-space: nowrap;
+}
+
+.app-data-table td,
+.app-data-table th {
+    padding: 0.85rem 1rem;
+    border-color: #e7ebf0;
+    vertical-align: middle;
+}
+
+.app-data-table tbody tr:hover {
+    background-color: #f8fbff;
+}
+
+@media (max-width: 991.98px) {
+    .app-table-cue-btn {
+        width: 28px;
+        font-size: 1rem;
+    }
+
+    .app-data-table td,
+    .app-data-table th {
+        padding: 0.7rem 0.8rem;
+    }
+}
+
 /* Settings gear icon size (Bootstrap Icons) */
 .bi-gear-sm {
     font-size: 1.125rem;

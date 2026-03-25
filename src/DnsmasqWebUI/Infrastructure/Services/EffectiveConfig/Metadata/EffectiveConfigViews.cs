@@ -38,7 +38,8 @@ public static class EffectiveConfigViews
             DnsmasqConfKeys.NoHosts,
             DnsmasqConfKeys.AddnHosts,
             DnsmasqConfKeys.Hostsdir,
-            DnsmasqConfKeys.ReadEthers,
+        ]),
+        new(EffectiveConfigSections.SectionResolver, "Resolver / DNS", [
             DnsmasqConfKeys.ExpandHosts,
         ]),
     ];

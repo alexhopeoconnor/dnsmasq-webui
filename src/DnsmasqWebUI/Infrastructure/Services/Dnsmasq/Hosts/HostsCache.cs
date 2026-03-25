@@ -80,7 +80,8 @@ public sealed class HostsCache : IHostsCache, IDisposable
             TryEnsureWatchers(managedPath);
 
             var managedEntries = ReadManagedEntries(managedPath);
-            var readOnlyFiles = ReadReadOnlyFiles(managedPath, addnPaths, noHosts, ct);
+            var hostsdirPath = effectiveConfig.HostsdirPath;
+            var readOnlyFiles = ReadReadOnlyFiles(managedPath, addnPaths, noHosts, hostsdirPath, ct);
 
             _lastManagedHostsPath = !string.IsNullOrEmpty(managedPath) ? Path.GetFullPath(managedPath) : null;
             _snapshot = new HostsSnapshot(managedEntries, readOnlyFiles);
@@ -185,13 +186,14 @@ public sealed class HostsCache : IHostsCache, IDisposable
         return entries;
     }
 
-    private List<ReadOnlyHostsFile> ReadReadOnlyFiles(string? managedPath, IReadOnlyList<string> addnPaths, bool noHosts, CancellationToken ct)
+    private List<ReadOnlyHostsFile> ReadReadOnlyFiles(string? managedPath, IReadOnlyList<string> addnPaths, bool noHosts, string? hostsdirPath, CancellationToken ct)
     {
         var result = new List<ReadOnlyHostsFile>();
         var managedPathFull = !string.IsNullOrEmpty(managedPath) ? Path.GetFullPath(managedPath) : null;
         var systemPath = _options.SystemHostsPath?.Trim();
         var systemPathFull = !string.IsNullOrEmpty(systemPath) ? Path.GetFullPath(systemPath) : null;
 
+        // System hosts (only if no-hosts is not set)
         if (!noHosts && !string.IsNullOrEmpty(systemPathFull) && File.Exists(systemPathFull))
         {
             try
@@ -213,6 +215,7 @@ public sealed class HostsCache : IHostsCache, IDisposable
             }
         }
 
+        // Addn-hosts files
         foreach (var p in addnPaths)
         {
             ct.ThrowIfCancellationRequested();
@@ -241,7 +244,153 @@ public sealed class HostsCache : IHostsCache, IDisposable
             }
         }
 
+        // Hostsdir files (enumerated from directory)
+        if (!string.IsNullOrEmpty(hostsdirPath) && Directory.Exists(hostsdirPath))
+        {
+            try
+            {
+                var files = Directory.GetFiles(hostsdirPath)
+                    .OrderBy(f => f, StringComparer.Ordinal)
+                    .ToList();
+                foreach (var filePath in files)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var fullPath = Path.GetFullPath(filePath);
+                    if (managedPathFull != null && string.Equals(fullPath, managedPathFull, StringComparison.Ordinal))
+                        continue;
+                    if (systemPathFull != null && string.Equals(fullPath, systemPathFull, StringComparison.Ordinal))
+                        continue;
+                    if (addnPaths.Any(p => string.Equals(Path.GetFullPath(p), fullPath, StringComparison.Ordinal)))
+                        continue;
+                    if (!File.Exists(fullPath))
+                        continue;
+                    try
+                    {
+                        var lines = File.ReadAllLines(fullPath, Encoding.UTF8);
+                        var entries = new List<HostEntry>();
+                        for (var i = 0; i < lines.Length; i++)
+                        {
+                            var entry = HostsFileLineParser.ParseLine(lines[i], i + 1);
+                            if (entry != null)
+                                entries.Add(entry);
+                        }
+                        result.Add(new ReadOnlyHostsFile(fullPath, entries));
+                    }
+                    catch
+                    {
+                        // Skip unreadable
+                    }
+                }
+            }
+            catch
+            {
+                // Skip if directory is unreadable
+            }
+        }
+
         return result;
+    }
+
+    public async Task<IReadOnlyList<HostsPageRow>> GetUnifiedRowsAsync(
+        bool expandHosts,
+        string? domain,
+        bool noHosts,
+        string? managedHostsPath,
+        CancellationToken ct = default)
+    {
+        var snapshot = await GetSnapshotAsync(ct);
+        var rows = new List<HostsPageRow>();
+        var managedPathFull = !string.IsNullOrEmpty(managedHostsPath) ? Path.GetFullPath(managedHostsPath) : null;
+
+        // Get config to determine hostsdir path
+        var configSnapshot = await _configSetCache.GetSnapshotAsync(ct);
+        var hostsdirPath = configSnapshot.Config?.HostsdirPath;
+        var hostsdirPathFull = !string.IsNullOrEmpty(hostsdirPath) ? Path.GetFullPath(hostsdirPath) : null;
+
+        // Managed hosts (editable)
+        foreach (var entry in snapshot.ManagedEntries)
+        {
+            if (entry.IsPassthrough) continue;
+            var names = entry.Names ?? (IReadOnlyList<string>)Array.Empty<string>();
+            var effectiveNames = HostsEffectiveNames.Expand(names, expandHosts, domain);
+            rows.Add(new HostsPageRow(
+                Id: entry.Id ?? $"managed:{entry.LineNumber}",
+                SourceKind: HostsRowSourceKind.Managed,
+                SourcePath: managedHostsPath ?? "",
+                IsEditable: true,
+                IsActive: true,
+                InactiveReason: null,
+                Address: entry.Address ?? "",
+                Names: names,
+                EffectiveNames: effectiveNames,
+                IsComment: entry.IsComment,
+                LineNumber: entry.LineNumber));
+        }
+
+        // Read-only files (system, addn-hosts, hostsdir)
+        foreach (var file in snapshot.ReadOnlyFiles)
+        {
+            var sourceKind = DetermineSourceKind(file.Path, managedPathFull, _options.SystemHostsPath, hostsdirPathFull);
+            var isActive = sourceKind == HostsRowSourceKind.SystemHosts ? !noHosts : true;
+            var inactiveReason = sourceKind == HostsRowSourceKind.SystemHosts && noHosts
+                ? "System hosts is ignored because no-hosts is enabled in dnsmasq config."
+                : null;
+
+            foreach (var entry in file.Entries)
+            {
+                if (entry.IsPassthrough) continue;
+                var names = entry.Names ?? (IReadOnlyList<string>)Array.Empty<string>();
+                var effectiveNames = HostsEffectiveNames.Expand(names, expandHosts, domain);
+                rows.Add(new HostsPageRow(
+                    Id: $"{sourceKind}:{file.Path}:{entry.LineNumber}",
+                    SourceKind: sourceKind,
+                    SourcePath: file.Path,
+                    IsEditable: false,
+                    IsActive: isActive,
+                    InactiveReason: inactiveReason,
+                    Address: entry.Address ?? "",
+                    Names: names,
+                    EffectiveNames: effectiveNames,
+                    IsComment: entry.IsComment,
+                    LineNumber: entry.LineNumber));
+            }
+        }
+
+        return rows;
+    }
+
+    private static HostsRowSourceKind DetermineSourceKind(
+        string filePath,
+        string? managedPathFull,
+        string? systemHostsPath,
+        string? hostsdirPathFull)
+    {
+        var fullPath = Path.GetFullPath(filePath);
+        if (systemHostsPath != null && string.Equals(Path.GetFullPath(systemHostsPath), fullPath, StringComparison.Ordinal))
+            return HostsRowSourceKind.SystemHosts;
+        if (hostsdirPathFull != null && IsFileUnderDirectory(fullPath, hostsdirPathFull))
+            return HostsRowSourceKind.Hostsdir;
+        return HostsRowSourceKind.AddnHosts;
+    }
+
+    /// <summary>
+    /// True if <paramref name="fileFullPath"/> is the directory itself or a path inside it.
+    /// Uses a directory separator after the parent prefix so a hostsdir of <c>/etc/dnsmasq/hosts</c>
+    /// does not match <c>/etc/dnsmasq/hosts-extra/file</c> (plain <see cref="string.StartsWith(string)"/> would).
+    /// </summary>
+    private static bool IsFileUnderDirectory(string fileFullPath, string directoryFullPath)
+    {
+        var dir = directoryFullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (dir.Length == 0)
+            return false;
+        if (string.Equals(fileFullPath, dir, StringComparison.Ordinal))
+            return true;
+        if (fileFullPath.StartsWith(dir + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            return true;
+        if (Path.DirectorySeparatorChar != Path.AltDirectorySeparatorChar
+            && fileFullPath.StartsWith(dir + Path.AltDirectorySeparatorChar, StringComparison.Ordinal))
+            return true;
+        return false;
     }
 
     public void Dispose()

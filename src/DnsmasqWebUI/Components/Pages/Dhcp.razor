@@ -2,7 +2,9 @@
 @page "/leases"
 @rendermode InteractiveServer
 @namespace DnsmasqWebUI.Components.Pages
+@using DnsmasqWebUI.Models.Dnsmasq
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Models.Dnsmasq.PageStates
 @using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
 @using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata
 @using DnsmasqWebUI.Infrastructure.Serialization.OptionHandlers.Abstractions
@@ -31,12 +33,38 @@
 }
 else
 {
-    <section class="page-section">
-        <EffectiveConfigSection Status="_status" Context="EffectiveConfigContext.Dhcp" ShowSearchBox="true" OnSaveCompleted="RefreshStatusAsync" />
-    </section>
+    var pageState = DhcpPageState.FromStatus(_status);
 
-    @* ---- Static hosts (dhcp-host= in managed file) ---- *@
-    <section class="page-section">
+    @if (!pageState.DhcpAvailable)
+    {
+        <div class="alert alert-warning">
+            <h4 class="alert-heading">DHCP not available</h4>
+            <p class="mb-0">@pageState.DhcpUnavailableReason</p>
+        </div>
+        <section class="page-section">
+            <h2 class="page-section-title">Advanced configuration</h2>
+            <p class="text-muted">DHCP-specific options are not available, but you can view the effective config below.</p>
+            <EffectiveConfigSection Status="_status" Context="EffectiveConfigContext.Dhcp" ShowSearchBox="true" OnSaveCompleted="RefreshStatusAsync" />
+        </section>
+    }
+    else
+    {
+        <section class="page-section">
+            <h2 class="page-section-title">Effective configuration</h2>
+            <p class="text-muted small">Use the editor below for full dnsmasq flexibility. The workflow UI appears underneath.</p>
+            <EffectiveConfigSection Status="_status" Context="EffectiveConfigContext.Dhcp" ShowSearchBox="true" OnSaveCompleted="RefreshStatusAsync" />
+        </section>
+
+        @if (pageState.ReadEthersEnabled)
+        {
+            <div class="alert alert-info">
+                <strong>read-ethers</strong> is enabled. Dnsmasq reads <code>/etc/ethers</code> and
+                treats its entries like <code>dhcp-host</code> mappings for DHCP clients.
+            </div>
+        }
+
+        @* ---- Static hosts (dhcp-host= in managed file) ---- *@
+        <section class="page-section">
         <h2 class="page-section-title">Static hosts</h2>
         @if (!_status.ManagedFilePathExists)
         {
@@ -234,42 +262,50 @@ else
         }
     </section>
 
-    @* ---- Leases (dhcp-leasefile, read-only) ---- *@
-    <section class="page-section">
-        <div class="d-flex align-items-center justify-content-between mb-2">
-            <h2 class="page-section-title mb-0">Leases</h2>
-            @if (_status.LeasesPathConfigured)
-            {
-                <button type="button" class="btn btn-link btn-sm p-0 text-body" aria-label="Leases refresh interval settings" @onclick="OpenLeasesSettings" title="Configure leases refresh interval">
-                    <i class="bi bi-gear-fill bi-gear-sm" aria-hidden="true"></i>
-                </button>
-            }
-        </div>
-        @if (_status.LeasesPathConfigured && !string.IsNullOrEmpty(_status.LeasesPath))
-        {
-            <p class="text-muted small mb-2">Path: @_status.LeasesPath (read-only).</p>
-        }
-        @if (!_status.LeasesPathConfigured)
-        {
-            <p class="text-muted">Leases not configured (no dhcp-leasefile in config).</p>
-        }
-        else if (!_status.LeasesPathExists)
-        {
-            <p class="text-warning">Leases file not found: @_status.LeasesPath. DHCP may be disabled or path may be wrong.</p>
-        }
-        else if (_leases == null)
-        {
-            <p class="text-warning">Could not read leases file.</p>
-        }
-        else if (_leases.Count == 0)
-        {
-            <p class="text-muted">No leases yet. Leases appear here when DHCP clients obtain an address; use Refresh to update.</p>
-            <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-                <button class="btn btn-primary" @onclick="() => LoadLeases(showLoading: true, forceRefresh: true)" disabled="@_leasesLoading"><i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Refresh</button>
+        @* ---- Leases (dhcp-leasefile, read-only) ---- *@
+        <section class="page-section">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <h2 class="page-section-title mb-0">Leases</h2>
+                @if (pageState.LeasesAvailable && _status.LeasesPathConfigured)
+                {
+                    <button type="button" class="btn btn-link btn-sm p-0 text-body" aria-label="Leases refresh interval settings" @onclick="OpenLeasesSettings" title="Configure leases refresh interval">
+                        <i class="bi bi-gear-fill bi-gear-sm" aria-hidden="true"></i>
+                    </button>
+                }
             </div>
-        }
-        else
-        {
+            @if (!pageState.LeasesAvailable)
+            {
+                <div class="alert alert-info">
+                    <p class="mb-0">@pageState.LeasesUnavailableReason</p>
+                </div>
+            }
+            else
+            {
+                @if (_status.LeasesPathConfigured && !string.IsNullOrEmpty(_status.LeasesPath))
+                {
+                    <p class="text-muted small mb-2">Path: @_status.LeasesPath (read-only).</p>
+                }
+                @if (!_status.LeasesPathConfigured)
+                {
+                    <p class="text-muted">Leases not configured (no dhcp-leasefile in config).</p>
+                }
+                else if (!_status.LeasesPathExists)
+                {
+                    <p class="text-warning">Leases file not found: @_status.LeasesPath. DHCP may be disabled or path may be wrong.</p>
+                }
+                else if (_leases == null)
+                {
+                    <p class="text-warning">Could not read leases file.</p>
+                }
+                else if (_leases.Count == 0)
+                {
+                    <p class="text-muted">No leases yet. Leases appear here when DHCP clients obtain an address; use Refresh to update.</p>
+                    <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                        <button class="btn btn-primary" @onclick="() => LoadLeases(showLoading: true, forceRefresh: true)" disabled="@_leasesLoading"><i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Refresh</button>
+                    </div>
+                }
+                else
+                {
             <div class="row g-2 align-items-center mb-2">
                 <div class="col-auto">
                     <label for="lease-filter-keyword" class="form-label mb-0 small text-muted">Search leases</label>
@@ -329,12 +365,14 @@ else
                     }
                 </div>
             </div>
-            <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-                <button class="btn btn-primary" @onclick="() => LoadLeases(showLoading: true, forceRefresh: true)" disabled="@_leasesLoading"><i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Refresh</button>
-            </div>
-        }
-    </section>
+                    <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                        <button class="btn btn-primary" @onclick="() => LoadLeases(showLoading: true, forceRefresh: true)" disabled="@_leasesLoading"><i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Refresh</button>
+                    </div>
+                }
+            }
+        </section>
 
+    }
 }
 
 @code {

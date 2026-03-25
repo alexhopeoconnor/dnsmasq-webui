@@ -28,6 +28,10 @@
     vertical-align: middle;
 }
 
+.hosts-page {
+    display: block;
+}
+
 @media (max-width: 640.98px) {
     ::deep .table {
         font-size: 0.875rem;
@@ -36,5 +40,192 @@
     ::deep .table th,
     ::deep .table td {
         padding: 0.5rem;
+    }
+}
+
+/* Toolbar */
+.hosts-controls-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding: 0.875rem 1rem;
+    background: linear-gradient(180deg, #fbfcfe 0%, #f6f8fb 100%);
+    border: 1px solid #e7ebf0;
+    border-radius: 14px;
+    box-shadow: 0 10px 24px -18px rgba(15, 23, 42, 0.35);
+}
+
+.hosts-toolbar-search {
+    min-width: 14rem;
+    max-width: 24rem;
+}
+
+.hosts-toolbar-select {
+    min-width: 9rem;
+    max-width: 14rem;
+}
+
+.hosts-summary-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+    gap: 0.75rem;
+}
+
+.hosts-summary-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.85rem 0.95rem;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #e7ebf0;
+    border-radius: 14px;
+    box-shadow: 0 8px 20px -18px rgba(15, 23, 42, 0.45);
+}
+
+.hosts-summary-stat__value {
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: #0f172a;
+}
+
+.hosts-summary-stat__label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+
+/* Group header row (colspan, not rowspan) */
+::deep .hosts-table .hosts-group-header-cell {
+    background: linear-gradient(180deg, #f8fafc 0%, #f6f8fb 100%);
+    border-top: 1px solid #dbe3ec;
+    border-bottom: 1px solid #dbe3ec;
+    font-weight: 600;
+    vertical-align: middle;
+    padding-top: 0.6rem;
+    padding-bottom: 0.6rem;
+}
+
+.hosts-group-header__content {
+    width: 100%;
+}
+
+.hosts-group-header__title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    color: #0f172a;
+}
+
+.hosts-group-header__subtitle {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1.2;
+    margin-left: 0.25rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: min(38rem, 50vw);
+}
+
+::deep .hosts-row--inactive {
+    opacity: 0.72;
+}
+
+::deep .hosts-row code {
+    font-size: 0.93em;
+    color: #0f172a;
+    background: #f8fafc;
+    padding: 0.15rem 0.35rem;
+    border-radius: 6px;
+}
+
+::deep .hosts-row--editing td {
+    background: #f0f7ff;
+}
+
+.hosts-status-cell {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.hosts-status-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.22rem 0.48rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.1;
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+
+.hosts-status-pill--active {
+    color: #0f5132;
+    background: #d1e7dd;
+    border-color: #badbcc;
+}
+
+.hosts-status-pill--inactive {
+    color: #5c3d00;
+    background: #fff3cd;
+    border-color: #ffe69c;
+}
+
+.hosts-status-pill--editable {
+    color: #084298;
+    background: #dbeafe;
+    border-color: #b6d4fe;
+}
+
+.hosts-status-pill--readonly {
+    color: #475569;
+    background: #f1f5f9;
+    border-color: #d8e0ea;
+}
+
+.hosts-status-pill--muted {
+    color: #495057;
+    background: #f3f4f6;
+    border-color: #e5e7eb;
+}
+
+.hosts-inline-action {
+    margin-left: 0.1rem;
+}
+
+.hosts-status-actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-left: 0.1rem;
+}
+
+@media (max-width: 991.98px) {
+    .hosts-controls-bar {
+        padding: 0.75rem;
+        border-radius: 12px;
+    }
+
+    .hosts-toolbar-search,
+    .hosts-toolbar-select {
+        min-width: 0;
+        max-width: none;
+        width: 100%;
+    }
+
+    .hosts-group-header__subtitle {
+        max-width: 100%;
+        margin-left: 0;
     }
 }

@@ -71,7 +71,7 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
 
     private void RegisterFlagDisplays()
     {
-        RegisterFlags(EffectiveConfigSections.SectionHosts, DnsmasqConfKeys.NoHosts, DnsmasqConfKeys.ReadEthers);
+        RegisterFlags(EffectiveConfigSections.SectionHosts, DnsmasqConfKeys.NoHosts);
         RegisterFlags(
             EffectiveConfigSections.SectionResolver,
             DnsmasqConfKeys.ExpandHosts,
@@ -92,6 +92,7 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
         RegisterFlags(
             EffectiveConfigSections.SectionDhcp,
             DnsmasqConfKeys.DhcpAuthoritative,
+            DnsmasqConfKeys.ReadEthers,
             DnsmasqConfKeys.DhcpRapidCommit,
             DnsmasqConfKeys.LeasefileRo,
             DnsmasqConfKeys.DhcpSequentialIp,

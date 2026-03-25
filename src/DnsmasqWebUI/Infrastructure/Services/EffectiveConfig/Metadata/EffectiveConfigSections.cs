@@ -29,7 +29,6 @@ public static class EffectiveConfigSections
             DnsmasqConfKeys.NoHosts,
             DnsmasqConfKeys.AddnHosts,
             DnsmasqConfKeys.Hostsdir,
-            DnsmasqConfKeys.ReadEthers,
         ]),
         new SectionDef(SectionResolver, "Resolver / DNS", [
             DnsmasqConfKeys.Server,
@@ -101,6 +100,7 @@ public static class EffectiveConfigSections
             DnsmasqConfKeys.LeasefileRo,
             DnsmasqConfKeys.Leasequery,
             DnsmasqConfKeys.DhcpGenerateNames,
+            DnsmasqConfKeys.ReadEthers,
             DnsmasqConfKeys.DhcpBroadcast,
             DnsmasqConfKeys.DhcpSequentialIp,
             DnsmasqConfKeys.DhcpIgnoreClid,

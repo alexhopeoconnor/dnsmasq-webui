@@ -41,4 +41,11 @@ public interface IEffectiveConfigEditSession : IApplicationScopedService
     IReadOnlyList<FieldIssue> GetValidationSummary();
 
     Task<EffectiveConfigSaveResult> ApplyAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Accepts that changes were applied to disk. Clears pending changes and optionally exits edit mode.
+    /// Call this after a successful write (even if restart failed), so the session state matches disk state.
+    /// </summary>
+    /// <param name="stayInEditMode">If true, keep edit mode active; if false, exit edit mode.</param>
+    void AcceptAppliedChanges(bool stayInEditMode);
 }

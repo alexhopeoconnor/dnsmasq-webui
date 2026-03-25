@@ -143,12 +143,17 @@ public sealed class EffectiveConfigEditSession : IEffectiveConfigEditSession
         if (_pending.Count == 0)
             return EffectiveConfigSaveResult.NoChanges();
 
-        var result = await _saveService.SaveAsync(_pending.ToList(), ct);
-        if (result.Saved && result.Restarted)
-            ExitEditModeDiscard();
-        else
-            NotifyChanged();
-        return result;
+        return await _saveService.SaveAsync(_pending.ToList(), ct);
+    }
+
+    public void AcceptAppliedChanges(bool stayInEditMode)
+    {
+        _pending.Clear();
+        _fieldIssues.Clear();
+        _crossOptionIssues.Clear();
+        ActiveFieldKey = null;
+        IsEditMode = stayInEditMode;
+        NotifyChanged();
     }
 
     private static IReadOnlyList<string>? AsStringList(object? value)
