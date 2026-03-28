@@ -39,11 +39,11 @@ public sealed record HostsPageState(
                 : "Hosts editing is unavailable: managed hosts path is not configured. Set Dnsmasq:MainConfigPath (and optionally Dnsmasq:ManagedHostsFileName) so the app can create and edit the managed hosts file.",
             SystemHostsActive: systemHostsActive,
             SystemHostsInactiveReason: noHosts
-                ? "System hosts is ignored because no-hosts is enabled in dnsmasq config."
+                ? "Dnsmasq is ignoring system hosts (no-hosts is enabled), so system hosts rows are hidden from this table."
                 : string.IsNullOrEmpty(status.SystemHostsPath)
-                    ? "System hosts path is not configured."
+                    ? "System hosts path is not configured; system hosts rows are hidden from this table."
                     : !status.SystemHostsPathExists
-                        ? $"System hosts file not found: {status.SystemHostsPath}"
+                        ? $"System hosts file not found ({status.SystemHostsPath}); those rows are hidden from this table."
                         : null,
             ExpandHostsEnabled: expandHosts,
             ExpansionDomain: expandHosts ? domain : null);

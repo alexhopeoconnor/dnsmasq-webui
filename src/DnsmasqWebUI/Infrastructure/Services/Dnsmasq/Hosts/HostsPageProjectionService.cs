@@ -31,13 +31,15 @@ public sealed class HostsPageProjectionService : IHostsPageProjectionService
         if (query.ActiveFilter is { } act)
             filtered = filtered.Where(r => r.IsActive == act);
 
+        // When dnsmasq ignores system hosts (e.g. no-hosts), do not show those rows in the table.
+        filtered = filtered.Where(r =>
+            !(r.SourceKind == HostsRowSourceKind.SystemHosts && !r.IsActive));
+
         var list = filtered.ToList();
         if (list.Count == 0)
             return Array.Empty<HostsPageGroup>();
 
-        return query.Grouping == HostsGroupingMode.Activity
-            ? BuildActivityGroups(list, query)
-            : BuildSourceGroups(list, query);
+        return BuildSourceGroups(list, query);
     }
 
     private static IReadOnlyList<HostsPageGroup> BuildSourceGroups(List<HostsPageRow> rows, HostsPageQueryState query)
@@ -69,40 +71,6 @@ public sealed class HostsPageProjectionService : IHostsPageProjectionService
                 GroupContainsEditableRows: sortedRows.Any(r => r.IsEditable),
                 IsActive: sortedRows.Any(r => r.IsActive),
                 InactiveReason: inactiveReason,
-                VisibleRowCount: sortedRows.Count,
-                Rows: sortedRows));
-        }
-
-        return result;
-    }
-
-    private static IReadOnlyList<HostsPageGroup> BuildActivityGroups(List<HostsPageRow> rows, HostsPageQueryState query)
-    {
-        var orderedGroups = rows
-            .GroupBy(r => r.IsActive)
-            .OrderByDescending(g => g.Key);
-
-        var result = new List<HostsPageGroup>();
-        foreach (var g in orderedGroups)
-        {
-            var sortedRows = SortRows(g, query.Sort, query.Descending).ToList();
-            if (sortedRows.Count == 0)
-                continue;
-
-            var active = g.Key;
-            var title = active ? "Active" : "Inactive";
-            var subtitle = active
-                ? "Entries from sources dnsmasq loads for hosts."
-                : "Entries from sources that are ignored or unavailable (e.g. system hosts under no-hosts).";
-
-            result.Add(new HostsPageGroup(
-                Key: active ? "activity:active" : "activity:inactive",
-                Title: title,
-                Subtitle: subtitle,
-                SourceKind: null,
-                GroupContainsEditableRows: sortedRows.Any(r => r.IsEditable),
-                IsActive: active,
-                InactiveReason: null,
                 VisibleRowCount: sortedRows.Count,
                 Rows: sortedRows));
         }

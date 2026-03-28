@@ -38,9 +38,8 @@ public static class EffectiveConfigViews
             DnsmasqConfKeys.NoHosts,
             DnsmasqConfKeys.AddnHosts,
             DnsmasqConfKeys.Hostsdir,
-        ]),
-        new(EffectiveConfigSections.SectionResolver, "Resolver / DNS", [
             DnsmasqConfKeys.ExpandHosts,
+            DnsmasqConfKeys.Domain,
         ]),
     ];
 

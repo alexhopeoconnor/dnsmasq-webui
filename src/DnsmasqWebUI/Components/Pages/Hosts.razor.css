@@ -139,6 +139,14 @@
     opacity: 0.72;
 }
 
+::deep .hosts-row--editable {
+    cursor: pointer;
+}
+
+::deep .hosts-row--editable:hover {
+    background-color: rgba(13, 110, 253, 0.06);
+}
+
 ::deep .hosts-row code {
     font-size: 0.93em;
     color: #0f172a;
@@ -149,66 +157,6 @@
 
 ::deep .hosts-row--editing td {
     background: #f0f7ff;
-}
-
-.hosts-status-cell {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.3rem;
-}
-
-.hosts-status-pill {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.22rem 0.48rem;
-    border-radius: 999px;
-    font-size: 0.72rem;
-    font-weight: 600;
-    line-height: 1.1;
-    border: 1px solid transparent;
-    white-space: nowrap;
-}
-
-.hosts-status-pill--active {
-    color: #0f5132;
-    background: #d1e7dd;
-    border-color: #badbcc;
-}
-
-.hosts-status-pill--inactive {
-    color: #5c3d00;
-    background: #fff3cd;
-    border-color: #ffe69c;
-}
-
-.hosts-status-pill--editable {
-    color: #084298;
-    background: #dbeafe;
-    border-color: #b6d4fe;
-}
-
-.hosts-status-pill--readonly {
-    color: #475569;
-    background: #f1f5f9;
-    border-color: #d8e0ea;
-}
-
-.hosts-status-pill--muted {
-    color: #495057;
-    background: #f3f4f6;
-    border-color: #e5e7eb;
-}
-
-.hosts-inline-action {
-    margin-left: 0.1rem;
-}
-
-.hosts-status-actions {
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: 0.3rem;
-    margin-left: 0.1rem;
 }
 
 @media (max-width: 991.98px) {

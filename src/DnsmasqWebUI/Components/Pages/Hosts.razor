@@ -8,6 +8,7 @@
 @using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
 @using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Hosts.Abstractions
 @using DnsmasqWebUI.Components.EffectiveConfig
+@using Microsoft.AspNetCore.Components.Web
 @using Microsoft.JSInterop
 @implements IDisposable
 @inject IStatusClient StatusClient
@@ -36,13 +37,6 @@ else
         <h2 class="page-section-title">Effective configuration</h2>
         <EffectiveConfigSection Status="_status" Context="EffectiveConfigContext.Hosts" ShowSearchBox="true" OnSaveCompleted="RefreshStatusAsync" />
     </section>
-
-    @if (!pageState.SystemHostsActive && !string.IsNullOrEmpty(pageState.SystemHostsInactiveReason))
-    {
-        <div class="alert alert-info">
-            <strong>System hosts</strong> is inactive: @pageState.SystemHostsInactiveReason
-        </div>
-    }
 
     @if (!pageState.ManagedHostsAvailable)
     {
@@ -97,14 +91,13 @@ else
                                     <th scope="col">Address</th>
                                     <th scope="col">Names</th>
                                     <th scope="col">Effective names</th>
-                                    <th scope="col">Status</th>
                                 </tr>
                             </thead>
                             @foreach (var group in VisibleGroups)
                             {
                                 <tbody @key="@group.Key">
                                     <tr class="hosts-group-header">
-                                        <th colspan="4" scope="colgroup" class="hosts-group-header-cell">
+                                        <th colspan="3" scope="colgroup" class="hosts-group-header-cell">
                                             <div class="hosts-group-header__content">
                                                 <div class="hosts-group-header__title">
                                                     <span>@group.Title</span>
@@ -128,32 +121,25 @@ else
                                     {
                                         @if (IsEditingRow(row))
                                         {
-                                            <tr class="hosts-row hosts-row--editing table-info" @key="@("edit:" + row.Id)">
+                                            <tr class="hosts-row hosts-row--editing table-info"
+                                                @key="@("edit:" + row.Id)"
+                                                @ref="_editingRowRef"
+                                                @onfocusout="OnEditingRowFocusOut">
                                                 <td>
-                                                    <input class="form-control form-control-sm" @bind="_editAddress" />
+                                                    <input class="form-control form-control-sm" @bind="_editAddress" autofocus />
                                                 </td>
                                                 <td>
                                                     <input class="form-control form-control-sm" placeholder="Comma-separated names" @bind="_editNames" />
                                                 </td>
                                                 <td class="text-muted small">@string.Join(", ", HostsEffectiveNames.Expand(ParseNamesList(_editNames), pageState.ExpandHostsEnabled, pageState.ExpansionDomain))</td>
-                                                <td>
-                                                    <div class="hosts-status-cell">
-                                                        <span class="hosts-status-pill hosts-status-pill--editable">Editable</span>
-                                                        @if (row.IsComment)
-                                                        {
-                                                            <span class="hosts-status-pill hosts-status-pill--muted">Commented</span>
-                                                        }
-                                                        <div class="hosts-status-actions">
-                                                            <button type="button" class="btn btn-sm btn-primary" @onclick="SaveEditAsync">Save</button>
-                                                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">Cancel</button>
-                                                        </div>
-                                                    </div>
-                                                </td>
                                             </tr>
                                         }
                                         else
                                         {
-                                            <tr class="@RowClass(row)" @key="@row.Id">
+                                            <tr class="@RowClass(row)"
+                                                @key="@row.Id"
+                                                title="@(row.IsEditable ? "Double-click to edit" : string.Empty)"
+                                                @ondblclick="@(() => OnRowDoubleClick(row))">
                                                 <td><code>@row.Address</code></td>
                                                 <td>@string.Join(", ", row.Names)</td>
                                                 <td>
@@ -166,30 +152,6 @@ else
                                                         @string.Join(", ", row.EffectiveNames)
                                                     }
                                                 </td>
-                                                <td>
-                                                    <div class="hosts-status-cell">
-                                                        @if (!row.IsActive)
-                                                        {
-                                                            <span class="hosts-status-pill hosts-status-pill--inactive" title="@row.InactiveReason">Inactive</span>
-                                                        }
-                                                        @if (row.IsComment)
-                                                        {
-                                                            <span class="hosts-status-pill hosts-status-pill--muted">Commented</span>
-                                                        }
-                                                        @if (row.IsEditable)
-                                                        {
-                                                            <span class="hosts-status-pill hosts-status-pill--editable">Editable</span>
-                                                        }
-                                                        else
-                                                        {
-                                                            <span class="hosts-status-pill hosts-status-pill--readonly">Read-only</span>
-                                                        }
-                                                        @if (row.IsEditable && string.IsNullOrEmpty(_editingRowId))
-                                                        {
-                                                            <button type="button" class="btn btn-sm btn-outline-primary hosts-inline-action" @onclick="() => BeginEdit(row)">Edit</button>
-                                                        }
-                                                    </div>
-                                                </td>
                                             </tr>
                                         }
                                     }
@@ -200,17 +162,25 @@ else
                 </div>
             }
 
-            @if (pageState.ExpandHostsEnabled && !string.IsNullOrEmpty(pageState.ExpansionDomain))
-            {
-                <div class="alert alert-info mt-3 mb-0">
-                    <strong>expand-hosts</strong> is enabled with domain <code>@pageState.ExpansionDomain</code>.
-                    Simple hostnames (without dots) will be expanded to include the domain suffix.
-                    The <strong>Effective names</strong> column shows how dnsmasq will resolve each entry.
-                </div>
-            }
-
         </section>
     }
+
+    <div class="hosts-page-notes mt-3 d-flex flex-column gap-2">
+        @if (!pageState.SystemHostsActive && !string.IsNullOrEmpty(pageState.SystemHostsInactiveReason))
+        {
+            <div class="alert alert-info mb-0">
+                <strong>System hosts</strong>: @pageState.SystemHostsInactiveReason
+            </div>
+        }
+        @if (pageState.ExpandHostsEnabled && !string.IsNullOrEmpty(pageState.ExpansionDomain))
+        {
+            <div class="alert alert-info mb-0">
+                <strong>expand-hosts</strong> is enabled with domain <code>@pageState.ExpansionDomain</code>.
+                Simple hostnames (without dots) will be expanded to include the domain suffix.
+                The <strong>Effective names</strong> column shows how dnsmasq will resolve each entry.
+            </div>
+        }
+    </div>
 }
 </div>
 
@@ -227,10 +197,31 @@ else
     private string? _editingRowId;
     private string _editAddress = "";
     private string _editNames = "";
+    private ElementReference _editingRowRef;
     private IJSObjectReference? _hostsTableScrollCueModule;
 
-    private IReadOnlyList<HostsPageGroup> VisibleGroups =>
-        HostsProjection.BuildGroups(_unifiedRows, BuildQuery());
+    // Memoize: markup reads VisibleGroups.Count then foreach — avoid building twice per render.
+    private IReadOnlyList<HostsPageGroup>? _visibleGroupsCache;
+    private object? _visibleGroupsCacheRowsRef;
+    private string _visibleGroupsCacheSearch = "\0";
+
+    private IReadOnlyList<HostsPageGroup> VisibleGroups
+    {
+        get
+        {
+            if (_visibleGroupsCache != null
+                && ReferenceEquals(_visibleGroupsCacheRowsRef, _unifiedRows)
+                && _visibleGroupsCacheSearch == _search)
+            {
+                return _visibleGroupsCache;
+            }
+
+            _visibleGroupsCache = HostsProjection.BuildGroups(_unifiedRows, BuildQuery());
+            _visibleGroupsCacheRowsRef = _unifiedRows;
+            _visibleGroupsCacheSearch = _search;
+            return _visibleGroupsCache;
+        }
+    }
 
     private HostsPageQueryState BuildQuery()
     {
@@ -247,12 +238,14 @@ else
     private static string RowClass(HostsPageRow row)
     {
         var parts = new List<string> { "hosts-row" };
-        if (row.IsComment)
-            parts.Add("table-secondary");
+        if (row.IsEditable)
+            parts.Add("hosts-row--editable");
         if (!row.IsActive)
             parts.Add("hosts-row--inactive");
         return string.Join(" ", parts);
     }
+
+    private void OnRowDoubleClick(HostsPageRow row) => BeginEdit(row);
 
     private bool IsEditingRow(HostsPageRow row) =>
         !string.IsNullOrEmpty(_editingRowId) && string.Equals(_editingRowId, row.Id, StringComparison.Ordinal);
@@ -276,7 +269,30 @@ else
         _editNames = "";
     }
 
-    private async Task SaveEditAsync()
+    private async Task OnEditingRowFocusOut(FocusEventArgs _)
+    {
+        if (string.IsNullOrEmpty(_editingRowId))
+            return;
+        await Task.Delay(10);
+        if (string.IsNullOrEmpty(_editingRowId))
+            return;
+
+        var outside = true;
+        try
+        {
+            if (_hostsTableScrollCueModule != null)
+                outside = await _hostsTableScrollCueModule.InvokeAsync<bool>("isFocusOutsideElement", _editingRowRef);
+        }
+        catch (JSDisconnectedException)
+        {
+            outside = true;
+        }
+
+        if (outside)
+            await CommitAndEndInlineEditAsync();
+    }
+
+    private async Task CommitAndEndInlineEditAsync()
     {
         if (string.IsNullOrEmpty(_editingRowId) || _status == null)
             return;

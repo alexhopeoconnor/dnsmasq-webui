@@ -158,3 +158,15 @@ export function disposeTableScrollCue() {
         if (right) right.remove();
     });
 }
+
+/**
+ * Returns true if the active element is not inside `container` (e.g. focus left a table row).
+ * Use after a short delay following focusout so document.activeElement has updated.
+ * @param {HTMLElement | null} container
+ */
+export function isFocusOutsideElement(container) {
+    if (!container) return true;
+    const active = document.activeElement;
+    if (!active) return true;
+    return !container.contains(active);
+}
