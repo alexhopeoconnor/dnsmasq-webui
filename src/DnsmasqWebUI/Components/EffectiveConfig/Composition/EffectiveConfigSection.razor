@@ -2,8 +2,9 @@
 @using DnsmasqWebUI.Models.Dnsmasq
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 @using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
-@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Validation
+@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Validation.Abstractions
 @inject IEffectiveConfigEditSession Session
+@inject IEffectiveConfigCrossOptionValidationService CrossOptionValidation
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 
@@ -201,7 +202,7 @@
     private void RunCrossOptionEvaluator()
     {
         var optionChanges = Session.PendingChanges.OfType<PendingOptionChange>().ToList();
-        var issues = EffectiveConfigCrossOptionEvaluator.Evaluate(Status, optionChanges);
+        var issues = CrossOptionValidation.Validate(Status, optionChanges);
         Session.SetCrossOptionIssues(issues);
     }
 

@@ -1,5 +1,5 @@
 using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions;
-using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Validation;
+using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Validation.Abstractions;
 using DnsmasqWebUI.Models.Dnsmasq;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 
@@ -13,11 +13,16 @@ public sealed class EffectiveConfigPageEditor : IEffectiveConfigPageEditor
 {
     private readonly IEffectiveConfigEditSession _session;
     private readonly IEffectiveConfigDescriptorProvider _descriptorProvider;
+    private readonly IEffectiveConfigCrossOptionValidationService _crossOptionValidation;
 
-    public EffectiveConfigPageEditor(IEffectiveConfigEditSession session, IEffectiveConfigDescriptorProvider descriptorProvider)
+    public EffectiveConfigPageEditor(
+        IEffectiveConfigEditSession session,
+        IEffectiveConfigDescriptorProvider descriptorProvider,
+        IEffectiveConfigCrossOptionValidationService crossOptionValidation)
     {
         _session = session;
         _descriptorProvider = descriptorProvider ?? throw new ArgumentNullException(nameof(descriptorProvider));
+        _crossOptionValidation = crossOptionValidation ?? throw new ArgumentNullException(nameof(crossOptionValidation));
     }
 
     public void EnsureEditMode()
@@ -115,7 +120,9 @@ public sealed class EffectiveConfigPageEditor : IEffectiveConfigPageEditor
 
     public void RefreshCrossOptionIssues(DnsmasqServiceStatus status)
     {
-        var issues = EffectiveConfigCrossOptionEvaluator.Evaluate(status, _session.PendingChanges.OfType<PendingOptionChange>().ToList());
+        var issues = _crossOptionValidation.Validate(
+            status,
+            _session.PendingChanges.OfType<PendingOptionChange>().ToList());
         _session.SetCrossOptionIssues(issues);
     }
 

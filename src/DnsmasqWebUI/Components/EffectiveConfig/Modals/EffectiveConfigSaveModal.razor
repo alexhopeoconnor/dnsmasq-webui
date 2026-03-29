@@ -114,6 +114,10 @@
                     @if (ValidationErrors.Count > 0 || ValidationWarnings.Count > 0)
                     {
                         <div class="ec-save-modal-validation mb-3">
+                            <p class="text-muted small mb-2">
+                                Validation uses your effective configuration: values already on disk plus any pending edits listed below.
+                                Reverting pending edits only clears issues that those edits introduced; messages can remain when they reflect saved settings.
+                            </p>
                             @if (ValidationErrors.Count > 0)
                             {
                                 <div class="alert alert-danger py-2 mb-2">
@@ -140,7 +144,10 @@
                             }
                         </div>
                     }
-                    <p class="text-muted mb-3">These changes will be written to your config. Remove any you don't want to keep.</p>
+                    @if (PendingChanges.Count > 0)
+                    {
+                        <p class="text-muted mb-3">These changes will be written to your config. Remove any you don't want to keep.</p>
+                    }
                     @if (TargetFileNames.Count > 0)
                     {
                         <p class="ec-save-modal-targets mb-3">
