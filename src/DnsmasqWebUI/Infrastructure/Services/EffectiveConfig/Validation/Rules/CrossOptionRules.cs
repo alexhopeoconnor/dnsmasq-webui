@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Text.RegularExpressions;
 using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata;
 using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Validation.Abstractions;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
@@ -23,9 +24,7 @@ public sealed class NoResolvWithoutUpstreamsRule : IEffectiveConfigCrossOptionRu
         return
         [
             new FieldIssue(
-                EffectiveConfigCrossOptionContext.FieldKey(
-                    EffectiveConfigSections.SectionResolver,
-                    DnsmasqConfKeys.Server),
+                EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.Server),
                 "With no-resolv, dnsmasq does not read /etc/resolv.conf. Add at least one server= or resolv-file= so upstream resolvers are defined; otherwise DNS forwarding may not work.",
                 FieldIssueSeverity.Warning)
         ];
@@ -46,9 +45,7 @@ public sealed class ConntrackWithQueryPortRule : IEffectiveConfigCrossOptionRule
         return
         [
             new FieldIssue(
-                EffectiveConfigCrossOptionContext.FieldKey(
-                    EffectiveConfigSections.SectionResolver,
-                    DnsmasqConfKeys.QueryPort),
+                EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.QueryPort),
                 "dnsmasq does not allow query-port together with conntrack: conntrack copies Linux connection marks onto upstream DNS traffic, which needs the usual ephemeral source ports, not a fixed query port. Clear query-port (or set conntrack off) so the daemon can start.",
                 FieldIssueSeverity.Error)
         ];
@@ -71,9 +68,7 @@ public sealed class RebindExceptionsRequireStopDnsRebindRule : IEffectiveConfigC
         if (localhostOk)
         {
             issues.Add(new FieldIssue(
-                EffectiveConfigCrossOptionContext.FieldKey(
-                    EffectiveConfigSections.SectionResolver,
-                    DnsmasqConfKeys.RebindLocalhostOk),
+                EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.RebindLocalhostOk),
                 "rebind-localhost-ok only applies when stop-dns-rebind is on. Enable stop-dns-rebind or remove this flag to avoid a misleading configuration.",
                 FieldIssueSeverity.Warning));
         }
@@ -82,9 +77,7 @@ public sealed class RebindExceptionsRequireStopDnsRebindRule : IEffectiveConfigC
         if (domainOk.Count > 0)
         {
             issues.Add(new FieldIssue(
-                EffectiveConfigCrossOptionContext.FieldKey(
-                    EffectiveConfigSections.SectionResolver,
-                    DnsmasqConfKeys.RebindDomainOk),
+                EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.RebindDomainOk),
                 "rebind-domain-ok only applies when stop-dns-rebind is on. Enable stop-dns-rebind or clear these exceptions so they are not silently ignored.",
                 FieldIssueSeverity.Warning));
         }
@@ -104,11 +97,7 @@ public sealed class BogusPrivBlocksPrivateReverseServerRule : IEffectiveConfigCr
             return [];
 
         var servers = context.GetMulti(DnsmasqConfKeys.Server, cfg => cfg.ServerValues);
-        var hasPrivateReverseServer = servers.Any(v =>
-            v.Contains("in-addr.arpa", StringComparison.OrdinalIgnoreCase) &&
-            (v.Contains("192", StringComparison.OrdinalIgnoreCase) ||
-             v.Contains("172", StringComparison.OrdinalIgnoreCase) ||
-             v.Contains("10", StringComparison.OrdinalIgnoreCase)));
+        var hasPrivateReverseServer = servers.Any(LooksLikeRfc1918InAddrArpaServer);
 
         if (!hasPrivateReverseServer)
             return [];
@@ -116,12 +105,33 @@ public sealed class BogusPrivBlocksPrivateReverseServerRule : IEffectiveConfigCr
         return
         [
             new FieldIssue(
-                EffectiveConfigCrossOptionContext.FieldKey(
-                    EffectiveConfigSections.SectionResolver,
-                    DnsmasqConfKeys.Server),
+                EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.Server),
                 "bogus-priv takes priority over private reverse lookup forwarding, so those PTR queries may never reach the configured upstream server.",
                 FieldIssueSeverity.Warning)
         ];
+    }
+
+    // RFC1918 reverse zone labels only; avoids substring false positives (e.g. 210, 192.0.0.x, 172.15).
+    private static bool LooksLikeRfc1918InAddrArpaServer(string v)
+    {
+        if (string.IsNullOrEmpty(v) || !v.Contains("in-addr.arpa", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        const RegexOptions re = RegexOptions.IgnoreCase | RegexOptions.CultureInvariant;
+
+        // 192.168.0.0/16 → *.168.192.in-addr.arpa
+        if (Regex.IsMatch(v, @"(^|[/.])168\.192\.in-addr\.arpa", re))
+            return true;
+
+        // 10.0.0.0/8 → /10.in-addr.arpa/ or PTR ... .10.in-addr.arpa
+        if (Regex.IsMatch(v, @"(^|[/.])10\.in-addr\.arpa", re))
+            return true;
+
+        // 172.16.0.0–172.31.255.255 → [16–31].172.in-addr.arpa
+        if (Regex.IsMatch(v, @"(^|[/.])(1[6-9]|2[0-9]|3[01])\.172\.in-addr\.arpa", re))
+            return true;
+
+        return false;
     }
 }
 
@@ -140,9 +150,7 @@ public sealed class DnssecPrerequisitesRule : IEffectiveConfigCrossOptionRule
         if (context.Status is { DnsmasqSupportsDnssec: false })
         {
             issues.Add(new FieldIssue(
-                EffectiveConfigCrossOptionContext.FieldKey(
-                    EffectiveConfigSections.SectionResolver,
-                    DnsmasqConfKeys.Dnssec),
+                EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.Dnssec),
                 "This dnsmasq binary does not report DNSSEC in its compile capabilities. Enabling dnssec will probably fail at startup; install a build with DNSSEC or turn dnssec off.",
                 FieldIssueSeverity.Error));
         }
@@ -151,9 +159,7 @@ public sealed class DnssecPrerequisitesRule : IEffectiveConfigCrossOptionRule
         if (trustAnchors.Count == 0)
         {
             issues.Add(new FieldIssue(
-                EffectiveConfigCrossOptionContext.FieldKey(
-                    EffectiveConfigSections.SectionResolver,
-                    DnsmasqConfKeys.TrustAnchor),
+                EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.TrustAnchor),
                 "dnssec is on but no trust-anchor entries are set, so validation cannot anchor the chain of trust. Add trust-anchor lines (or disable dnssec) for DNSSEC to be meaningful.",
                 FieldIssueSeverity.Warning));
         }
@@ -179,9 +185,7 @@ public sealed class ProxyDnssecCacheWarningRule : IEffectiveConfigCrossOptionRul
         return
         [
             new FieldIssue(
-                EffectiveConfigCrossOptionContext.FieldKey(
-                    EffectiveConfigSections.SectionResolver,
-                    DnsmasqConfKeys.CacheSize),
+                EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.CacheSize),
                 "With proxy-dnssec, the dnsmasq docs recommend cache-size=0 if clients rely on the AD bit.",
                 FieldIssueSeverity.Warning)
         ];
@@ -206,9 +210,7 @@ public sealed class ConnmarkAllowlistEnableRequiresAllowlistRule : IEffectiveCon
         return
         [
             new FieldIssue(
-                EffectiveConfigCrossOptionContext.FieldKey(
-                    EffectiveConfigSections.SectionResolver,
-                    DnsmasqConfKeys.ConnmarkAllowlist),
+                EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.ConnmarkAllowlist),
                 "connmark-allowlist-enable is on but there are no connmark-allowlist= rules, so dnsmasq may refuse DNS for marked connections. Add at least one allowlist rule or disable connmark-allowlist-enable.",
                 FieldIssueSeverity.Error)
         ];
@@ -231,9 +233,7 @@ public sealed class QueryPortIgnoredForSourceBoundServerRule : IEffectiveConfigC
         return
         [
             new FieldIssue(
-                EffectiveConfigCrossOptionContext.FieldKey(
-                    EffectiveConfigSections.SectionResolver,
-                    DnsmasqConfKeys.QueryPort),
+                EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.QueryPort),
                 "query-port does not apply to server= lines that bind a source address or interface (the part after @). Those queries still use ephemeral ports; remove query-port or adjust server bindings if you expected a fixed source port everywhere.",
                 FieldIssueSeverity.Warning)
         ];
@@ -253,9 +253,7 @@ public sealed class AddSubnetCacheBehaviorRule : IEffectiveConfigCrossOptionRule
         return
         [
             new FieldIssue(
-                EffectiveConfigCrossOptionContext.FieldKey(
-                    EffectiveConfigSections.SectionResolver,
-                    DnsmasqConfKeys.AddSubnet),
+                EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.AddSubnet),
                 "add-subnet can disable caching for replies that vary by client subnet unless the forwarded subnet is constant.",
                 FieldIssueSeverity.Warning)
         ];
@@ -275,9 +273,7 @@ public sealed class Filterwin2kSrvWarningRule : IEffectiveConfigCrossOptionRule
         return
         [
             new FieldIssue(
-                EffectiveConfigCrossOptionContext.FieldKey(
-                    EffectiveConfigSections.SectionResolver,
-                    DnsmasqConfKeys.Filterwin2k),
+                EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.Filterwin2k),
                 "filterwin2k blocks SRV queries and can break Kerberos, SIP, XMPP, or similar service discovery.",
                 FieldIssueSeverity.Warning)
         ];
@@ -294,31 +290,108 @@ public sealed class AddressLocalDnsmasq286CompatibilityRule : IEffectiveConfigCr
         if (addresses.Count == 0)
             return [];
 
-        var hasDomainLiteral = addresses.Any(LooksLikeDomainAddressDirective);
-        if (!hasDomainLiteral)
+        var addressDomains = addresses
+            .SelectMany(GetDomainsFromAddressDirective)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (addressDomains.Count == 0)
+            return [];
+
+        var localDomains = context.GetMulti(DnsmasqConfKeys.Local, cfg => cfg.LocalValues)
+            .SelectMany(GetDomainsFromLocalDirective)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var uncovered = addressDomains.Where(d => !localDomains.Contains(d)).ToList();
+        if (uncovered.Count == 0)
+            return [];
+
+        var preview = string.Join(", ", uncovered.Take(3));
+        var extra = uncovered.Count > 3 ? ", ..." : "";
+        return
+        [
+            new FieldIssue(
+                EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.Address),
+                $"From dnsmasq 2.86, address= with a domain and IP may forward non-A/AAAA queries upstream unless the domain is also covered by local=. Add matching local= entries for: {preview}{extra}.",
+                FieldIssueSeverity.Warning)
+        ];
+    }
+
+    private static IReadOnlyList<string> GetDomainsFromAddressDirective(string value)
+    {
+        var t = value.Trim();
+        if (!t.StartsWith('/'))
+            return [];
+        var end = t.LastIndexOf('/');
+        if (end <= 1)
+            return [];
+
+        var domainsPart = t[1..end];
+        return domainsPart
+            .Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Where(d => !string.Equals(d, "#", StringComparison.Ordinal))
+            .ToList();
+    }
+
+    private static IReadOnlyList<string> GetDomainsFromLocalDirective(string value)
+    {
+        var t = value.Trim();
+        if (!t.StartsWith('/') || !t.EndsWith('/') || t.Length < 3)
+            return [];
+
+        var domainsPart = t[1..^1];
+        return domainsPart
+            .Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Where(d => !string.Equals(d, "#", StringComparison.Ordinal))
+            .ToList();
+    }
+}
+
+public sealed class DnssecCheckUnsignedRequiresDnssecRule : IEffectiveConfigCrossOptionRule
+{
+    public string Id => "resolver.dnssec-check-unsigned-requires-dnssec";
+
+    public IReadOnlyList<FieldIssue> Evaluate(EffectiveConfigCrossOptionContext context)
+    {
+        var dnssecCheckUnsigned = context.GetString(DnsmasqConfKeys.DnssecCheckUnsigned, cfg => cfg.DnssecCheckUnsigned);
+        if (dnssecCheckUnsigned is null)
+            return [];
+
+        if (context.GetBool(DnsmasqConfKeys.Dnssec, cfg => cfg.Dnssec))
             return [];
 
         return
         [
             new FieldIssue(
-                EffectiveConfigCrossOptionContext.FieldKey(
-                    EffectiveConfigSections.SectionResolver,
-                    DnsmasqConfKeys.Address),
-                "From dnsmasq 2.86, address= with a domain and IP may forward non-A/AAAA queries upstream; add local= for that domain if you need the old NoData behavior.",
+                EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.DnssecCheckUnsigned),
+                "dnssec-check-unsigned only has effect when dnssec is enabled. Enable dnssec or remove dnssec-check-unsigned to avoid a no-op setting.",
                 FieldIssueSeverity.Warning)
         ];
     }
+}
 
-    private static bool LooksLikeDomainAddressDirective(string value)
+public sealed class LocalServiceIgnoredByBindSettingsRule : IEffectiveConfigCrossOptionRule
+{
+    public string Id => "resolver.local-service-ignored-by-bind-settings";
+
+    public IReadOnlyList<FieldIssue> Evaluate(EffectiveConfigCrossOptionContext context)
     {
-        var t = value.Trim();
-        if (!t.StartsWith('/'))
-            return false;
-        var rest = t[1..];
-        var idx = rest.IndexOf('/');
-        if (idx <= 0)
-            return false;
-        var domain = rest[..idx];
-        return domain.Length > 0 && !string.Equals(domain, "#", StringComparison.Ordinal);
+        if (context.GetString(DnsmasqConfKeys.LocalService, cfg => cfg.LocalService) is null)
+            return [];
+
+        var hasInterface = context.GetMulti(DnsmasqConfKeys.Interface, cfg => cfg.Interfaces).Count > 0;
+        var hasExceptInterface = context.GetMulti(DnsmasqConfKeys.ExceptInterface, cfg => cfg.ExceptInterfaces).Count > 0;
+        var hasListenAddress = context.GetMulti(DnsmasqConfKeys.ListenAddress, cfg => cfg.ListenAddresses).Count > 0;
+        var hasAuthServer = context.GetMulti(DnsmasqConfKeys.AuthServer, cfg => cfg.AuthServerValues).Count > 0;
+
+        if (!hasInterface && !hasExceptInterface && !hasListenAddress && !hasAuthServer)
+            return [];
+
+        return
+        [
+            new FieldIssue(
+                EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.LocalService),
+                "local-service is ignored when interface, except-interface, listen-address, or auth-server is configured. Remove local-service or rely on explicit bind/listen settings.",
+                FieldIssueSeverity.Warning)
+        ];
     }
 }

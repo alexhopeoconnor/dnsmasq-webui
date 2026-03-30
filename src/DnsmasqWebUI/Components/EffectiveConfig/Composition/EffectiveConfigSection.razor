@@ -155,6 +155,7 @@
     private void EnterEditMode()
     {
         Session.EnterEditMode();
+        RefreshCrossOptionAfterEnteringEditMode();
         StateHasChanged();
     }
 
@@ -206,6 +207,15 @@
         Session.SetCrossOptionIssues(issues);
     }
 
+    /// <summary>
+    /// <see cref="IEffectiveConfigEditSession.EnterEditMode"/> clears cross-option issues; repopulate from disk + pending.
+    /// </summary>
+    private void RefreshCrossOptionAfterEnteringEditMode()
+    {
+        if (Status != null)
+            RunCrossOptionEvaluator();
+    }
+
     private void OnRevertedFromSaveModal()
     {
         RunCrossOptionEvaluator();
@@ -214,7 +224,10 @@
 
     private void OpenSaveModal()
     {
-        if (Session.PendingChanges.Count == 0) return;
+        var hasPending = Session.PendingChanges.Count > 0;
+        var hasValidation = Session.GetValidationSummary().Count > 0;
+        if (!hasPending && !hasValidation)
+            return;
         _showSaveModal = true;
         StateHasChanged();
     }
@@ -231,6 +244,7 @@
         Session.ExitEditModeDiscard();
         await OnSaveCompleted.InvokeAsync();
         Session.EnterEditMode();
+        RefreshCrossOptionAfterEnteringEditMode();
         StateHasChanged();
     }
 

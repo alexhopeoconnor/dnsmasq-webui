@@ -16,8 +16,7 @@ public class CrossOptionRulesTests
         var cfg = CrossOptionTestHelpers.BaselineConfig() with { NoResolv = true };
         var rule = new NoResolvWithoutUpstreamsRule();
         var issues = rule.Evaluate(Ctx(cfg));
-        var key = EffectiveConfigCrossOptionContext.FieldKey(
-            EffectiveConfigSections.SectionResolver, DnsmasqConfKeys.Server);
+        var key = EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.Server);
         Assert.Single(issues);
         Assert.Equal(key, issues[0].FieldKey);
         Assert.Equal(FieldIssueSeverity.Warning, issues[0].Severity);
@@ -70,6 +69,38 @@ public class CrossOptionRulesTests
         Assert.Equal(FieldIssueSeverity.Warning, issues[0].Severity);
     }
 
+    [Theory]
+    [InlineData("/10.in-addr.arpa/8.8.8.8")]
+    [InlineData("/31.172.in-addr.arpa/8.8.8.8")]
+    public void BogusPrivBlocksPrivateReverseServerRule_Warns_for_rfc1918_zone_roots(string serverValue)
+    {
+        var cfg = CrossOptionTestHelpers.BaselineConfig() with
+        {
+            BogusPriv = true,
+            ServerValues = [serverValue]
+        };
+        var rule = new BogusPrivBlocksPrivateReverseServerRule();
+        Assert.Single(rule.Evaluate(Ctx(cfg)));
+    }
+
+    [Theory]
+    [InlineData("/210.in-addr.arpa/8.8.8.8")]
+    [InlineData("/110.in-addr.arpa/8.8.8.8")]
+    [InlineData("/1.0.0.192.in-addr.arpa/8.8.8.8")]
+    [InlineData("/15.172.in-addr.arpa/8.8.8.8")]
+    [InlineData("/32.172.in-addr.arpa/8.8.8.8")]
+    [InlineData("/10.0.0.192.in-addr.arpa/8.8.8.8")]
+    public void BogusPrivBlocksPrivateReverseServerRule_No_issue_for_non_private_in_addr_substrings(string serverValue)
+    {
+        var cfg = CrossOptionTestHelpers.BaselineConfig() with
+        {
+            BogusPriv = true,
+            ServerValues = [serverValue]
+        };
+        var rule = new BogusPrivBlocksPrivateReverseServerRule();
+        Assert.Empty(rule.Evaluate(Ctx(cfg)));
+    }
+
     [Fact]
     public void DnssecPrerequisitesRule_Error_when_build_lacks_dnssec()
     {
@@ -78,7 +109,9 @@ public class CrossOptionRulesTests
         var ctx = new EffectiveConfigCrossOptionContext(status, []);
         var rule = new DnssecPrerequisitesRule();
         var issues = rule.Evaluate(ctx);
-        Assert.Contains(issues, i => i.Severity == FieldIssueSeverity.Error);
+        var dnssecKey = EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.Dnssec);
+        Assert.Contains(issues, i =>
+            i.Severity == FieldIssueSeverity.Error && i.FieldKey == dnssecKey);
     }
 
     [Fact]
@@ -87,8 +120,10 @@ public class CrossOptionRulesTests
         var cfg = CrossOptionTestHelpers.BaselineConfig() with { Dnssec = true };
         var rule = new DnssecPrerequisitesRule();
         var issues = rule.Evaluate(Ctx(cfg));
+        var trustAnchorKey = EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.TrustAnchor);
         Assert.Contains(issues, i =>
             i.Severity == FieldIssueSeverity.Warning &&
+            i.FieldKey == trustAnchorKey &&
             i.Message.Contains("trust-anchor", StringComparison.OrdinalIgnoreCase));
     }
 
@@ -104,6 +139,9 @@ public class CrossOptionRulesTests
         var issues = rule.Evaluate(Ctx(cfg));
         Assert.Single(issues);
         Assert.Equal(FieldIssueSeverity.Warning, issues[0].Severity);
+        Assert.Equal(
+            EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.CacheSize),
+            issues[0].FieldKey);
     }
 
     [Fact]
@@ -149,6 +187,9 @@ public class CrossOptionRulesTests
         var rule = new AddSubnetCacheBehaviorRule();
         var issues = rule.Evaluate(Ctx(cfg));
         Assert.Single(issues);
+        Assert.Equal(
+            EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.AddSubnet),
+            issues[0].FieldKey);
     }
 
     [Fact]
@@ -172,6 +213,52 @@ public class CrossOptionRulesTests
         var issues = rule.Evaluate(Ctx(cfg));
         Assert.Single(issues);
         Assert.Equal(FieldIssueSeverity.Warning, issues[0].Severity);
+    }
+
+    [Fact]
+    public void AddressLocalDnsmasq286CompatibilityRule_No_issue_when_matching_local_exists()
+    {
+        var cfg = CrossOptionTestHelpers.BaselineConfig() with
+        {
+            AddressValues = ["/example.com/192.0.2.1"],
+            LocalValues = ["/example.com/"]
+        };
+        var rule = new AddressLocalDnsmasq286CompatibilityRule();
+        Assert.Empty(rule.Evaluate(Ctx(cfg)));
+    }
+
+    [Fact]
+    public void DnssecCheckUnsignedRequiresDnssecRule_Warns_when_dnssec_check_unsigned_set_without_dnssec()
+    {
+        var cfg = CrossOptionTestHelpers.BaselineConfig() with
+        {
+            Dnssec = false,
+            DnssecCheckUnsigned = ""
+        };
+        var rule = new DnssecCheckUnsignedRequiresDnssecRule();
+        var issues = rule.Evaluate(Ctx(cfg));
+        Assert.Single(issues);
+        Assert.Equal(FieldIssueSeverity.Warning, issues[0].Severity);
+        Assert.Equal(
+            EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.DnssecCheckUnsigned),
+            issues[0].FieldKey);
+    }
+
+    [Fact]
+    public void LocalServiceIgnoredByBindSettingsRule_Warns_when_local_service_with_interface_filters()
+    {
+        var cfg = CrossOptionTestHelpers.BaselineConfig() with
+        {
+            LocalService = "net",
+            Interfaces = ["eth0"]
+        };
+        var rule = new LocalServiceIgnoredByBindSettingsRule();
+        var issues = rule.Evaluate(Ctx(cfg));
+        Assert.Single(issues);
+        Assert.Equal(FieldIssueSeverity.Warning, issues[0].Severity);
+        Assert.Equal(
+            EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.LocalService),
+            issues[0].FieldKey);
     }
 
     [Fact]
