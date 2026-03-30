@@ -1,4 +1,6 @@
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata;
 using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Validation.Abstractions;
@@ -86,9 +88,16 @@ public sealed class RebindExceptionsRequireStopDnsRebindRule : IEffectiveConfigC
     }
 }
 
+/// <summary>
+/// Man: <c>bogus-priv</c> avoids forwarding RFC1918 (etc.) reverse lookups; combined with explicit private reverse
+/// forwarding via <c>server=</c> or <c>rev-server=</c>, PTR traffic may not reach the configured upstream (subtle).
+/// </summary>
 public sealed class BogusPrivBlocksPrivateReverseServerRule : IEffectiveConfigCrossOptionRule
 {
     public string Id => "resolver.bogus-priv-private-reverse-server";
+
+    private const string PrivateReverseMessage =
+        "bogus-priv takes priority over private reverse lookup forwarding, so those PTR queries may never reach the configured upstream server.";
 
     public IReadOnlyList<FieldIssue> Evaluate(EffectiveConfigCrossOptionContext context)
     {
@@ -97,18 +106,31 @@ public sealed class BogusPrivBlocksPrivateReverseServerRule : IEffectiveConfigCr
             return [];
 
         var servers = context.GetMulti(DnsmasqConfKeys.Server, cfg => cfg.ServerValues);
-        var hasPrivateReverseServer = servers.Any(LooksLikeRfc1918InAddrArpaServer);
+        var revServers = context.GetMulti(DnsmasqConfKeys.RevServer, cfg => cfg.RevServerValues);
+        var serverMatch = servers.Any(LooksLikeRfc1918InAddrArpaServer);
+        var revMatch = revServers.Any(IsRfc1918RevServerIpv4Target);
 
-        if (!hasPrivateReverseServer)
+        if (!serverMatch && !revMatch)
             return [];
 
-        return
-        [
-            new FieldIssue(
+        var issues = new List<FieldIssue>();
+        if (serverMatch)
+        {
+            issues.Add(new FieldIssue(
                 EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.Server),
-                "bogus-priv takes priority over private reverse lookup forwarding, so those PTR queries may never reach the configured upstream server.",
-                FieldIssueSeverity.Warning)
-        ];
+                PrivateReverseMessage,
+                FieldIssueSeverity.Warning));
+        }
+
+        if (revMatch)
+        {
+            issues.Add(new FieldIssue(
+                EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.RevServer),
+                PrivateReverseMessage,
+                FieldIssueSeverity.Warning));
+        }
+
+        return issues;
     }
 
     // RFC1918 reverse zone labels only; avoids substring false positives (e.g. 210, 192.0.0.x, 172.15).
@@ -132,6 +154,106 @@ public sealed class BogusPrivBlocksPrivateReverseServerRule : IEffectiveConfigCr
             return true;
 
         return false;
+    }
+
+    /// <summary>True when the rev-server reverse target (IPv4 CIDR or host) overlaps RFC1918 space.</summary>
+    private static bool IsRfc1918RevServerIpv4Target(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line))
+            return false;
+
+        var target = line.Split(',', 2)[0].Trim();
+        var slash = target.IndexOf('/');
+        var ipText = slash >= 0 ? target[..slash] : target;
+        if (!IPAddress.TryParse(ipText, out var ip) || ip.AddressFamily != AddressFamily.InterNetwork)
+            return false;
+
+        var prefix = slash < 0 ? 32 : int.TryParse(target[(slash + 1)..], out var p) ? p : -1;
+        if (prefix is < 0 or > 32)
+            return false;
+
+        var ipUint = ToIpv4UInt32(ip);
+        var mask = prefix == 0 ? 0u : uint.MaxValue << (32 - prefix);
+        var netStart = ipUint & mask;
+        var netEnd = netStart | ~mask;
+
+        return OverlapsRfc1918Ipv4(netStart, netEnd);
+    }
+
+    private static uint ToIpv4UInt32(IPAddress ip)
+    {
+        var b = ip.GetAddressBytes();
+        return ((uint)b[0] << 24) | ((uint)b[1] << 16) | ((uint)b[2] << 8) | b[3];
+    }
+
+    private static bool OverlapsRfc1918Ipv4(uint netStart, uint netEnd)
+    {
+        // 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+        (uint s, uint e)[] blocks =
+        [
+            (0x0A00_0000u, 0x0AFF_FFFFu),
+            (0xAC10_0000u, 0xAC1F_FFFFu),
+            (0xC0A8_0000u, 0xC0A8_FFFFu)
+        ];
+
+        foreach (var (bs, be) in blocks)
+        {
+            if (netStart <= be && bs <= netEnd)
+                return true;
+        }
+
+        return false;
+    }
+}
+
+/// <summary>
+/// Man (2.80): <c>no-ping</c> with <c>dhcp-sequential-ip</c> breaks DHCP — documented regression/failure mode.
+/// </summary>
+public sealed class NoPingWithDhcpSequentialIpRule : IEffectiveConfigCrossOptionRule
+{
+    public string Id => "dhcp.no-ping-with-dhcp-sequential-ip";
+
+    public IReadOnlyList<FieldIssue> Evaluate(EffectiveConfigCrossOptionContext context)
+    {
+        var noPing = context.GetBool(DnsmasqConfKeys.NoPing, cfg => cfg.NoPing);
+        var sequential = context.GetBool(DnsmasqConfKeys.DhcpSequentialIp, cfg => cfg.DhcpSequentialIp);
+        if (!noPing || !sequential)
+            return [];
+
+        return
+        [
+            new FieldIssue(
+                EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.DhcpSequentialIp),
+                "no-ping together with dhcp-sequential-ip is a known-broken combination in dnsmasq; disable one or the other.",
+                FieldIssueSeverity.Warning)
+        ];
+    }
+}
+
+/// <summary>
+/// Man: <c>port=0</c> disables the DNS listener; TFTP/PXE still expect a working setup — 2.87 fixed crashes for port 0 with netboot.
+/// </summary>
+public sealed class DnsPortZeroWithTftpOrPxeRule : IEffectiveConfigCrossOptionRule
+{
+    public string Id => "dns.port-zero-with-tftp-or-pxe";
+
+    public IReadOnlyList<FieldIssue> Evaluate(EffectiveConfigCrossOptionContext context)
+    {
+        if (context.GetInt(DnsmasqConfKeys.Port, cfg => cfg.Port) != 0)
+            return [];
+
+        var tftp = context.GetBool(DnsmasqConfKeys.EnableTftp, cfg => cfg.EnableTftp);
+        var pxe = context.GetMulti(DnsmasqConfKeys.PxeService, cfg => cfg.PxeServiceValues);
+        if (!tftp && pxe.Count == 0)
+            return [];
+
+        return
+        [
+            new FieldIssue(
+                EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.Port),
+                "port=0 disables the DNS listener. With enable-tftp or pxe-service, netboot can fail or hit dnsmasq bugs fixed only in recent releases—use a non-zero port or turn off TFTP/PXE unless DNS is intentionally off.",
+                FieldIssueSeverity.Warning)
+        ];
     }
 }
 
@@ -280,6 +402,10 @@ public sealed class Filterwin2kSrvWarningRule : IEffectiveConfigCrossOptionRule
     }
 }
 
+/// <summary>
+/// Man: from 2.86, <c>address=/domain/IP</c> applies only to A/AAAA; other types forward unless <c>local=/domain/</c>
+/// restores earlier “whole domain” behavior. Precedence among <c>address</c>, <c>server</c>, and defaults was refined through 2.92.
+/// </summary>
 public sealed class AddressLocalDnsmasq286CompatibilityRule : IEffectiveConfigCrossOptionRule
 {
     public string Id => "resolver.address-local-dnsmasq-286-compat";
@@ -311,7 +437,7 @@ public sealed class AddressLocalDnsmasq286CompatibilityRule : IEffectiveConfigCr
         [
             new FieldIssue(
                 EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.Address),
-                $"From dnsmasq 2.86, address= with a domain and IP may forward non-A/AAAA queries upstream unless the domain is also covered by local=. Add matching local= entries for: {preview}{extra}.",
+                $"Since dnsmasq 2.86, address= with a domain and IP answers only A/AAAA locally; other RR types are forwarded unless the domain is also covered by local= (see the dnsmasq man page). Add matching local= for: {preview}{extra}.",
                 FieldIssueSeverity.Warning)
         ];
     }
@@ -395,3 +521,11 @@ public sealed class LocalServiceIgnoredByBindSettingsRule : IEffectiveConfigCros
         ];
     }
 }
+
+/*
+ * Deferred cross-option: dhcp-authoritative vs DHCPv6 REBIND-without-lease (dnsmasq 2.92 changelog).
+ * Implement only when either:
+ *   (1) the man page states a configuration-level requirement to set dhcp-authoritative for the affected DHCPv6 mode, or
+ *   (2) this codebase can reliably detect stateful DHCPv6 (vs SLAAC-only) from DhcpRanges / RA flags.
+ * Otherwise prefer tooltips or external docs, not a static warning.
+ */

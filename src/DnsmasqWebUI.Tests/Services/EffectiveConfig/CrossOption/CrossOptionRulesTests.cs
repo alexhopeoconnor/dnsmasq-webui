@@ -67,6 +67,9 @@ public class CrossOptionRulesTests
         var issues = rule.Evaluate(Ctx(cfg));
         Assert.Single(issues);
         Assert.Equal(FieldIssueSeverity.Warning, issues[0].Severity);
+        Assert.Equal(
+            EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.Server),
+            issues[0].FieldKey);
     }
 
     [Theory]
@@ -98,6 +101,166 @@ public class CrossOptionRulesTests
             ServerValues = [serverValue]
         };
         var rule = new BogusPrivBlocksPrivateReverseServerRule();
+        Assert.Empty(rule.Evaluate(Ctx(cfg)));
+    }
+
+    [Theory]
+    [InlineData("192.168.1.0/24,8.8.8.8")]
+    [InlineData("10.0.0.0/8,8.8.8.8")]
+    [InlineData("172.16.0.0/12,8.8.8.8")]
+    public void BogusPrivBlocksPrivateReverseServerRule_Warns_for_rfc1918_rev_server(string revServerValue)
+    {
+        var cfg = CrossOptionTestHelpers.BaselineConfig() with
+        {
+            BogusPriv = true,
+            RevServerValues = [revServerValue]
+        };
+        var rule = new BogusPrivBlocksPrivateReverseServerRule();
+        var issues = rule.Evaluate(Ctx(cfg));
+        Assert.Single(issues);
+        Assert.Equal(
+            EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.RevServer),
+            issues[0].FieldKey);
+    }
+
+    [Theory]
+    [InlineData("8.8.8.0/24,1.1.1.1")]
+    [InlineData("1.0.0.0/8,1.1.1.1")]
+    public void BogusPrivBlocksPrivateReverseServerRule_No_issue_for_public_rev_server(string revServerValue)
+    {
+        var cfg = CrossOptionTestHelpers.BaselineConfig() with
+        {
+            BogusPriv = true,
+            RevServerValues = [revServerValue]
+        };
+        var rule = new BogusPrivBlocksPrivateReverseServerRule();
+        Assert.Empty(rule.Evaluate(Ctx(cfg)));
+    }
+
+    [Fact]
+    public void BogusPrivBlocksPrivateReverseServerRule_Emits_separate_issues_for_server_and_rev_server()
+    {
+        var cfg = CrossOptionTestHelpers.BaselineConfig() with
+        {
+            BogusPriv = true,
+            ServerValues = ["/0.168.192.in-addr.arpa/10.0.0.1"],
+            RevServerValues = ["192.168.2.0/24,8.8.8.8"]
+        };
+        var rule = new BogusPrivBlocksPrivateReverseServerRule();
+        var issues = rule.Evaluate(Ctx(cfg));
+        Assert.Equal(2, issues.Count);
+        Assert.Contains(
+            issues,
+            i => i.FieldKey == EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.Server));
+        Assert.Contains(
+            issues,
+            i => i.FieldKey == EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.RevServer));
+    }
+
+    [Fact]
+    public void BogusPrivBlocksPrivateReverseServerRule_Pending_rev_server_overrides_disk()
+    {
+        var cfg = CrossOptionTestHelpers.BaselineConfig() with
+        {
+            BogusPriv = true,
+            RevServerValues = ["8.8.8.0/24,1.1.1.1"]
+        };
+        var pending = new[]
+        {
+            new PendingOptionChange(
+                "resolver",
+                DnsmasqConfKeys.RevServer,
+                Array.Empty<string>(),
+                new[] { "192.168.1.0/24,8.8.8.8" },
+                null)
+        };
+        var ctx = new EffectiveConfigCrossOptionContext(CrossOptionTestHelpers.Status(cfg), pending);
+        var rule = new BogusPrivBlocksPrivateReverseServerRule();
+        var issues = rule.Evaluate(ctx);
+        Assert.Single(issues);
+        Assert.Equal(
+            EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.RevServer),
+            issues[0].FieldKey);
+    }
+
+    [Fact]
+    public void NoPingWithDhcpSequentialIpRule_Warns_when_both_set()
+    {
+        var cfg = CrossOptionTestHelpers.BaselineConfig() with
+        {
+            NoPing = true,
+            DhcpSequentialIp = true
+        };
+        var rule = new NoPingWithDhcpSequentialIpRule();
+        var issues = rule.Evaluate(Ctx(cfg));
+        Assert.Single(issues);
+        Assert.Equal(FieldIssueSeverity.Warning, issues[0].Severity);
+        Assert.Equal(
+            EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.DhcpSequentialIp),
+            issues[0].FieldKey);
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    public void NoPingWithDhcpSequentialIpRule_No_issue_unless_both(bool noPing, bool sequential)
+    {
+        var cfg = CrossOptionTestHelpers.BaselineConfig() with
+        {
+            NoPing = noPing,
+            DhcpSequentialIp = sequential
+        };
+        var rule = new NoPingWithDhcpSequentialIpRule();
+        Assert.Empty(rule.Evaluate(Ctx(cfg)));
+    }
+
+    [Fact]
+    public void DnsPortZeroWithTftpOrPxeRule_Warns_when_port_zero_and_enable_tftp()
+    {
+        var cfg = CrossOptionTestHelpers.BaselineConfig() with
+        {
+            Port = 0,
+            EnableTftp = true
+        };
+        var rule = new DnsPortZeroWithTftpOrPxeRule();
+        var issues = rule.Evaluate(Ctx(cfg));
+        Assert.Single(issues);
+        Assert.Equal(
+            EffectiveConfigCrossOptionContext.FieldKeyForOption(DnsmasqConfKeys.Port),
+            issues[0].FieldKey);
+    }
+
+    [Fact]
+    public void DnsPortZeroWithTftpOrPxeRule_Warns_when_port_zero_and_pxe_service()
+    {
+        var cfg = CrossOptionTestHelpers.BaselineConfig() with
+        {
+            Port = 0,
+            PxeServiceValues = ["x86PC,Boot from network,pxelinux"]
+        };
+        var rule = new DnsPortZeroWithTftpOrPxeRule();
+        Assert.Single(rule.Evaluate(Ctx(cfg)));
+    }
+
+    [Fact]
+    public void DnsPortZeroWithTftpOrPxeRule_No_issue_when_port_nonzero_even_with_netboot()
+    {
+        var cfg = CrossOptionTestHelpers.BaselineConfig() with
+        {
+            Port = 53,
+            EnableTftp = true,
+            PxeServiceValues = ["x86PC,Boot from network,pxelinux"]
+        };
+        var rule = new DnsPortZeroWithTftpOrPxeRule();
+        Assert.Empty(rule.Evaluate(Ctx(cfg)));
+    }
+
+    [Fact]
+    public void DnsPortZeroWithTftpOrPxeRule_No_issue_when_port_zero_without_tftp_or_pxe()
+    {
+        var cfg = CrossOptionTestHelpers.BaselineConfig() with { Port = 0 };
+        var rule = new DnsPortZeroWithTftpOrPxeRule();
         Assert.Empty(rule.Evaluate(Ctx(cfg)));
     }
 
