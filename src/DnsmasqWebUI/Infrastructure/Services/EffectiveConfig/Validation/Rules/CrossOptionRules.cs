@@ -442,13 +442,19 @@ public sealed class AddressLocalDnsmasq286CompatibilityRule : IEffectiveConfigCr
         ];
     }
 
+    // Only address=/domain/IP (or #, etc.) is affected by 2.86 A/AAAA-only behavior. address=/domain/
+    // (nothing after the last slash) is NXDOMAIN for all RR types and does not need local=.
     private static IReadOnlyList<string> GetDomainsFromAddressDirective(string value)
     {
         var t = value.Trim();
         if (!t.StartsWith('/'))
             return [];
         var end = t.LastIndexOf('/');
-        if (end <= 1)
+        if (end < 1)
+            return [];
+
+        var addressPayload = t[(end + 1)..].Trim();
+        if (addressPayload.Length == 0)
             return [];
 
         var domainsPart = t[1..end];

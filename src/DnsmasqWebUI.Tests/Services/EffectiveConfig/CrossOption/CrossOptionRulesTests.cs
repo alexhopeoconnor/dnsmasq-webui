@@ -391,6 +391,28 @@ public class CrossOptionRulesTests
     }
 
     [Fact]
+    public void AddressLocalDnsmasq286CompatibilityRule_No_issue_for_nxdomain_form_without_ip()
+    {
+        var cfg = CrossOptionTestHelpers.BaselineConfig() with
+        {
+            AddressValues = ["/ads.example/"]
+        };
+        var rule = new AddressLocalDnsmasq286CompatibilityRule();
+        Assert.Empty(rule.Evaluate(Ctx(cfg)));
+    }
+
+    [Fact]
+    public void AddressLocalDnsmasq286CompatibilityRule_Warns_for_hash_target_without_local()
+    {
+        var cfg = CrossOptionTestHelpers.BaselineConfig() with
+        {
+            AddressValues = ["/blocked.example/#"]
+        };
+        var rule = new AddressLocalDnsmasq286CompatibilityRule();
+        Assert.Single(rule.Evaluate(Ctx(cfg)));
+    }
+
+    [Fact]
     public void DnssecCheckUnsignedRequiresDnssecRule_Warns_when_dnssec_check_unsigned_set_without_dnssec()
     {
         var cfg = CrossOptionTestHelpers.BaselineConfig() with
