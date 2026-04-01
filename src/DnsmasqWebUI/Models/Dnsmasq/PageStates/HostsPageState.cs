@@ -13,6 +13,10 @@ public sealed record HostsPageState(
     bool ExpandHostsEnabled,
     string? ExpansionDomain)
 {
+    /// <summary>When true, dnsmasq applies expand-hosts with a domain so effective names can differ from stored names.</summary>
+    public bool ShowEffectiveNamesColumn =>
+        ExpandHostsEnabled && !string.IsNullOrWhiteSpace(ExpansionDomain);
+
     public static HostsPageState FromStatus(DnsmasqServiceStatus? status)
     {
         if (status == null)

@@ -3,6 +3,8 @@ namespace DnsmasqWebUI.Models.Hosts;
 /// <summary>Preview of names after <c>expand-hosts</c> (does not mutate stored names).</summary>
 public static class HostsEffectiveNames
 {
+    private sealed record ScopedDomainRule(uint Start, uint End, string Domain);
+
     public static IReadOnlyList<string> Expand(
         IReadOnlyList<string> names,
         bool expandHosts,
@@ -18,5 +20,140 @@ public static class HostsEffectiveNames
                     : new[] { name, $"{name}.{domain}" })
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    public static IReadOnlyList<string> Expand(
+        IReadOnlyList<string> names,
+        bool expandHosts,
+        IReadOnlyList<string>? domainValues,
+        string? address)
+    {
+        var domain = ResolveDomainForAddress(domainValues, address);
+        return Expand(names, expandHosts, domain);
+    }
+
+    public static string? ResolveDomainForAddress(
+        IReadOnlyList<string>? domainValues,
+        string? address)
+    {
+        if (domainValues == null || domainValues.Count == 0)
+            return null;
+
+        string? defaultDomain = null;
+        var scopedRules = new List<ScopedDomainRule>();
+
+        foreach (var raw in domainValues)
+            ParseDomainValue(raw, scopedRules, ref defaultDomain);
+
+        if (!TryParseIpv4ToUInt(address, out var ip))
+            return defaultDomain;
+
+        // dnsmasq prepends conditional domains as it parses, then scans first-match.
+        for (var i = scopedRules.Count - 1; i >= 0; i--)
+        {
+            var rule = scopedRules[i];
+            if (ip >= rule.Start && ip <= rule.End)
+                return rule.Domain;
+        }
+
+        return defaultDomain;
+    }
+
+    private static void ParseDomainValue(
+        string? raw,
+        ICollection<ScopedDomainRule> scopedRules,
+        ref string? defaultDomain)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return;
+
+        var parts = raw.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+            return;
+
+        var domain = NormalizeDomain(parts[0]);
+        if (string.IsNullOrWhiteSpace(domain))
+            return;
+
+        if (parts.Length == 1)
+        {
+            defaultDomain = domain;
+            return;
+        }
+
+        if (TryParseScopedRange(parts, out var start, out var end))
+            scopedRules.Add(new ScopedDomainRule(start, end, domain));
+    }
+
+    private static string? NormalizeDomain(string value)
+    {
+        var domain = value.Trim();
+        if (domain.Length == 0 || domain == "#")
+            return null;
+        return domain;
+    }
+
+    private static bool TryParseScopedRange(string[] parts, out uint start, out uint end)
+    {
+        start = 0;
+        end = 0;
+        if (parts.Length < 2)
+            return false;
+
+        var second = parts[1];
+        if (TryParseIpv4Cidr(second, out start, out end))
+            return true;
+
+        if (TryParseIpv4ToUInt(second, out start))
+        {
+            // domain=a.b.c.d,ip-start,ip-end
+            if (parts.Length >= 3 && TryParseIpv4ToUInt(parts[2], out end))
+            {
+                if (end < start)
+                    (start, end) = (end, start);
+                return true;
+            }
+
+            end = start;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryParseIpv4Cidr(string value, out uint start, out uint end)
+    {
+        start = 0;
+        end = 0;
+        var slashIndex = value.IndexOf('/');
+        if (slashIndex <= 0 || slashIndex >= value.Length - 1)
+            return false;
+
+        var ipPart = value[..slashIndex];
+        var prefixPart = value[(slashIndex + 1)..];
+        if (!TryParseIpv4ToUInt(ipPart, out var ip) || !int.TryParse(prefixPart, out var prefix) || prefix < 0 || prefix > 32)
+            return false;
+
+        var mask = prefix == 0 ? 0u : uint.MaxValue << (32 - prefix);
+        start = ip & mask;
+        end = start | ~mask;
+        return true;
+    }
+
+    private static bool TryParseIpv4ToUInt(string? value, out uint result)
+    {
+        result = 0;
+        if (string.IsNullOrWhiteSpace(value) || !System.Net.IPAddress.TryParse(value, out var ip))
+            return false;
+
+        var bytes = ip.GetAddressBytes();
+        if (bytes.Length != 4)
+            return false;
+
+        result = ((uint)bytes[0] << 24)
+               | ((uint)bytes[1] << 16)
+               | ((uint)bytes[2] << 8)
+               | bytes[3];
+        return true;
     }
 }

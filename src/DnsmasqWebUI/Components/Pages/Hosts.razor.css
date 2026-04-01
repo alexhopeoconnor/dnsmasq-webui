@@ -158,14 +158,30 @@
     min-width: 0;
 }
 
+.hosts-group-header__path-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.5rem 0.75rem;
+    width: 100%;
+    min-width: 0;
+}
+
 .hosts-group-header__path {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem;
     min-width: 0;
-    width: 100%;
+    flex: 1 1 auto;
     font-weight: 500;
+}
+
+.hosts-group-header__managed-actions {
+    flex: 0 0 auto;
+    align-self: flex-end;
+    margin-left: auto;
 }
 
 .hosts-group-header__badge {
@@ -182,7 +198,7 @@
     max-width: min(38rem, 50vw);
 }
 
-::deep .hosts-row--inactive {
+::deep .hosts-row--inactive:not(.hosts-row--selected) {
     opacity: 0.72;
 }
 
@@ -194,9 +210,62 @@
     background-color: rgba(13, 110, 253, 0.06);
 }
 
+/* One accent bar on the row (first cell only); same fill on all cells so borders stay even */
+::deep .hosts-table .hosts-row--selected td {
+    background-color: rgba(var(--bs-primary-rgb), 0.07);
+}
+
+::deep .hosts-table .hosts-row--selected td:first-child {
+    box-shadow: inset 3px 0 0 var(--bs-primary);
+}
+
+::deep .hosts-table .hosts-row--selected.hosts-row--editable:hover td {
+    background-color: rgba(var(--bs-primary-rgb), 0.11);
+}
+
 ::deep .hosts-table .hosts-row--empty td.hosts-empty-group-message {
     background: #fafbfc;
     font-style: italic;
+}
+
+::deep .hosts-table .hosts-row--add-slot td {
+    padding: 0;
+    vertical-align: middle;
+    background: #fafbfc;
+}
+
+::deep .hosts-table .hosts-row--add-slot--after-rows td {
+    border-top: 1px dashed #dbe3ec;
+}
+
+.hosts-add-slot-btn {
+    font-weight: 500;
+    line-height: 1.35;
+    background: transparent;
+    box-shadow: none;
+}
+
+.hosts-add-slot-btn:hover,
+.hosts-add-slot-btn:focus-visible {
+    background: rgba(13, 110, 253, 0.08);
+    color: var(--bs-primary);
+}
+
+.hosts-add-slot-btn:focus-visible {
+    outline: 0;
+    box-shadow: inset 0 0 0 2px rgba(13, 110, 253, 0.35);
+    z-index: 1;
+    position: relative;
+}
+
+.hosts-add-slot__action {
+    font-weight: 600;
+    color: #475569;
+}
+
+.hosts-add-slot-btn:hover .hosts-add-slot__action,
+.hosts-add-slot-btn:focus-visible .hosts-add-slot__action {
+    color: var(--bs-primary);
 }
 
 ::deep .hosts-row code {

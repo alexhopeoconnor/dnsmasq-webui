@@ -260,11 +260,12 @@ h1:focus {
 
 /* Shared table shell for rich data tables that need horizontal scrolling. */
 .app-table-scroll-shell {
+    --app-table-scroll-radius: 16px;
     position: relative;
     width: 100%;
-    overflow: visible;
+    overflow: hidden;
     border: 1px solid #e7ebf0;
-    border-radius: 16px;
+    border-radius: var(--app-table-scroll-radius);
     background: #fff;
     box-shadow: 0 12px 28px -22px rgba(15, 23, 42, 0.45);
 }
@@ -274,7 +275,7 @@ h1:focus {
     overflow-x: auto;
     overflow-y: clip;
     -webkit-overflow-scrolling: touch;
-    border-radius: 16px;
+    border-radius: var(--app-table-scroll-radius);
     scrollbar-width: thin;
     scrollbar-color: #b8c3d1 #eef2f6;
 }
@@ -285,7 +286,7 @@ h1:focus {
 
 .app-table-scroll-region::-webkit-scrollbar-track {
     background: #eef2f6;
-    border-radius: 0 0 16px 16px;
+    border-radius: 0 0 var(--app-table-scroll-radius) var(--app-table-scroll-radius);
 }
 
 .app-table-scroll-region::-webkit-scrollbar-thumb {
@@ -319,6 +320,8 @@ h1:focus {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    /* Match .app-table-scroll-shell corners so gradients don’t look square */
+    overflow: hidden;
 }
 
 .app-table-cue-btn:hover {
@@ -332,6 +335,7 @@ h1:focus {
 
 .app-table-scroll-shell .app-table-cue-btn--left {
     left: 0;
+    border-radius: var(--app-table-scroll-radius) 0 0 var(--app-table-scroll-radius);
     background: linear-gradient(to right, rgba(248, 250, 252, 0.98), rgba(248, 250, 252, 0.68), transparent);
 }
 
@@ -341,6 +345,7 @@ h1:focus {
 
 .app-table-scroll-shell .app-table-cue-btn--right {
     right: 0;
+    border-radius: 0 var(--app-table-scroll-radius) var(--app-table-scroll-radius) 0;
     background: linear-gradient(to left, rgba(248, 250, 252, 0.98), rgba(248, 250, 252, 0.68), transparent);
 }
 

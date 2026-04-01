@@ -35,6 +35,9 @@
 else
 {
     var pageState = HostsPageState.FromStatus(_status);
+    var effectiveDomainValues = GetEffectiveDomainValuesForPreview();
+    var showEffectiveNames = pageState.ExpandHostsEnabled && effectiveDomainValues.Count > 0;
+    var hostsTableColSpan = showEffectiveNames ? 4 : 3;
 
     <section class="page-section">
         <h2 class="page-section-title">Effective configuration</h2>
@@ -46,14 +49,14 @@ else
         <div class="alert alert-warning">
             <p class="mb-0">@pageState.ManagedHostsUnavailableReason</p>
         </div>
-        @if (_status.AddnHostsPaths?.Count > 0)
+        @if (_status!.AddnHostsPaths?.Count > 0)
         {
             <p class="text-muted small">Dnsmasq loads these addn-hosts files: @RenderAddnHostsList()</p>
         }
     }
     else
     {
-        @if (_status.DnsmasqStatus == "inactive" || _status.DnsmasqStatus == "unknown")
+        @if (_status!.DnsmasqStatus == "inactive" || _status.DnsmasqStatus == "unknown")
         {
             <div class="alert alert-warning">Dnsmasq service appears to be <strong>@_status.DnsmasqStatus</strong>. Save will update the file but reload may fail until the service is fixed.</div>
         }
@@ -93,25 +96,28 @@ else
                                 <tr>
                                     <th scope="col">Address</th>
                                     <th scope="col">Names</th>
+                                    @if (showEffectiveNames)
+                                    {
+                                        <th scope="col" class="hosts-effective-names-th">
+                                            <span class="align-middle">Effective names</span>
+                                            <button type="button"
+                                                    class="btn btn-link btn-sm text-muted hosts-effective-names-help p-0 ms-1 align-middle border-0"
+                                                    title="@EffectiveNamesHelpText"
+                                                    aria-label="@EffectiveNamesHelpText"
+                                                    @onclick="OnEffectiveNamesHelpClick"
+                                                    @onclick:stopPropagation="true">
+                                                <i class="bi bi-question-circle" aria-hidden="true"></i>
+                                            </button>
+                                        </th>
+                                    }
                                     <th scope="col" class="hosts-comment-col" title="Inline hosts(5) comment: written after # on the same line when saved.">Comment</th>
-                                    <th scope="col" class="hosts-effective-names-th">
-                                        <span class="align-middle">Effective names</span>
-                                        <button type="button"
-                                                class="btn btn-link btn-sm text-muted hosts-effective-names-help p-0 ms-1 align-middle border-0"
-                                                title="@EffectiveNamesHelpText"
-                                                aria-label="@EffectiveNamesHelpText"
-                                                @onclick="OnEffectiveNamesHelpClickAsync"
-                                                @onclick:stopPropagation="true">
-                                            <i class="bi bi-question-circle" aria-hidden="true"></i>
-                                        </button>
-                                    </th>
                                 </tr>
                             </thead>
                             @foreach (var group in VisibleGroups)
                             {
                                 <tbody @key="@group.Key">
                                     <tr class="hosts-group-header">
-                                        <th colspan="4" scope="colgroup" class="hosts-group-header-cell">
+                                        <th colspan="@hostsTableColSpan" scope="colgroup" class="hosts-group-header-cell">
                                             <div class="hosts-group-header__content">
                                                 <div class="hosts-group-header__title">
                                                     <span>@group.Title</span>
@@ -120,116 +126,180 @@ else
                                                         <span class="badge bg-warning text-dark">Inactive</span>
                                                     }
                                                 </div>
-                                                <div class="hosts-group-header__path">
-                                                    @if (!string.IsNullOrWhiteSpace(group.Subtitle))
+                                                <div class="hosts-group-header__path-row">
+                                                    <div class="hosts-group-header__path">
+                                                        @if (!string.IsNullOrWhiteSpace(group.Subtitle))
+                                                        {
+                                                            <span class="hosts-group-header__subtitle text-muted small">@group.Subtitle</span>
+                                                        }
+                                                        @if (group.SourceKind == HostsRowSourceKind.Managed && group.IsSourceEditable)
+                                                        {
+                                                            <StatusBadge Kind="StatusBadgeKind.Editable"
+                                                                         Text="editable"
+                                                                         Class="hosts-group-header__badge" />
+                                                        }
+                                                        else if (group.IsSourceEditable)
+                                                        {
+                                                            <StatusBadge Kind="StatusBadgeKind.Editable"
+                                                                         Text="editable"
+                                                                         Class="hosts-group-header__badge" />
+                                                        }
+                                                        else
+                                                        {
+                                                            <StatusBadge Kind="StatusBadgeKind.ReadOnly"
+                                                                         Text="read-only"
+                                                                         Class="hosts-group-header__badge" />
+                                                        }
+                                                    </div>
+                                                    @if (IsManagedEditableGroup(group))
                                                     {
-                                                        <span class="hosts-group-header__subtitle text-muted small">@group.Subtitle</span>
-                                                    }
-                                                    @if (group.SourceKind == HostsRowSourceKind.Managed && group.IsSourceEditable)
-                                                    {
-                                                        <StatusBadge Kind="StatusBadgeKind.Editable"
-                                                                     Text="editable"
-                                                                     Class="hosts-group-header__badge"
-                                                                     Clickable="true"
-                                                                     Disabled="@IsInlineEditing"
-                                                                     Title="@(IsInlineEditing ? "Finish editing the current row before adding another." : "Add a host entry")"
-                                                                     AriaLabel="@(IsInlineEditing ? "Finish the current row edit first" : "Add a host entry")"
-                                                                     OnClick="AddManagedHostFromBadge" />
-                                                    }
-                                                    else if (group.IsSourceEditable)
-                                                    {
-                                                        <StatusBadge Kind="StatusBadgeKind.Editable"
-                                                                     Text="editable"
-                                                                     Class="hosts-group-header__badge" />
-                                                    }
-                                                    else
-                                                    {
-                                                        <StatusBadge Kind="StatusBadgeKind.ReadOnly"
-                                                                     Text="read-only"
-                                                                     Class="hosts-group-header__badge" />
+                                                        <div class="hosts-group-header__managed-actions btn-group btn-group-sm" role="group" aria-label="@(IsInlineEditing ? "Save or finish editing this row" : "Managed hosts row actions")">
+                                                            @if (IsInlineEditing)
+                                                            {
+                                                                <button type="button"
+                                                                        class="btn btn-primary"
+                                                                        title="Save this row"
+                                                                        @onclick="OnManagedHeaderSaveAsync">
+                                                                    <i class="bi bi-check-lg" aria-hidden="true"></i><span class="ms-1 d-none d-sm-inline">Save</span>
+                                                                </button>
+                                                            }
+                                                            else
+                                                            {
+                                                                <button type="button"
+                                                                        class="btn btn-outline-secondary"
+                                                                        disabled="@(ManagedSelectionCount != 1)"
+                                                                        title="@EditButtonTitle"
+                                                                        @onclick="OnManagedHeaderEditAsync">
+                                                                    <i class="bi bi-pencil" aria-hidden="true"></i><span class="ms-1 d-none d-sm-inline">Edit</span>
+                                                                </button>
+                                                            }
+                                                            <button type="button"
+                                                                    class="btn btn-outline-danger"
+                                                                    disabled="@(IsInlineEditing || ManagedSelectionCount == 0)"
+                                                                    title="@(IsInlineEditing ? "Finish the current row edit first." : ManagedSelectionCount == 0 ? "Select one or more rows to remove." : "Remove selected host row(s)")"
+                                                                    @onclick="OnManagedHeaderRemoveAsync">
+                                                                <i class="bi bi-trash" aria-hidden="true"></i><span class="ms-1 d-none d-sm-inline">Remove</span>
+                                                            </button>
+                                                        </div>
                                                     }
                                                 </div>
                                             </div>
                                         </th>
                                     </tr>
-                                    @if (group.Rows.Count == 0)
+                                    @{
+                                        var showManagedAddSlot = IsManagedEditableGroup(group) && !IsInlineEditing;
+                                    }
+                                    @if (!showManagedAddSlot && group.Rows.Count == 0)
                                     {
                                         <tr class="hosts-row hosts-row--empty" @key="@("empty:" + group.Key)">
-                                            <td colspan="4" class="text-muted small text-center hosts-empty-group-message py-3">
+                                            <td colspan="@hostsTableColSpan" class="text-muted small text-center hosts-empty-group-message py-3">
                                                 @EmptyGroupMessage
                                             </td>
                                         </tr>
                                     }
                                     else
                                     {
-                                        @foreach (var row in group.Rows)
+                                        @if (group.Rows.Count > 0)
                                         {
-                                            @if (IsEditingRow(row))
+                                            @foreach (var row in group.Rows)
                                             {
-                                                <tr class="hosts-row hosts-row--editing table-info"
-                                                    @key="@("edit:" + row.Id)"
-                                                    @ref="_editingRowRef"
-                                                    @onfocusout="OnEditingRowFocusOut">
-                                                    <td>
-                                                        <input @ref="_editAddressInputRef"
-                                                               class="form-control form-control-sm @(_showHostFieldValidation && CurrentAddressFieldErrors.Count > 0 ? "is-invalid" : "")"
-                                                               title="@HostEditAddressTooltip"
-                                                               aria-invalid="@(_showHostFieldValidation && CurrentAddressFieldErrors.Count > 0 ? "true" : null)"
-                                                               @bind="_editAddress"
-                                                               @bind:event="oninput"
-                                                               @onkeydown="OnEditFieldKeyDown"
-                                                               autofocus />
-                                                    </td>
-                                                    <td>
-                                                        <input class="form-control form-control-sm @(_showHostFieldValidation && CurrentHostnameFieldErrors.Count > 0 ? "is-invalid" : "")"
-                                                               placeholder="Comma-separated names"
-                                                               title="@HostEditNamesTooltip"
-                                                               aria-invalid="@(_showHostFieldValidation && CurrentHostnameFieldErrors.Count > 0 ? "true" : null)"
-                                                               @bind="_editNames"
-                                                               @bind:event="oninput"
-                                                               @onkeydown="OnEditFieldKeyDown" />
-                                                    </td>
-                                                    <td>
-                                                        <input class="form-control form-control-sm"
-                                                               placeholder="Optional"
-                                                               title="Saved after # on the same line as this entry (inline hosts comment)."
-                                                               @bind="_editInlineComment"
-                                                               @bind:event="oninput"
-                                                               @onkeydown="OnEditFieldKeyDown" />
-                                                    </td>
-                                                    <td class="text-muted small">@string.Join(", ", HostsEffectiveNames.Expand(ParseNamesList(_editNames), pageState.ExpandHostsEnabled, pageState.ExpansionDomain))</td>
-                                                </tr>
-                                            }
-                                            else
-                                            {
-                                                <tr class="@RowClass(row)"
-                                                    @key="@row.Id"
-                                                    title="@RowTitle(row)"
-                                                    @ondblclick="@(async () => await OnRowDoubleClickAsync(row))">
-                                                    <td><code>@row.Address</code></td>
-                                                    <td>@string.Join(", ", row.Names)</td>
-                                                    <td class="text-muted small hosts-comment-col-cell">
-                                                        @if (string.IsNullOrWhiteSpace(row.InlineComment))
+                                                @if (IsEditingRow(row))
+                                                {
+                                                    <tr class="hosts-row hosts-row--editing table-info"
+                                                        @key="@("edit:" + row.Id)"
+                                                        @ref="_editingRowRef"
+                                                        @onfocusout="OnEditingRowFocusOut">
+                                                        <td>
+                                                            <input @ref="_editAddressInputRef"
+                                                                   class="form-control form-control-sm @(_showHostFieldValidation && CurrentAddressFieldErrors.Count > 0 ? "is-invalid" : "")"
+                                                                   title="@HostEditAddressTooltip"
+                                                                   aria-invalid="@(_showHostFieldValidation && CurrentAddressFieldErrors.Count > 0 ? "true" : null)"
+                                                                   @bind="_editAddress"
+                                                                   @bind:event="oninput"
+                                                                   @onkeydown="OnEditFieldKeyDown"
+                                                                   autofocus />
+                                                        </td>
+                                                        <td>
+                                                            <input class="form-control form-control-sm @(_showHostFieldValidation && CurrentHostnameFieldErrors.Count > 0 ? "is-invalid" : "")"
+                                                                   placeholder="Comma-separated names"
+                                                                   title="@HostEditNamesTooltip"
+                                                                   aria-invalid="@(_showHostFieldValidation && CurrentHostnameFieldErrors.Count > 0 ? "true" : null)"
+                                                                   @bind="_editNames"
+                                                                   @bind:event="oninput"
+                                                                   @onkeydown="OnEditFieldKeyDown" />
+                                                        </td>
+                                                        @if (showEffectiveNames)
                                                         {
-                                                            <span class="hosts-comment-empty">—</span>
+                                                            <td class="text-muted small">@string.Join(", ", HostsEffectiveNames.Expand(ParseNamesList(_editNames), pageState.ExpandHostsEnabled, effectiveDomainValues, _editAddress))</td>
+                                                        }
+                                                        <td>
+                                                            <input class="form-control form-control-sm"
+                                                                   placeholder="Optional"
+                                                                   title="Saved after # on the same line as this entry (inline hosts comment)."
+                                                                   @bind="_editInlineComment"
+                                                                   @bind:event="oninput"
+                                                                   @onkeydown="OnEditFieldKeyDown" />
+                                                        </td>
+                                                    </tr>
+                                                }
+                                                else
+                                                {
+                                                    <tr class="@RowClass(row)"
+                                                        @key="@row.Id"
+                                                        title="@RowTitle(row)"
+                                                        aria-selected="@(IsManagedRowSelected(row) ? "true" : "false")"
+                                                        @onclick="@(e => OnManagedRowClick(row, e))"
+                                                        @ondblclick="@(async _ => await OnManagedRowDoubleClickAsync(row))">
+                                                        @{ var effectiveNames = HostsEffectiveNames.Expand(row.Names, pageState.ExpandHostsEnabled, effectiveDomainValues, row.Address); }
+                                                        <td><code>@row.Address</code></td>
+                                                        <td>@string.Join(", ", row.Names)</td>
+                                                        @if (showEffectiveNames)
+                                                        {
+                                                            <td>
+                                                                @if (effectiveNames.Count != row.Names.Count)
+                                                                {
+                                                                    <span class="text-primary">@string.Join(", ", effectiveNames)</span>
+                                                                }
+                                                                else
+                                                                {
+                                                                    @string.Join(", ", effectiveNames)
+                                                                }
+                                                            </td>
+                                                        }
+                                                        <td class="text-muted small hosts-comment-col-cell">
+                                                            @if (string.IsNullOrWhiteSpace(row.InlineComment))
+                                                            {
+                                                                <span class="hosts-comment-empty">—</span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="hosts-row-inline-comment">@row.InlineComment</span>
+                                                            }
+                                                        </td>
+                                                    </tr>
+                                                }
+                                            }
+                                        }
+                                        @if (showManagedAddSlot)
+                                        {
+                                            <tr class="@ManagedAddSlotRowClass(group.Rows.Count > 0)" @key="@("add-slot:" + group.Key)">
+                                                <td colspan="@hostsTableColSpan" class="p-0">
+                                                    <button type="button"
+                                                            class="btn hosts-add-slot-btn w-100 rounded-0 border-0 text-muted small py-3"
+                                                            title="Add a new host entry"
+                                                            aria-label="@(group.Rows.Count == 0 ? ManagedAddSlotEmptyLead + ManagedAddSlotEmptyAction : "Add a new host entry")"
+                                                            @onclick="OnManagedAddSlotClick">
+                                                        @if (group.Rows.Count == 0)
+                                                        {
+                                                            <span>@ManagedAddSlotEmptyLead</span><span class="hosts-add-slot__action">@ManagedAddSlotEmptyAction</span>
                                                         }
                                                         else
                                                         {
-                                                            <span class="hosts-row-inline-comment">@row.InlineComment</span>
+                                                            <span class="hosts-add-slot__action"><i class="bi bi-plus-lg" aria-hidden="true"></i> Add host</span>
                                                         }
-                                                    </td>
-                                                    <td>
-                                                        @if (row.EffectiveNames.Count != row.Names.Count)
-                                                        {
-                                                            <span class="text-primary">@string.Join(", ", row.EffectiveNames)</span>
-                                                        }
-                                                        else
-                                                        {
-                                                            @string.Join(", ", row.EffectiveNames)
-                                                        }
-                                                    </td>
-                                                </tr>
-                                            }
+                                                    </button>
+                                                </td>
+                                            </tr>
                                         }
                                     }
                                 </tbody>
@@ -279,11 +349,11 @@ else
                 <strong>System hosts</strong>: @pageState.SystemHostsInactiveReason
             </div>
         }
-        @if (pageState.ExpandHostsEnabled && !string.IsNullOrEmpty(pageState.ExpansionDomain))
+        @if (showEffectiveNames)
         {
             <div class="alert alert-info mb-0">
-                <strong>expand-hosts</strong> is enabled with domain <code>@pageState.ExpansionDomain</code>.
-                Simple hostnames (without dots) will be expanded to include the domain suffix.
+                <strong>expand-hosts</strong> is enabled and one or more <code>domain=</code> rules are configured.
+                Simple hostnames (without dots) are expanded using the applicable domain for each row address.
                 The <strong>Effective names</strong> column shows how dnsmasq will resolve each entry.
             </div>
         }
@@ -293,7 +363,7 @@ else
 
 @code {
     private const string EffectiveNamesHelpText =
-        "Effective names show how dnsmasq resolves this row from your Address and Names columns. If expand-hosts and a domain are enabled, short hostnames get that suffix. This preview updates as you type.";
+        "Effective names list how dnsmasq resolves each row when expand-hosts is on: short hostnames (no dots) also get the configured domain suffix.";
 
     private string AppTitle => AppOptions!.Value!.EffectiveTitle;
     private DnsmasqServiceStatus? _status;
@@ -304,6 +374,8 @@ else
 
     private string _search = "";
 
+    private readonly HashSet<string> _selectedManagedRowIds = new(StringComparer.Ordinal);
+
     private string? _editingRowId;
     private string _editAddress = "";
     private string _editNames = "";
@@ -311,7 +383,6 @@ else
     private ElementReference _editingRowRef;
     private ElementReference _editAddressInputRef;
     private IJSObjectReference? _hostsTableScrollCueModule;
-    private IJSObjectReference? _hostsUiModule;
     private bool _showInvalidHostEditModal;
     private bool _refocusEditAfterRender;
     /// <summary>When false, invalid state is hidden until the first blur, Escape, or Enter.</summary>
@@ -350,6 +421,23 @@ else
     private int TotalVisibleDataRows => VisibleGroups.Sum(g => g.Rows.Count);
 
     private bool IsInlineEditing => !string.IsNullOrEmpty(_editingRowId);
+
+    private int ManagedSelectionCount => _selectedManagedRowIds.Count;
+
+    private IReadOnlyList<string> GetEffectiveDomainValuesForPreview()
+    {
+        var pendingDomain = Session.Draft.PendingChanges
+            .OfType<PendingOptionChange>()
+            .FirstOrDefault(c => string.Equals(c.OptionName, "domain", StringComparison.OrdinalIgnoreCase))
+            ?.NewValue as IReadOnlyList<string>;
+
+        return pendingDomain ?? (_status?.EffectiveConfig?.DomainValues ?? Array.Empty<string>());
+    }
+
+    private string EditButtonTitle =>
+        ManagedSelectionCount == 0 ? "Select a row to edit."
+        : ManagedSelectionCount > 1 ? "Select exactly one row to edit."
+        : "Edit selected row";
 
     private bool _editingRowIsNew =>
         !string.IsNullOrEmpty(_editingRowId) && _editingRowId.StartsWith("new:", StringComparison.Ordinal);
@@ -420,31 +508,49 @@ else
         _visibleGroupsCache = null;
     }
 
-    private async Task OnEffectiveNamesHelpClickAsync()
+    private static bool IsManagedEditableGroup(HostsPageGroup group) =>
+        group.SourceKind == HostsRowSourceKind.Managed && group.IsSourceEditable;
+
+    private void PruneManagedSelectionToExistingEditableRows()
     {
-        try
-        {
-            _hostsUiModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "/js/modules/hosts-ui.js");
-            if (await _hostsUiModule.InvokeAsync<bool>("preferEffectiveNamesHelpToast"))
-                NotificationService.ShowInfo(EffectiveNamesHelpText);
-        }
-        catch (JSDisconnectedException)
-        {
-        }
+        if (_selectedManagedRowIds.Count == 0)
+            return;
+        var editableIds = new HashSet<string>(
+            _unifiedRows.Where(r => r.IsEditable).Select(r => r.Id),
+            StringComparer.Ordinal);
+        _selectedManagedRowIds.RemoveWhere(id => !editableIds.Contains(id));
     }
 
-    private static string RowClass(HostsPageRow row)
+    private void OnEffectiveNamesHelpClick() =>
+        NotificationService.ShowInfo(EffectiveNamesHelpText);
+
+    private string RowClass(HostsPageRow row)
     {
         var parts = new List<string> { "hosts-row" };
         if (row.IsEditable)
             parts.Add("hosts-row--editable");
         if (!row.IsActive)
             parts.Add("hosts-row--inactive");
+        if (IsManagedRowSelected(row))
+            parts.Add("hosts-row--selected");
         return string.Join(" ", parts);
     }
 
+    private bool IsManagedRowSelected(HostsPageRow row) =>
+        row.IsEditable && _selectedManagedRowIds.Contains(row.Id);
+
     private string RowTitle(HostsPageRow row) =>
-        row.IsEditable ? "Double-click to edit" : string.Empty;
+        row.IsEditable
+            ? "Click to select only this row, or click again to deselect. Double-click to edit. Ctrl or ⌘+click toggles rows in the selection. Add a row below; the header Edit control becomes Save while you edit; Remove deletes selected rows."
+            : string.Empty;
+
+    private string ManagedAddSlotEmptyLead =>
+        string.IsNullOrWhiteSpace(_search) ? "No entries. " : "No matching entries. ";
+
+    private const string ManagedAddSlotEmptyAction = "Click to add a host.";
+
+    private static string ManagedAddSlotRowClass(bool afterDataRows) =>
+        afterDataRows ? "hosts-row hosts-row--add-slot hosts-row--add-slot--after-rows" : "hosts-row hosts-row--add-slot";
 
     private string EmptyGroupMessage =>
         string.IsNullOrWhiteSpace(_search) ? "No entries." : "No matching entries.";
@@ -452,8 +558,100 @@ else
     private bool IsEditingRow(HostsPageRow row) =>
         !string.IsNullOrEmpty(_editingRowId) && string.Equals(_editingRowId, row.Id, StringComparison.Ordinal);
 
-    private async Task OnRowDoubleClickAsync(HostsPageRow row)
+    private void OnManagedRowClick(HostsPageRow row, MouseEventArgs e)
     {
+        DeactivateEffectiveConfigFieldIfActive();
+        if (!row.IsEditable || IsInlineEditing)
+            return;
+
+        // Second (and third) click of a multi-click fires click with Detail > 1; skip so double-click does not toggle selection before edit.
+        if (e.Detail > 1)
+            return;
+
+        if (e.CtrlKey || e.MetaKey)
+        {
+            if (!_selectedManagedRowIds.Add(row.Id))
+                _selectedManagedRowIds.Remove(row.Id);
+        }
+        else if (_selectedManagedRowIds.Contains(row.Id))
+        {
+            _selectedManagedRowIds.Remove(row.Id);
+        }
+        else
+        {
+            _selectedManagedRowIds.Clear();
+            _selectedManagedRowIds.Add(row.Id);
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task OnManagedRowDoubleClickAsync(HostsPageRow row)
+    {
+        DeactivateEffectiveConfigFieldIfActive();
+        if (!row.IsEditable || IsInlineEditing)
+            return;
+        await BeginEditingManagedRowAsync(row);
+    }
+
+    private void OnManagedAddSlotClick()
+    {
+        DeactivateEffectiveConfigFieldIfActive();
+        if (IsInlineEditing)
+            return;
+        AddManagedHost();
+    }
+
+    private async Task OnManagedHeaderSaveAsync()
+    {
+        await TryFinishHostEditFromKeyboardAsync();
+    }
+
+    private async Task OnManagedHeaderEditAsync()
+    {
+        DeactivateEffectiveConfigFieldIfActive();
+        if (_status == null || ManagedSelectionCount != 1 || IsInlineEditing)
+            return;
+        var id = _selectedManagedRowIds.First();
+        var row = _unifiedRows.FirstOrDefault(r => r.IsEditable && string.Equals(r.Id, id, StringComparison.Ordinal));
+        if (row == null)
+            return;
+        await BeginEditingManagedRowAsync(row);
+    }
+
+    private async Task OnManagedHeaderRemoveAsync()
+    {
+        DeactivateEffectiveConfigFieldIfActive();
+        if (_status == null || string.IsNullOrWhiteSpace(_status.ManagedHostsFilePath) || IsInlineEditing)
+            return;
+        if (_selectedManagedRowIds.Count == 0)
+            return;
+
+        var list = CloneEntries(CurrentManagedEntries).ToList();
+        var removed = list.RemoveAll(e =>
+        {
+            var id = string.IsNullOrEmpty(e.Id) ? $"managed:{e.LineNumber}" : e.Id;
+            return _selectedManagedRowIds.Contains(id);
+        });
+        if (removed == 0)
+            return;
+
+        if (!Session.Ui.IsEditMode)
+            Session.Ui.EnterEditMode();
+
+        Session.Draft.SetManagedHostsDraft(
+            CloneEntries(_baselineManagedEntries),
+            list,
+            _status.ManagedHostsFilePath);
+        RebuildManagedOverlay();
+        InvalidateVisibleGroupsCache();
+        _selectedManagedRowIds.Clear();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task BeginEditingManagedRowAsync(HostsPageRow row)
+    {
+        DeactivateEffectiveConfigFieldIfActive();
         if (!row.IsEditable || _status == null)
             return;
 
@@ -484,18 +682,14 @@ else
         _editAddress = entry.Address;
         _editNames = string.Join(", ", entry.Names);
         _editInlineComment = entry.InlineComment ?? "";
+        _selectedManagedRowIds.Clear();
+        _selectedManagedRowIds.Add(row.Id);
         await InvokeAsync(StateHasChanged);
-    }
-
-    private void AddManagedHostFromBadge()
-    {
-        if (IsInlineEditing)
-            return;
-        AddManagedHost();
     }
 
     private void AddManagedHost()
     {
+        DeactivateEffectiveConfigFieldIfActive();
         if (_status == null || string.IsNullOrWhiteSpace(_status.ManagedHostsFilePath) || IsInlineEditing)
             return;
         if (!Session.Ui.IsEditMode)
@@ -525,6 +719,8 @@ else
         _editAddress = "";
         _editNames = "";
         _editInlineComment = "";
+        _selectedManagedRowIds.Clear();
+        _selectedManagedRowIds.Add(id);
         StateHasChanged();
     }
 
@@ -538,6 +734,12 @@ else
     }
 
     private void RevealHostFieldValidation() => _showHostFieldValidation = true;
+
+    private void DeactivateEffectiveConfigFieldIfActive()
+    {
+        if (Session.Ui.ActiveFieldKey != null)
+            Session.Ui.DeactivateField();
+    }
 
     private void OnInvalidEditContinue()
     {
@@ -558,9 +760,10 @@ else
 
         var list = CloneEntries(CurrentManagedEntries).ToList();
         var entry = list.FirstOrDefault(MatchesEditingId);
-        if (entry != null && entry.Id.StartsWith("new:", StringComparison.Ordinal))
+        var wasNew = entry != null && entry.Id.StartsWith("new:", StringComparison.Ordinal);
+        if (wasNew)
         {
-            list.Remove(entry);
+            list.Remove(entry!);
             Session.Draft.SetManagedHostsDraft(
                 CloneEntries(_baselineManagedEntries),
                 list,
@@ -570,7 +773,17 @@ else
         }
 
         _showInvalidHostEditModal = false;
+        var prevId = _editingRowId;
         CancelEdit();
+        if (wasNew)
+            _selectedManagedRowIds.Clear();
+        else
+        {
+            _selectedManagedRowIds.Clear();
+            if (!string.IsNullOrEmpty(prevId))
+                _selectedManagedRowIds.Add(prevId);
+        }
+
         await InvokeAsync(StateHasChanged);
     }
 
@@ -671,6 +884,7 @@ else
         RebuildManagedOverlay();
         InvalidateVisibleGroupsCache();
         CancelEdit();
+        PruneManagedSelectionToExistingEditableRows();
         await InvokeAsync(StateHasChanged);
     }
 
@@ -823,6 +1037,7 @@ else
             }
 
             InvalidateVisibleGroupsCache();
+            _selectedManagedRowIds.Clear();
         }
         catch (Exception ex)
         {
@@ -861,13 +1076,29 @@ else
         }
 
         _unifiedRows = managedRows.Concat(_restUnifiedRows).ToList();
+        ClearStaleInlineEditState();
+        PruneManagedSelectionToExistingEditableRows();
+    }
+
+    private void ClearStaleInlineEditState()
+    {
+        if (string.IsNullOrEmpty(_editingRowId))
+            return;
+
+        var editingRowStillExists = _unifiedRows.Any(r =>
+            string.Equals(r.Id, _editingRowId, StringComparison.Ordinal));
+
+        if (editingRowStillExists)
+            return;
+
+        CancelEdit();
+        _showInvalidHostEditModal = false;
     }
 
     public void Dispose()
     {
         Session.Changed -= OnSessionChanged;
         _ = CleanupHostsTableScrollCueAsync();
-        _ = CleanupHostsUiModuleAsync();
     }
 
     private async Task CleanupHostsTableScrollCueAsync()
@@ -885,21 +1116,5 @@ else
         }
 
         _hostsTableScrollCueModule = null;
-    }
-
-    private async Task CleanupHostsUiModuleAsync()
-    {
-        if (_hostsUiModule == null)
-            return;
-
-        try
-        {
-            await _hostsUiModule.DisposeAsync();
-        }
-        catch (JSDisconnectedException)
-        {
-        }
-
-        _hostsUiModule = null;
     }
 }
