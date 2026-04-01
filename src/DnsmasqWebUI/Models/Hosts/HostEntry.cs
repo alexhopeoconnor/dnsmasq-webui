@@ -23,4 +23,7 @@ public class HostEntry
 
     /// <summary>True when the line could not be parsed as address/names (e.g. malformed or comment); preserved as RawLine on write.</summary>
     public bool IsPassthrough { get; set; }
+
+    /// <summary>Text after <c>#</c> on the same line as address/names (hosts(5) inline comment). Not used for full-line comments.</summary>
+    public string? InlineComment { get; set; }
 }

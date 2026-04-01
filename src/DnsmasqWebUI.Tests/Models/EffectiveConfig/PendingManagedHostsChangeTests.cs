@@ -35,4 +35,19 @@ public class PendingManagedHostsChangeTests
         var pending = new PendingManagedHostsChange(oldEntries, newEntries, "/etc/hosts");
         Assert.True(pending.HasChanges);
     }
+
+    [Fact]
+    public void HasChanges_WhenInlineCommentDiffers_ReturnsTrue()
+    {
+        var oldEntries = new List<HostEntry>
+        {
+            new() { Id = "1", Address = "10.0.0.1", Names = new List<string> { "a" }, InlineComment = "old" }
+        };
+        var newEntries = new List<HostEntry>
+        {
+            new() { Id = "1", Address = "10.0.0.1", Names = new List<string> { "a" }, InlineComment = "new" }
+        };
+        var pending = new PendingManagedHostsChange(oldEntries, newEntries, "/etc/hosts");
+        Assert.True(pending.HasChanges);
+    }
 }

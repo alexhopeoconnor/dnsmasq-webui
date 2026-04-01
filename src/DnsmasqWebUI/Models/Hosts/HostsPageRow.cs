@@ -29,4 +29,5 @@ public sealed record HostsPageRow(
     IReadOnlyList<string> Names,
     IReadOnlyList<string> EffectiveNames,
     bool IsComment,
-    int LineNumber);
+    int LineNumber,
+    string? InlineComment = null);

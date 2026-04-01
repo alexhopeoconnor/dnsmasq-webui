@@ -7,6 +7,7 @@
 @using DnsmasqWebUI.Models.Hosts
 @using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
 @using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Hosts.Abstractions
+@using DnsmasqWebUI.Infrastructure.Serialization.Parsers.DnsmasqConfig
 @using DnsmasqWebUI.Components.EffectiveConfig
 @using DnsmasqWebUI.Infrastructure.Services.UI.Notifications.Abstractions
 @using Microsoft.AspNetCore.Components.Web
@@ -92,6 +93,7 @@ else
                                 <tr>
                                     <th scope="col">Address</th>
                                     <th scope="col">Names</th>
+                                    <th scope="col" class="hosts-comment-col" title="Inline hosts(5) comment: written after # on the same line when saved.">Comment</th>
                                     <th scope="col" class="hosts-effective-names-th">
                                         <span class="align-middle">Effective names</span>
                                         <button type="button"
@@ -109,7 +111,7 @@ else
                             {
                                 <tbody @key="@group.Key">
                                     <tr class="hosts-group-header">
-                                        <th colspan="3" scope="colgroup" class="hosts-group-header-cell">
+                                        <th colspan="4" scope="colgroup" class="hosts-group-header-cell">
                                             <div class="hosts-group-header__content">
                                                 <div class="hosts-group-header__title">
                                                     <span>@group.Title</span>
@@ -153,7 +155,7 @@ else
                                     @if (group.Rows.Count == 0)
                                     {
                                         <tr class="hosts-row hosts-row--empty" @key="@("empty:" + group.Key)">
-                                            <td colspan="3" class="text-muted small text-center hosts-empty-group-message py-3">
+                                            <td colspan="4" class="text-muted small text-center hosts-empty-group-message py-3">
                                                 @EmptyGroupMessage
                                             </td>
                                         </tr>
@@ -187,6 +189,14 @@ else
                                                                @bind:event="oninput"
                                                                @onkeydown="OnEditFieldKeyDown" />
                                                     </td>
+                                                    <td>
+                                                        <input class="form-control form-control-sm"
+                                                               placeholder="Optional"
+                                                               title="Saved after # on the same line as this entry (inline hosts comment)."
+                                                               @bind="_editInlineComment"
+                                                               @bind:event="oninput"
+                                                               @onkeydown="OnEditFieldKeyDown" />
+                                                    </td>
                                                     <td class="text-muted small">@string.Join(", ", HostsEffectiveNames.Expand(ParseNamesList(_editNames), pageState.ExpandHostsEnabled, pageState.ExpansionDomain))</td>
                                                 </tr>
                                             }
@@ -198,6 +208,16 @@ else
                                                     @ondblclick="@(async () => await OnRowDoubleClickAsync(row))">
                                                     <td><code>@row.Address</code></td>
                                                     <td>@string.Join(", ", row.Names)</td>
+                                                    <td class="text-muted small hosts-comment-col-cell">
+                                                        @if (string.IsNullOrWhiteSpace(row.InlineComment))
+                                                        {
+                                                            <span class="hosts-comment-empty">—</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="hosts-row-inline-comment">@row.InlineComment</span>
+                                                        }
+                                                    </td>
                                                     <td>
                                                         @if (row.EffectiveNames.Count != row.Names.Count)
                                                         {
@@ -287,6 +307,7 @@ else
     private string? _editingRowId;
     private string _editAddress = "";
     private string _editNames = "";
+    private string _editInlineComment = "";
     private ElementReference _editingRowRef;
     private ElementReference _editAddressInputRef;
     private IJSObjectReference? _hostsTableScrollCueModule;
@@ -462,6 +483,7 @@ else
         _editingRowId = row.Id;
         _editAddress = entry.Address;
         _editNames = string.Join(", ", entry.Names);
+        _editInlineComment = entry.InlineComment ?? "";
         await InvokeAsync(StateHasChanged);
     }
 
@@ -502,6 +524,7 @@ else
         _editingRowId = id;
         _editAddress = "";
         _editNames = "";
+        _editInlineComment = "";
         StateHasChanged();
     }
 
@@ -510,6 +533,7 @@ else
         _editingRowId = null;
         _editAddress = "";
         _editNames = "";
+        _editInlineComment = "";
         _showHostFieldValidation = false;
     }
 
@@ -639,6 +663,7 @@ else
 
         entry.Address = trimmedAddr;
         entry.Names = newNames;
+        entry.InlineComment = HostsFileLineParser.SanitizeInlineComment(_editInlineComment);
         Session.Draft.SetManagedHostsDraft(
             CloneEntries(_baselineManagedEntries),
             list,
@@ -674,7 +699,8 @@ else
             Names = e.Names != null ? new List<string>(e.Names) : new List<string>(),
             RawLine = e.RawLine,
             IsComment = e.IsComment,
-            IsPassthrough = e.IsPassthrough
+            IsPassthrough = e.IsPassthrough,
+            InlineComment = e.InlineComment
         }).ToList();
 
     private MarkupString RenderAddnHostsList()
@@ -830,7 +856,8 @@ else
                 Names: names,
                 EffectiveNames: effective,
                 IsComment: e.IsComment,
-                LineNumber: e.LineNumber));
+                LineNumber: e.LineNumber,
+                InlineComment: e.InlineComment));
         }
 
         _unifiedRows = managedRows.Concat(_restUnifiedRows).ToList();

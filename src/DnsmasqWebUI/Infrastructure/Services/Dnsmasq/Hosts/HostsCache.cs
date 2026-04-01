@@ -324,7 +324,8 @@ public sealed class HostsCache : IHostsCache, IDisposable
                 Names: names,
                 EffectiveNames: effectiveNames,
                 IsComment: entry.IsComment,
-                LineNumber: entry.LineNumber));
+                LineNumber: entry.LineNumber,
+                InlineComment: entry.InlineComment));
         }
 
         // Read-only files (system, addn-hosts, hostsdir)
@@ -352,7 +353,8 @@ public sealed class HostsCache : IHostsCache, IDisposable
                     Names: names,
                     EffectiveNames: effectiveNames,
                     IsComment: entry.IsComment,
-                    LineNumber: entry.LineNumber));
+                    LineNumber: entry.LineNumber,
+                    InlineComment: entry.InlineComment));
             }
         }
 

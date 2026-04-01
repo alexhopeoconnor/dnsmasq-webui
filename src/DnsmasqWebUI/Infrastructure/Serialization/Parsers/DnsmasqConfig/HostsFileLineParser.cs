@@ -40,21 +40,63 @@ public static class HostsFileLineParser
         if (string.IsNullOrEmpty(trimmed))
             return new HostEntry { LineNumber = lineNumber, RawLine = line, IsPassthrough = true };
 
-        var result = LineContent.TryParse(trimmed);
-        if (!result.HasValue)
+        if (trimmed.StartsWith('#'))
+        {
+            var result = LineContent.TryParse(trimmed);
+            if (!result.HasValue)
+                return new HostEntry { LineNumber = lineNumber, RawLine = line, IsPassthrough = true };
+
+            var (isComment, address, names) = result.Value;
+            if (string.IsNullOrEmpty(address) && names.Count == 0)
+                return new HostEntry { LineNumber = lineNumber, RawLine = line, IsComment = isComment, IsPassthrough = true };
+
+            return new HostEntry
+            {
+                LineNumber = lineNumber,
+                Address = address,
+                Names = names,
+                RawLine = line,
+                IsComment = isComment
+            };
+        }
+
+        string? inlineComment = null;
+        var dataPart = trimmed;
+        var hashIdx = trimmed.IndexOf('#');
+        if (hashIdx >= 0)
+        {
+            inlineComment = hashIdx + 1 < trimmed.Length ? trimmed[(hashIdx + 1)..].Trim() : null;
+            if (string.IsNullOrEmpty(inlineComment))
+                inlineComment = null;
+            dataPart = trimmed[..hashIdx].TrimEnd();
+        }
+
+        if (string.IsNullOrEmpty(dataPart))
             return new HostEntry { LineNumber = lineNumber, RawLine = line, IsPassthrough = true };
 
-        var (isComment, address, names) = result.Value;
-        if (string.IsNullOrEmpty(address) && names.Count == 0)
-            return new HostEntry { LineNumber = lineNumber, RawLine = line, IsComment = isComment, IsPassthrough = true };
+        var dataResult = LineContent.TryParse(dataPart);
+        if (!dataResult.HasValue)
+            return new HostEntry { LineNumber = lineNumber, RawLine = line, IsPassthrough = true };
+
+        var (isCommentData, addressData, namesData) = dataResult.Value;
+        if (string.IsNullOrEmpty(addressData) && namesData.Count == 0)
+            return new HostEntry
+            {
+                LineNumber = lineNumber,
+                RawLine = line,
+                IsComment = isCommentData,
+                IsPassthrough = true,
+                InlineComment = inlineComment
+            };
 
         return new HostEntry
         {
             LineNumber = lineNumber,
-            Address = address,
-            Names = names,
+            Address = addressData,
+            Names = namesData,
             RawLine = line,
-            IsComment = isComment
+            IsComment = isCommentData,
+            InlineComment = inlineComment
         };
     }
 
@@ -63,6 +105,20 @@ public static class HostsFileLineParser
         if (entry.IsPassthrough)
             return entry.RawLine;
         var prefix = entry.IsComment ? "# " : "";
-        return prefix + entry.Address + " " + string.Join(" ", entry.Names);
+        var core = prefix + entry.Address + " " + string.Join(" ", entry.Names);
+        var sanitized = SanitizeInlineComment(entry.InlineComment);
+        if (sanitized != null)
+            return core.TrimEnd() + " # " + sanitized;
+        return core;
+    }
+
+    /// <summary>Strip characters that would break a hosts line; drop <c>#</c> (comment delimiter).</summary>
+    public static string? SanitizeInlineComment(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+        var flattened = text.Replace('\r', ' ').Replace('\n', ' ').Replace('#', ' ');
+        var collapsed = string.Join(' ', flattened.Split(' ', StringSplitOptions.RemoveEmptyEntries)).Trim();
+        return collapsed.Length == 0 ? null : collapsed;
     }
 }

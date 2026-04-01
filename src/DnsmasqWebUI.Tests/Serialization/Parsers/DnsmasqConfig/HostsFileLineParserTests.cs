@@ -139,6 +139,17 @@ public class HostsFileLineParserTests
         Assert.Equal(address, e.Address);
         Assert.Single(e.Names);
         Assert.Equal(name, e.Names[0]);
+        Assert.Equal(comment, e.InlineComment);
+    }
+
+    [Fact]
+    public void ToLine_WithInlineComment_AppendsHashAndRoundTrips()
+    {
+        var line = "192.168.0.5 router # edge gateway";
+        var e = HostsFileLineParser.ParseLine(line, 1);
+        Assert.NotNull(e);
+        var back = HostsFileLineParser.ToLine(e!);
+        Assert.Equal(line, back);
     }
 
     [Fact]

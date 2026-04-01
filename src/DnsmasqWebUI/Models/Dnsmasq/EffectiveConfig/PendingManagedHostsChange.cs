@@ -24,7 +24,8 @@ public sealed record PendingManagedHostsChange(
                 !(a.Names ?? new List<string>()).SequenceEqual(b.Names ?? new List<string>(), StringComparer.Ordinal) ||
                 a.RawLine != b.RawLine ||
                 a.IsComment != b.IsComment ||
-                a.IsPassthrough != b.IsPassthrough)
+                a.IsPassthrough != b.IsPassthrough ||
+                !string.Equals(a.InlineComment ?? "", b.InlineComment ?? "", StringComparison.Ordinal))
                 return false;
         }
         return true;

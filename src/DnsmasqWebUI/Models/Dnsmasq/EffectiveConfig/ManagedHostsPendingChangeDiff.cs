@@ -105,7 +105,10 @@ public static class ManagedHostsPendingChangeDiff
         var names = e.Names ?? new List<string>();
         if (string.IsNullOrWhiteSpace(e.Address) && names.Count == 0)
             return "(empty)";
-        return $"{e.Address} {string.Join(' ', names)}".Trim();
+        var core = $"{e.Address} {string.Join(' ', names)}".Trim();
+        if (string.IsNullOrWhiteSpace(e.InlineComment))
+            return core;
+        return $"{core} # {e.InlineComment}";
     }
 
     private static bool ContentEquals(HostEntry a, HostEntry b)
@@ -117,7 +120,8 @@ public static class ManagedHostsPendingChangeDiff
             if (an.SequenceEqual(bn, StringComparer.Ordinal)
                 && a.IsComment == b.IsComment
                 && a.IsPassthrough == b.IsPassthrough
-                && string.Equals(a.RawLine ?? "", b.RawLine ?? "", StringComparison.Ordinal))
+                && string.Equals(a.RawLine ?? "", b.RawLine ?? "", StringComparison.Ordinal)
+                && string.Equals(a.InlineComment ?? "", b.InlineComment ?? "", StringComparison.Ordinal))
                 return true;
         }
 

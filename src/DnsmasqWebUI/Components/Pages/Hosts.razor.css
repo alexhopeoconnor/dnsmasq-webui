@@ -101,6 +101,21 @@
 }
 
 /* Group header row (colspan, not rowspan) */
+::deep .hosts-table .hosts-comment-col,
+::deep .hosts-table .hosts-comment-col-cell {
+    max-width: 14rem;
+    width: 18%;
+}
+
+::deep .hosts-table .hosts-comment-empty {
+    opacity: 0.45;
+}
+
+::deep .hosts-table .hosts-row-inline-comment {
+    white-space: normal;
+    word-break: break-word;
+}
+
 ::deep .hosts-table .hosts-effective-names-th {
     white-space: nowrap;
 }
