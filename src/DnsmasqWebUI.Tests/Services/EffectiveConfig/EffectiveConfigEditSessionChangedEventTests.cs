@@ -14,10 +14,10 @@ public class EffectiveConfigEditSessionChangedEventTests
     {
         var saveService = new StubSaveService();
         var session = new EffectiveConfigEditSession(saveService);
-        session.EnterEditMode();
+        session.Ui.EnterEditMode();
         var raised = false;
         session.Changed += () => raised = true;
-        session.TrackCommit(new EffectiveConfigEditCommittedArgs("resolver", "port", null, 5353, null));
+        session.Draft.TrackCommit(new EffectiveConfigEditCommittedArgs("resolver", "port", null, 5353, null));
         Assert.True(raised);
     }
 
@@ -28,7 +28,7 @@ public class EffectiveConfigEditSessionChangedEventTests
         var session = new EffectiveConfigEditSession(saveService);
         var raised = false;
         session.Changed += () => raised = true;
-        session.EnterEditMode();
+        session.Ui.EnterEditMode();
         Assert.True(raised);
     }
 
@@ -37,27 +37,39 @@ public class EffectiveConfigEditSessionChangedEventTests
     {
         var saveService = new StubSaveService();
         var session = new EffectiveConfigEditSession(saveService);
-        session.EnterEditMode();
-        session.TrackCommit(new EffectiveConfigEditCommittedArgs("resolver", "port", null, 5353, null));
+        session.Ui.EnterEditMode();
+        session.Draft.TrackCommit(new EffectiveConfigEditCommittedArgs("resolver", "port", null, 5353, null));
         var raised = false;
         session.Changed += () => raised = true;
-        session.RevertChange("resolver", "port");
+        session.Draft.RevertChange("resolver", "port");
         Assert.True(raised);
     }
 
     [Fact]
-    public void TrackManagedHostsChange_StoresChange_AndRevertManagedHostsChange_RemovesIt()
+    public void Ui_EnterEditMode_DoesNotClearDraft()
     {
         var saveService = new StubSaveService();
         var session = new EffectiveConfigEditSession(saveService);
-        session.EnterEditMode();
+        var oldEntries = new List<HostEntry> { new() { Address = "1.2.3.4", Names = new List<string> { "a" } } };
+        var newEntries = new List<HostEntry> { new() { Address = "1.2.3.4", Names = new List<string> { "b" } } };
+        session.Draft.SetManagedHostsDraft(oldEntries, newEntries, "/tmp/managed.hosts");
+        Assert.Single(session.Draft.PendingChanges);
+        session.Ui.EnterEditMode();
+        Assert.Single(session.Draft.PendingChanges.OfType<PendingManagedHostsChange>());
+    }
+
+    [Fact]
+    public void SetManagedHostsDraft_StoresChange_AndRevertManagedHostsDraft_RemovesIt()
+    {
+        var saveService = new StubSaveService();
+        var session = new EffectiveConfigEditSession(saveService);
+        session.Ui.EnterEditMode();
         var oldEntries = new List<HostEntry> { new() { Address = "1.2.3.4", Names = new List<string> { "a" } } };
         var newEntries = new List<HostEntry> { new() { Address = "1.2.3.4", Names = new List<string> { "a", "b" } } };
-        var change = new PendingManagedHostsChange(oldEntries, newEntries, "/etc/hosts");
-        session.TrackManagedHostsChange(change);
-        Assert.Single(session.PendingChanges.OfType<PendingManagedHostsChange>());
-        session.RevertManagedHostsChange();
-        Assert.Empty(session.PendingChanges.OfType<PendingManagedHostsChange>());
+        session.Draft.SetManagedHostsDraft(oldEntries, newEntries, "/etc/hosts");
+        Assert.Single(session.Draft.PendingChanges.OfType<PendingManagedHostsChange>());
+        session.Draft.RevertManagedHostsDraft();
+        Assert.Empty(session.Draft.PendingChanges.OfType<PendingManagedHostsChange>());
     }
 
     private sealed class StubSaveService : IEffectiveConfigSaveService

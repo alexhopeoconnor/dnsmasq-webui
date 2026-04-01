@@ -63,6 +63,9 @@ public sealed class HostsPageProjectionService : IHostsPageProjectionService
                 ? first.InactiveReason
                 : null;
 
+            var isSourceEditable = first.SourceKind == HostsRowSourceKind.Managed
+                || sortedRows.Any(r => r.IsEditable);
+
             result.Add(new HostsPageGroup(
                 Key: $"{first.SourceKind}:{first.SourcePath}",
                 Title: title,
@@ -72,7 +75,8 @@ public sealed class HostsPageProjectionService : IHostsPageProjectionService
                 IsActive: sortedRows.Any(r => r.IsActive),
                 InactiveReason: inactiveReason,
                 VisibleRowCount: sortedRows.Count,
-                Rows: sortedRows));
+                Rows: sortedRows,
+                IsSourceEditable: isSourceEditable));
         }
 
         return result;

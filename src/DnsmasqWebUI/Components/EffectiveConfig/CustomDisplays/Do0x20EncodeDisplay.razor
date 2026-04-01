@@ -52,7 +52,7 @@ else
             return;
         }
 
-        var pending = Session?.PendingChanges.OfType<PendingOptionChange>().FirstOrDefault(c =>
+        var pending = Session?.Draft.PendingChanges.OfType<PendingOptionChange>().FirstOrDefault(c =>
             string.Equals(c.SectionId, Descriptor.SectionId, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(c.OptionName, Descriptor.OptionName, StringComparison.OrdinalIgnoreCase));
         if (pending?.OldValue is ExplicitToggleState previousState)

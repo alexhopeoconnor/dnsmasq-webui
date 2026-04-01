@@ -262,6 +262,18 @@
     margin-bottom: 0;
 }
 
+/* Multivalue display mode: editable entry row (no list number; align with list content) */
+::deep .ec-field-value-list li.ec-multi-list-entry-point {
+    list-style: none;
+    margin-left: -1.25rem;
+    margin-top: 0.15rem;
+}
+
+::deep .ec-field-value-list li.ec-multi-list-empty-hint {
+    list-style: none;
+    margin-left: -1.25rem;
+}
+
 /* Long paths/URLs wrap; allow break anywhere so nothing is clipped */
 ::deep .ec-field-value-item {
     display: inline;

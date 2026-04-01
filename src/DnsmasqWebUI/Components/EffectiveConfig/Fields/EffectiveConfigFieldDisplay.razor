@@ -58,7 +58,7 @@ else if (Descriptor.IsMultiValue)
                 </CascadingValue>
             </span>
             <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@_multiValueRowSource" OptionName="@Descriptor.OptionName" Value="@_multiValueItems"
-                IsInteractive="@(IsEditMode && !Descriptor.IsCapabilityDisabled)" ShowEditableBadge="@(IsEditMode && !Descriptor.IsCapabilityDisabled)" HasPendingChange="@_multiValueHasPendingOrDraft" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@(IsEditMode && IsActive && !Descriptor.IsCapabilityDisabled)"
+                IsInteractive="@(IsEditMode && !Descriptor.IsCapabilityDisabled)" ShowEditableBadge="@(!Descriptor.IsCapabilityDisabled)" HasPendingChange="@_multiValueHasPendingOrDraft" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@(IsEditMode && IsActive && !Descriptor.IsCapabilityDisabled)"
                 IsCapabilityDisabled="@Descriptor.IsCapabilityDisabled" CapabilityDisabledReason="@Descriptor.CapabilityDisabledReason"
                 OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
         </li>
@@ -68,7 +68,7 @@ else if (Descriptor.IsMultiValue)
         @* Multi-value state is computed in OnParametersSet and in HandleMultiValueChanged; we only read cached fields here. *@
         <EffectiveConfigMultiValueRow Descriptor="@Descriptor" Label="@Descriptor.OptionName" Items="@_multiValueItems" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId"
             IsActiveEditor="@(IsEditMode && IsActive && !Descriptor.IsCapabilityDisabled)" IsEditMode="@IsEditMode" ReadonlyBadgeAnchorIdBase="@_readonlyBadgeAnchorId"
-            Source="@_multiValueRowSource" ShowEditableBadge="@(IsEditMode && !Descriptor.IsCapabilityDisabled)" HasPendingChange="@_multiValueHasPendingOrDraft" FieldKey="@FieldKey"
+            Source="@_multiValueRowSource" ShowEditableBadge="@(!Descriptor.IsCapabilityDisabled)" HasPendingChange="@_multiValueHasPendingOrDraft" FieldKey="@FieldKey"
             ItemsChanged="@HandleMultiValueChanged" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
     }
 }
@@ -137,7 +137,7 @@ else
         _fragmentWithCallback = RenderFragmentRegistry.BuildFieldComponentFragment(Descriptor.SectionId, Descriptor.OptionName, EventCallback.Factory.Create<object?>(this, HandleValueChanged));
         _labelTooltip = DnsmasqOptionTooltips.Get(Descriptor.OptionName);
         _optionHelpKey = Descriptor.OptionName;
-        var pending = Session?.PendingChanges.OfType<PendingOptionChange>().FirstOrDefault(c =>
+        var pending = Session?.Draft.PendingChanges.OfType<PendingOptionChange>().FirstOrDefault(c =>
             string.Equals(c.SectionId, Descriptor.SectionId, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(c.OptionName, Descriptor.OptionName, StringComparison.OrdinalIgnoreCase));
         var descriptorValue = Descriptor.IsMultiValue
@@ -305,7 +305,7 @@ else
     {
         _draftValue = null;
         _hasDraftValue = false;
-        Session?.RevertChange(Descriptor.SectionId, Descriptor.OptionName);
+        Session?.Draft.RevertChange(Descriptor.SectionId, Descriptor.OptionName);
         _exitAction = ExitAction.Revert;
         if (Ui != null)
             await Ui.DeactivateFieldAsync();

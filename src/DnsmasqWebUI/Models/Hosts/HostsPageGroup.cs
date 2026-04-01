@@ -12,4 +12,6 @@ public sealed record HostsPageGroup(
     bool IsActive,
     string? InactiveReason,
     int VisibleRowCount,
-    IReadOnlyList<HostsPageRow> Rows);
+    IReadOnlyList<HostsPageRow> Rows,
+    /// <summary>True when entries in this source can be edited in the UI (e.g. managed hosts file).</summary>
+    bool IsSourceEditable);

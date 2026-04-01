@@ -2,12 +2,17 @@
 @using DnsmasqWebUI.Models.Dnsmasq
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 
-<span class="ec-field-value-item" title="@(ReadonlyClickActivatesField ? ReadonlyTitleOverride : Source?.GetReadOnlyTooltip())">
+<span class="ec-field-value-item" title="@Source?.GetReadOnlyTooltip()">
     @Value
-    <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorId ?? "")" Source="@Source" OptionName="@OptionName" Value="@Value"
-                     IsInteractive="@(IsEditMode && !ReadonlyClickActivatesField && !string.IsNullOrEmpty(ReadonlyBadgeAnchorId))"
-                     ShowEditableBadge="@(Source?.IsReadOnly != true)" EditableAsButton="true"
-                     FieldKey="@FieldKey" ReadonlyClickActivatesField="@ReadonlyClickActivatesField" ReadonlyTitleOverride="@ReadonlyTitleOverride" />
+    <OptionStateBadge
+        AnchorId="@(ReadonlyBadgeAnchorId ?? "")"
+        Source="@Source"
+        OptionName="@OptionName"
+        Value="@Value"
+        IsInteractive="@(IsEditMode && !string.IsNullOrEmpty(ReadonlyBadgeAnchorId))"
+        ShowEditableBadge="@(Source?.IsReadOnly != true)"
+        EditableAsButton="true"
+        FieldKey="@FieldKey" />
 </span>
 
 @code {
@@ -17,6 +22,4 @@
     [Parameter] public bool IsEditMode { get; set; }
     [Parameter] public string? ReadonlyBadgeAnchorId { get; set; }
     [Parameter] public string? FieldKey { get; set; }
-    [Parameter] public bool ReadonlyClickActivatesField { get; set; }
-    [Parameter] public string? ReadonlyTitleOverride { get; set; }
 }

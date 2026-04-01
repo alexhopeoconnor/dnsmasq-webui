@@ -25,22 +25,64 @@
     else
     {
         <div class="ec-field-value ec-field-value-multi">
-            @if (Items?.Count > 0)
-            {
-                <ol class="ec-field-value-list">
+            <ol class="ec-field-value-list">
+                @if (Items?.Count > 0)
+                {
                     @foreach (var (item, index) in Items!.Select((item, index) => (item, index)))
                     {
-                        var anchorId = ReadonlyBadgeAnchorIdBase != null ? ReadonlyBadgeAnchorIdBase + "-" + index : "";
-                        <li><EffectiveConfigMultiValueItem Value="@item.Value" Source="@item.Source" OptionName="@Label" IsEditMode="@IsEditMode" ReadonlyBadgeAnchorId="@anchorId" FieldKey="@FieldKey" ReadonlyClickActivatesField="true" ReadonlyTitleOverride="New values can still be added. Click to edit." /></li>
+                        var anchorId = ReadonlyBadgeAnchorIdBase != null
+                            ? $"{ReadonlyBadgeAnchorIdBase}-{index}"
+                            : "";
+                        <li>
+                            <EffectiveConfigMultiValueItem
+                                Value="@item.Value"
+                                Source="@item.Source"
+                                OptionName="@Label"
+                                IsEditMode="@IsEditMode"
+                                ReadonlyBadgeAnchorId="@anchorId"
+                                FieldKey="@FieldKey" />
+                        </li>
                     }
-                </ol>
-            }
-            else
-            {
-                <span class="text-muted">(none)</span>
-                <OptionStateBadge OptionName="@Label" ShowEditableBadge="@(!(Descriptor?.IsCapabilityDisabled == true))" EditableAsButton="true"
-                    FieldKey="@FieldKey" IsActiveEditor="false" IsInteractive="true" IsCapabilityDisabled="@(Descriptor?.IsCapabilityDisabled == true)" CapabilityDisabledReason="@Descriptor?.CapabilityDisabledReason" />
-            }
+                }
+                @if (ShowEditableBadge && (Items?.Count ?? 0) > 0)
+                {
+                    <li class="ec-multi-list-entry-point">
+                        <OptionStateBadge
+                            OptionName="@Label"
+                            ShowEditableBadge="true"
+                            EditableAsButton="true"
+                            FieldKey="@FieldKey"
+                            IsActiveEditor="false"
+                            IsInteractive="true"
+                            HasPendingChange="@HasPendingChange"
+                            IsCapabilityDisabled="@(Descriptor?.IsCapabilityDisabled == true)"
+                            CapabilityDisabledReason="@Descriptor?.CapabilityDisabledReason" />
+                    </li>
+                }
+                else if ((Items?.Count ?? 0) == 0)
+                {
+                    <li class="ec-multi-list-empty-hint">
+                        @if (ShowEditableBadge)
+                        {
+                            <span class="text-muted">(none)</span>
+                            <OptionStateBadge
+                                OptionName="@Label"
+                                ShowEditableBadge="true"
+                                EditableAsButton="true"
+                                FieldKey="@FieldKey"
+                                IsActiveEditor="false"
+                                IsInteractive="true"
+                                HasPendingChange="@HasPendingChange"
+                                IsCapabilityDisabled="@(Descriptor?.IsCapabilityDisabled == true)"
+                                CapabilityDisabledReason="@Descriptor?.CapabilityDisabledReason" />
+                        }
+                        else
+                        {
+                            <span class="text-muted">(none)</span>
+                        }
+                    </li>
+                }
+            </ol>
         </div>
     }
 </li>

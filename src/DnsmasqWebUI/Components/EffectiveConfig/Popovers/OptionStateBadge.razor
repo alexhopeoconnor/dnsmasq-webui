@@ -11,15 +11,8 @@
 }
 else if (Source?.IsReadOnly == true)
 {
-    var readonlyTitle = !string.IsNullOrEmpty(ReadonlyTitleOverride) ? ReadonlyTitleOverride : Source?.GetReadOnlyTooltip();
-    if (ReadonlyClickActivatesField && Ui != null && !string.IsNullOrEmpty(FieldKey))
-    {
-        <StatusBadge Kind="StatusBadgeKind.ReadOnly" Text="readonly" Clickable="true"
-                     Id="@AnchorId" Title="@readonlyTitle"
-                     OnClick="OnEditableClick"
-                     Class="status-badge-inline" />
-    }
-    else if (IsInteractive && Ui != null)
+    var readonlyTitle = Source?.GetReadOnlyTooltip();
+    if (IsInteractive && Ui != null)
     {
         <StatusBadge Kind="StatusBadgeKind.ReadOnly" Text="readonly" Clickable="true"
                      Id="@AnchorId" Title="@readonlyTitle"
@@ -88,10 +81,6 @@ else if (ShowEditableBadge)
     [Parameter] public string? FieldKey { get; set; }
     /// <summary>Optional: when set, editable-badge click invokes this instead of activating the field by key (e.g. list editor per-item edit).</summary>
     [Parameter] public EventCallback OnEditableClickRequested { get; set; }
-    /// <summary>When true, readonly badge click activates the field for editing instead of showing the readonly popover (e.g. for multi-value where new items can still be added).</summary>
-    [Parameter] public bool ReadonlyClickActivatesField { get; set; }
-    /// <summary>Optional tooltip for readonly badge when <see cref="ReadonlyClickActivatesField"/> is true (e.g. "New values can still be added. Click to edit.").</summary>
-    [Parameter] public string? ReadonlyTitleOverride { get; set; }
     /// <summary>When true, option is disabled because dnsmasq build does not support it (e.g. no DNSSEC).</summary>
     [Parameter] public bool IsCapabilityDisabled { get; set; }
     /// <summary>Tooltip shown when <see cref="IsCapabilityDisabled"/> is true (e.g. "This dnsmasq build does not support DNSSEC; option not written.").</summary>

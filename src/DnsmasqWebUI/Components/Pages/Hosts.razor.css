@@ -101,6 +101,21 @@
 }
 
 /* Group header row (colspan, not rowspan) */
+::deep .hosts-table .hosts-effective-names-th {
+    white-space: nowrap;
+}
+
+::deep .hosts-table .hosts-effective-names-help {
+    vertical-align: middle;
+    text-decoration: none;
+    line-height: 1;
+}
+
+::deep .hosts-table .hosts-effective-names-help:hover,
+::deep .hosts-table .hosts-effective-names-help:focus-visible {
+    color: var(--bs-primary) !important;
+}
+
 ::deep .hosts-table .hosts-group-header-cell {
     background: linear-gradient(180deg, #f8fafc 0%, #f6f8fb 100%);
     border-top: 1px solid #dbe3ec;
@@ -112,6 +127,10 @@
 }
 
 .hosts-group-header__content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
     width: 100%;
 }
 
@@ -121,13 +140,26 @@
     align-items: center;
     gap: 0.5rem;
     color: #0f172a;
+    min-width: 0;
+}
+
+.hosts-group-header__path {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    width: 100%;
+    font-weight: 500;
+}
+
+.hosts-group-header__badge {
+    flex-shrink: 0;
 }
 
 .hosts-group-header__subtitle {
-    display: inline-flex;
-    align-items: center;
+    display: inline-block;
     line-height: 1.2;
-    margin-left: 0.25rem;
     font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
@@ -145,6 +177,11 @@
 
 ::deep .hosts-row--editable:hover {
     background-color: rgba(13, 110, 253, 0.06);
+}
+
+::deep .hosts-table .hosts-row--empty td.hosts-empty-group-message {
+    background: #fafbfc;
+    font-style: italic;
 }
 
 ::deep .hosts-row code {

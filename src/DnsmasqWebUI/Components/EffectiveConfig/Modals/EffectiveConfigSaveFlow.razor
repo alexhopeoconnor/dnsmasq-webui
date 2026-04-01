@@ -69,8 +69,8 @@
 
     private async Task HandleSave()
     {
-        if (Session.PendingChanges.Count == 0) return;
-        if (Session.HasBlockingValidationErrors())
+        if (Session.Draft.PendingChanges.Count == 0) return;
+        if (Session.Draft.HasBlockingValidationErrors())
         {
             NotificationService.ShowError("Fix validation errors before saving.");
             return;
@@ -81,14 +81,16 @@
         _restoreResult = null;
         await InvokeAsync(StateHasChanged);
 
-        var result = await Session.ApplyAsync();
+        var result = await Session.Draft.ApplyAsync();
 
         _saveResult = result;
         if (result.Saved)
         {
-            // Changes were written to disk, so clear them from session state.
-            // Whether to stay in edit mode depends on whether restart succeeded.
-            Session.AcceptAppliedChanges(stayInEditMode: result.IsValidateFailed || !result.Restarted);
+            Session.Draft.AcceptAppliedChanges();
+            if (!result.IsValidateFailed && result.Restarted)
+                Session.Ui.ExitEditMode();
+            else
+                Session.Ui.EnterEditMode();
         }
 
         if (result.Saved && result.Restarted)
@@ -127,8 +129,8 @@
         _restoreResult = result;
         if (result.Restored)
         {
-            // Restore wrote to disk, so clear any pending changes from session.
-            Session.AcceptAppliedChanges(stayInEditMode: false);
+            Session.Draft.AcceptAppliedChanges();
+            Session.Ui.ExitEditMode();
         }
 
         if (result.Restored && result.Restarted)

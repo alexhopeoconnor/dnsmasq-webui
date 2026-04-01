@@ -18,17 +18,17 @@
         var _allSectionsExpanded = _sectionViews.Count > 0 && _sectionViews.All(v => _openPanels.Contains(v.SectionId));
     }
     <EffectiveConfigToolbar ShowSearchBox="@ShowSearchBox" SearchTerm="@_searchTerm" SearchTermChanged="@OnSearchTermChanged"
-        IsEditMode="@Session.IsEditMode" PendingChangesCount="@Session.PendingChanges.Count"
-        ValidationSummary="@Session.GetValidationSummary()"
+        IsEditMode="@Session.Ui.IsEditMode" PendingChangesCount="@Session.Draft.PendingChanges.Count"
+        ValidationSummary="@Session.Draft.GetValidationSummary()"
         AllSectionsExpanded="@_allSectionsExpanded"
         OnExpandAll="ExpandAll" OnCollapseAll="CollapseAll" OnEnterEditMode="EnterEditMode" OnExitEditModeWithConfirm="ExitEditModeWithConfirmAsync" OnOpenSaveModal="OpenSaveModal" />
     <CascadingValue Value="@Session">
     <CascadingValue Value="@_uiContext">
         <EffectiveConfigPanels Status="@Status" Context="@Context" SearchTerm="@_searchTerm" OpenSectionIds="@_openPanels"
-            OnSectionToggle="OnSectionToggle" IsEditMode="@Session.IsEditMode" ActiveFieldKey="@Session.ActiveFieldKey" />
+            OnSectionToggle="OnSectionToggle" IsEditMode="@Session.Ui.IsEditMode" ActiveFieldKey="@Session.Ui.ActiveFieldKey" />
     </CascadingValue>
     </CascadingValue>
-    <EffectiveConfigSaveFlow ShowModal="@_showSaveModal" PendingChanges="@Session.PendingChanges" Status="@Status" Session="@Session"
+    <EffectiveConfigSaveFlow ShowModal="@_showSaveModal" PendingChanges="@Session.Draft.PendingChanges" Status="@Status" Session="@Session"
         OnClose="CloseSaveModal" OnRevertedNotify="OnRevertedFromSaveModal" OnSaveCompleted="OnSaveCompleted" OnContinueEditingAfterSavedFailure="ContinueEditingAfterSavedFailureAsync" OnCloseAndEndEdit="CloseSaveModalAndEndEdit" />
 </div>
 }
@@ -71,9 +71,9 @@
                 return Task.CompletedTask;
             },
             ActivateFieldAsync = fieldKey => { ActivateField(fieldKey); return Task.CompletedTask; },
-            DeactivateFieldAsync = () => { Session.DeactivateField(); return InvokeAsync(StateHasChanged); },
+            DeactivateFieldAsync = () => { Session.Ui.DeactivateField(); return InvokeAsync(StateHasChanged); },
             CommitFieldAsync = args => { HandleFieldEditCommitted(args); return Task.CompletedTask; },
-            RevertFieldAsync = (sectionId, optionName) => { Session.RevertChange(sectionId, optionName); RunCrossOptionEvaluator(); return InvokeAsync(StateHasChanged); }
+            RevertFieldAsync = (sectionId, optionName) => { Session.Draft.RevertChange(sectionId, optionName); RunCrossOptionEvaluator(); return InvokeAsync(StateHasChanged); }
         };
     }
 
@@ -154,14 +154,14 @@
 
     private void EnterEditMode()
     {
-        Session.EnterEditMode();
+        Session.Ui.EnterEditMode();
         RefreshCrossOptionAfterEnteringEditMode();
         StateHasChanged();
     }
 
     private async Task ExitEditModeWithConfirmAsync()
     {
-        if (Session.PendingChanges.Count > 0)
+        if (Session.Draft.PendingChanges.Count > 0)
         {
             var module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/dialog.js");
             try
@@ -174,41 +174,43 @@
                 await module.DisposeAsync();
             }
         }
-        Session.ExitEditModeDiscard();
+        Session.Draft.DiscardAllDraft();
+        Session.Ui.ExitEditMode();
         StateHasChanged();
     }
 
     private void DeactivateActiveFieldIfClicked()
     {
-        if (Session.IsEditMode && Session.ActiveFieldKey != null)
+        if (Session.Ui.IsEditMode && Session.Ui.ActiveFieldKey != null)
         {
-            Session.DeactivateField();
+            Session.Ui.DeactivateField();
             StateHasChanged();
         }
     }
 
     private void ActivateField(string fieldKey)
     {
-        Session.ActivateField(fieldKey);
+        Session.Ui.ActivateField(fieldKey);
         StateHasChanged();
     }
 
     private void HandleFieldEditCommitted(EffectiveConfigEditCommittedArgs args)
     {
-        Session.TrackCommit(args);
+        Session.Draft.TrackCommit(args);
+        Session.Ui.DeactivateField();
         RunCrossOptionEvaluator();
         StateHasChanged();
     }
 
     private void RunCrossOptionEvaluator()
     {
-        var optionChanges = Session.PendingChanges.OfType<PendingOptionChange>().ToList();
+        var optionChanges = Session.Draft.PendingChanges.OfType<PendingOptionChange>().ToList();
         var issues = CrossOptionValidation.Validate(Status, optionChanges);
-        Session.SetCrossOptionIssues(issues);
+        Session.Draft.SetCrossOptionIssues(issues);
     }
 
     /// <summary>
-    /// <see cref="IEffectiveConfigEditSession.EnterEditMode"/> clears cross-option issues; repopulate from disk + pending.
+    /// After entering edit mode, repopulate cross-option issues from disk + pending.
     /// </summary>
     private void RefreshCrossOptionAfterEnteringEditMode()
     {
@@ -224,8 +226,8 @@
 
     private void OpenSaveModal()
     {
-        var hasPending = Session.PendingChanges.Count > 0;
-        var hasValidation = Session.GetValidationSummary().Count > 0;
+        var hasPending = Session.Draft.PendingChanges.Count > 0;
+        var hasValidation = Session.Draft.GetValidationSummary().Count > 0;
         if (!hasPending && !hasValidation)
             return;
         _showSaveModal = true;
@@ -241,9 +243,10 @@
     private async Task ContinueEditingAfterSavedFailureAsync()
     {
         _showSaveModal = false;
-        Session.ExitEditModeDiscard();
+        Session.Draft.DiscardAllDraft();
+        Session.Ui.ExitEditMode();
         await OnSaveCompleted.InvokeAsync();
-        Session.EnterEditMode();
+        Session.Ui.EnterEditMode();
         RefreshCrossOptionAfterEnteringEditMode();
         StateHasChanged();
     }
@@ -251,7 +254,8 @@
     private void CloseSaveModalAndEndEdit()
     {
         _showSaveModal = false;
-        Session.ExitEditModeDiscard();
+        Session.Draft.DiscardAllDraft();
+        Session.Ui.ExitEditMode();
         StateHasChanged();
     }
 }

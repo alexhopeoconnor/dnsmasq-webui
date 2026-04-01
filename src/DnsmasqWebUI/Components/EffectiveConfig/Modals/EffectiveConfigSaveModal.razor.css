@@ -39,6 +39,15 @@
     font-size: 0.9375rem;
 }
 
+.ec-save-modal-managed-hosts-diff {
+    font-size: 0.8125rem;
+    line-height: 1.45;
+}
+
+.ec-save-modal-managed-hosts-diff > div + div {
+    margin-top: 0.2rem;
+}
+
 .ec-save-modal-override {
     font-size: 0.8125rem;
 }

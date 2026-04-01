@@ -228,13 +228,39 @@
                                 }
                                 else if (c is PendingManagedHostsChange hostChange)
                                 {
+                                    var hostLineDiffs = ManagedHostsPendingChangeDiff.Build(hostChange);
                                     <div class="list-group-item ec-save-modal-item d-flex align-items-start gap-3 py-3 px-0 border-0 border-bottom">
                                         <div class="ec-save-modal-item-body flex-grow-1 min-width-0">
-                                            <div class="d-flex align-items-center gap-2">
+                                            <div class="d-flex align-items-center flex-wrap gap-2">
                                                 <StatusBadge Kind="StatusBadgeKind.NeutralPill" Text="Managed hosts" Class="ec-save-modal-option me-2" />
-                                                <span class="ec-save-modal-diff text-body">@hostChange.OldEntries.Count entries → @hostChange.NewEntries.Count entries</span>
+                                                <span class="ec-save-modal-diff text-muted">@hostChange.OldEntries.Count → @hostChange.NewEntries.Count entries</span>
                                             </div>
                                             <div class="small text-muted mt-1">@System.IO.Path.GetFileName(hostChange.ManagedHostsFilePath)</div>
+                                            @if (hostLineDiffs.Count > 0)
+                                            {
+                                                <div class="ec-save-modal-managed-hosts-diff small mt-2 ps-2 border-start border-secondary border-opacity-25">
+                                                    @foreach (var d in hostLineDiffs)
+                                                    {
+                                                        @if (d.Kind == ManagedHostsLineDiffKind.Added)
+                                                        {
+                                                            <div class="text-success font-monospace text-break">+ @d.AfterLine</div>
+                                                        }
+                                                        else if (d.Kind == ManagedHostsLineDiffKind.Removed)
+                                                        {
+                                                            <div class="text-muted text-decoration-line-through font-monospace text-break">− @d.BeforeLine</div>
+                                                        }
+                                                        else if (d.Kind == ManagedHostsLineDiffKind.Modified)
+                                                        {
+                                                            <div class="text-muted text-decoration-line-through font-monospace text-break">~ @d.BeforeLine</div>
+                                                            <div class="text-success font-monospace text-break ms-1">→ @d.AfterLine</div>
+                                                        }
+                                                        else if (d.Kind == ManagedHostsLineDiffKind.OrderOnly)
+                                                        {
+                                                            <div class="text-muted fst-italic">Line order changed (same entries).</div>
+                                                        }
+                                                    }
+                                                </div>
+                                            }
                                         </div>
                                         <button type="button" class="btn btn-sm btn-outline-danger flex-shrink-0" @onclick="RevertManagedHosts" title="Revert managed hosts change" aria-label="Revert managed hosts">
                                             <i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Revert
@@ -304,9 +330,9 @@
         return list;
     }
 
-    private IReadOnlyList<FieldIssue> ValidationErrors => Session.GetValidationSummary().Where(i => i.Severity == FieldIssueSeverity.Error).ToList();
-    private IReadOnlyList<FieldIssue> ValidationWarnings => Session.GetValidationSummary().Where(i => i.Severity == FieldIssueSeverity.Warning).ToList();
-    private bool HasBlockingValidationErrors => Session.HasBlockingValidationErrors();
+    private IReadOnlyList<FieldIssue> ValidationErrors => Session.Draft.GetValidationSummary().Where(i => i.Severity == FieldIssueSeverity.Error).ToList();
+    private IReadOnlyList<FieldIssue> ValidationWarnings => Session.Draft.GetValidationSummary().Where(i => i.Severity == FieldIssueSeverity.Warning).ToList();
+    private bool HasBlockingValidationErrors => Session.Draft.HasBlockingValidationErrors();
 
     private static string GetValidationFailedOutput(EffectiveConfigSaveResult result)
     {
@@ -371,13 +397,13 @@
 
     private async Task RevertOption(PendingOptionChange change)
     {
-        Session.RevertChange(change.SectionId, change.OptionName);
+        Session.Draft.RevertChange(change.SectionId, change.OptionName);
         await OnReverted.InvokeAsync();
     }
 
     private async Task RevertManagedHosts()
     {
-        Session.RevertManagedHostsChange();
+        Session.Draft.RevertManagedHostsDraft();
         await OnReverted.InvokeAsync();
     }
 

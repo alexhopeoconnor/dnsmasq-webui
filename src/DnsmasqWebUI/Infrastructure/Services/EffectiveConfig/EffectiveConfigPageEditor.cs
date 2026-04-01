@@ -27,8 +27,8 @@ public sealed class EffectiveConfigPageEditor : IEffectiveConfigPageEditor
 
     public void EnsureEditMode()
     {
-        if (!_session.IsEditMode)
-            _session.EnterEditMode();
+        if (!_session.Ui.IsEditMode)
+            _session.Ui.EnterEditMode();
     }
 
     public EffectiveConfigFieldRef Field(string sectionId, string optionName)
@@ -69,8 +69,9 @@ public sealed class EffectiveConfigPageEditor : IEffectiveConfigPageEditor
             : descriptor.GetValue();
         var oldValue = pending?.OldValue ?? baseValue;
         var source = descriptor.GetSource() ?? descriptor.GetItems()?.FirstOrDefault()?.Source;
-        _session.TrackCommit(new EffectiveConfigEditCommittedArgs(
+        _session.Draft.TrackCommit(new EffectiveConfigEditCommittedArgs(
             field.SectionId, field.OptionName, oldValue, newValue, source?.FilePath));
+        _session.Ui.DeactivateField();
         RefreshCrossOptionIssues(status);
     }
 
@@ -84,8 +85,9 @@ public sealed class EffectiveConfigPageEditor : IEffectiveConfigPageEditor
         var baseValues = descriptor.GetItems()?.Select(i => i.Value).ToList() ?? new List<string>();
         var oldValues = pending?.OldValue is IReadOnlyList<string> list ? list.ToList() : baseValues;
         var source = descriptor.GetSource() ?? descriptor.GetItems()?.FirstOrDefault()?.Source;
-        _session.TrackCommit(new EffectiveConfigEditCommittedArgs(
+        _session.Draft.TrackCommit(new EffectiveConfigEditCommittedArgs(
             field.SectionId, field.OptionName, oldValues, newValues.ToList(), source?.FilePath));
+        _session.Ui.DeactivateField();
         RefreshCrossOptionIssues(status);
     }
 
@@ -105,36 +107,36 @@ public sealed class EffectiveConfigPageEditor : IEffectiveConfigPageEditor
 
     public void Revert(EffectiveConfigFieldRef field)
     {
-        _session.RevertChange(field.SectionId, field.OptionName);
+        _session.Draft.RevertChange(field.SectionId, field.OptionName);
     }
 
     public void SetFieldIssues(EffectiveConfigFieldRef field, IReadOnlyList<FieldIssue> issues)
     {
-        _session.SetFieldIssues(field.FieldKey, issues);
+        _session.Draft.SetFieldIssues(field.FieldKey, issues);
     }
 
     public void ClearFieldIssues(EffectiveConfigFieldRef field)
     {
-        _session.ClearFieldIssues(field.FieldKey);
+        _session.Draft.ClearFieldIssues(field.FieldKey);
     }
 
     public void RefreshCrossOptionIssues(DnsmasqServiceStatus status)
     {
         var issues = _crossOptionValidation.Validate(
             status,
-            _session.PendingChanges.OfType<PendingOptionChange>().ToList());
-        _session.SetCrossOptionIssues(issues);
+            _session.Draft.PendingChanges.OfType<PendingOptionChange>().ToList());
+        _session.Draft.SetCrossOptionIssues(issues);
     }
 
     public void Activate(EffectiveConfigFieldRef field)
     {
         EnsureEditMode();
-        _session.ActivateField(field.FieldKey);
+        _session.Ui.ActivateField(field.FieldKey);
     }
 
     private PendingOptionChange? GetPendingOptionChange(EffectiveConfigFieldRef field)
     {
-        return _session.PendingChanges.OfType<PendingOptionChange>().FirstOrDefault(c =>
+        return _session.Draft.PendingChanges.OfType<PendingOptionChange>().FirstOrDefault(c =>
             string.Equals(c.SectionId, field.SectionId, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(c.OptionName, field.OptionName, StringComparison.OrdinalIgnoreCase));
     }

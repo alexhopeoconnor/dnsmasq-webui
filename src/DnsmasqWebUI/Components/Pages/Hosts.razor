@@ -8,6 +8,7 @@
 @using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
 @using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Hosts.Abstractions
 @using DnsmasqWebUI.Components.EffectiveConfig
+@using DnsmasqWebUI.Infrastructure.Services.UI.Notifications.Abstractions
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.JSInterop
 @implements IDisposable
@@ -16,6 +17,7 @@
 @inject IEffectiveConfigEditSession Session
 @inject IHostsPageProjectionService HostsProjection
 @inject IJSRuntime JSRuntime
+@inject INotificationService NotificationService
 @inject IOptions<ApplicationOptions> AppOptions
 <PageTitle>Hosts | @AppTitle</PageTitle>
 
@@ -72,16 +74,16 @@ else
                 </div>
             </div>
 
-            @if (_unifiedRows == null || _unifiedRows.Count == 0)
+            @if (VisibleGroups.Count == 0)
             {
                 <p class="text-muted">No hosts entries found.</p>
             }
-            else if (VisibleGroups.Count == 0)
-            {
-                <p class="text-muted">No rows match the current search.</p>
-            }
             else
             {
+                @if (TotalVisibleDataRows == 0 && !string.IsNullOrWhiteSpace(_search))
+                {
+                    <p class="text-muted">No rows match the current search.</p>
+                }
                 <div class="app-table-scroll-shell" data-table-scroll-cue>
                     <div class="app-table-scroll-region" data-table-scroll-region role="region" aria-label="Hosts entries table" tabindex="0">
                         <table class="table table-bordered table-hover app-data-table hosts-table mb-0">
@@ -90,7 +92,17 @@ else
                                 <tr>
                                     <th scope="col">Address</th>
                                     <th scope="col">Names</th>
-                                    <th scope="col">Effective names</th>
+                                    <th scope="col" class="hosts-effective-names-th">
+                                        <span class="align-middle">Effective names</span>
+                                        <button type="button"
+                                                class="btn btn-link btn-sm text-muted hosts-effective-names-help p-0 ms-1 align-middle border-0"
+                                                title="@EffectiveNamesHelpText"
+                                                aria-label="@EffectiveNamesHelpText"
+                                                @onclick="OnEffectiveNamesHelpClickAsync"
+                                                @onclick:stopPropagation="true">
+                                            <i class="bi bi-question-circle" aria-hidden="true"></i>
+                                        </button>
+                                    </th>
                                 </tr>
                             </thead>
                             @foreach (var group in VisibleGroups)
@@ -101,58 +113,103 @@ else
                                             <div class="hosts-group-header__content">
                                                 <div class="hosts-group-header__title">
                                                     <span>@group.Title</span>
-                                                    @if (group.GroupContainsEditableRows)
-                                                    {
-                                                        <span class="badge bg-primary">Editable</span>
-                                                    }
                                                     @if (!group.IsActive)
                                                     {
                                                         <span class="badge bg-warning text-dark">Inactive</span>
                                                     }
+                                                </div>
+                                                <div class="hosts-group-header__path">
                                                     @if (!string.IsNullOrWhiteSpace(group.Subtitle))
                                                     {
                                                         <span class="hosts-group-header__subtitle text-muted small">@group.Subtitle</span>
+                                                    }
+                                                    @if (group.SourceKind == HostsRowSourceKind.Managed && group.IsSourceEditable)
+                                                    {
+                                                        <StatusBadge Kind="StatusBadgeKind.Editable"
+                                                                     Text="editable"
+                                                                     Class="hosts-group-header__badge"
+                                                                     Clickable="true"
+                                                                     Disabled="@IsInlineEditing"
+                                                                     Title="@(IsInlineEditing ? "Finish editing the current row before adding another." : "Add a host entry")"
+                                                                     AriaLabel="@(IsInlineEditing ? "Finish the current row edit first" : "Add a host entry")"
+                                                                     OnClick="AddManagedHostFromBadge" />
+                                                    }
+                                                    else if (group.IsSourceEditable)
+                                                    {
+                                                        <StatusBadge Kind="StatusBadgeKind.Editable"
+                                                                     Text="editable"
+                                                                     Class="hosts-group-header__badge" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <StatusBadge Kind="StatusBadgeKind.ReadOnly"
+                                                                     Text="read-only"
+                                                                     Class="hosts-group-header__badge" />
                                                     }
                                                 </div>
                                             </div>
                                         </th>
                                     </tr>
-                                    @foreach (var row in group.Rows)
+                                    @if (group.Rows.Count == 0)
                                     {
-                                        @if (IsEditingRow(row))
+                                        <tr class="hosts-row hosts-row--empty" @key="@("empty:" + group.Key)">
+                                            <td colspan="3" class="text-muted small text-center hosts-empty-group-message py-3">
+                                                @EmptyGroupMessage
+                                            </td>
+                                        </tr>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var row in group.Rows)
                                         {
-                                            <tr class="hosts-row hosts-row--editing table-info"
-                                                @key="@("edit:" + row.Id)"
-                                                @ref="_editingRowRef"
-                                                @onfocusout="OnEditingRowFocusOut">
-                                                <td>
-                                                    <input class="form-control form-control-sm" @bind="_editAddress" autofocus />
-                                                </td>
-                                                <td>
-                                                    <input class="form-control form-control-sm" placeholder="Comma-separated names" @bind="_editNames" />
-                                                </td>
-                                                <td class="text-muted small">@string.Join(", ", HostsEffectiveNames.Expand(ParseNamesList(_editNames), pageState.ExpandHostsEnabled, pageState.ExpansionDomain))</td>
-                                            </tr>
-                                        }
-                                        else
-                                        {
-                                            <tr class="@RowClass(row)"
-                                                @key="@row.Id"
-                                                title="@(row.IsEditable ? "Double-click to edit" : string.Empty)"
-                                                @ondblclick="@(() => OnRowDoubleClick(row))">
-                                                <td><code>@row.Address</code></td>
-                                                <td>@string.Join(", ", row.Names)</td>
-                                                <td>
-                                                    @if (row.EffectiveNames.Count != row.Names.Count)
-                                                    {
-                                                        <span class="text-primary">@string.Join(", ", row.EffectiveNames)</span>
-                                                    }
-                                                    else
-                                                    {
-                                                        @string.Join(", ", row.EffectiveNames)
-                                                    }
-                                                </td>
-                                            </tr>
+                                            @if (IsEditingRow(row))
+                                            {
+                                                <tr class="hosts-row hosts-row--editing table-info"
+                                                    @key="@("edit:" + row.Id)"
+                                                    @ref="_editingRowRef"
+                                                    @onfocusout="OnEditingRowFocusOut">
+                                                    <td>
+                                                        <input @ref="_editAddressInputRef"
+                                                               class="form-control form-control-sm @(_showHostFieldValidation && CurrentAddressFieldErrors.Count > 0 ? "is-invalid" : "")"
+                                                               title="@HostEditAddressTooltip"
+                                                               aria-invalid="@(_showHostFieldValidation && CurrentAddressFieldErrors.Count > 0 ? "true" : null)"
+                                                               @bind="_editAddress"
+                                                               @bind:event="oninput"
+                                                               @onkeydown="OnEditFieldKeyDown"
+                                                               autofocus />
+                                                    </td>
+                                                    <td>
+                                                        <input class="form-control form-control-sm @(_showHostFieldValidation && CurrentHostnameFieldErrors.Count > 0 ? "is-invalid" : "")"
+                                                               placeholder="Comma-separated names"
+                                                               title="@HostEditNamesTooltip"
+                                                               aria-invalid="@(_showHostFieldValidation && CurrentHostnameFieldErrors.Count > 0 ? "true" : null)"
+                                                               @bind="_editNames"
+                                                               @bind:event="oninput"
+                                                               @onkeydown="OnEditFieldKeyDown" />
+                                                    </td>
+                                                    <td class="text-muted small">@string.Join(", ", HostsEffectiveNames.Expand(ParseNamesList(_editNames), pageState.ExpandHostsEnabled, pageState.ExpansionDomain))</td>
+                                                </tr>
+                                            }
+                                            else
+                                            {
+                                                <tr class="@RowClass(row)"
+                                                    @key="@row.Id"
+                                                    title="@RowTitle(row)"
+                                                    @ondblclick="@(async () => await OnRowDoubleClickAsync(row))">
+                                                    <td><code>@row.Address</code></td>
+                                                    <td>@string.Join(", ", row.Names)</td>
+                                                    <td>
+                                                        @if (row.EffectiveNames.Count != row.Names.Count)
+                                                        {
+                                                            <span class="text-primary">@string.Join(", ", row.EffectiveNames)</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            @string.Join(", ", row.EffectiveNames)
+                                                        }
+                                                    </td>
+                                                </tr>
+                                            }
                                         }
                                     }
                                 </tbody>
@@ -163,6 +220,36 @@ else
             }
 
         </section>
+    }
+
+    @if (_showInvalidHostEditModal)
+    {
+        <div class="modal fade show" style="display: block;" tabindex="-1" role="dialog" aria-labelledby="hosts-invalid-edit-title" aria-modal="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="hosts-invalid-edit-title">Host entry incomplete</h5>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-2">This row is not valid yet. You can keep editing, or discard @(_editingRowIsNew ? "the new row" : "your changes on this row").</p>
+                        @if (CurrentEditValidationErrors.Count > 0)
+                        {
+                            <ul class="small text-danger mb-0 ps-3">
+                                @foreach (var err in CurrentEditValidationErrors)
+                                {
+                                    <li>@err</li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" @onclick="OnInvalidEditContinue">Keep editing</button>
+                        <button type="button" class="btn btn-outline-secondary" @onclick="OnInvalidEditDiscardAsync">Discard</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-backdrop fade show"></div>
     }
 
     <div class="hosts-page-notes mt-3 d-flex flex-column gap-2">
@@ -185,11 +272,14 @@ else
 </div>
 
 @code {
+    private const string EffectiveNamesHelpText =
+        "Effective names show how dnsmasq resolves this row from your Address and Names columns. If expand-hosts and a domain are enabled, short hostnames get that suffix. This preview updates as you type.";
+
     private string AppTitle => AppOptions!.Value!.EffectiveTitle;
     private DnsmasqServiceStatus? _status;
     private IReadOnlyList<HostsPageRow> _unifiedRows = Array.Empty<HostsPageRow>();
-    private List<HostEntry> _managedEntries = new();
-    private List<HostEntry> _originalManagedEntries = new();
+    private List<HostsPageRow> _restUnifiedRows = new();
+    private List<HostEntry> _baselineManagedEntries = new();
     private string? _error;
 
     private string _search = "";
@@ -198,29 +288,98 @@ else
     private string _editAddress = "";
     private string _editNames = "";
     private ElementReference _editingRowRef;
+    private ElementReference _editAddressInputRef;
     private IJSObjectReference? _hostsTableScrollCueModule;
+    private IJSObjectReference? _hostsUiModule;
+    private bool _showInvalidHostEditModal;
+    private bool _refocusEditAfterRender;
+    /// <summary>When false, invalid state is hidden until the first blur, Escape, or Enter.</summary>
+    private bool _showHostFieldValidation;
 
-    // Memoize: markup reads VisibleGroups.Count then foreach — avoid building twice per render.
+    private IReadOnlyList<HostEntry> CurrentManagedEntries =>
+        Session.Draft.ManagedHostsDraft?.NewEntries ?? _baselineManagedEntries;
+
     private IReadOnlyList<HostsPageGroup>? _visibleGroupsCache;
     private object? _visibleGroupsCacheRowsRef;
     private string _visibleGroupsCacheSearch = "\0";
+    private string _visibleGroupsCacheManagedPath = "\0";
 
     private IReadOnlyList<HostsPageGroup> VisibleGroups
     {
         get
         {
+            var managedPath = _status?.ManagedHostsFilePath ?? "";
             if (_visibleGroupsCache != null
                 && ReferenceEquals(_visibleGroupsCacheRowsRef, _unifiedRows)
-                && _visibleGroupsCacheSearch == _search)
+                && _visibleGroupsCacheSearch == _search
+                && _visibleGroupsCacheManagedPath == managedPath)
             {
                 return _visibleGroupsCache;
             }
 
-            _visibleGroupsCache = HostsProjection.BuildGroups(_unifiedRows, BuildQuery());
+            var built = HostsProjection.BuildGroups(_unifiedRows, BuildQuery());
+            _visibleGroupsCache = EnsureManagedHostsHeaderGroup(built);
             _visibleGroupsCacheRowsRef = _unifiedRows;
             _visibleGroupsCacheSearch = _search;
+            _visibleGroupsCacheManagedPath = managedPath;
             return _visibleGroupsCache;
         }
+    }
+
+    private int TotalVisibleDataRows => VisibleGroups.Sum(g => g.Rows.Count);
+
+    private bool IsInlineEditing => !string.IsNullOrEmpty(_editingRowId);
+
+    private bool _editingRowIsNew =>
+        !string.IsNullOrEmpty(_editingRowId) && _editingRowId.StartsWith("new:", StringComparison.Ordinal);
+
+    private IReadOnlyList<string> CurrentEditValidationErrors =>
+        string.IsNullOrEmpty(_editingRowId)
+            ? Array.Empty<string>()
+            : HostsEntryEditValidator.GetErrors(_editAddress.Trim(), ParseNamesList(_editNames));
+
+    private bool IsCurrentEditValid => CurrentEditValidationErrors.Count == 0;
+
+    private IReadOnlyList<string> CurrentAddressFieldErrors =>
+        string.IsNullOrEmpty(_editingRowId)
+            ? Array.Empty<string>()
+            : HostsEntryEditValidator.GetAddressFieldErrors(_editAddress.Trim());
+
+    private IReadOnlyList<string> CurrentHostnameFieldErrors =>
+        string.IsNullOrEmpty(_editingRowId)
+            ? Array.Empty<string>()
+            : HostsEntryEditValidator.GetHostnameFieldErrors(ParseNamesList(_editNames));
+
+    private string? HostEditAddressTooltip =>
+        !_showHostFieldValidation ? null : JoinHostFieldTooltip(CurrentAddressFieldErrors);
+
+    private string? HostEditNamesTooltip =>
+        !_showHostFieldValidation ? null : JoinHostFieldTooltip(CurrentHostnameFieldErrors);
+
+    private static string? JoinHostFieldTooltip(IReadOnlyList<string> errors) =>
+        errors.Count == 0 ? null : string.Join(" · ", errors);
+
+    private IReadOnlyList<HostsPageGroup> EnsureManagedHostsHeaderGroup(IReadOnlyList<HostsPageGroup> groups)
+    {
+        if (_status == null || string.IsNullOrWhiteSpace(_status.ManagedHostsFilePath))
+            return groups;
+        var path = _status.ManagedHostsFilePath;
+        if (groups.Any(g => g.SourceKind == HostsRowSourceKind.Managed))
+            return groups;
+
+        var placeholder = new HostsPageGroup(
+            Key: $"{HostsRowSourceKind.Managed}:{path}",
+            Title: "Managed hosts",
+            Subtitle: path,
+            SourceKind: HostsRowSourceKind.Managed,
+            GroupContainsEditableRows: true,
+            IsActive: true,
+            InactiveReason: null,
+            VisibleRowCount: 0,
+            Rows: Array.Empty<HostsPageRow>(),
+            IsSourceEditable: true);
+
+        return new[] { placeholder }.Concat(groups).ToList();
     }
 
     private HostsPageQueryState BuildQuery()
@@ -235,6 +394,24 @@ else
             ActiveFilter: null);
     }
 
+    private void InvalidateVisibleGroupsCache()
+    {
+        _visibleGroupsCache = null;
+    }
+
+    private async Task OnEffectiveNamesHelpClickAsync()
+    {
+        try
+        {
+            _hostsUiModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "/js/modules/hosts-ui.js");
+            if (await _hostsUiModule.InvokeAsync<bool>("preferEffectiveNamesHelpToast"))
+                NotificationService.ShowInfo(EffectiveNamesHelpText);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
     private static string RowClass(HostsPageRow row)
     {
         var parts = new List<string> { "hosts-row" };
@@ -245,21 +422,87 @@ else
         return string.Join(" ", parts);
     }
 
-    private void OnRowDoubleClick(HostsPageRow row) => BeginEdit(row);
+    private string RowTitle(HostsPageRow row) =>
+        row.IsEditable ? "Double-click to edit" : string.Empty;
+
+    private string EmptyGroupMessage =>
+        string.IsNullOrWhiteSpace(_search) ? "No entries." : "No matching entries.";
 
     private bool IsEditingRow(HostsPageRow row) =>
         !string.IsNullOrEmpty(_editingRowId) && string.Equals(_editingRowId, row.Id, StringComparison.Ordinal);
 
-    private void BeginEdit(HostsPageRow row)
+    private async Task OnRowDoubleClickAsync(HostsPageRow row)
     {
         if (!row.IsEditable || _status == null)
             return;
+
+        if (!string.IsNullOrEmpty(_editingRowId))
+        {
+            if (string.Equals(_editingRowId, row.Id, StringComparison.Ordinal))
+                return;
+
+            if (!IsCurrentEditValid)
+            {
+                RevealHostFieldValidation();
+                _showInvalidHostEditModal = true;
+                await InvokeAsync(StateHasChanged);
+                return;
+            }
+
+            await CommitAndEndInlineEditAsync();
+        }
+
+        if (!Session.Ui.IsEditMode)
+            Session.Ui.EnterEditMode();
+
         var entry = FindManagedEntry(row);
         if (entry == null)
             return;
+        _showHostFieldValidation = false;
         _editingRowId = row.Id;
         _editAddress = entry.Address;
         _editNames = string.Join(", ", entry.Names);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void AddManagedHostFromBadge()
+    {
+        if (IsInlineEditing)
+            return;
+        AddManagedHost();
+    }
+
+    private void AddManagedHost()
+    {
+        if (_status == null || string.IsNullOrWhiteSpace(_status.ManagedHostsFilePath) || IsInlineEditing)
+            return;
+        if (!Session.Ui.IsEditMode)
+            Session.Ui.EnterEditMode();
+
+        var list = CloneEntries(CurrentManagedEntries).ToList();
+        var nextLine = list.Count == 0 ? 1 : list.Max(e => e.LineNumber) + 1;
+        var id = "new:" + Guid.NewGuid().ToString("N");
+        list.Add(new HostEntry
+        {
+            LineNumber = nextLine,
+            Id = id,
+            Address = "",
+            Names = new List<string>(),
+            IsComment = false,
+            IsPassthrough = false
+        });
+
+        Session.Draft.SetManagedHostsDraft(
+            CloneEntries(_baselineManagedEntries),
+            list,
+            _status.ManagedHostsFilePath);
+        RebuildManagedOverlay();
+        InvalidateVisibleGroupsCache();
+        _showHostFieldValidation = false;
+        _editingRowId = id;
+        _editAddress = "";
+        _editNames = "";
+        StateHasChanged();
     }
 
     private void CancelEdit()
@@ -267,14 +510,90 @@ else
         _editingRowId = null;
         _editAddress = "";
         _editNames = "";
+        _showHostFieldValidation = false;
+    }
+
+    private void RevealHostFieldValidation() => _showHostFieldValidation = true;
+
+    private void OnInvalidEditContinue()
+    {
+        _showInvalidHostEditModal = false;
+        _refocusEditAfterRender = true;
+        StateHasChanged();
+    }
+
+    private async Task OnInvalidEditDiscardAsync()
+    {
+        if (string.IsNullOrEmpty(_editingRowId) || _status == null || string.IsNullOrWhiteSpace(_status.ManagedHostsFilePath))
+        {
+            _showInvalidHostEditModal = false;
+            CancelEdit();
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        var list = CloneEntries(CurrentManagedEntries).ToList();
+        var entry = list.FirstOrDefault(MatchesEditingId);
+        if (entry != null && entry.Id.StartsWith("new:", StringComparison.Ordinal))
+        {
+            list.Remove(entry);
+            Session.Draft.SetManagedHostsDraft(
+                CloneEntries(_baselineManagedEntries),
+                list,
+                _status.ManagedHostsFilePath);
+            RebuildManagedOverlay();
+            InvalidateVisibleGroupsCache();
+        }
+
+        _showInvalidHostEditModal = false;
+        CancelEdit();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnEditFieldKeyDown(KeyboardEventArgs e)
+    {
+        if (_showInvalidHostEditModal || string.IsNullOrEmpty(_editingRowId))
+            return;
+
+        if (e.Key == "Enter")
+        {
+            await TryFinishHostEditFromKeyboardAsync();
+            return;
+        }
+
+        if (e.Key != "Escape")
+            return;
+
+        if (IsCurrentEditValid)
+            await CommitAndEndInlineEditAsync();
+        else
+        {
+            RevealHostFieldValidation();
+            _showInvalidHostEditModal = true;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task TryFinishHostEditFromKeyboardAsync()
+    {
+        if (string.IsNullOrEmpty(_editingRowId))
+            return;
+        if (IsCurrentEditValid)
+            await CommitAndEndInlineEditAsync();
+        else
+        {
+            RevealHostFieldValidation();
+            _showInvalidHostEditModal = true;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private async Task OnEditingRowFocusOut(FocusEventArgs _)
     {
-        if (string.IsNullOrEmpty(_editingRowId))
+        if (_showInvalidHostEditModal || string.IsNullOrEmpty(_editingRowId))
             return;
         await Task.Delay(10);
-        if (string.IsNullOrEmpty(_editingRowId))
+        if (_showInvalidHostEditModal || string.IsNullOrEmpty(_editingRowId))
             return;
 
         var outside = true;
@@ -289,24 +608,43 @@ else
         }
 
         if (outside)
-            await CommitAndEndInlineEditAsync();
+        {
+            if (IsCurrentEditValid)
+                await CommitAndEndInlineEditAsync();
+            else
+            {
+                RevealHostFieldValidation();
+                _showInvalidHostEditModal = true;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
     }
 
     private async Task CommitAndEndInlineEditAsync()
     {
-        if (string.IsNullOrEmpty(_editingRowId) || _status == null)
+        if (string.IsNullOrEmpty(_editingRowId) || _status == null || string.IsNullOrWhiteSpace(_status.ManagedHostsFilePath))
             return;
-        var entry = _managedEntries.FirstOrDefault(MatchesEditingId);
+        var list = CloneEntries(CurrentManagedEntries).ToList();
+        var entry = list.FirstOrDefault(MatchesEditingId);
         if (entry == null)
         {
             CancelEdit();
             return;
         }
 
-        entry.Address = _editAddress.Trim();
-        entry.Names = ParseNamesList(_editNames);
-        ApplyManagedOverlay();
-        SyncManagedHostsDraft();
+        var trimmedAddr = _editAddress.Trim();
+        var newNames = ParseNamesList(_editNames);
+        if (!HostsEntryEditValidator.IsValid(trimmedAddr, newNames))
+            return;
+
+        entry.Address = trimmedAddr;
+        entry.Names = newNames;
+        Session.Draft.SetManagedHostsDraft(
+            CloneEntries(_baselineManagedEntries),
+            list,
+            _status.ManagedHostsFilePath!);
+        RebuildManagedOverlay();
+        InvalidateVisibleGroupsCache();
         CancelEdit();
         await InvokeAsync(StateHasChanged);
     }
@@ -318,7 +656,7 @@ else
     }
 
     private HostEntry? FindManagedEntry(HostsPageRow row) =>
-        _managedEntries.FirstOrDefault(e =>
+        CurrentManagedEntries.FirstOrDefault(e =>
             string.Equals(e.Id, row.Id, StringComparison.Ordinal) ||
             string.Equals($"managed:{e.LineNumber}", row.Id, StringComparison.Ordinal));
 
@@ -338,19 +676,6 @@ else
             IsComment = e.IsComment,
             IsPassthrough = e.IsPassthrough
         }).ToList();
-
-    private void SyncManagedHostsDraft()
-    {
-        if (_status == null || string.IsNullOrWhiteSpace(_status.ManagedHostsFilePath))
-            return;
-        var draft = CloneEntries(_managedEntries);
-        var original = CloneEntries(_originalManagedEntries);
-        var pending = new PendingManagedHostsChange(original, draft, _status.ManagedHostsFilePath);
-        if (pending.HasChanges)
-            Session.TrackManagedHostsChange(pending);
-        else
-            Session.RevertManagedHostsChange();
-    }
 
     private MarkupString RenderAddnHostsList()
     {
@@ -372,7 +697,18 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        Session.Changed += OnSessionChanged;
         await Load();
+    }
+
+    private void OnSessionChanged()
+    {
+        if (_status != null && !string.IsNullOrEmpty(_status.ManagedHostsFilePath))
+        {
+            RebuildManagedOverlay();
+            InvalidateVisibleGroupsCache();
+        }
+        _ = InvokeAsync(StateHasChanged);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -394,6 +730,21 @@ else
             {
             }
         }
+
+        if (_refocusEditAfterRender)
+        {
+            _refocusEditAfterRender = false;
+            if (!string.IsNullOrEmpty(_editingRowId))
+            {
+                try
+                {
+                    await _editAddressInputRef.FocusAsync();
+                }
+                catch (JSDisconnectedException)
+                {
+                }
+            }
+        }
     }
 
     private async Task RefreshStatusAsync()
@@ -406,14 +757,28 @@ else
         catch { /* ignore */ }
     }
 
+    private void ReconcileManagedHostsDraftAfterLoad()
+    {
+        if (_status == null || string.IsNullOrWhiteSpace(_status.ManagedHostsFilePath))
+            return;
+        var draft = Session.Draft.ManagedHostsDraft;
+        if (draft == null)
+            return;
+        if (!string.Equals(draft.ManagedHostsFilePath, _status.ManagedHostsFilePath, StringComparison.Ordinal))
+            return;
+        Session.Draft.SetManagedHostsDraft(
+            CloneEntries(_baselineManagedEntries),
+            CloneEntries(draft.NewEntries),
+            _status.ManagedHostsFilePath);
+    }
+
     private async Task Load()
     {
         _error = null;
         try
         {
             _status = await StatusClient.GetStatusAsync();
-            _managedEntries = (await HostsClient.GetHostsAsync()).ToList();
-            _originalManagedEntries = CloneEntries(_managedEntries);
+            _baselineManagedEntries = (await HostsClient.GetHostsAsync()).ToList();
 
             if (_status?.EffectiveConfig != null && !string.IsNullOrEmpty(_status.ManagedHostsFilePath))
             {
@@ -421,15 +786,17 @@ else
                 var domain = _status.EffectiveConfig.DomainValues?.FirstOrDefault();
                 var noHosts = _status.NoHosts;
                 var fromApi = await HostsClient.GetUnifiedRowsAsync(expandHosts, domain, noHosts, _status.ManagedHostsFilePath);
-                _unifiedRows = fromApi.ToList();
-                ApplyManagedOverlay();
+                _restUnifiedRows = fromApi.Where(r => r.SourceKind != HostsRowSourceKind.Managed).ToList();
+                ReconcileManagedHostsDraftAfterLoad();
+                RebuildManagedOverlay();
             }
             else
             {
+                _restUnifiedRows = new List<HostsPageRow>();
                 _unifiedRows = Array.Empty<HostsPageRow>();
             }
 
-            SyncManagedHostsDraft();
+            InvalidateVisibleGroupsCache();
         }
         catch (Exception ex)
         {
@@ -437,7 +804,7 @@ else
         }
     }
 
-    private void ApplyManagedOverlay()
+    private void RebuildManagedOverlay()
     {
         if (_status?.EffectiveConfig == null || string.IsNullOrEmpty(_status.ManagedHostsFilePath))
             return;
@@ -447,7 +814,7 @@ else
         var path = _status.ManagedHostsFilePath;
         var managedRows = new List<HostsPageRow>();
 
-        foreach (var e in _managedEntries.Where(x => !x.IsPassthrough))
+        foreach (var e in CurrentManagedEntries.Where(x => !x.IsPassthrough))
         {
             var names = e.Names ?? (IReadOnlyList<string>)Array.Empty<string>();
             var effective = HostsEffectiveNames.Expand(names, expandHosts, domain);
@@ -466,13 +833,14 @@ else
                 LineNumber: e.LineNumber));
         }
 
-        var rest = _unifiedRows.Where(r => r.SourceKind != HostsRowSourceKind.Managed).ToList();
-        _unifiedRows = managedRows.Concat(rest).ToList();
+        _unifiedRows = managedRows.Concat(_restUnifiedRows).ToList();
     }
 
     public void Dispose()
     {
+        Session.Changed -= OnSessionChanged;
         _ = CleanupHostsTableScrollCueAsync();
+        _ = CleanupHostsUiModuleAsync();
     }
 
     private async Task CleanupHostsTableScrollCueAsync()
@@ -490,5 +858,21 @@ else
         }
 
         _hostsTableScrollCueModule = null;
+    }
+
+    private async Task CleanupHostsUiModuleAsync()
+    {
+        if (_hostsUiModule == null)
+            return;
+
+        try
+        {
+            await _hostsUiModule.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+
+        _hostsUiModule = null;
     }
 }
