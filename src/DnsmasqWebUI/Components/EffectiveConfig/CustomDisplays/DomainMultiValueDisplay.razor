@@ -1,0 +1,88 @@
+@namespace DnsmasqWebUI.Components.EffectiveConfig.CustomDisplays
+@using DnsmasqWebUI.Models.Dnsmasq
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Infrastructure.Serialization.Parsers.EffectiveConfig
+@inherits EffectiveConfigMultiValueDisplayBase
+
+@if (Context.IsActiveEditor)
+{
+    <DomainEffectiveConfigListEditor
+        SourceItems="EffectiveItems"
+        OptionName="@Context.Descriptor.OptionName"
+        ReadonlyBadgeAnchorIdBase="@_anchorBase"
+        IsEditMode="@Context.IsEditMode"
+        AllowAddManagedValue="@Context.IsEditMode"
+        FieldKey="@Context.FieldKey"
+        Behavior="@_multiDesc?.Behavior"
+        Validator="@_multiDesc?.Validator"
+        OnValuesChanged="@NotifyValuesChanged" />
+}
+else
+{
+    <div class="ec-field-value ec-field-value-multi">
+        <ol class="ec-field-value-list">
+            @if (Context.EffectiveItems.Count > 0)
+            {
+                @foreach (var (item, index) in Context.EffectiveItems.Select((item, index) => (item, index)))
+                {
+                    var anchorId = $"{_anchorBase}-{index}";
+                    <li>
+                        <EffectiveConfigMultiValueItem
+                                Value="@item.Value"
+                                DisplayValue="@DomainRuleFields.FormatSummary(item.Value)"
+                                Source="@item.Source"
+                                OptionName="@Context.Descriptor.OptionName"
+                                IsEditMode="@Context.IsEditMode"
+                                ReadonlyBadgeAnchorId="@anchorId"
+                                FieldKey="@Context.FieldKey" />
+                    </li>
+                }
+            }
+            @if (Context.ShowEditableBadge && Context.EffectiveItems.Count > 0)
+            {
+                <li class="ec-multi-list-entry-point">
+                    <OptionStateBadge
+                        OptionName="@Context.Descriptor.OptionName"
+                        ShowEditableBadge="true"
+                        EditableAsButton="true"
+                        FieldKey="@Context.FieldKey"
+                        IsActiveEditor="false"
+                        IsInteractive="true"
+                        HasPendingChange="@Context.HasPendingOrDraft"
+                        IsCapabilityDisabled="@Context.Descriptor.IsCapabilityDisabled"
+                        CapabilityDisabledReason="@Context.Descriptor.CapabilityDisabledReason" />
+                </li>
+            }
+            else if (Context.EffectiveItems.Count == 0)
+            {
+                <li class="ec-multi-list-empty-hint">
+                    @if (Context.ShowEditableBadge)
+                    {
+                        <span class="text-muted">(none)</span>
+                        <OptionStateBadge
+                            OptionName="@Context.Descriptor.OptionName"
+                            ShowEditableBadge="true"
+                            EditableAsButton="true"
+                            FieldKey="@Context.FieldKey"
+                            IsActiveEditor="false"
+                            IsInteractive="true"
+                            HasPendingChange="@Context.HasPendingOrDraft"
+                            IsCapabilityDisabled="@Context.Descriptor.IsCapabilityDisabled"
+                            CapabilityDisabledReason="@Context.Descriptor.CapabilityDisabledReason" />
+                    }
+                    else
+                    {
+                        <span class="text-muted">(none)</span>
+                    }
+                </li>
+            }
+        </ol>
+    </div>
+}
+
+@code {
+    private readonly string _anchorBase = "ec-domain-" + Guid.NewGuid().ToString("N")[..8];
+
+    private EffectiveMultiValueConfigFieldDescriptor? _multiDesc =>
+        Context.Descriptor as EffectiveMultiValueConfigFieldDescriptor;
+}

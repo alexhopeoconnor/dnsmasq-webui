@@ -163,15 +163,19 @@
     {
         if (Session.Draft.PendingChanges.Count > 0)
         {
-            var module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/dialog.js");
+            var module = await JSRuntime.InvokeAsyncSafe<IJSObjectReference>("import", default, "./js/dialog.js");
+            if (module == null)
+                return;
+
             try
             {
-                var confirmed = await module.InvokeAsync<bool>("confirmMessage", "Discard unsaved changes and exit edit mode?");
-                if (!confirmed) return;
+                var confirmed = await module.InvokeAsyncSafe<bool>("confirmMessage", "Discard unsaved changes and exit edit mode?");
+                if (confirmed != true)
+                    return;
             }
             finally
             {
-                await module.DisposeAsync();
+                await module.DisposeAsyncSafe();
             }
         }
         Session.Draft.DiscardAllDraft();

@@ -1,4 +1,5 @@
 @namespace DnsmasqWebUI.Components.EffectiveConfig
+@using DnsmasqWebUI.Extensions.Interop
 @inject IJSRuntime JSRuntime
 
 <div class="d-flex align-items-center gap-1 @CssClass">
@@ -15,13 +16,7 @@
     private async Task CopyAsync()
     {
         if (string.IsNullOrEmpty(Text)) return;
-        try
-        {
-            await JSRuntime.InvokeVoidAsync("copyToClipboard", Text);
-        }
-        catch
-        {
-            // Clipboard not available or failed
-        }
+        // window.copyToClipboard from wwwroot/js/copy-to-clipboard.js; swallow disconnect / clipboard failures.
+        await JSRuntime.InvokeVoidAsyncSafe("copyToClipboard", args: new object?[] { Text });
     }
 }

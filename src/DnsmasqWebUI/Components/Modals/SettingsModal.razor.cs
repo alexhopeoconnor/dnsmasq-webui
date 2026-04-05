@@ -54,15 +54,16 @@ public partial class SettingsModal : IAsyncDisposable
     {
         if (firstRender)
         {
-            try
+            _jsModule = await JSRuntime.InvokeAsyncSafe<IJSObjectReference>("import", default, "./js/dialog.js");
+            if (_jsModule != null)
             {
-                _jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/dialog.js");
                 _dotNetRef = DotNetObjectReference.Create(this);
                 _moduleLoaded = true;
             }
-            catch (InvalidOperationException ex) { Logger.LogDebug(ex, "SettingsModal: JS import skipped (prerender)"); }
-            catch (JSDisconnectedException ex) { Logger.LogDebug(ex, "SettingsModal: JS import skipped (circuit disconnected)"); }
-            catch (JSException ex) { Logger.LogDebug(ex, "SettingsModal: JS import failed"); }
+            else
+            {
+                Logger.LogDebug("SettingsModal: JS module unavailable (prerender, disconnect, or import failure)");
+            }
         }
 
         if (IsVisible && _moduleLoaded && _jsModule != null)
@@ -163,9 +164,9 @@ public partial class SettingsModal : IAsyncDisposable
     /// </summary>
     public async ValueTask DisposeAsync()
     {
-        await _jsModule.DisposeAsyncSafe();
-        _jsModule = null;
         _dotNetRef?.Dispose();
         _dotNetRef = null;
+        await _jsModule.DisposeAsyncSafe();
+        _jsModule = null;
     }
 }

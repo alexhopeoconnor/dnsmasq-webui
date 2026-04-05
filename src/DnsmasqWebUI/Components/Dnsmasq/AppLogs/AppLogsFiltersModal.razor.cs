@@ -52,15 +52,12 @@ public partial class AppLogsFiltersModal : IAsyncDisposable
     {
         if (firstRender)
         {
-            try
+            _jsModule = await JSRuntime.InvokeAsyncSafe<IJSObjectReference>("import", default, "./js/dialog.js");
+            if (_jsModule != null)
             {
-                _jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/dialog.js");
                 _dotNetRef = DotNetObjectReference.Create(this);
                 _moduleLoaded = true;
             }
-            catch (InvalidOperationException) { }
-            catch (JSDisconnectedException) { }
-            catch (JSException) { }
         }
 
         if (IsVisible && _moduleLoaded && _jsModule != null)
@@ -146,6 +143,8 @@ public partial class AppLogsFiltersModal : IAsyncDisposable
         _cts.Cancel();
         _cts.Dispose();
         _dotNetRef?.Dispose();
+        _dotNetRef = null;
         await _jsModule.DisposeAsyncSafe();
+        _jsModule = null;
     }
 }

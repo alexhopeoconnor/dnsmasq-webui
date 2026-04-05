@@ -64,7 +64,7 @@ public static class DnsmasqOptionTooltips
         [DnsmasqConfKeys.Do0x20Encode] = "Use 0x20 encoding in queries to detect DNS poisoning (Enabled), disable it (Disabled), or default (not set).",
 
         // --- DNS records ---
-        [DnsmasqConfKeys.Domain] = "Local domain(s); optional IP. Can repeat (e.g. domain=home,192.168.1.1).",
+        [DnsmasqConfKeys.Domain] = "Domain suffix for DHCP, allowed host FQDNs, and expand-hosts; optional subnet, interface, or ,local. Can repeat.",
         [DnsmasqConfKeys.Cname] = "CNAME records (alias, target). Can repeat.",
         [DnsmasqConfKeys.MxHost] = "MX records (domain, host, priority). Can repeat.",
         [DnsmasqConfKeys.MxTarget] = "Default target for MX records (used with localmx).",

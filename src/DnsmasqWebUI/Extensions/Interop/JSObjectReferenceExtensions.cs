@@ -5,6 +5,7 @@ namespace DnsmasqWebUI.Extensions.Interop;
 /// <summary>
 /// Safe JS module interop helpers that swallow disconnect/cancel/dispose exceptions.
 /// Use for best-effort or teardown calls (dispose, cleanup, hub callbacks, error toasts).
+/// Swallows <see cref="JSException"/> when the invoked JS throws.
 /// </summary>
 public static class JSObjectReferenceExtensions
 {
@@ -25,11 +26,13 @@ public static class JSObjectReferenceExtensions
         catch (JSDisconnectedException) { return false; }
         catch (TaskCanceledException) { return false; }
         catch (ObjectDisposedException) { return false; }
+        catch (JSException) { return false; }
     }
 
     /// <summary>
     /// Invokes a method on the module that returns a value, without throwing on circuit disconnect, cancel, or dispose.
-    /// Returns default when the call fails.
+    /// Returns default when the call fails. For value types (e.g. <see cref="bool"/>), failure and a legitimate default
+    /// from JS are indistinguishable—use raw <see cref="IJSObjectReference.InvokeAsync{TValue}"/> with try/catch when that matters.
     /// </summary>
     public static async ValueTask<T?> InvokeAsyncSafe<T>(
         this IJSObjectReference module,
@@ -43,6 +46,7 @@ public static class JSObjectReferenceExtensions
         catch (JSDisconnectedException) { return default; }
         catch (TaskCanceledException) { return default; }
         catch (ObjectDisposedException) { return default; }
+        catch (JSException) { return default; }
     }
 
     /// <summary>

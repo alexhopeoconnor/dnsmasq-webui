@@ -3,7 +3,7 @@ namespace DnsmasqWebUI.Models.Hosts;
 /// <summary>Preview of names after <c>expand-hosts</c> (does not mutate stored names).</summary>
 public static class HostsEffectiveNames
 {
-    private sealed record ScopedDomainRule(uint Start, uint End, string Domain);
+    private sealed record ScopedDomainRule(string Raw, uint Start, uint End, string Domain);
 
     public static IReadOnlyList<string> Expand(
         IReadOnlyList<string> names,
@@ -32,6 +32,13 @@ public static class HostsEffectiveNames
         return Expand(names, expandHosts, domain);
     }
 
+    /// <summary>
+    /// Picks the suffix domain for expand-hosts, mirroring dnsmasq <c>read_hostsfile</c> → <c>get_domain</c> (<c>domain.c</c>).
+    /// Conditional <c>domain=</c> lines are stored in a singly-linked list by prepending each new rule
+    /// (<c>option.c</c>: <c>new-&gt;next = daemon-&gt;cond_domain</c>), and <c>search_domain</c> returns the first match
+    /// walking from the head — so <strong>later</strong> occurrences in the config (later files / later lines) win when
+    /// ranges overlap. <see cref="EffectiveDnsmasqConfig.DomainValues"/> keeps multi-value options in that read order.
+    /// </summary>
     public static string? ResolveDomainForAddress(
         IReadOnlyList<string>? domainValues,
         string? address)
@@ -48,7 +55,7 @@ public static class HostsEffectiveNames
         if (!TryParseIpv4ToUInt(address, out var ip))
             return defaultDomain;
 
-        // dnsmasq prepends conditional domains as it parses, then scans first-match.
+        // Walk scoped rules last-to-first in config order ≡ dnsmasq's head-first list walk (later line wins on overlap).
         for (var i = scopedRules.Count - 1; i >= 0; i--)
         {
             var rule = scopedRules[i];
@@ -57,6 +64,88 @@ public static class HostsEffectiveNames
         }
 
         return defaultDomain;
+    }
+
+    /// <summary>Short explanation for UI tooltips: which domain= rule supplies the suffix for this row address.</summary>
+    public static string ExplainSuffixSource(
+        bool expandHosts,
+        IReadOnlyList<string>? domainValues,
+        string? address,
+        IReadOnlyList<string>? names)
+    {
+        if (!expandHosts)
+            return "expand-hosts is off; dnsmasq does not add a domain suffix to short names.";
+
+        if (domainValues == null || domainValues.Count == 0)
+            return "No domain= lines are configured; there is no suffix to append.";
+
+        var nameList = names ?? Array.Empty<string>();
+        if (nameList.Count == 0 || nameList.All(n => string.IsNullOrWhiteSpace(n)))
+            return "No hostnames on this row.";
+
+        var nonEmpty = nameList.Where(n => !string.IsNullOrWhiteSpace(n)).ToList();
+        if (nonEmpty.Count > 0 && nonEmpty.All(n => n.Contains('.')))
+            return "Every name already contains a dot; dnsmasq does not append a suffix (expand-hosts only affects simple names).";
+
+        ParseAllDomainValues(domainValues, out var defaultDomain, out var defaultRaw, out var scopedRules);
+
+        if (TryParseIpv4ToUInt(address, out var ip))
+        {
+            for (var i = scopedRules.Count - 1; i >= 0; i--)
+            {
+                var rule = scopedRules[i];
+                if (ip >= rule.Start && ip <= rule.End)
+                    return $"Suffix from scoped rule: {rule.Raw}";
+            }
+
+            if (!string.IsNullOrWhiteSpace(defaultDomain))
+                return string.IsNullOrWhiteSpace(defaultRaw)
+                    ? $"Suffix from default domain: {defaultDomain}"
+                    : $"Suffix from default rule: {defaultRaw}";
+
+            return "No default domain= is set; this IPv4 address matched no scoped rule, so no suffix is applied in this preview.";
+        }
+
+        // IPv6 or non-IP: dnsmasq host expansion uses default suffix only (see read_hostsfile in dnsmasq).
+        if (!string.IsNullOrWhiteSpace(defaultDomain))
+            return string.IsNullOrWhiteSpace(defaultRaw)
+                ? $"Non-IPv4 address: preview uses default domain only: {defaultDomain}"
+                : $"Non-IPv4 address: preview uses default rule: {defaultRaw}";
+
+        return "Non-IPv4 address and no default domain=; no suffix in this preview.";
+    }
+
+    private static void ParseAllDomainValues(
+        IReadOnlyList<string> domainValues,
+        out string? defaultDomain,
+        out string? defaultRaw,
+        out List<ScopedDomainRule> scopedRules)
+    {
+        defaultDomain = null;
+        defaultRaw = null;
+        scopedRules = new List<ScopedDomainRule>();
+
+        foreach (var raw in domainValues)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+                continue;
+            var parts = raw.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0)
+                continue;
+            var domain = NormalizeDomain(parts[0]);
+            if (string.IsNullOrWhiteSpace(domain))
+                continue;
+
+            if (parts.Length == 1)
+            {
+                defaultDomain = domain;
+                defaultRaw = raw.Trim();
+                continue;
+            }
+
+            if (TryParseScopedRange(parts, out var start, out var end))
+                scopedRules.Add(new ScopedDomainRule(raw.Trim(), start, end, domain));
+        }
     }
 
     private static void ParseDomainValue(
@@ -82,7 +171,7 @@ public static class HostsEffectiveNames
         }
 
         if (TryParseScopedRange(parts, out var start, out var end))
-            scopedRules.Add(new ScopedDomainRule(start, end, domain));
+            scopedRules.Add(new ScopedDomainRule(raw.Trim(), start, end, domain));
     }
 
     private static string? NormalizeDomain(string value)

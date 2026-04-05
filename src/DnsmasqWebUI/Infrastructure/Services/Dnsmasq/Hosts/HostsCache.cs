@@ -293,7 +293,6 @@ public sealed class HostsCache : IHostsCache, IDisposable
 
     public async Task<IReadOnlyList<HostsPageRow>> GetUnifiedRowsAsync(
         bool expandHosts,
-        string? domain,
         bool noHosts,
         string? managedHostsPath,
         CancellationToken ct = default)
@@ -302,8 +301,9 @@ public sealed class HostsCache : IHostsCache, IDisposable
         var rows = new List<HostsPageRow>();
         var managedPathFull = !string.IsNullOrEmpty(managedHostsPath) ? Path.GetFullPath(managedHostsPath) : null;
 
-        // Get config to determine hostsdir path
+        // Get config to determine hostsdir path and full domain= list (scoped expansion per address).
         var configSnapshot = await _configSetCache.GetSnapshotAsync(ct);
+        var domainValues = configSnapshot.Config?.DomainValues;
         var hostsdirPath = configSnapshot.Config?.HostsdirPath;
         var hostsdirPathFull = !string.IsNullOrEmpty(hostsdirPath) ? Path.GetFullPath(hostsdirPath) : null;
 
@@ -312,7 +312,7 @@ public sealed class HostsCache : IHostsCache, IDisposable
         {
             if (entry.IsPassthrough) continue;
             var names = entry.Names ?? (IReadOnlyList<string>)Array.Empty<string>();
-            var effectiveNames = HostsEffectiveNames.Expand(names, expandHosts, domain);
+            var effectiveNames = HostsEffectiveNames.Expand(names, expandHosts, domainValues, entry.Address ?? "");
             rows.Add(new HostsPageRow(
                 Id: entry.Id ?? $"managed:{entry.LineNumber}",
                 SourceKind: HostsRowSourceKind.Managed,
@@ -341,7 +341,7 @@ public sealed class HostsCache : IHostsCache, IDisposable
             {
                 if (entry.IsPassthrough) continue;
                 var names = entry.Names ?? (IReadOnlyList<string>)Array.Empty<string>();
-                var effectiveNames = HostsEffectiveNames.Expand(names, expandHosts, domain);
+                var effectiveNames = HostsEffectiveNames.Expand(names, expandHosts, domainValues, entry.Address ?? "");
                 rows.Add(new HostsPageRow(
                     Id: $"{sourceKind}:{file.Path}:{entry.LineNumber}",
                     SourceKind: sourceKind,

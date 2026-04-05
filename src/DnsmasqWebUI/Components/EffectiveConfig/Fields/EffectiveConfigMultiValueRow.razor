@@ -3,32 +3,32 @@
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 
 <li class="ec-field">
-    <OptionHelpLabel AnchorId="@(OptionHelpAnchorId ?? "")" HelpKey="@OptionHelpKey" OptionLabel="@Label" Title="@LabelTooltip"><strong>@Label:</strong></OptionHelpLabel>
-    @if (IsActiveEditor)
+    <OptionHelpLabel AnchorId="@(OptionHelpAnchorId ?? "")" HelpKey="@OptionHelpKey" OptionLabel="@Context.Descriptor.OptionName" Title="@LabelTooltip"><strong>@Context.Descriptor.OptionName:</strong></OptionHelpLabel>
+    @if (Context.IsActiveEditor)
     {
         <EffectiveConfigMultiValueListEditor
-            SourceItems="@(Items ?? Array.Empty<ValueWithSource>())"
-            OptionName="@Label"
+            SourceItems="@(Context.EffectiveItems)"
+            OptionName="@Context.Descriptor.OptionName"
             ReadonlyBadgeAnchorIdBase="@(ReadonlyBadgeAnchorIdBase ?? "")"
-            IsEditMode="@IsEditMode"
-            AllowAddManagedValue="@IsEditMode"
-            FieldKey="@FieldKey"
-            Behavior="@(_multiDesc?.Behavior)"
-            Validator="@(_multiDesc?.Validator)"
+            IsEditMode="@Context.IsEditMode"
+            AllowAddManagedValue="@Context.IsEditMode"
+            FieldKey="@Context.FieldKey"
+            Behavior="@(MultiDesc?.Behavior)"
+            Validator="@(MultiDesc?.Validator)"
             OnValuesChanged="@ItemsChanged" />
-        <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorIdBase ?? "")" Source="@Source" OptionName="@Label" Value="@Items"
-                         IsInteractive="@IsEditMode" ShowEditableBadge="@ShowEditableBadge" HasPendingChange="@HasPendingChange"
-                         EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@IsActiveEditor"
-                         IsCapabilityDisabled="@(Descriptor?.IsCapabilityDisabled == true)" CapabilityDisabledReason="@Descriptor?.CapabilityDisabledReason"
+        <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorIdBase ?? "")" Source="@Context.RowSource" OptionName="@Context.Descriptor.OptionName" Value="@Context.EffectiveItems"
+                         IsInteractive="@Context.IsEditMode" ShowEditableBadge="@Context.ShowEditableBadge" HasPendingChange="@Context.HasPendingOrDraft"
+                         EditableAsButton="true" FieldKey="@Context.FieldKey" IsActiveEditor="@Context.IsActiveEditor"
+                         IsCapabilityDisabled="@Context.Descriptor.IsCapabilityDisabled" CapabilityDisabledReason="@Context.Descriptor.CapabilityDisabledReason"
                          OnConfirmRequested="@OnConfirmRequested" OnCancelRequested="@OnCancelRequested" OnRevertRequested="@OnRevertRequested" />
     }
     else
     {
         <div class="ec-field-value ec-field-value-multi">
             <ol class="ec-field-value-list">
-                @if (Items?.Count > 0)
+                @if (Context.EffectiveItems.Count > 0)
                 {
-                    @foreach (var (item, index) in Items!.Select((item, index) => (item, index)))
+                    @foreach (var (item, index) in Context.EffectiveItems.Select((item, index) => (item, index)))
                     {
                         var anchorId = ReadonlyBadgeAnchorIdBase != null
                             ? $"{ReadonlyBadgeAnchorIdBase}-{index}"
@@ -37,44 +37,44 @@
                             <EffectiveConfigMultiValueItem
                                 Value="@item.Value"
                                 Source="@item.Source"
-                                OptionName="@Label"
-                                IsEditMode="@IsEditMode"
+                                OptionName="@Context.Descriptor.OptionName"
+                                IsEditMode="@Context.IsEditMode"
                                 ReadonlyBadgeAnchorId="@anchorId"
-                                FieldKey="@FieldKey" />
+                                FieldKey="@Context.FieldKey" />
                         </li>
                     }
                 }
-                @if (ShowEditableBadge && (Items?.Count ?? 0) > 0)
+                @if (Context.ShowEditableBadge && Context.EffectiveItems.Count > 0)
                 {
                     <li class="ec-multi-list-entry-point">
                         <OptionStateBadge
-                            OptionName="@Label"
+                            OptionName="@Context.Descriptor.OptionName"
                             ShowEditableBadge="true"
                             EditableAsButton="true"
-                            FieldKey="@FieldKey"
+                            FieldKey="@Context.FieldKey"
                             IsActiveEditor="false"
                             IsInteractive="true"
-                            HasPendingChange="@HasPendingChange"
-                            IsCapabilityDisabled="@(Descriptor?.IsCapabilityDisabled == true)"
-                            CapabilityDisabledReason="@Descriptor?.CapabilityDisabledReason" />
+                            HasPendingChange="@Context.HasPendingOrDraft"
+                            IsCapabilityDisabled="@Context.Descriptor.IsCapabilityDisabled"
+                            CapabilityDisabledReason="@Context.Descriptor.CapabilityDisabledReason" />
                     </li>
                 }
-                else if ((Items?.Count ?? 0) == 0)
+                else if (Context.EffectiveItems.Count == 0)
                 {
                     <li class="ec-multi-list-empty-hint">
-                        @if (ShowEditableBadge)
+                        @if (Context.ShowEditableBadge)
                         {
                             <span class="text-muted">(none)</span>
                             <OptionStateBadge
-                                OptionName="@Label"
+                                OptionName="@Context.Descriptor.OptionName"
                                 ShowEditableBadge="true"
                                 EditableAsButton="true"
-                                FieldKey="@FieldKey"
+                                FieldKey="@Context.FieldKey"
                                 IsActiveEditor="false"
                                 IsInteractive="true"
-                                HasPendingChange="@HasPendingChange"
-                                IsCapabilityDisabled="@(Descriptor?.IsCapabilityDisabled == true)"
-                                CapabilityDisabledReason="@Descriptor?.CapabilityDisabledReason" />
+                                HasPendingChange="@Context.HasPendingOrDraft"
+                                IsCapabilityDisabled="@Context.Descriptor.IsCapabilityDisabled"
+                                CapabilityDisabledReason="@Context.Descriptor.CapabilityDisabledReason" />
                         }
                         else
                         {
@@ -88,23 +88,16 @@
 </li>
 
 @code {
-    [Parameter] public string Label { get; set; } = "";
-    [Parameter] public EffectiveConfigFieldDescriptor? Descriptor { get; set; }
-    [Parameter] public IReadOnlyList<ValueWithSource>? Items { get; set; }
-    [Parameter] public EventCallback<IReadOnlyList<string>> ItemsChanged { get; set; }
+    [Parameter] public EffectiveConfigMultiDisplayContext Context { get; set; } = null!;
     [Parameter] public string? LabelTooltip { get; set; }
     [Parameter] public string? OptionHelpKey { get; set; }
     [Parameter] public string? OptionHelpAnchorId { get; set; }
-    [Parameter] public bool IsActiveEditor { get; set; }
-    [Parameter] public bool IsEditMode { get; set; }
     [Parameter] public string? ReadonlyBadgeAnchorIdBase { get; set; }
-    [Parameter] public ConfigValueSource? Source { get; set; }
-    [Parameter] public bool ShowEditableBadge { get; set; }
-    [Parameter] public bool HasPendingChange { get; set; }
-    [Parameter] public string FieldKey { get; set; } = "";
+    [Parameter] public EventCallback<IReadOnlyList<string>> ItemsChanged { get; set; }
     [Parameter] public EventCallback OnConfirmRequested { get; set; }
     [Parameter] public EventCallback OnCancelRequested { get; set; }
     [Parameter] public EventCallback OnRevertRequested { get; set; }
 
-    private EffectiveMultiValueConfigFieldDescriptor? _multiDesc => Descriptor as EffectiveMultiValueConfigFieldDescriptor;
+    private EffectiveMultiValueConfigFieldDescriptor? MultiDesc =>
+        Context.Descriptor as EffectiveMultiValueConfigFieldDescriptor;
 }

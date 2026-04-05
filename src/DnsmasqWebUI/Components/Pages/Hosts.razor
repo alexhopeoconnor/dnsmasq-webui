@@ -10,9 +10,10 @@
 @using DnsmasqWebUI.Infrastructure.Serialization.Parsers.DnsmasqConfig
 @using DnsmasqWebUI.Components.EffectiveConfig
 @using DnsmasqWebUI.Infrastructure.Services.UI.Notifications.Abstractions
+@using DnsmasqWebUI.Extensions.Interop
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.JSInterop
-@implements IDisposable
+@implements IAsyncDisposable
 @inject IStatusClient StatusClient
 @inject IHostsClient HostsClient
 @inject IEffectiveConfigEditSession Session
@@ -89,7 +90,8 @@ else
                     <p class="text-muted">No rows match the current search.</p>
                 }
                 <div class="app-table-scroll-shell" data-table-scroll-cue>
-                    <div class="app-table-scroll-region" data-table-scroll-region role="region" aria-label="Hosts entries table" tabindex="0">
+                    <div class="app-table-scroll-region" data-table-scroll-region role="region" aria-label="Hosts entries table" tabindex="0"
+                         @onkeydown="OnHostsTableRegionKeyDown">
                         <table class="table table-bordered table-hover app-data-table hosts-table mb-0">
                             <caption class="visually-hidden">Hosts entries grouped for scanning and editing</caption>
                             <thead>
@@ -153,33 +155,37 @@ else
                                                     </div>
                                                     @if (IsManagedEditableGroup(group))
                                                     {
-                                                        <div class="hosts-group-header__managed-actions btn-group btn-group-sm" role="group" aria-label="@(IsInlineEditing ? "Save or finish editing this row" : "Managed hosts row actions")">
+                                                        <div class="hosts-group-header__managed-actions @(IsInlineEditing || ManagedSelectionCount > 0 ? "hosts-group-header__managed-actions--visible" : "hosts-group-header__managed-actions--hidden")"
+                                                             role="group"
+                                                             aria-label="@(IsInlineEditing ? "Save or finish editing this row" : "Managed hosts row actions")">
                                                             @if (IsInlineEditing)
                                                             {
                                                                 <button type="button"
-                                                                        class="btn btn-primary"
+                                                                        class="btn hosts-managed-action-btn hosts-managed-action-btn--save"
                                                                         title="Save this row"
                                                                         @onclick="OnManagedHeaderSaveAsync">
-                                                                    <i class="bi bi-check-lg" aria-hidden="true"></i><span class="ms-1 d-none d-sm-inline">Save</span>
+                                                                    <i class="bi bi-check-lg" aria-hidden="true"></i><span>Save</span>
                                                                 </button>
                                                             }
-                                                            else
+                                                            else if (ManagedSelectionCount == 1)
                                                             {
                                                                 <button type="button"
-                                                                        class="btn btn-outline-secondary"
-                                                                        disabled="@(ManagedSelectionCount != 1)"
+                                                                        class="btn hosts-managed-action-btn hosts-managed-action-btn--edit"
                                                                         title="@EditButtonTitle"
                                                                         @onclick="OnManagedHeaderEditAsync">
-                                                                    <i class="bi bi-pencil" aria-hidden="true"></i><span class="ms-1 d-none d-sm-inline">Edit</span>
+                                                                    <i class="bi bi-pencil" aria-hidden="true"></i><span>Edit</span>
                                                                 </button>
                                                             }
-                                                            <button type="button"
-                                                                    class="btn btn-outline-danger"
-                                                                    disabled="@(IsInlineEditing || ManagedSelectionCount == 0)"
-                                                                    title="@(IsInlineEditing ? "Finish the current row edit first." : ManagedSelectionCount == 0 ? "Select one or more rows to remove." : "Remove selected host row(s)")"
-                                                                    @onclick="OnManagedHeaderRemoveAsync">
-                                                                <i class="bi bi-trash" aria-hidden="true"></i><span class="ms-1 d-none d-sm-inline">Remove</span>
-                                                            </button>
+
+                                                            @if (!IsInlineEditing && ManagedSelectionCount > 0)
+                                                            {
+                                                                <button type="button"
+                                                                        class="btn hosts-managed-action-btn hosts-managed-action-btn--remove"
+                                                                        title="Remove selected host row(s) (asks for confirmation). With the table focused, Delete does the same."
+                                                                        @onclick="OnManagedHeaderRemoveClickAsync">
+                                                                    <i class="bi bi-trash" aria-hidden="true"></i><span>Remove</span>
+                                                                </button>
+                                                            }
                                                         </div>
                                                     }
                                                 </div>
@@ -217,6 +223,7 @@ else
                                                                    @bind="_editAddress"
                                                                    @bind:event="oninput"
                                                                    @onkeydown="OnEditFieldKeyDown"
+                                                                   @onkeydown:stopPropagation="true"
                                                                    autofocus />
                                                         </td>
                                                         <td>
@@ -226,11 +233,15 @@ else
                                                                    aria-invalid="@(_showHostFieldValidation && CurrentHostnameFieldErrors.Count > 0 ? "true" : null)"
                                                                    @bind="_editNames"
                                                                    @bind:event="oninput"
-                                                                   @onkeydown="OnEditFieldKeyDown" />
+                                                                   @onkeydown="OnEditFieldKeyDown"
+                                                                   @onkeydown:stopPropagation="true" />
                                                         </td>
                                                         @if (showEffectiveNames)
                                                         {
-                                                            <td class="text-muted small">@string.Join(", ", HostsEffectiveNames.Expand(ParseNamesList(_editNames), pageState.ExpandHostsEnabled, effectiveDomainValues, _editAddress))</td>
+                                                            <td class="text-muted small"
+                                                                title="@HostsEffectiveNames.ExplainSuffixSource(pageState.ExpandHostsEnabled, effectiveDomainValues, _editAddress, ParseNamesList(_editNames))">
+                                                                @string.Join(", ", HostsEffectiveNames.Expand(ParseNamesList(_editNames), pageState.ExpandHostsEnabled, effectiveDomainValues, _editAddress))
+                                                            </td>
                                                         }
                                                         <td>
                                                             <input class="form-control form-control-sm"
@@ -238,7 +249,8 @@ else
                                                                    title="Saved after # on the same line as this entry (inline hosts comment)."
                                                                    @bind="_editInlineComment"
                                                                    @bind:event="oninput"
-                                                                   @onkeydown="OnEditFieldKeyDown" />
+                                                                   @onkeydown="OnEditFieldKeyDown"
+                                                                   @onkeydown:stopPropagation="true" />
                                                         </td>
                                                     </tr>
                                                 }
@@ -255,7 +267,7 @@ else
                                                         <td>@string.Join(", ", row.Names)</td>
                                                         @if (showEffectiveNames)
                                                         {
-                                                            <td>
+                                                            <td title="@HostsEffectiveNames.ExplainSuffixSource(pageState.ExpandHostsEnabled, effectiveDomainValues, row.Address, row.Names)">
                                                                 @if (effectiveNames.Count != row.Names.Count)
                                                                 {
                                                                     <span class="text-primary">@string.Join(", ", effectiveNames)</span>
@@ -310,6 +322,27 @@ else
             }
 
         </section>
+    }
+
+    @if (_showRemoveHostsModal)
+    {
+        <div class="modal fade show" style="display: block;" tabindex="-1" role="dialog" aria-labelledby="hosts-remove-title" aria-modal="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="hosts-remove-title">Remove host entries</h5>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-0">Remove <strong>@_removeModalSelectionCount</strong> selected host row@(_removeModalSelectionCount == 1 ? "" : "s") from the managed hosts draft? This is not saved to disk until you save effective configuration.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CancelRemoveHostsModal">Cancel</button>
+                        <button type="button" class="btn btn-danger" @onclick="ConfirmRemoveHostsAsync">Remove</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-backdrop fade show"></div>
     }
 
     @if (_showInvalidHostEditModal)
@@ -383,6 +416,9 @@ else
     private ElementReference _editingRowRef;
     private ElementReference _editAddressInputRef;
     private IJSObjectReference? _hostsTableScrollCueModule;
+    private bool _showRemoveHostsModal;
+    private int _removeModalSelectionCount;
+    private string? _selectionAnchorRowId;
     private bool _showInvalidHostEditModal;
     private bool _refocusEditAfterRender;
     /// <summary>When false, invalid state is hidden until the first blur, Escape, or Enter.</summary>
@@ -437,7 +473,7 @@ else
     private string EditButtonTitle =>
         ManagedSelectionCount == 0 ? "Select a row to edit."
         : ManagedSelectionCount > 1 ? "Select exactly one row to edit."
-        : "Edit selected row";
+        : "Edit selected row (or press Enter when the table area is focused)";
 
     private bool _editingRowIsNew =>
         !string.IsNullOrEmpty(_editingRowId) && _editingRowId.StartsWith("new:", StringComparison.Ordinal);
@@ -519,6 +555,8 @@ else
             _unifiedRows.Where(r => r.IsEditable).Select(r => r.Id),
             StringComparer.Ordinal);
         _selectedManagedRowIds.RemoveWhere(id => !editableIds.Contains(id));
+        if (!string.IsNullOrEmpty(_selectionAnchorRowId) && !_selectedManagedRowIds.Contains(_selectionAnchorRowId))
+            _selectionAnchorRowId = null;
     }
 
     private void OnEffectiveNamesHelpClick() =>
@@ -541,7 +579,7 @@ else
 
     private string RowTitle(HostsPageRow row) =>
         row.IsEditable
-            ? "Click to select only this row, or click again to deselect. Double-click to edit. Ctrl or ⌘+click toggles rows in the selection. Add a row below; the header Edit control becomes Save while you edit; Remove deletes selected rows."
+            ? "Click to select only this row, or click again to deselect. Shift+click selects a range in display order. Double-click to edit. Ctrl or ⌘+click toggles rows. Focus the table (Tab to the scroll area) and press Enter to edit the single selected row, or Delete to remove the selection (with confirmation). Header Remove also asks for confirmation."
             : string.Empty;
 
     private string ManagedAddSlotEmptyLead =>
@@ -568,22 +606,80 @@ else
         if (e.Detail > 1)
             return;
 
+        if (e.ShiftKey)
+        {
+            ApplyShiftManagedSelection(row);
+            StateHasChanged();
+            return;
+        }
+
         if (e.CtrlKey || e.MetaKey)
         {
             if (!_selectedManagedRowIds.Add(row.Id))
                 _selectedManagedRowIds.Remove(row.Id);
+            _selectionAnchorRowId = row.Id;
         }
         else if (_selectedManagedRowIds.Contains(row.Id))
         {
             _selectedManagedRowIds.Remove(row.Id);
+            _selectionAnchorRowId = _selectedManagedRowIds.Count == 1 ? _selectedManagedRowIds.First() : null;
         }
         else
         {
             _selectedManagedRowIds.Clear();
             _selectedManagedRowIds.Add(row.Id);
+            _selectionAnchorRowId = row.Id;
         }
 
         StateHasChanged();
+    }
+
+    private List<string> GetManagedEditableRowOrder()
+    {
+        var ids = new List<string>();
+        foreach (var g in VisibleGroups)
+        {
+            if (!IsManagedEditableGroup(g))
+                continue;
+            foreach (var r in g.Rows)
+            {
+                if (r.IsEditable)
+                    ids.Add(r.Id);
+            }
+        }
+
+        return ids;
+    }
+
+    private void ApplyShiftManagedSelection(HostsPageRow row)
+    {
+        var order = GetManagedEditableRowOrder();
+        var idxRow = order.IndexOf(row.Id);
+        if (idxRow < 0)
+            return;
+
+        if (string.IsNullOrEmpty(_selectionAnchorRowId))
+        {
+            _selectedManagedRowIds.Clear();
+            _selectedManagedRowIds.Add(row.Id);
+            _selectionAnchorRowId = row.Id;
+            return;
+        }
+
+        var idxAnchor = order.IndexOf(_selectionAnchorRowId);
+        if (idxAnchor < 0)
+        {
+            _selectedManagedRowIds.Clear();
+            _selectedManagedRowIds.Add(row.Id);
+            _selectionAnchorRowId = row.Id;
+            return;
+        }
+
+        var lo = Math.Min(idxAnchor, idxRow);
+        var hi = Math.Max(idxAnchor, idxRow);
+        _selectedManagedRowIds.Clear();
+        for (var i = lo; i <= hi; i++)
+            _selectedManagedRowIds.Add(order[i]);
     }
 
     private async Task OnManagedRowDoubleClickAsync(HostsPageRow row)
@@ -619,9 +715,35 @@ else
         await BeginEditingManagedRowAsync(row);
     }
 
-    private async Task OnManagedHeaderRemoveAsync()
+    private Task OnManagedHeaderRemoveClickAsync()
     {
         DeactivateEffectiveConfigFieldIfActive();
+        return OpenRemoveHostsModalAsync();
+    }
+
+    private Task OpenRemoveHostsModalAsync()
+    {
+        if (_status == null || string.IsNullOrWhiteSpace(_status.ManagedHostsFilePath) || IsInlineEditing || ManagedSelectionCount == 0)
+            return Task.CompletedTask;
+        _removeModalSelectionCount = ManagedSelectionCount;
+        _showRemoveHostsModal = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void CancelRemoveHostsModal()
+    {
+        _showRemoveHostsModal = false;
+    }
+
+    private async Task ConfirmRemoveHostsAsync()
+    {
+        _showRemoveHostsModal = false;
+        await ExecuteManagedRemoveAsync();
+    }
+
+    private async Task ExecuteManagedRemoveAsync()
+    {
         if (_status == null || string.IsNullOrWhiteSpace(_status.ManagedHostsFilePath) || IsInlineEditing)
             return;
         if (_selectedManagedRowIds.Count == 0)
@@ -646,7 +768,37 @@ else
         RebuildManagedOverlay();
         InvalidateVisibleGroupsCache();
         _selectedManagedRowIds.Clear();
+        _selectionAnchorRowId = null;
         await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnHostsTableRegionKeyDown(KeyboardEventArgs e)
+    {
+        if (_showRemoveHostsModal || _showInvalidHostEditModal)
+            return;
+
+        if (IsInlineEditing)
+        {
+            // Scroll region is focusable (tabindex=0); after clicking outside inputs, Escape must still exit edit.
+            if (e.Key == "Escape")
+                await OnEscapeFromInlineEditAsync();
+            return;
+        }
+
+        if (e.Key == "Delete")
+        {
+            if (ManagedSelectionCount == 0)
+                return;
+            DeactivateEffectiveConfigFieldIfActive();
+            await OpenRemoveHostsModalAsync();
+            return;
+        }
+
+        if (e.Key == "Enter")
+        {
+            DeactivateEffectiveConfigFieldIfActive();
+            await OnManagedHeaderEditAsync();
+        }
     }
 
     private async Task BeginEditingManagedRowAsync(HostsPageRow row)
@@ -684,6 +836,7 @@ else
         _editInlineComment = entry.InlineComment ?? "";
         _selectedManagedRowIds.Clear();
         _selectedManagedRowIds.Add(row.Id);
+        _selectionAnchorRowId = row.Id;
         await InvokeAsync(StateHasChanged);
     }
 
@@ -801,6 +954,14 @@ else
         if (e.Key != "Escape")
             return;
 
+        await OnEscapeFromInlineEditAsync();
+    }
+
+    private async Task OnEscapeFromInlineEditAsync()
+    {
+        if (_showInvalidHostEditModal || string.IsNullOrEmpty(_editingRowId))
+            return;
+
         if (IsCurrentEditValid)
             await CommitAndEndInlineEditAsync();
         else
@@ -834,14 +995,16 @@ else
             return;
 
         var outside = true;
-        try
+        if (_hostsTableScrollCueModule != null)
         {
-            if (_hostsTableScrollCueModule != null)
+            try
+            {
                 outside = await _hostsTableScrollCueModule.InvokeAsync<bool>("isFocusOutsideElement", _editingRowRef);
-        }
-        catch (JSDisconnectedException)
-        {
-            outside = true;
+            }
+            catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException or TaskCanceledException)
+            {
+                return;
+            }
         }
 
         if (outside)
@@ -955,20 +1118,16 @@ else
     {
         if (firstRender)
         {
-            _hostsTableScrollCueModule = await JSRuntime.InvokeAsync<IJSObjectReference>(
+            _hostsTableScrollCueModule = await JSRuntime.InvokeAsyncSafe<IJSObjectReference>(
                 "import",
+                default,
                 "/js/modules/table-scroll-cue.js");
-            await _hostsTableScrollCueModule.InvokeVoidAsync("initTableScrollCue");
+            if (_hostsTableScrollCueModule != null)
+                await _hostsTableScrollCueModule.InvokeVoidAsyncSafe("initTableScrollCue");
         }
         else if (_hostsTableScrollCueModule != null)
         {
-            try
-            {
-                await _hostsTableScrollCueModule.InvokeVoidAsync("updateTableScrollCue");
-            }
-            catch (JSDisconnectedException)
-            {
-            }
+            await _hostsTableScrollCueModule.InvokeVoidAsyncSafe("updateTableScrollCue");
         }
 
         if (_refocusEditAfterRender)
@@ -980,9 +1139,8 @@ else
                 {
                     await _editAddressInputRef.FocusAsync();
                 }
-                catch (JSDisconnectedException)
-                {
-                }
+                catch (JSDisconnectedException) { }
+                catch (JSException) { }
             }
         }
     }
@@ -1023,9 +1181,8 @@ else
             if (_status?.EffectiveConfig != null && !string.IsNullOrEmpty(_status.ManagedHostsFilePath))
             {
                 var expandHosts = _status.EffectiveConfig.ExpandHosts;
-                var domain = _status.EffectiveConfig.DomainValues?.FirstOrDefault();
                 var noHosts = _status.NoHosts;
-                var fromApi = await HostsClient.GetUnifiedRowsAsync(expandHosts, domain, noHosts, _status.ManagedHostsFilePath);
+                var fromApi = await HostsClient.GetUnifiedRowsAsync(expandHosts, noHosts, _status.ManagedHostsFilePath);
                 _restUnifiedRows = fromApi.Where(r => r.SourceKind != HostsRowSourceKind.Managed).ToList();
                 ReconcileManagedHostsDraftAfterLoad();
                 RebuildManagedOverlay();
@@ -1038,6 +1195,8 @@ else
 
             InvalidateVisibleGroupsCache();
             _selectedManagedRowIds.Clear();
+            _selectionAnchorRowId = null;
+            _showRemoveHostsModal = false;
         }
         catch (Exception ex)
         {
@@ -1051,14 +1210,14 @@ else
             return;
 
         var expandHosts = _status.EffectiveConfig.ExpandHosts;
-        var domain = _status.EffectiveConfig.DomainValues?.FirstOrDefault();
+        var domainValues = GetEffectiveDomainValuesForPreview();
         var path = _status.ManagedHostsFilePath;
         var managedRows = new List<HostsPageRow>();
 
         foreach (var e in CurrentManagedEntries.Where(x => !x.IsPassthrough))
         {
             var names = e.Names ?? (IReadOnlyList<string>)Array.Empty<string>();
-            var effective = HostsEffectiveNames.Expand(names, expandHosts, domain);
+            var effective = HostsEffectiveNames.Expand(names, expandHosts, domainValues, e.Address ?? "");
             var id = string.IsNullOrEmpty(e.Id) ? $"managed:{e.LineNumber}" : e.Id;
             managedRows.Add(new HostsPageRow(
                 id,
@@ -1095,26 +1254,26 @@ else
         _showInvalidHostEditModal = false;
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         Session.Changed -= OnSessionChanged;
-        _ = CleanupHostsTableScrollCueAsync();
+        await CleanupHostsTableScrollCueAsync();
     }
 
     private async Task CleanupHostsTableScrollCueAsync()
     {
-        if (_hostsTableScrollCueModule == null)
+        var module = _hostsTableScrollCueModule;
+        _hostsTableScrollCueModule = null;
+        if (module == null)
             return;
 
         try
         {
-            await _hostsTableScrollCueModule.InvokeVoidAsync("disposeTableScrollCue");
-            await _hostsTableScrollCueModule.DisposeAsync();
+            await module.InvokeVoidAsyncSafe("disposeTableScrollCue");
         }
-        catch (JSDisconnectedException)
+        finally
         {
+            await module.DisposeAsyncSafe();
         }
-
-        _hostsTableScrollCueModule = null;
     }
 }

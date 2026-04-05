@@ -31,14 +31,10 @@ public sealed class ClientSettingsService : IClientSettingsService, IAsyncDispos
     private async Task<IJSObjectReference?> GetModuleAsync()
     {
         if (_module != null) return _module;
-        try
-        {
-            _module = await _jsRuntime.InvokeAsync<IJSObjectReference>(
-                "import", "./js/client-settings-storage.js");
-        }
-        catch (InvalidOperationException ex) { _logger.LogDebug(ex, "JS import skipped: prerender (no JS available)"); return null; }
-        catch (JSDisconnectedException ex) { _logger.LogDebug(ex, "JS import skipped: circuit disconnected"); return null; }
-        catch (JSException ex) { _logger.LogDebug(ex, "JS import failed"); return null; }
+        _module = await _jsRuntime.InvokeAsyncSafe<IJSObjectReference>(
+            "import", default, "./js/client-settings-storage.js");
+        if (_module == null)
+            _logger.LogDebug("Client settings JS module unavailable (prerender, disconnect, or import failure)");
         return _module;
     }
 

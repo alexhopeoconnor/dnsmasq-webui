@@ -3,7 +3,7 @@
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 
 <span class="ec-field-value-item" title="@Source?.GetReadOnlyTooltip()">
-    @Value
+    @(DisplayValue ?? Value)
     <OptionStateBadge
         AnchorId="@(ReadonlyBadgeAnchorId ?? "")"
         Source="@Source"
@@ -16,7 +16,10 @@
 </span>
 
 @code {
+    /// <summary>Raw config line for badges / popovers.</summary>
     [Parameter] public string Value { get; set; } = "";
+    /// <summary>When set, shown instead of <see cref="Value"/> in the value span (e.g. friendly summary).</summary>
+    [Parameter] public string? DisplayValue { get; set; }
     [Parameter] public ConfigValueSource? Source { get; set; }
     [Parameter] public string OptionName { get; set; } = "";
     [Parameter] public bool IsEditMode { get; set; }

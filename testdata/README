@@ -1,6 +1,6 @@
 # Test data
 
-Source for the Docker test harness: `scripts/prepare-test-mount.sh` syncs this dir to `testdata-mount/`, which is bind-mounted as `/data`. Unit tests use the copy in the test output dir (copied at build via the .csproj).
+Source for the Docker test harness: `scripts/prepare-test-mount.sh` syncs this dir to `testdata-mount/`, which is bind-mounted as `/data`. The sync **excludes** `leases`, `zz-dnsmasq-webui.conf`, and `zz-dnsmasq-webui.hosts` so image rebuilds keep the live lease file and app-managed config/hosts in the mount; use `--clear` or `--reset-managed` on the script when you want a clean slate. Unit tests use the copy in the test output dir (copied at build via the .csproj), including any committed `zz-dnsmasq-webui.conf` sample at repo root for fixtures.
 
 ## Layout
 

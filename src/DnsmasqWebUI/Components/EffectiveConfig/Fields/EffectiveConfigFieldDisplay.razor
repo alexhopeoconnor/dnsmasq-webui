@@ -45,30 +45,32 @@
 else if (Descriptor.IsMultiValue)
 {
     var customMulti = RenderFragmentRegistry.BuildMultiFieldComponentFragment(Descriptor.SectionId, Descriptor.OptionName, EventCallback.Factory.Create<IReadOnlyList<string>>(this, HandleMultiValueChanged));
-    if (customMulti is not null)
+    if (customMulti is not null && _multiContext is not null)
     {
-        @* Custom multi editor (e.g. server): same row shell as generic multi, value slot uses custom fragment. *@
-        <li class="ec-field @(IsEditMode && IsActive && !Descriptor.IsCapabilityDisabled ? "ec-field-editing" : "")">
+        @* Custom multi: row badge only while this field is active (ok/cancel/revert). Otherwise per-item / entry badges in the fragment suffice — avoids duplicating "readonly" when RowSource matches item sources. *@
+        var customMultiActiveEditor = IsEditMode && IsActive && !Descriptor.IsCapabilityDisabled;
+        <li class="ec-field @(customMultiActiveEditor ? "ec-field-editing" : "")">
             <OptionHelpLabel AnchorId="@_anchorId" HelpKey="@_optionHelpKey" OptionLabel="@Descriptor.OptionName" Title="@(_labelTooltip ?? Descriptor.GetSource()?.GetReadOnlyTooltip())"><strong>@Descriptor.OptionName:</strong></OptionHelpLabel>
             <span class="ec-field-value">
-                <CascadingValue Value="@(IsEditMode && IsActive && !Descriptor.IsCapabilityDisabled)">
+                <CascadingValue Value="@customMultiActiveEditor">
                     <CascadingValue Value="@IsEditMode">
-                        @customMulti(Descriptor)
+                        @customMulti(_multiContext)
                     </CascadingValue>
                 </CascadingValue>
             </span>
-            <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@_multiValueRowSource" OptionName="@Descriptor.OptionName" Value="@_multiValueItems"
-                IsInteractive="@(IsEditMode && !Descriptor.IsCapabilityDisabled)" ShowEditableBadge="@(!Descriptor.IsCapabilityDisabled)" HasPendingChange="@_multiValueHasPendingOrDraft" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@(IsEditMode && IsActive && !Descriptor.IsCapabilityDisabled)"
-                IsCapabilityDisabled="@Descriptor.IsCapabilityDisabled" CapabilityDisabledReason="@Descriptor.CapabilityDisabledReason"
-                OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
+            @if (customMultiActiveEditor)
+            {
+                <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@_multiContext.RowSource" OptionName="@Descriptor.OptionName" Value="@_multiContext.EffectiveItems"
+                    IsInteractive="@(IsEditMode && !Descriptor.IsCapabilityDisabled)" ShowEditableBadge="@(!Descriptor.IsCapabilityDisabled)" HasPendingChange="@_multiContext.HasPendingOrDraft" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="true"
+                    IsCapabilityDisabled="@Descriptor.IsCapabilityDisabled" CapabilityDisabledReason="@Descriptor.CapabilityDisabledReason"
+                    OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
+            }
         </li>
     }
-    else
+    else if (_multiContext is not null)
     {
-        @* Multi-value state is computed in OnParametersSet and in HandleMultiValueChanged; we only read cached fields here. *@
-        <EffectiveConfigMultiValueRow Descriptor="@Descriptor" Label="@Descriptor.OptionName" Items="@_multiValueItems" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId"
-            IsActiveEditor="@(IsEditMode && IsActive && !Descriptor.IsCapabilityDisabled)" IsEditMode="@IsEditMode" ReadonlyBadgeAnchorIdBase="@_readonlyBadgeAnchorId"
-            Source="@_multiValueRowSource" ShowEditableBadge="@(!Descriptor.IsCapabilityDisabled)" HasPendingChange="@_multiValueHasPendingOrDraft" FieldKey="@FieldKey"
+        <EffectiveConfigMultiValueRow Context="@_multiContext" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId"
+            ReadonlyBadgeAnchorIdBase="@_readonlyBadgeAnchorId"
             ItemsChanged="@HandleMultiValueChanged" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
     }
 }
@@ -122,14 +124,7 @@ else
     private bool _wasActive;
     private ExitAction _exitAction = ExitAction.None;
 
-    /// <summary>Cached for multi-value: items to pass to the row (with sources preserved for draft merge).</summary>
-    private IReadOnlyList<ValueWithSource>? _multiValueItems;
-    /// <summary>Cached for multi-value: true when there is an uncommitted draft list.</summary>
-    private bool _multiValueHasDraft;
-    /// <summary>Cached for multi-value: row-level source for badge (readonly when all items readonly and not edit mode).</summary>
-    private ConfigValueSource? _multiValueRowSource;
-    /// <summary>Cached for multi-value: whether row should show ok/cancel (session pending or local draft).</summary>
-    private bool _multiValueHasPendingOrDraft;
+    private EffectiveConfigMultiDisplayContext? _multiContext;
 
     protected override void OnParametersSet()
     {
@@ -146,7 +141,15 @@ else
         _hasPendingChange = pending != null;
         _effectiveValue = pending != null ? pending.NewValue : descriptorValue;
         if (Descriptor.IsMultiValue)
-            ComputeMultiValueState(Descriptor.GetItems(), pending?.NewValue as IReadOnlyList<string>, _draftValue as IReadOnlyList<string>);
+            _multiContext = EffectiveConfigMultiDisplayContext.From(
+                Descriptor,
+                Descriptor.GetItems(),
+                pending?.NewValue as IReadOnlyList<string>,
+                _hasPendingChange,
+                _draftValue as IReadOnlyList<string>,
+                IsEditMode,
+                IsActive,
+                FieldKey);
         if (!_wasActive && IsActive)
         {
             // Use pending.OldValue when present so "revert to original" clears the pending change (e.g. do-0x20-encode: Disabled → Enable → Disable).
@@ -159,45 +162,6 @@ else
         if (_wasActive && !IsActive)
             _exitAction = ExitAction.None;
         _wasActive = IsActive;
-    }
-
-    private void ComputeMultiValueState(IReadOnlyList<ValueWithSource>? descriptorItems, IReadOnlyList<string>? pendingList, IReadOnlyList<string>? draftList)
-    {
-        var descriptorValues = descriptorItems?.Select(i => i.Value).ToList() ?? new List<string>();
-        _multiValueHasDraft = draftList != null && !ValuesEqual(descriptorValues, draftList);
-        if (_multiValueHasDraft && draftList != null)
-        {
-            _multiValueItems = BuildItemsWithSource(descriptorItems, draftList);
-        }
-        else if (_hasPendingChange && pendingList != null)
-        {
-            _multiValueItems = BuildItemsWithSource(descriptorItems, pendingList);
-        }
-        else
-        {
-            _multiValueItems = descriptorItems;
-        }
-        var allReadonly = _multiValueItems != null && _multiValueItems.Count > 0 && _multiValueItems.All(i => i.Source?.IsReadOnly == true);
-        _multiValueRowSource = allReadonly && !IsEditMode ? _multiValueItems?.FirstOrDefault()?.Source : null;
-        _multiValueHasPendingOrDraft = _hasPendingChange || _multiValueHasDraft;
-    }
-
-    private static IReadOnlyList<ValueWithSource> BuildItemsWithSource(IReadOnlyList<ValueWithSource>? descriptorItems, IReadOnlyList<string> values)
-    {
-        var pool = descriptorItems?.ToList() ?? new List<ValueWithSource>();
-        var list = new List<ValueWithSource>(values.Count);
-        foreach (var s in values)
-        {
-            var idx = pool.FindIndex(x => string.Equals(x.Value, s, StringComparison.Ordinal));
-            if (idx >= 0)
-            {
-                list.Add(pool[idx]);
-                pool.RemoveAt(idx);
-            }
-            else
-                list.Add(new ValueWithSource(s, null));
-        }
-        return list;
     }
 
     private void HandleValueChanged(object? value)
@@ -279,7 +243,20 @@ else
         _draftValue = values.ToList();
         _hasDraftValue = true;
         if (Descriptor.IsMultiValue)
-            ComputeMultiValueState(Descriptor.GetItems(), _effectiveValue as IReadOnlyList<string>, _draftValue as IReadOnlyList<string>);
+        {
+            var pending = Session?.Draft.PendingChanges.OfType<PendingOptionChange>().FirstOrDefault(c =>
+                string.Equals(c.SectionId, Descriptor.SectionId, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(c.OptionName, Descriptor.OptionName, StringComparison.OrdinalIgnoreCase));
+            _multiContext = EffectiveConfigMultiDisplayContext.From(
+                Descriptor,
+                Descriptor.GetItems(),
+                pending?.NewValue as IReadOnlyList<string>,
+                pending != null,
+                _draftValue as IReadOnlyList<string>,
+                IsEditMode,
+                IsActive,
+                FieldKey);
+        }
         StateHasChanged();
     }
 

@@ -31,7 +31,7 @@ public interface IEffectiveConfigRenderFragmentRegistry : IApplicationSingleton
     /// <summary>
     /// Builds a fragment that renders the custom multi-value component for this field, or null to use the generic list editor.
     /// </summary>
-    RenderFragment<EffectiveConfigFieldDescriptor>? BuildMultiFieldComponentFragment(string sectionId, string optionName, EventCallback<IReadOnlyList<string>> onValuesChanged);
+    RenderFragment<EffectiveConfigMultiDisplayContext>? BuildMultiFieldComponentFragment(string sectionId, string optionName, EventCallback<IReadOnlyList<string>> onValuesChanged);
 
     /// <summary>
     /// Returns a factory that creates a multi-value descriptor (e.g. <see cref="EffectiveMultiValueConfigFieldDescriptor"/>), or null to use the plain descriptor.

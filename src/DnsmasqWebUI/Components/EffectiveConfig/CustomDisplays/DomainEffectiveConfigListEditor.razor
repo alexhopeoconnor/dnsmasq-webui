@@ -1,0 +1,493 @@
+@namespace DnsmasqWebUI.Components.EffectiveConfig.CustomDisplays
+@using DnsmasqWebUI.Models.Dnsmasq
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Infrastructure.Serialization.Parsers.EffectiveConfig
+@using DnsmasqWebUI.Infrastructure.Services.UI.Notifications.Abstractions
+@inject INotificationService NotificationService
+
+<div class="ec-field-value ec-field-value-multi ec-domain-rule-editor" @onclick:stopPropagation="true">
+    @* ul: avoid <ol> markers (scoped CSS does not inherit .ec-multi-list-add-item list-style rules from the generic multi editor). *@
+    <ul class="ec-field-value-list ec-domain-rule-list">
+        @if (_displayItems.Count > 0)
+        {
+            @for (var i = 0; i < _displayItems.Count; i++)
+            {
+                var item = _displayItems[i];
+                var anchorId = $"{ReadonlyBadgeAnchorIdBase}-{i}";
+                var itemReadonly = item.Source?.IsReadOnly == true;
+                var rowIndex = i;
+                var rowValue = item.Value;
+
+                <li class="ec-domain-rule-row @(_editingIndex == rowIndex && !itemReadonly ? "ec-domain-rule-row-editing" : "")" @key="anchorId">
+                    @if (_editingIndex == rowIndex && !itemReadonly)
+                    {
+                        <div class="ec-domain-rule-form">
+                            <p class="ec-domain-rule-intro">Sets the domain suffix dnsmasq uses: DHCP domain option, which FQDNs hosts may claim, and (with <code>expand-hosts</code>) how simple names are qualified in DNS.</p>
+                            <label class="form-label">Edit as raw line</label>
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="@($"{anchorId}-raw")"
+                                       checked="@_draftUseRaw"
+                                       @onchange="@(e => OnDraftUseRawChanged(e.Value is true))" />
+                                <label class="form-check-label" for="@($"{anchorId}-raw")">Edit as single line (advanced)</label>
+                            </div>
+                            @if (_draftUseRaw)
+                            {
+                                <textarea class="form-control form-control-sm font-monospace" rows="2"
+                                          @bind="_draftRawLine" @bind:event="oninput"
+                                          placeholder="domain[,subnet|IP|interface[,local]]"></textarea>
+                            }
+                            else
+                            {
+                                <div>
+                                    <label class="form-label" for="@($"{anchorId}-dom")">Domain</label>
+                                    <input id="@($"{anchorId}-dom")" class="form-control form-control-sm"
+                                           placeholder="e.g. home.arpa or #"
+                                           @bind="_draftDomain" @bind:event="oninput" />
+                                    <div class="ec-domain-rule-hint">Use <code>#</code> to take the search domain from resolv.conf.</div>
+                                </div>
+                                <div>
+                                    <label class="form-label" for="@($"{anchorId}-scope")">Applies to</label>
+                                    <select id="@($"{anchorId}-scope")" class="form-select form-select-sm"
+                                            @bind="_draftScopeSelect" @bind:after="OnDraftScopeAfterChange">
+                                        <option value="unconditional">Any client address (default)</option>
+                                        <option value="range">Limit to this subnet or IP</option>
+                                        <option value="interface">Limit to subnets on this interface</option>
+                                    </select>
+                                </div>
+                                @if (_draftScopeSelect == "range")
+                                {
+                                    <div>
+                                        <label class="form-label" for="@($"{anchorId}-mid")">Subnet or IP</label>
+                                        <input id="@($"{anchorId}-mid")" class="form-control form-control-sm"
+                                               placeholder="e.g. 192.168.0.0/24 or 192.168.0.1"
+                                               @bind="_draftMiddle" @bind:event="oninput" />
+                                        <div class="ec-domain-rule-hint">Single IP, CIDR, or start,end pair per dnsmasq docs.</div>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="@($"{anchorId}-loc")"
+                                               @bind="_draftAddLocal" />
+                                        <label class="form-check-label" for="@($"{anchorId}-loc")">
+                                            Also add matching <code>--local</code> forward and reverse DNS
+                                        </label>
+                                    </div>
+                                }
+                                else if (_draftScopeSelect == "interface")
+                                {
+                                    <div>
+                                        <label class="form-label" for="@($"{anchorId}-if")">Interface</label>
+                                        <input id="@($"{anchorId}-if")" class="form-control form-control-sm"
+                                               placeholder="e.g. eth0 or br0"
+                                               @bind="_draftMiddle" @bind:event="oninput" />
+                                    </div>
+                                }
+                                else if (_draftScopeSelect == "unconditional")
+                                {
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="@($"{anchorId}-loc2")"
+                                               @bind="_draftAddLocal" />
+                                        <label class="form-check-label" for="@($"{anchorId}-loc2")">
+                                            Append <code>,local</code> (same as a lone <code>--local</code> for this name; uncommon)
+                                        </label>
+                                    </div>
+                                }
+                            }
+                            <div class="ec-domain-rule-actions">
+                                <StatusBadge Kind="StatusBadgeKind.ActionOk" Text="save" Clickable="true"
+                                             Title="Apply change" AriaLabel="Apply change"
+                                             PreventBlurOnMouseDown="true" OnClick="@(() => SaveEdit(rowIndex))" Class="status-badge-inline" />
+                                <StatusBadge Kind="StatusBadgeKind.ActionCancel" Text="cancel" Clickable="true"
+                                             Title="Discard edit" AriaLabel="Cancel edit"
+                                             PreventBlurOnMouseDown="true" OnClick="CancelInline" Class="status-badge-inline" />
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="ec-domain-rule-summary">
+                            <span class="ec-field-value-item">@DisplayLine(rowValue)</span>
+                            @if (!string.Equals(DomainRuleFields.FormatSummary(rowValue), rowValue, StringComparison.Ordinal))
+                            {
+                                <code class="text-muted small">@rowValue</code>
+                            }
+                            <span class="status-badge-inline">
+                                <OptionStateBadge
+                                    AnchorId="@anchorId"
+                                    Source="@item.Source"
+                                    OptionName="@OptionName"
+                                    Value="@rowValue"
+                                    IsInteractive="@IsEditMode"
+                                    ShowEditableBadge="@(!itemReadonly)"
+                                    EditableAsButton="@(!itemReadonly)"
+                                    OnEditableClickRequested="@(!itemReadonly ? EventCallback.Factory.Create(this, () => { BeginEdit(rowIndex, rowValue); return Task.CompletedTask; }) : default)" />
+                                @if (!itemReadonly)
+                                {
+                                    <StatusBadge Kind="StatusBadgeKind.ActionRevert" Text="remove" Clickable="true"
+                                                 Title="Remove this value" AriaLabel="Remove"
+                                                 PreventBlurOnMouseDown="true"
+                                                 OnClick="@(() => RemoveAt(rowIndex))" Class="status-badge-inline" />
+                                }
+                            </span>
+                        </div>
+                    }
+                </li>
+            }
+        }
+        else if (!AllowAddManagedValue)
+        {
+            <li class="ec-multi-list-row ec-multi-list-empty-hint">
+                <span class="text-muted">(none)</span>
+            </li>
+        }
+
+        @if (AllowAddManagedValue)
+        {
+            <li class="ec-multi-list-row ec-multi-list-add-item @(_addingNew ? "ec-multi-list-row-with-controls" : "")" @key="AddItemKey">
+                @if (_addingNew)
+                {
+                    <div class="ec-domain-rule-form">
+                        <p class="ec-domain-rule-intro">Sets the domain suffix dnsmasq uses: DHCP domain option, which FQDNs hosts may claim, and (with <code>expand-hosts</code>) how simple names are qualified in DNS.</p>
+                        <label class="form-label">Edit as raw line</label>
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="domain-add-raw"
+                                   checked="@_draftUseRaw"
+                                   @onchange="@(e => OnDraftUseRawChanged(e.Value is true))" />
+                            <label class="form-check-label" for="domain-add-raw">Edit as single line (advanced)</label>
+                        </div>
+                        @if (_draftUseRaw)
+                        {
+                            <textarea class="form-control form-control-sm font-monospace" rows="2"
+                                      @bind="_draftRawLine" @bind:event="oninput"
+                                      placeholder="domain[,subnet|IP|interface[,local]]"></textarea>
+                        }
+                        else
+                        {
+                            <div>
+                                <label class="form-label" for="domain-add-dom">Domain</label>
+                                <input id="domain-add-dom" class="form-control form-control-sm"
+                                       placeholder="e.g. home.arpa or #"
+                                       @bind="_draftDomain" @bind:event="oninput" />
+                            </div>
+                            <div>
+                                <label class="form-label" for="domain-add-scope">Applies to</label>
+                                <select id="domain-add-scope" class="form-select form-select-sm"
+                                        @bind="_draftScopeSelect" @bind:after="OnDraftScopeAfterChange">
+                                    <option value="unconditional">Any client address (default)</option>
+                                    <option value="range">Limit to this subnet or IP</option>
+                                    <option value="interface">Limit to subnets on this interface</option>
+                                </select>
+                            </div>
+                            @if (_draftScopeSelect == "range")
+                            {
+                                <div>
+                                    <label class="form-label" for="domain-add-mid">Subnet or IP</label>
+                                    <input id="domain-add-mid" class="form-control form-control-sm"
+                                           placeholder="e.g. 192.168.0.0/24"
+                                           @bind="_draftMiddle" @bind:event="oninput" />
+                                </div>
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="domain-add-loc"
+                                           @bind="_draftAddLocal" />
+                                    <label class="form-check-label" for="domain-add-loc">
+                                        Also add matching <code>--local</code> forward and reverse DNS
+                                    </label>
+                                </div>
+                            }
+                            else if (_draftScopeSelect == "interface")
+                            {
+                                <div>
+                                    <label class="form-label" for="domain-add-if">Interface</label>
+                                    <input id="domain-add-if" class="form-control form-control-sm"
+                                           placeholder="e.g. eth0"
+                                           @bind="_draftMiddle" @bind:event="oninput" />
+                                </div>
+                            }
+                            else if (_draftScopeSelect == "unconditional")
+                            {
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="domain-add-loc2"
+                                           @bind="_draftAddLocal" />
+                                    <label class="form-check-label" for="domain-add-loc2">
+                                        Append <code>,local</code> (uncommon)
+                                    </label>
+                                </div>
+                            }
+                        }
+                        <div class="ec-domain-rule-actions">
+                            <StatusBadge Kind="StatusBadgeKind.ActionOk" Text="add" Clickable="true"
+                                         Title="Add this value" AriaLabel="Add"
+                                         PreventBlurOnMouseDown="true" OnClick="SaveNew" Class="status-badge-inline" />
+                            <StatusBadge Kind="StatusBadgeKind.ActionCancel" Text="cancel" Clickable="true"
+                                         Title="Discard" AriaLabel="Cancel"
+                                         PreventBlurOnMouseDown="true" OnClick="CancelInline" Class="status-badge-inline" />
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <StatusBadge Kind="StatusBadgeKind.Editable" Text="add item" Clickable="true"
+                                 Title="Add a new value" AriaLabel="Add item"
+                                 OnClick="BeginAdd" Class="status-badge-inline ec-multi-list-add-btn" />
+                }
+            </li>
+        }
+    </ul>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<ValueWithSource>? SourceItems { get; set; }
+    [Parameter] public string OptionName { get; set; } = "domain";
+    [Parameter] public string ReadonlyBadgeAnchorIdBase { get; set; } = "";
+
+    [Parameter] public bool IsEditMode { get; set; }
+    [Parameter] public bool AllowAddManagedValue { get; set; } = true;
+
+    [Parameter] public IMultiValueEditBehavior? Behavior { get; set; }
+    [Parameter] public IMultiValueOptionValidator? Validator { get; set; }
+    [Parameter] public string? FieldKey { get; set; }
+
+    [Parameter] public EventCallback<IReadOnlyList<string>> OnValuesChanged { get; set; }
+
+    private const string AddItemKey = "domain-add-item";
+    private static readonly TimeSpan ValidationToastDedupeWindow = TimeSpan.FromSeconds(2);
+
+    private int? _editingIndex;
+    private bool _addingNew;
+    private bool _didAutoOpenAdd;
+    private string? _lastValidationErrorMessage;
+    private DateTime _lastValidationErrorUtc;
+
+    private List<ValueWithSource> _displayItems = new();
+
+    private bool _draftUseRaw;
+    private string _draftRawLine = "";
+    private string _draftDomain = "";
+    private string _draftScopeSelect = "unconditional";
+    private string _draftMiddle = "";
+    private bool _draftAddLocal;
+
+    private IReadOnlyList<string> _currentValues => _displayItems.Select(x => x.Value).ToList();
+
+    protected override void OnParametersSet()
+    {
+        _displayItems = (SourceItems ?? Array.Empty<ValueWithSource>()).ToList();
+
+        if (!_didAutoOpenAdd && (SourceItems?.Count ?? 0) == 0 && AllowAddManagedValue)
+        {
+            _didAutoOpenAdd = true;
+            _addingNew = true;
+            ResetDraftForNew();
+        }
+    }
+
+    private static string DisplayLine(string rowValue) =>
+        DomainRuleFields.FormatSummary(rowValue);
+
+    private void ResetDraftForNew()
+    {
+        _draftUseRaw = false;
+        _draftRawLine = "";
+        _draftDomain = "";
+        _draftScopeSelect = "unconditional";
+        _draftMiddle = "";
+        _draftAddLocal = false;
+    }
+
+    private void BeginEdit(int index, string current)
+    {
+        _addingNew = false;
+        _editingIndex = index;
+        LoadDraftFromLine(current);
+    }
+
+    private void BeginAdd()
+    {
+        _editingIndex = null;
+        _addingNew = true;
+        ResetDraftForNew();
+    }
+
+    private void CancelInline()
+    {
+        _editingIndex = null;
+        _addingNew = false;
+        _lastValidationErrorMessage = null;
+        ResetDraftForNew();
+    }
+
+    private void LoadDraftFromLine(string line)
+    {
+        var parsed = DomainRuleFields.Parse(line);
+        if (parsed.IsRaw)
+        {
+            _draftUseRaw = true;
+            _draftRawLine = parsed.RawLineFallback ?? line;
+            _draftDomain = "";
+            _draftScopeSelect = "unconditional";
+            _draftMiddle = "";
+            _draftAddLocal = false;
+            return;
+        }
+
+        _draftUseRaw = false;
+        _draftRawLine = "";
+        _draftDomain = parsed.DomainPart;
+        _draftScopeSelect = parsed.Scope switch
+        {
+            DomainRuleScope.AddressRangeOrIp => "range",
+            DomainRuleScope.InterfaceName => "interface",
+            _ => "unconditional",
+        };
+        _draftMiddle = parsed.MiddlePart;
+        _draftAddLocal = parsed.AddLocalForRange;
+    }
+
+    private void OnDraftUseRawChanged(bool useRaw)
+    {
+        if (useRaw && !_draftUseRaw)
+        {
+            var fields = BuildFieldsFromDraftStructured();
+            _draftRawLine = fields.ToConfigLine();
+        }
+        else if (!useRaw && _draftUseRaw)
+            LoadDraftFromLine(_draftRawLine.Trim());
+
+        _draftUseRaw = useRaw;
+    }
+
+    private void OnDraftScopeAfterChange()
+    {
+        if (_draftScopeSelect == "unconditional")
+            _draftMiddle = "";
+        if (_draftScopeSelect == "interface")
+            _draftAddLocal = false;
+    }
+
+    private DomainRuleFields BuildFieldsFromDraftStructured()
+    {
+        var dom = (_draftDomain ?? "").Trim();
+        var mid = (_draftMiddle ?? "").Trim();
+        var scope = _draftScopeSelect switch
+        {
+            "range" => DomainRuleScope.AddressRangeOrIp,
+            "interface" => DomainRuleScope.InterfaceName,
+            _ => DomainRuleScope.Unconditional,
+        };
+
+        if (scope == DomainRuleScope.Unconditional)
+            return new DomainRuleFields(dom, DomainRuleScope.Unconditional, "", _draftAddLocal, null);
+
+        if (scope == DomainRuleScope.InterfaceName)
+            return new DomainRuleFields(dom, DomainRuleScope.InterfaceName, mid, false, null);
+
+        if (mid.Length == 0 && _draftAddLocal)
+            return new DomainRuleFields(dom, DomainRuleScope.Unconditional, "", true, null);
+
+        return new DomainRuleFields(dom, DomainRuleScope.AddressRangeOrIp, mid, _draftAddLocal, null);
+    }
+
+    private DomainRuleFields BuildFieldsFromDraft() =>
+        _draftUseRaw ? DomainRuleFields.FromRawConfigLine(_draftRawLine) : BuildFieldsFromDraftStructured();
+
+    private void ShowValidationError(string message)
+    {
+        var now = DateTime.UtcNow;
+        if (string.Equals(_lastValidationErrorMessage, message, StringComparison.Ordinal) &&
+            (now - _lastValidationErrorUtc) < ValidationToastDedupeWindow)
+            return;
+        _lastValidationErrorMessage = message;
+        _lastValidationErrorUtc = now;
+        NotificationService.ShowError(message);
+    }
+
+    private async Task SaveEdit(int index)
+    {
+        var next = _currentValues.ToList();
+        if (index < 0 || index >= next.Count) return;
+
+        var fields = BuildFieldsFromDraft();
+        var normalized = fields.ToConfigLine();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            ShowValidationError("Domain name (or #) is required.");
+            return;
+        }
+
+        if (!_draftUseRaw && _draftScopeSelect == "interface" && string.IsNullOrWhiteSpace(_draftMiddle))
+        {
+            ShowValidationError("Interface name is required for this scope.");
+            return;
+        }
+
+        normalized = Behavior?.Normalize(normalized) ?? normalized.Trim();
+
+        var validationError = Validator?.ValidateItem(normalized, _currentValues, index);
+        if (validationError != null)
+        {
+            ShowValidationError(validationError);
+            return;
+        }
+
+        if (Behavior?.AllowDuplicates == false && next.Where((v, i) => i != index).Any(v => string.Equals(v, normalized, StringComparison.Ordinal)))
+        {
+            ShowValidationError("Duplicate values are not allowed.");
+            return;
+        }
+
+        next[index] = normalized;
+        _displayItems[index] = _displayItems[index] with { Value = normalized };
+        await OnValuesChanged.InvokeAsync(next);
+        CancelInline();
+    }
+
+    private async Task SaveNew()
+    {
+        var fields = BuildFieldsFromDraft();
+        var normalized = fields.ToConfigLine();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            ShowValidationError("Domain name (or #) is required.");
+            return;
+        }
+
+        if (!_draftUseRaw && _draftScopeSelect == "interface" && string.IsNullOrWhiteSpace(_draftMiddle))
+        {
+            ShowValidationError("Interface name is required for this scope.");
+            return;
+        }
+
+        normalized = Behavior?.Normalize(normalized) ?? normalized.Trim();
+
+        var current = _currentValues;
+        var validationError = Validator?.ValidateItem(normalized, current, null);
+        if (validationError != null)
+        {
+            ShowValidationError(validationError);
+            return;
+        }
+
+        if (Behavior?.AllowDuplicates == false && current.Contains(normalized, StringComparer.Ordinal))
+        {
+            ShowValidationError("Duplicate values are not allowed.");
+            return;
+        }
+
+        var next = current.ToList();
+        next.Add(normalized);
+        _displayItems.Add(new ValueWithSource(normalized, null));
+        await OnValuesChanged.InvokeAsync(next);
+        CancelInline();
+    }
+
+    private async Task RemoveAt(int index)
+    {
+        if (index < 0 || index >= _displayItems.Count) return;
+        var item = _displayItems[index];
+        if (item?.Source?.IsReadOnly == true) return;
+
+        var next = _displayItems.Select(x => x.Value).ToList();
+        next.RemoveAt(index);
+        _displayItems.RemoveAt(index);
+        await OnValuesChanged.InvokeAsync(next);
+        StateHasChanged();
+    }
+}

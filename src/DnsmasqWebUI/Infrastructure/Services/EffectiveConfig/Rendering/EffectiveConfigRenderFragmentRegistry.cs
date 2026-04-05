@@ -192,8 +192,9 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
 
         RegisterSemanticMultis(
             EffectiveConfigSections.SectionHosts,
-            DnsmasqConfKeys.AddnHosts,
-            DnsmasqConfKeys.Domain);
+            DnsmasqConfKeys.AddnHosts);
+        RegisterSemanticMultiDescriptor(EffectiveConfigSections.SectionHosts, DnsmasqConfKeys.Domain);
+        RegisterMultiComponent(EffectiveConfigSections.SectionHosts, DnsmasqConfKeys.Domain, typeof(DomainMultiValueDisplay));
         RegisterSemanticMultis(
             EffectiveConfigSections.SectionResolver,
             DnsmasqConfKeys.Local,
@@ -433,16 +434,19 @@ public class EffectiveConfigRenderFragmentRegistry : IEffectiveConfigRenderFragm
     }
 
     /// <inheritdoc />
-    public RenderFragment<EffectiveConfigFieldDescriptor>? BuildMultiFieldComponentFragment(string sectionId, string optionName, EventCallback<IReadOnlyList<string>> onValuesChanged)
+    public RenderFragment<EffectiveConfigMultiDisplayContext>? BuildMultiFieldComponentFragment(string sectionId, string optionName, EventCallback<IReadOnlyList<string>> onValuesChanged)
     {
         if (!_multiDisplayComponents.TryGetValue((sectionId, optionName), out var componentType))
             return null;
 
-        return descriptor => builder =>
+        var hasCallback = onValuesChanged.HasDelegate;
+
+        return context => builder =>
         {
             builder.OpenComponent(0, componentType);
-            builder.AddAttribute(1, "Descriptor", descriptor);
-            builder.AddAttribute(2, "OnValuesChanged", onValuesChanged);
+            builder.AddAttribute(1, "Context", context);
+            if (hasCallback)
+                builder.AddAttribute(2, "OnValuesChanged", onValuesChanged);
             builder.CloseComponent();
         };
     }

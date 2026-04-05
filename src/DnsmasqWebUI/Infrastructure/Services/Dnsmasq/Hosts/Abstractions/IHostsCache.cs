@@ -16,10 +16,11 @@ public interface IHostsCache : IApplicationSingleton
 
     /// <summary>
     /// Builds unified page rows from the snapshot, preserving source awareness.
+    /// Effective-name expansion uses the config snapshot <c>domain=</c> list (including scoped rules)
+    /// per row address, matching dnsmasq expand-hosts behavior.
     /// </summary>
     Task<IReadOnlyList<HostsPageRow>> GetUnifiedRowsAsync(
         bool expandHosts,
-        string? domain,
         bool noHosts,
         string? managedHostsPath,
         CancellationToken ct = default);

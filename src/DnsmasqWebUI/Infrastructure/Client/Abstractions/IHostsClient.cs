@@ -16,7 +16,6 @@ public interface IHostsClient
     /// <summary>Gets unified hosts rows (managed + read-only) from GET api/hosts/unified.</summary>
     Task<IReadOnlyList<HostsPageRow>> GetUnifiedRowsAsync(
         bool expandHosts,
-        string? domain,
         bool noHosts,
         string? managedHostsPath,
         CancellationToken ct = default);

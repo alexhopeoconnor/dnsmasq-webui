@@ -1,0 +1,79 @@
+.ec-domain-rule-editor {
+    display: block;
+    padding: 0.75rem 1rem;
+    margin-top: 0.25rem;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 0.375rem;
+    background-color: var(--bs-body-bg, #fff);
+}
+
+.ec-domain-rule-editor .ec-field-value-list,
+.ec-domain-rule-list {
+    list-style: none;
+    margin-bottom: 0;
+    padding-left: 0;
+}
+
+.ec-domain-rule-list > li {
+    list-style: none;
+}
+
+.ec-domain-rule-intro {
+    font-size: 0.8rem;
+    color: var(--bs-secondary-color, #6c757d);
+    margin-bottom: 0.35rem;
+    line-height: 1.35;
+}
+
+.ec-domain-rule-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-height: 2rem;
+}
+
+.ec-domain-rule-row.ec-domain-rule-row-editing {
+    align-items: stretch;
+}
+
+.ec-domain-rule-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+    max-width: 36rem;
+    margin-left: 0.5rem;
+}
+
+.ec-domain-rule-form .form-label {
+    margin-bottom: 0.15rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--bs-secondary-color, #6c757d);
+}
+
+.ec-domain-rule-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.ec-domain-rule-summary {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-left: 0.5rem;
+}
+
+.ec-domain-rule-raw {
+    font-family: var(--bs-font-monospace);
+    font-size: 0.85rem;
+}
+
+.ec-domain-rule-hint {
+    font-size: 0.75rem;
+    color: var(--bs-secondary-color, #6c757d);
+    margin-top: -0.25rem;
+}

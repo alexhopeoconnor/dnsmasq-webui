@@ -399,7 +399,7 @@ sudo ./scripts/install.sh --uninstall --purge --system
 
 ### scripts/prepare-test-mount.sh
 
-**Purpose:** Prepare the testdata mount and optionally start or stop the Docker test harness (app + dnsmasq + DHCP clients). Syncs a source dir (default: `testdata`) into a mount dir (default: `testdata-mount`), cleans up previous test data, then runs `docker compose -f docker-compose.test.yml up -d` (or only prepares the mount with `--prepare-only`). By default the script resolves and uses the **latest stable upstream dnsmasq version**; you can pin a specific version (or use the distro package) for compatibility testing.
+**Purpose:** Prepare the testdata mount and optionally start or stop the Docker test harness (app + dnsmasq + DHCP clients). Syncs a source dir (default: `testdata`) into a mount dir (default: `testdata-mount`), then runs `docker compose -f docker-compose.test.yml up -d` (or only prepares the mount with `--prepare-only`). Fixture sync skips `leases` and app-managed filenames (`zz-dnsmasq-webui.conf`, `zz-dnsmasq-webui.hosts`) so rebuilds keep DHCP state and UI-written files unless you pass `--clear` or `--reset-managed`. By default the script resolves and uses the **latest stable upstream dnsmasq version** when building images; you can pin a specific version (or use the distro package) for compatibility testing.
 
 **Usage:** `./scripts/prepare-test-mount.sh [OPTIONS] [--]`
 
@@ -411,6 +411,7 @@ sudo ./scripts/install.sh --uninstall --purge --system
 | `--mount DIR` | Target mount directory (default: `testdata-mount`). Compose uses `TESTDATA_MOUNT`; script exports it when you use `--mount`. |
 | `--dnsmasq-version V` | Dnsmasq version for the harness image: `latest` (default), `distro`, or an exact upstream version like `2.91`. |
 | `--clear` | Clear the mount dir completely before sync for a clean run. Default: preserve existing contents and sync over them. |
+| `--reset-managed` | After sync, remove `*dnsmasq-webui*.conf` and `*dnsmasq-webui*.hosts` under the mount so the app recreates them; leaves leases and other files. |
 | `--prepare-only` | Only prepare the mount; do not run docker compose. |
 | `--build` | Pass `--build` to docker compose (rebuild images). Default: use existing images. |
 | `--no-cache-build` | Run `docker compose build --pull --no-cache` before start. Use to force a fresh image build and refresh the resolved latest dnsmasq version. |
@@ -423,10 +424,10 @@ sudo ./scripts/install.sh --uninstall --purge --system
 **Examples:**
 
 ```bash
-# Full run: clear mount, sync testdata, start containers (no rebuild)
+# Default: preserve mount (fixtures sync over; managed conf/hosts and leases kept), start (no image rebuild)
 ./scripts/prepare-test-mount.sh
 
-# Rebuild images then start
+# Rebuild images then start (mount state preserved unless you pass --clear or --reset-managed)
 ./scripts/prepare-test-mount.sh --build
 
 # Force a fresh image build with no Docker build cache
@@ -443,8 +444,8 @@ sudo ./scripts/install.sh --uninstall --purge --system
 # Then use the version printed by the script, e.g.:
 # TESTDATA_MOUNT=./testdata-mount DNSMASQ_VERSION=<resolved-version> docker compose -f docker-compose.test.yml up -d
 
-# Preserve mount contents, sync over it, start (default behavior)
-./scripts/prepare-test-mount.sh
+# Fresh managed config/hosts after a rebuild (fixtures still synced; leases kept)
+./scripts/prepare-test-mount.sh --reset-managed --build
 
 # Stop the harness
 ./scripts/prepare-test-mount.sh --stop
@@ -534,7 +535,7 @@ Use `appsettings.json` or launch settings to set `Dnsmasq__MainConfigPath` and o
    ```bash
    ./scripts/prepare-test-mount.sh
    ```
-   This clears the mount dir (by default `testdata-mount`), syncs `testdata/` into it, and starts the stack with `docker-compose.test.yml`. Use `--prepare-only` to only prepare the mount, then start compose manually; use `--build` after changing the app or Dockerfile.
+   This syncs `testdata/` into the mount (preserving existing managed config, hosts, and `leases` unless you use `--clear` or `--reset-managed`), then starts the stack with `docker-compose.test.yml`. Use `--prepare-only` to only prepare the mount, then start compose manually; use `--build` after changing the app or Dockerfile.
 
 2. Open the UI (e.g. http://localhost:8080). The app and dnsmasq use the mounted config; you can edit config/hosts in the UI and trigger reload.
 

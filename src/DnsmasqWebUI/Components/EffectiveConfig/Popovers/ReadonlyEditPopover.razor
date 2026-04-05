@@ -1,6 +1,7 @@
 @namespace DnsmasqWebUI.Components.EffectiveConfig
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 @using DnsmasqWebUI.Extensions
+@using DnsmasqWebUI.Extensions.Interop
 @using Microsoft.AspNetCore.Components
 @using Microsoft.JSInterop
 @using System.Text.Json.Serialization
@@ -76,14 +77,8 @@
     {
         if (firstRender)
         {
-            try
-            {
-                _jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/config-option-help.js");
-                _moduleLoaded = true;
-            }
-            catch (InvalidOperationException) { }
-            catch (JSDisconnectedException) { }
-            catch (JSException) { }
+            _jsModule = await JSRuntime.InvokeAsyncSafe<IJSObjectReference>("import", default, "./js/config-option-help.js");
+            _moduleLoaded = _jsModule != null;
         }
 
         if (Visible && !_scrollListenerAdded && _moduleLoaded && _jsModule != null)
@@ -121,15 +116,21 @@
 
     public async ValueTask DisposeAsync()
     {
-        if (_scrollListenerAdded && _jsModule != null)
+        try
         {
-            _scrollListenerAdded = false;
-            await _jsModule.InvokeVoidAsyncSafe("removeScrollCloseListener");
+            if (_scrollListenerAdded && _jsModule != null)
+            {
+                _scrollListenerAdded = false;
+                await _jsModule.InvokeVoidAsyncSafe("removeScrollCloseListener");
+            }
+        }
+        finally
+        {
             _dotNetRef?.Dispose();
             _dotNetRef = null;
+            await _jsModule.DisposeAsyncSafe();
+            _jsModule = null;
         }
-        await _jsModule.DisposeAsyncSafe();
-        _jsModule = null;
     }
 
     private async Task PositionUnderAnchorAsync()

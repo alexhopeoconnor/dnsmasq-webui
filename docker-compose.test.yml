@@ -1,6 +1,6 @@
 # Run the app with real dnsmasq and several DHCP clients so hosts/leases are real.
 # Some clients also make periodic DNS requests so the DNS cache and logs show activity.
-# Prepare mount: ./scripts/prepare-test-mount.sh [--minimal-conf | --prepare-only | ...]
+# Prepare mount: ./scripts/prepare-test-mount.sh [--clear | --reset-managed | --minimal-conf | --prepare-only | ...]
 # Or set TESTDATA_MOUNT to override the data volume (default: ./testdata-mount).
 # Set TEST_DNSMASQ_CONF to override main config path (default: /data/dnsmasq-test.conf; use /data/dnsmasq-test-minimal.conf for minimal).
 #

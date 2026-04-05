@@ -64,7 +64,6 @@ public class HostsController : ControllerBase
     [HttpGet("unified")]
     public async Task<ActionResult<IReadOnlyList<HostsPageRow>>> GetUnified(
         [FromQuery] bool expandHosts,
-        [FromQuery] string? domain,
         [FromQuery] bool noHosts,
         [FromQuery] string? managedHostsPath,
         CancellationToken ct)
@@ -72,7 +71,7 @@ public class HostsController : ControllerBase
         try
         {
             _logger.LogDebug("Get unified hosts rows");
-            var rows = await _hostsCache.GetUnifiedRowsAsync(expandHosts, domain, noHosts, managedHostsPath, ct);
+            var rows = await _hostsCache.GetUnifiedRowsAsync(expandHosts, noHosts, managedHostsPath, ct);
             return Ok(rows);
         }
         catch (Exception ex)

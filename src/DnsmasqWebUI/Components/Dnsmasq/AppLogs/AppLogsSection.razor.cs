@@ -62,13 +62,12 @@ public partial class AppLogsSection : IAsyncDisposable
 
         _hubConnection.On<LogsUpdatePayload>("AppLogsUpdate", OnAppLogsUpdate);
 
-        try
+        _logsJs = await JSRuntime.InvokeAsyncSafe<IJSObjectReference>("import", default, "./js/logs.js");
+        if (_logsJs == null)
         {
-            _logsJs = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/logs.js");
+            Logger.LogDebug("AppLogsSection: logs JS module unavailable (prerender, disconnect, or import failure)");
+            return;
         }
-        catch (InvalidOperationException ex) { Logger.LogDebug(ex, "AppLogsSection: JS import skipped (prerender)"); return; }
-        catch (JSDisconnectedException ex) { Logger.LogDebug(ex, "AppLogsSection: JS import skipped (circuit disconnected)"); return; }
-        catch (JSException ex) { Logger.LogDebug(ex, "AppLogsSection: JS import failed"); return; }
 
         await _hubConnection.StartAsync(_cts.Token);
         RestartPollTimer();
@@ -169,6 +168,7 @@ public partial class AppLogsSection : IAsyncDisposable
         }
         catch (ObjectDisposedException) { /* Component disposed; ignore */ }
         catch (InvalidOperationException) { /* Circuit disconnected; ignore */ }
+        catch (JSDisconnectedException) { /* Circuit gone before InvokeAsync completed */ }
     }
 
     private void SetJustUpdated()

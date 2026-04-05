@@ -52,4 +52,42 @@ public class HostsEffectiveNamesDomainRulesTests
 
         Assert.Equal(new[] { "node", "node.home.lan" }, result);
     }
+
+    [Fact]
+    public void ExplainSuffixSource_ScopedRuleMentionsRawLine()
+    {
+        var domains = new[] { "home.lan", "corp.lan,10.20.0.0/16" };
+        var msg = HostsEffectiveNames.ExplainSuffixSource(
+            expandHosts: true,
+            domains,
+            "10.20.1.9",
+            new[] { "router" });
+
+        Assert.Equal("Suffix from scoped rule: corp.lan,10.20.0.0/16", msg);
+    }
+
+    [Fact]
+    public void ExplainSuffixSource_DefaultDomainWhenNoScopedMatch()
+    {
+        var domains = new[] { "home.lan", "corp.lan,10.20.0.0/16" };
+        var msg = HostsEffectiveNames.ExplainSuffixSource(
+            expandHosts: true,
+            domains,
+            "10.99.1.9",
+            new[] { "cache" });
+
+        Assert.Equal("Suffix from default rule: home.lan", msg);
+    }
+
+    [Fact]
+    public void ExplainSuffixSource_ExpandHostsOff()
+    {
+        var msg = HostsEffectiveNames.ExplainSuffixSource(
+            expandHosts: false,
+            new[] { "home.lan" },
+            "10.0.0.1",
+            new[] { "a" });
+
+        Assert.Contains("expand-hosts is off", msg);
+    }
 }

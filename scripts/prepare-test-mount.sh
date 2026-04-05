@@ -3,8 +3,8 @@
 # (app + dnsmasq + DHCP client). See testdata/README.md and docker-compose.test.yml.
 #
 # What this script does:
-#   Start (default): sync source -> mount (preserving existing unless --clear), clean up previous test data,
-#     then docker compose up -d [--build] [--force-recreate].
+#   Start (default): sync source -> mount (preserving existing unless --clear); optional --reset-managed
+#     removes app-written files in the mount. Then docker compose up -d [--build] [--force-recreate].
 #   --stop: docker compose down (stop and remove containers/networks).
 #   --tidy: docker compose down, then clear the mount directory for a clean next run.
 set -e
@@ -21,6 +21,7 @@ BUILD=false
 NO_CACHE_BUILD=false
 RECREATE=false
 CLEAR=false
+RESET_MANAGED=false
 STOP=false
 TIDY=false
 MINIMAL_CONF=false
@@ -33,7 +34,8 @@ usage() {
   echo ""
   echo "Steps (when starting):"
   echo "  1. Optionally clear mount dir (only with --clear), then sync source -> mount."
-  echo "  2. Clean up previous test data (e.g. managed config) so the harness starts clean."
+  echo "      Sync skips app-managed filenames (zz-dnsmasq-webui.conf / .hosts) so rebuilds keep UI state."
+  echo "  2. Optionally remove managed *dnsmasq-webui*.conf / *dnsmasq-webui*.hosts (only with --reset-managed)."
   echo "  3. If not --prepare-only: docker compose -f $COMPOSE_FILE up -d [options]."
   echo ""
   echo "Path options:"
@@ -47,6 +49,8 @@ usage() {
   echo "Mount behaviour:"
   echo "  (default)           Preserve mount dir; sync source over existing contents."
   echo "  --clear             Clear mount dir completely before sync. Use for a clean run."
+  echo "  --reset-managed     After sync, delete *dnsmasq-webui*.conf and *dnsmasq-webui*.hosts under the"
+  echo "                      mount so the app recreates managed config/hosts (leases and other files stay)."
   echo ""
   echo "Compose behaviour:"
   echo "  --minimal-conf     Use minimal dnsmasq config (dnsmasq-test-minimal.conf) so effective"
@@ -85,6 +89,9 @@ usage() {
   echo ""
   echo "  $0 --clear"
   echo "                      Clear mount, sync testdata, start (clean run, no rebuild)."
+  echo ""
+  echo "  $0 --reset-managed --build"
+  echo "                      Rebuild images; sync fixtures; drop managed conf/hosts so app writes fresh."
   echo ""
   echo "  $0 --prepare-only"
   echo "                      Only sync testdata -> testdata-mount; no containers."
@@ -159,6 +166,10 @@ while [ $# -gt 0 ]; do
       ;;
     --clear)
       CLEAR=true
+      shift
+      ;;
+    --reset-managed)
+      RESET_MANAGED=true
       shift
       ;;
     --prepare-only)
@@ -267,15 +278,22 @@ if [ "$CLEAR" = true ]; then
   find "$MOUNT_DIR" -mindepth 1 -delete 2>/dev/null || true
 fi
 
+# Exclude sample leases (harness creates real lease file) and app-managed filenames so rebuilds preserve
+# UI-written config/hosts; use --reset-managed or --clear when you want those removed.
 if command -v rsync >/dev/null 2>&1; then
-  rsync -a --exclude='leases' "$SOURCE_DIR/" "$MOUNT_DIR/"
+  rsync -a \
+    --exclude='leases' \
+    --exclude='zz-dnsmasq-webui.conf' \
+    --exclude='zz-dnsmasq-webui.hosts' \
+    "$SOURCE_DIR/" "$MOUNT_DIR/"
 else
-  cp -r "$SOURCE_DIR/." "$MOUNT_DIR/"
-  rm -f "$MOUNT_DIR/leases"
+  (cd "$SOURCE_DIR" && tar cf - --exclude=leases --exclude=zz-dnsmasq-webui.conf --exclude=zz-dnsmasq-webui.hosts .) | (cd "$MOUNT_DIR" && tar xf -)
 fi
 
-# Clean up previous test data (e.g. managed config) so the harness starts clean (app will create zz-dnsmasq-webui.conf on startup).
-find "$MOUNT_DIR" -name '*dnsmasq-webui*.conf' -type f -delete 2>/dev/null || true
+if [ "$RESET_MANAGED" = true ]; then
+  echo "Removing app-managed files (*dnsmasq-webui*.conf / *dnsmasq-webui*.hosts) under $MOUNT_DIR"
+  find "$MOUNT_DIR" \( -name '*dnsmasq-webui*.conf' -o -name '*dnsmasq-webui*.hosts' \) -type f -delete 2>/dev/null || true
+fi
 
 echo "Mount directory ready: $MOUNT_DIR (source: $SOURCE_DIR)."
 
