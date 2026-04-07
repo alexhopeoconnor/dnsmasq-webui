@@ -23,5 +23,7 @@ public sealed record HostsPageQueryState(
     HostsSortMode Sort,
     bool Descending,
     HostsRowSourceKind? SourceKindFilter,
+    /// <summary>When set, only rows whose <see cref="HostsPageRow.SourcePath"/> matches (ordinal-ignore-case).</summary>
+    string? SourcePathFilter,
     bool? EditableFilter,
     bool? ActiveFilter);

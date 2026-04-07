@@ -25,6 +25,12 @@ public sealed class HostsPageProjectionService : IHostsPageProjectionService
         if (query.SourceKindFilter is { } sk)
             filtered = filtered.Where(r => r.SourceKind == sk);
 
+        if (!string.IsNullOrWhiteSpace(query.SourcePathFilter))
+        {
+            var path = query.SourcePathFilter.Trim();
+            filtered = filtered.Where(r => string.Equals(r.SourcePath, path, StringComparison.OrdinalIgnoreCase));
+        }
+
         if (query.EditableFilter is { } ed)
             filtered = filtered.Where(r => r.IsEditable == ed);
 

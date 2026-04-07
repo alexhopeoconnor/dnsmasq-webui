@@ -69,25 +69,89 @@ else
         <section class="page-section">
             <h2 class="page-section-title mb-3">Hosts entries</h2>
 
-            <div class="hosts-controls-bar d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                <div class="d-flex flex-wrap gap-2 align-items-center flex-grow-1">
+            <div class="hosts-controls-bar d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2"
+                 @onkeydown="OnHostsToolbarKeyDown">
+                <div class="hosts-toolbar-fields flex-grow-1">
                     <input type="text"
                            class="form-control form-control-sm hosts-toolbar-search"
                            placeholder="Search address, names, path…"
                            @bind="_search"
                            @bind:event="oninput" />
+                    <label class="visually-hidden" for="hosts-file-filter-trigger">Hosts file</label>
+                    <div class="hosts-file-filter-wrap @(_fileFilterMenuOpen ? "hosts-file-filter-wrap--open" : null)">
+                        @if (_fileFilterMenuOpen)
+                        {
+                            <div class="hosts-file-filter-backdrop" @onclick="CloseFileFilterMenu" aria-hidden="true"></div>
+                        }
+                        <button type="button"
+                                id="hosts-file-filter-trigger"
+                                class="hosts-file-filter-toggle hosts-toolbar-file-filter"
+                                title="Show entries from all loaded hosts files, or only one file"
+                                aria-label="Filter by hosts file"
+                                aria-haspopup="listbox"
+                                aria-expanded="@(_fileFilterMenuOpen ? "true" : "false")"
+                                aria-controls="hosts-file-filter-menu"
+                                @onclick="ToggleFileFilterMenu"
+                                @onclick:stopPropagation="true">
+                            <span class="hosts-file-filter-toggle-label text-truncate">@FileFilterSummaryText</span>
+                            <i class="bi bi-chevron-down hosts-file-filter-chevron flex-shrink-0" aria-hidden="true"></i>
+                        </button>
+                        @if (_fileFilterMenuOpen)
+                        {
+                            <div id="hosts-file-filter-menu"
+                                 class="hosts-file-filter-panel shadow"
+                                 role="listbox"
+                                 aria-label="Hosts files"
+                                 @onclick:stopPropagation="true">
+                                <button type="button"
+                                        class="hosts-file-filter-option hosts-file-filter-option--all @(string.IsNullOrWhiteSpace(_sourceFileFilter) ? "hosts-file-filter-option--active" : null)"
+                                        role="option"
+                                        aria-selected="@(string.IsNullOrWhiteSpace(_sourceFileFilter) ? "true" : "false")"
+                                        @onclick="@(() => SelectSourceFileFilter(""))">
+                                    <span class="hosts-file-filter-option-main">All files</span>
+                                    <span class="hosts-file-filter-count">@HostsTotalDataRowCount</span>
+                                </button>
+                                @foreach (var group in FileFilterMenuGroups)
+                                {
+                                    <div class="hosts-file-filter-group hosts-file-filter-group--@FileFilterGroupKindClass(group.SourceKind)">
+                                        <div class="hosts-file-filter-group-header" role="presentation">
+                                            <span class="hosts-file-filter-group-title">@group.Title</span>
+                                        </div>
+                                        @foreach (var file in group.Files)
+                                        {
+                                            var path = file.Path;
+                                            var active = IsSourceFilePathSelected(path);
+                                            <button type="button"
+                                                    class="hosts-file-filter-option @(active ? "hosts-file-filter-option--active" : null)"
+                                                    role="option"
+                                                    aria-selected="@(active ? "true" : "false")"
+                                                    title="@path"
+                                                    @onclick="@(() => SelectSourceFileFilter(path))">
+                                                <span class="hosts-file-filter-option-main hosts-file-filter-path" title="@path">@path</span>
+                                                <span class="hosts-file-filter-count">@file.RecordCount</span>
+                                            </button>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
                 </div>
             </div>
 
             @if (VisibleGroups.Count == 0)
             {
-                <p class="text-muted">No hosts entries found.</p>
+                <p class="text-muted">@(string.IsNullOrWhiteSpace(_sourceFileFilter) ? "No hosts entries found." : "No hosts entries for the selected file.")</p>
             }
             else
             {
                 @if (TotalVisibleDataRows == 0 && !string.IsNullOrWhiteSpace(_search))
                 {
                     <p class="text-muted">No rows match the current search.</p>
+                }
+                else if (TotalVisibleDataRows == 0 && !string.IsNullOrWhiteSpace(_sourceFileFilter))
+                {
+                    <p class="text-muted">No rows match the current filters.</p>
                 }
                 <div class="app-table-scroll-shell" data-table-scroll-cue>
                     <div class="app-table-scroll-region" data-table-scroll-region role="region" aria-label="Hosts entries table" tabindex="0"
@@ -128,7 +192,7 @@ else
                                                         <span class="badge bg-warning text-dark">Inactive</span>
                                                     }
                                                 </div>
-                                                <div class="hosts-group-header__path-row">
+                                                <div class="hosts-group-header__path-row @(IsManagedEditableGroup(group) ? "hosts-group-header__path-row--with-managed-actions" : null)">
                                                     <div class="hosts-group-header__path">
                                                         @if (!string.IsNullOrWhiteSpace(group.Subtitle))
                                                         {
@@ -406,6 +470,8 @@ else
     private string? _error;
 
     private string _search = "";
+    /// <summary>Empty = all hosts files; otherwise matches <see cref="HostsPageRow.SourcePath"/>.</summary>
+    private string _sourceFileFilter = "";
 
     private readonly HashSet<string> _selectedManagedRowIds = new(StringComparer.Ordinal);
 
@@ -431,6 +497,7 @@ else
     private object? _visibleGroupsCacheRowsRef;
     private string _visibleGroupsCacheSearch = "\0";
     private string _visibleGroupsCacheManagedPath = "\0";
+    private string _visibleGroupsCacheSourcePathFilter = "\0";
 
     private IReadOnlyList<HostsPageGroup> VisibleGroups
     {
@@ -440,7 +507,8 @@ else
             if (_visibleGroupsCache != null
                 && ReferenceEquals(_visibleGroupsCacheRowsRef, _unifiedRows)
                 && _visibleGroupsCacheSearch == _search
-                && _visibleGroupsCacheManagedPath == managedPath)
+                && _visibleGroupsCacheManagedPath == managedPath
+                && _visibleGroupsCacheSourcePathFilter == _sourceFileFilter)
             {
                 return _visibleGroupsCache;
             }
@@ -450,6 +518,7 @@ else
             _visibleGroupsCacheRowsRef = _unifiedRows;
             _visibleGroupsCacheSearch = _search;
             _visibleGroupsCacheManagedPath = managedPath;
+            _visibleGroupsCacheSourcePathFilter = _sourceFileFilter;
             return _visibleGroupsCache;
         }
     }
@@ -512,6 +581,10 @@ else
         if (groups.Any(g => g.SourceKind == HostsRowSourceKind.Managed))
             return groups;
 
+        if (!string.IsNullOrWhiteSpace(_sourceFileFilter)
+            && !string.Equals(_sourceFileFilter.Trim(), path, StringComparison.OrdinalIgnoreCase))
+            return groups;
+
         var placeholder = new HostsPageGroup(
             Key: $"{HostsRowSourceKind.Managed}:{path}",
             Title: "Managed hosts",
@@ -535,8 +608,97 @@ else
             Sort: HostsSortMode.LineNumber,
             Descending: false,
             SourceKindFilter: null,
+            SourcePathFilter: string.IsNullOrWhiteSpace(_sourceFileFilter) ? null : _sourceFileFilter.Trim(),
             EditableFilter: null,
             ActiveFilter: null);
+    }
+
+    private bool _fileFilterMenuOpen;
+
+    private IReadOnlyList<HostsFileFilterMenuGroup> FileFilterMenuGroups =>
+        HostsSourcePathDisplay.BuildFileFilterMenuGroups(_unifiedRows, _status?.ManagedHostsFilePath);
+
+    private int HostsTotalDataRowCount => _unifiedRows.Count(r => !r.IsComment);
+
+    private string FileFilterSummaryText
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_sourceFileFilter))
+            {
+                var n = HostsTotalDataRowCount;
+                return n == 0 ? "All files" : $"All files · {n} records";
+            }
+
+            var trimmed = _sourceFileFilter.Trim();
+            foreach (var g in FileFilterMenuGroups)
+            {
+                foreach (var f in g.Files)
+                {
+                    if (string.Equals(f.Path, trimmed, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var prefix = HostsSourcePathDisplay.GroupSummaryPrefix(g.SourceKind);
+                        return $"{prefix} · {f.FileName} ({f.RecordCount})";
+                    }
+                }
+            }
+
+            return HostsSourcePathDisplay.FormatOptionLabel(trimmed);
+        }
+    }
+
+    private void ToggleFileFilterMenu() => _fileFilterMenuOpen = !_fileFilterMenuOpen;
+
+    private void CloseFileFilterMenu() => _fileFilterMenuOpen = false;
+
+    private void SelectSourceFileFilter(string path)
+    {
+        _sourceFileFilter = path ?? "";
+        CloseFileFilterMenu();
+        OnSourceFileFilterChangedAfterBind();
+    }
+
+    private async Task OnHostsToolbarKeyDown(KeyboardEventArgs e)
+    {
+        if (!_fileFilterMenuOpen || e.Key != "Escape")
+            return;
+        CloseFileFilterMenu();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private bool IsSourceFilePathSelected(string path) =>
+        !string.IsNullOrWhiteSpace(_sourceFileFilter)
+        && string.Equals(_sourceFileFilter.Trim(), path.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private static string FileFilterGroupKindClass(HostsRowSourceKind kind) => kind switch
+    {
+        HostsRowSourceKind.Managed => "managed",
+        HostsRowSourceKind.SystemHosts => "system",
+        HostsRowSourceKind.AddnHosts => "addn",
+        HostsRowSourceKind.Hostsdir => "hostsdir",
+        _ => "other"
+    };
+
+    private void OnSourceFileFilterChangedAfterBind()
+    {
+        InvalidateVisibleGroupsCache();
+        StateHasChanged();
+    }
+
+    private void NormalizeSourceFileFilterIfStale()
+    {
+        if (string.IsNullOrWhiteSpace(_sourceFileFilter))
+            return;
+        var f = _sourceFileFilter.Trim();
+        var inRows = _unifiedRows.Any(r => string.Equals(r.SourcePath, f, StringComparison.OrdinalIgnoreCase));
+        var managed = _status?.ManagedHostsFilePath?.Trim();
+        var isManagedPath = !string.IsNullOrEmpty(managed)
+            && string.Equals(managed, f, StringComparison.OrdinalIgnoreCase);
+        if (!inRows && !isManagedPath)
+        {
+            _sourceFileFilter = "";
+            InvalidateVisibleGroupsCache();
+        }
     }
 
     private void InvalidateVisibleGroupsCache()
@@ -776,6 +938,13 @@ else
     {
         if (_showRemoveHostsModal || _showInvalidHostEditModal)
             return;
+
+        if (_fileFilterMenuOpen && e.Key == "Escape")
+        {
+            CloseFileFilterMenu();
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
 
         if (IsInlineEditing)
         {
@@ -1193,6 +1362,7 @@ else
                 _unifiedRows = Array.Empty<HostsPageRow>();
             }
 
+            NormalizeSourceFileFilterIfStale();
             InvalidateVisibleGroupsCache();
             _selectedManagedRowIds.Clear();
             _selectionAnchorRowId = null;
@@ -1235,6 +1405,7 @@ else
         }
 
         _unifiedRows = managedRows.Concat(_restUnifiedRows).ToList();
+        NormalizeSourceFileFilterIfStale();
         ClearStaleInlineEditState();
         PruneManagedSelectionToExistingEditableRows();
     }
