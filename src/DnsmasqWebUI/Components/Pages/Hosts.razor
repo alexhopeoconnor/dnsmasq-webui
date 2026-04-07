@@ -230,6 +230,12 @@ else
                                                                         @onclick="OnManagedHeaderSaveAsync">
                                                                     <i class="bi bi-check-lg" aria-hidden="true"></i><span>Save</span>
                                                                 </button>
+                                                                <button type="button"
+                                                                        class="btn hosts-managed-action-btn hosts-managed-action-btn--cancel"
+                                                                        title="Discard this row edit"
+                                                                        @onclick="OnManagedHeaderCancelAsync">
+                                                                    <i class="bi bi-x-lg" aria-hidden="true"></i><span>Cancel</span>
+                                                                </button>
                                                             }
                                                             else if (ManagedSelectionCount == 1)
                                                             {
@@ -865,6 +871,11 @@ else
         await TryFinishHostEditFromKeyboardAsync();
     }
 
+    private async Task OnManagedHeaderCancelAsync()
+    {
+        await DiscardCurrentEditAsync();
+    }
+
     private async Task OnManagedHeaderEditAsync()
     {
         DeactivateEffectiveConfigFieldIfActive();
@@ -1057,6 +1068,11 @@ else
 
     private void RevealHostFieldValidation() => _showHostFieldValidation = true;
 
+    private bool IsCurrentEditBlank =>
+        string.IsNullOrWhiteSpace(_editAddress)
+        && ParseNamesList(_editNames).Count == 0
+        && string.IsNullOrWhiteSpace(_editInlineComment);
+
     private void DeactivateEffectiveConfigFieldIfActive()
     {
         if (Session.Ui.ActiveFieldKey != null)
@@ -1072,41 +1088,8 @@ else
 
     private async Task OnInvalidEditDiscardAsync()
     {
-        if (string.IsNullOrEmpty(_editingRowId) || _status == null || string.IsNullOrWhiteSpace(_status.ManagedHostsFilePath))
-        {
-            _showInvalidHostEditModal = false;
-            CancelEdit();
-            await InvokeAsync(StateHasChanged);
-            return;
-        }
-
-        var list = CloneEntries(CurrentManagedEntries).ToList();
-        var entry = list.FirstOrDefault(MatchesEditingId);
-        var wasNew = entry != null && entry.Id.StartsWith("new:", StringComparison.Ordinal);
-        if (wasNew)
-        {
-            list.Remove(entry!);
-            Session.Draft.SetManagedHostsDraft(
-                CloneEntries(_baselineManagedEntries),
-                list,
-                _status.ManagedHostsFilePath);
-            RebuildManagedOverlay();
-            InvalidateVisibleGroupsCache();
-        }
-
         _showInvalidHostEditModal = false;
-        var prevId = _editingRowId;
-        CancelEdit();
-        if (wasNew)
-            _selectedManagedRowIds.Clear();
-        else
-        {
-            _selectedManagedRowIds.Clear();
-            if (!string.IsNullOrEmpty(prevId))
-                _selectedManagedRowIds.Add(prevId);
-        }
-
-        await InvokeAsync(StateHasChanged);
+        await DiscardCurrentEditAsync();
     }
 
     private async Task OnEditFieldKeyDown(KeyboardEventArgs e)
@@ -1130,6 +1113,12 @@ else
     {
         if (_showInvalidHostEditModal || string.IsNullOrEmpty(_editingRowId))
             return;
+
+        if (IsCurrentEditBlank)
+        {
+            await DiscardCurrentEditAsync();
+            return;
+        }
 
         if (IsCurrentEditValid)
             await CommitAndEndInlineEditAsync();
@@ -1168,6 +1157,10 @@ else
         {
             try
             {
+                var recentCueInteraction = await _hostsTableScrollCueModule.InvokeAsync<bool>("wasRecentCueInteraction");
+                if (recentCueInteraction)
+                    return;
+
                 outside = await _hostsTableScrollCueModule.InvokeAsync<bool>("isFocusOutsideElement", _editingRowRef);
             }
             catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException or TaskCanceledException)
@@ -1178,6 +1171,12 @@ else
 
         if (outside)
         {
+            if (IsCurrentEditBlank)
+            {
+                await DiscardCurrentEditAsync();
+                return;
+            }
+
             if (IsCurrentEditValid)
                 await CommitAndEndInlineEditAsync();
             else
@@ -1217,6 +1216,41 @@ else
         InvalidateVisibleGroupsCache();
         CancelEdit();
         PruneManagedSelectionToExistingEditableRows();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task DiscardCurrentEditAsync()
+    {
+        if (string.IsNullOrEmpty(_editingRowId) || _status == null || string.IsNullOrWhiteSpace(_status.ManagedHostsFilePath))
+        {
+            CancelEdit();
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        var list = CloneEntries(CurrentManagedEntries).ToList();
+        var entry = list.FirstOrDefault(MatchesEditingId);
+        var wasNew = entry != null && entry.Id.StartsWith("new:", StringComparison.Ordinal);
+        var prevId = _editingRowId;
+
+        if (wasNew)
+        {
+            list.Remove(entry!);
+            Session.Draft.SetManagedHostsDraft(
+                CloneEntries(_baselineManagedEntries),
+                list,
+                _status.ManagedHostsFilePath);
+            RebuildManagedOverlay();
+            InvalidateVisibleGroupsCache();
+        }
+
+        CancelEdit();
+        _showInvalidHostEditModal = false;
+        _selectedManagedRowIds.Clear();
+        if (!wasNew && !string.IsNullOrEmpty(prevId))
+            _selectedManagedRowIds.Add(prevId);
+        _selectionAnchorRowId = !wasNew ? prevId : null;
+
         await InvokeAsync(StateHasChanged);
     }
 

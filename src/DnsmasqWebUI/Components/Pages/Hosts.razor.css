@@ -376,7 +376,7 @@
 /* Fixed column for actions avoids path/subtitle reflow when buttons show or hide. */
 .hosts-group-header__path-row--with-managed-actions {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) var(--hosts-managed-actions-col, 9.75rem);
+    grid-template-columns: minmax(0, 1fr) var(--hosts-managed-actions-col, 13.5rem);
     align-items: center;
     column-gap: 0.5rem;
 }
@@ -475,6 +475,19 @@
     color: #fff;
     background: linear-gradient(180deg, #0b5ed7 0%, #084298 100%);
     border-color: rgba(8, 66, 152, 0.92);
+}
+
+.hosts-managed-action-btn--cancel {
+    color: #334155;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border-color: rgba(148, 163, 184, 0.38);
+}
+
+.hosts-managed-action-btn--cancel:hover,
+.hosts-managed-action-btn--cancel:focus-visible {
+    color: #0f172a;
+    background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+    border-color: rgba(100, 116, 139, 0.42);
 }
 
 .hosts-managed-action-btn--edit {
@@ -589,7 +602,7 @@
 
 @media (max-width: 640.98px) {
     .hosts-group-header__path-row--with-managed-actions {
-        --hosts-managed-actions-col: 9rem;
+        --hosts-managed-actions-col: 12rem;
     }
 
     .hosts-group-header__managed-actions {

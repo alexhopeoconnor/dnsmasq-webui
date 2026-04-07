@@ -49,22 +49,22 @@ else if (Descriptor.IsMultiValue)
     {
         @* Custom multi: row badge only while this field is active (ok/cancel/revert). Otherwise per-item / entry badges in the fragment suffice — avoids duplicating "readonly" when RowSource matches item sources. *@
         var customMultiActiveEditor = IsEditMode && IsActive && !Descriptor.IsCapabilityDisabled;
-        <li class="ec-field @(customMultiActiveEditor ? "ec-field-editing" : "")">
-            <OptionHelpLabel AnchorId="@_anchorId" HelpKey="@_optionHelpKey" OptionLabel="@Descriptor.OptionName" Title="@(_labelTooltip ?? Descriptor.GetSource()?.GetReadOnlyTooltip())"><strong>@Descriptor.OptionName:</strong></OptionHelpLabel>
-            <span class="ec-field-value">
-                <CascadingValue Value="@customMultiActiveEditor">
-                    <CascadingValue Value="@IsEditMode">
-                        @customMulti(_multiContext)
-                    </CascadingValue>
+        <li class="ec-field ec-field--multi-value @(customMultiActiveEditor ? "ec-field-editing" : "")">
+            <div class="ec-field-label-row">
+                <OptionHelpLabel AnchorId="@_anchorId" HelpKey="@_optionHelpKey" OptionLabel="@Descriptor.OptionName" Title="@(_labelTooltip ?? Descriptor.GetSource()?.GetReadOnlyTooltip())"><strong>@Descriptor.OptionName:</strong></OptionHelpLabel>
+                @if (!Descriptor.IsCapabilityDisabled)
+                {
+                    <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@(customMultiActiveEditor ? _multiContext.RowSource : null)" OptionName="@Descriptor.OptionName" Value="@_multiContext.EffectiveItems"
+                        IsInteractive="@IsEditMode" ShowEditableBadge="true" HasPendingChange="@_multiContext.HasPendingOrDraft" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@customMultiActiveEditor"
+                        IsCapabilityDisabled="@Descriptor.IsCapabilityDisabled" CapabilityDisabledReason="@Descriptor.CapabilityDisabledReason"
+                        OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
+                }
+            </div>
+            <CascadingValue Value="@customMultiActiveEditor">
+                <CascadingValue Value="@IsEditMode">
+                    @customMulti(_multiContext)
                 </CascadingValue>
-            </span>
-            @if (customMultiActiveEditor)
-            {
-                <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@_multiContext.RowSource" OptionName="@Descriptor.OptionName" Value="@_multiContext.EffectiveItems"
-                    IsInteractive="@(IsEditMode && !Descriptor.IsCapabilityDisabled)" ShowEditableBadge="@(!Descriptor.IsCapabilityDisabled)" HasPendingChange="@_multiContext.HasPendingOrDraft" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="true"
-                    IsCapabilityDisabled="@Descriptor.IsCapabilityDisabled" CapabilityDisabledReason="@Descriptor.CapabilityDisabledReason"
-                    OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
-            }
+            </CascadingValue>
         </li>
     }
     else if (_multiContext is not null)

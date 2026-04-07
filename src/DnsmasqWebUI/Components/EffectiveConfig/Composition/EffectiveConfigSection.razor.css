@@ -172,6 +172,16 @@
     margin-bottom: 0.35rem;
 }
 
+/* Option label + field-level badges (editable / ok / cancel) on one row */
+::deep .ec-field-label-row {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.5rem;
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
 ::deep .ec-field:last-child {
     margin-bottom: 0;
 }
@@ -206,7 +216,7 @@
 /* When a field is active: value + badges in one block so any click inside (checkbox, input, ok/cancel) doesn't deactivate */
 ::deep .ec-field-value-when-editing {
     display: inline-flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 0.25rem;
     min-width: 0;
@@ -239,11 +249,6 @@
     word-break: break-word;
 }
 
-/* Row-level ok/cancel (and revert) for multi-value: right-align on the row below the list */
-::deep .ec-field .ec-field-value-multi + .status-badge-inline {
-    margin-left: auto;
-}
-
 ::deep .ec-field-value-list {
     margin: 0;
     padding-left: 1.25rem;
@@ -262,16 +267,22 @@
     margin-bottom: 0;
 }
 
-/* Multivalue display mode: editable entry row (no list number; align with list content) */
-::deep .ec-field-value-list li.ec-multi-list-entry-point {
-    list-style: none;
-    margin-left: -1.25rem;
-    margin-top: 0.15rem;
-}
-
 ::deep .ec-field-value-list li.ec-multi-list-empty-hint {
     list-style: none;
     margin-left: -1.25rem;
+}
+
+/* Shared with default and custom (e.g. domain) multi-value editors */
+::deep .ec-field-value-list li.ec-multi-list-add-item {
+    list-style: none;
+    margin-left: -1.25rem;
+    margin-top: 0.25rem;
+    padding-top: 0.25rem;
+    border-top: 1px dashed var(--bs-border-color, #dee2e6);
+}
+
+::deep .ec-field-value-list li.ec-multi-list-add-item > .ec-multi-list-row-controls > .status-badge-inline {
+    margin-left: auto;
 }
 
 /* Long paths/URLs wrap; allow break anywhere so nothing is clipped */
@@ -300,7 +311,11 @@
     margin-left: auto;
 }
 
-@media (max-width: 991.98px) {
+@media (max-width: 575.98px) {
+    ::deep .ec-field-value-when-editing {
+        flex-wrap: wrap;
+    }
+
     ::deep .ec-field-value-when-editing > .status-badge-inline {
         flex-basis: 100%;
         margin-left: 0;

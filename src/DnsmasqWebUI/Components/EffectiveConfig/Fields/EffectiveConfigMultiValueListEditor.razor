@@ -19,47 +19,49 @@
                 var rowValue = item.Value;
 
                 <li class="ec-multi-list-row @(_editingIndex == rowIndex && !itemReadonly ? "ec-multi-list-row-with-controls" : "")" @key="anchorId">
-                    @if (_editingIndex == rowIndex && !itemReadonly)
-                    {
-                        <div class="ec-multi-list-row-controls">
-                            <div class="ec-multi-list-input-group">
-                                <input class="form-control form-control-sm ec-multi-list-input"
-                                       placeholder="@(DnsmasqOptionPlaceholders.Get(OptionName) ?? "Value")"
-                                       @bind="_draftValue" @bind:event="oninput" />
+                    <div class="ec-multi-list-row-body">
+                        @if (_editingIndex == rowIndex && !itemReadonly)
+                        {
+                            <div class="ec-multi-list-row-controls">
+                                <div class="ec-multi-list-input-group">
+                                    <input class="form-control form-control-sm ec-multi-list-input"
+                                           placeholder="@(DnsmasqOptionPlaceholders.Get(OptionName) ?? "Value")"
+                                           @bind="_draftValue" @bind:event="oninput" />
+                                </div>
+                                <span class="status-badge-inline">
+                                    <StatusBadge Kind="StatusBadgeKind.ActionOk" Text="save" Clickable="true"
+                                                 Title="Apply change" AriaLabel="Apply change"
+                                                 PreventBlurOnMouseDown="true" OnClick="@(() => SaveEdit(rowIndex))" Class="status-badge-inline" />
+                                    <StatusBadge Kind="StatusBadgeKind.ActionCancel" Text="cancel" Clickable="true"
+                                                 Title="Discard edit" AriaLabel="Cancel edit"
+                                                 PreventBlurOnMouseDown="true" OnClick="CancelInline" Class="status-badge-inline" />
+                                </span>
                             </div>
-                            <span class="status-badge-inline">
-                                <StatusBadge Kind="StatusBadgeKind.ActionOk" Text="save" Clickable="true"
-                                             Title="Apply change" AriaLabel="Apply change"
-                                             PreventBlurOnMouseDown="true" OnClick="@(() => SaveEdit(rowIndex))" Class="status-badge-inline" />
-                                <StatusBadge Kind="StatusBadgeKind.ActionCancel" Text="cancel" Clickable="true"
-                                             Title="Discard edit" AriaLabel="Cancel edit"
-                                             PreventBlurOnMouseDown="true" OnClick="CancelInline" Class="status-badge-inline" />
-                            </span>
-                        </div>
-                    }
-                    else
-                    {
-                        <span class="ec-field-value-item">@rowValue</span>
+                        }
+                        else
+                        {
+                            <span class="ec-field-value-item">@rowValue</span>
 
-                        <span class="status-badge-inline">
-                            <OptionStateBadge
-                                AnchorId="@anchorId"
-                                Source="@item.Source"
-                                OptionName="@OptionName"
-                                Value="@rowValue"
-                                IsInteractive="@IsEditMode"
-                                ShowEditableBadge="@(!itemReadonly)"
-                                EditableAsButton="@(!itemReadonly)"
-                                OnEditableClickRequested="@(!itemReadonly ? EventCallback.Factory.Create(this, () => { BeginEdit(rowIndex, rowValue); return Task.CompletedTask; }) : default)" />
-                            @if (!itemReadonly)
-                            {
-                                <StatusBadge Kind="StatusBadgeKind.ActionRevert" Text="remove" Clickable="true"
-                                             Title="Remove this value" AriaLabel="Remove"
-                                             PreventBlurOnMouseDown="true"
-                                             OnClick="@(() => RemoveAt(rowIndex))" Class="status-badge-inline" />
-                            }
-                        </span>
-                    }
+                            <span class="status-badge-inline">
+                                <OptionStateBadge
+                                    AnchorId="@anchorId"
+                                    Source="@item.Source"
+                                    OptionName="@OptionName"
+                                    Value="@rowValue"
+                                    IsInteractive="@IsEditMode"
+                                    ShowEditableBadge="@(!itemReadonly)"
+                                    EditableAsButton="@(!itemReadonly)"
+                                    OnEditableClickRequested="@(!itemReadonly ? EventCallback.Factory.Create(this, () => { BeginEdit(rowIndex, rowValue); return Task.CompletedTask; }) : default)" />
+                                @if (!itemReadonly)
+                                {
+                                    <StatusBadge Kind="StatusBadgeKind.ActionRevert" Text="remove" Clickable="true"
+                                                 Title="Remove this value" AriaLabel="Remove"
+                                                 PreventBlurOnMouseDown="true"
+                                                 OnClick="@(() => RemoveAt(rowIndex))" Class="status-badge-inline" />
+                                }
+                            </span>
+                        }
+                    </div>
                 </li>
             }
         }

@@ -10,10 +10,16 @@ const POLL_MS = 100;
 const BTN_LEFT_CLASS = 'app-table-cue-btn--left';
 const BTN_RIGHT_CLASS = 'app-table-cue-btn--right';
 const CUE_BTN_CLASS = 'app-table-cue-btn';
+const RECENT_CUE_INTERACTION_MS = 300;
 
 let pollId = null;
 let resizeListener = null;
 const scrollListeners = new WeakMap();
+let lastCueInteractionAt = 0;
+
+function markCueInteraction() {
+    lastCueInteractionAt = Date.now();
+}
 
 function applyScrollCue(scrollEl, hostEl) {
     if (!scrollEl || !hostEl) return;
@@ -58,7 +64,9 @@ function ensureCueButtons(hostEl) {
         leftBtn.type = 'button';
         leftBtn.className = CUE_BTN_CLASS + ' ' + BTN_LEFT_CLASS;
         leftBtn.setAttribute('aria-label', 'Scroll table left');
+        leftBtn.addEventListener('pointerdown', markCueInteraction);
         leftBtn.addEventListener('click', function () {
+            markCueInteraction();
             scrollToSide(hostEl.querySelector(WRAPPER_SELECTOR), 'left');
         });
         hostEl.appendChild(leftBtn);
@@ -69,7 +77,9 @@ function ensureCueButtons(hostEl) {
         rightBtn.type = 'button';
         rightBtn.className = CUE_BTN_CLASS + ' ' + BTN_RIGHT_CLASS;
         rightBtn.setAttribute('aria-label', 'Scroll table right');
+        rightBtn.addEventListener('pointerdown', markCueInteraction);
         rightBtn.addEventListener('click', function () {
+            markCueInteraction();
             scrollToSide(hostEl.querySelector(WRAPPER_SELECTOR), 'right');
         });
         hostEl.appendChild(rightBtn);
@@ -169,4 +179,8 @@ export function isFocusOutsideElement(container) {
     const active = document.activeElement;
     if (!active) return true;
     return !container.contains(active);
+}
+
+export function wasRecentCueInteraction() {
+    return Date.now() - lastCueInteractionAt <= RECENT_CUE_INTERACTION_MS;
 }

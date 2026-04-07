@@ -6,8 +6,7 @@
 @inject INotificationService NotificationService
 
 <div class="ec-field-value ec-field-value-multi ec-domain-rule-editor" @onclick:stopPropagation="true">
-    @* ul: avoid <ol> markers (scoped CSS does not inherit .ec-multi-list-add-item list-style rules from the generic multi editor). *@
-    <ul class="ec-field-value-list ec-domain-rule-list">
+    <ol class="ec-field-value-list ec-domain-rule-list">
         @if (_displayItems.Count > 0)
         {
             @for (var i = 0; i < _displayItems.Count; i++)
@@ -19,116 +18,152 @@
                 var rowValue = item.Value;
 
                 <li class="ec-domain-rule-row @(_editingIndex == rowIndex && !itemReadonly ? "ec-domain-rule-row-editing" : "")" @key="anchorId">
-                    @if (_editingIndex == rowIndex && !itemReadonly)
-                    {
-                        <div class="ec-domain-rule-form">
-                            <p class="ec-domain-rule-intro">Sets the domain suffix dnsmasq uses: DHCP domain option, which FQDNs hosts may claim, and (with <code>expand-hosts</code>) how simple names are qualified in DNS.</p>
-                            <label class="form-label">Edit as raw line</label>
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input" id="@($"{anchorId}-raw")"
-                                       checked="@_draftUseRaw"
-                                       @onchange="@(e => OnDraftUseRawChanged(e.Value is true))" />
-                                <label class="form-check-label" for="@($"{anchorId}-raw")">Edit as single line (advanced)</label>
-                            </div>
-                            @if (_draftUseRaw)
-                            {
-                                <textarea class="form-control form-control-sm font-monospace" rows="2"
-                                          @bind="_draftRawLine" @bind:event="oninput"
-                                          placeholder="domain[,subnet|IP|interface[,local]]"></textarea>
-                            }
-                            else
-                            {
-                                <div>
-                                    <label class="form-label" for="@($"{anchorId}-dom")">Domain</label>
-                                    <input id="@($"{anchorId}-dom")" class="form-control form-control-sm"
-                                           placeholder="e.g. home.arpa or #"
-                                           @bind="_draftDomain" @bind:event="oninput" />
-                                    <div class="ec-domain-rule-hint">Use <code>#</code> to take the search domain from resolv.conf.</div>
+                    <div class="ec-domain-rule-row-body">
+                        @if (_editingIndex == rowIndex && !itemReadonly)
+                        {
+                            <div class="ec-domain-rule-form">
+                                <div class="ec-domain-rule-toolbar">
+                                    <div class="ec-domain-rule-toolbar__group">
+                                        <span class="form-label mb-0">Editor mode</span>
+                                        <button type="button"
+                                                class="btn btn-link btn-sm text-muted ec-domain-rule-help p-0 border-0"
+                                                title="@DomainRuleEditorHelpText"
+                                                aria-label="@DomainRuleEditorHelpText"
+                                                @onclick="ShowDomainRuleEditorHelp">
+                                            <i class="bi bi-question-circle" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                    <div class="ec-domain-rule-mode-toggle" role="group" aria-label="Domain rule editor mode">
+                                        <button type="button"
+                                                class="btn btn-sm ec-domain-rule-mode-btn @(!_draftUseRaw ? "ec-domain-rule-mode-btn--active" : null)"
+                                                aria-pressed="@(!_draftUseRaw ? "true" : "false")"
+                                                @onclick="() => OnDraftUseRawChanged(false)">
+                                            Guided
+                                        </button>
+                                        <button type="button"
+                                                class="btn btn-sm ec-domain-rule-mode-btn @(_draftUseRaw ? "ec-domain-rule-mode-btn--active" : null)"
+                                                aria-pressed="@(_draftUseRaw ? "true" : "false")"
+                                                @onclick="() => OnDraftUseRawChanged(true)">
+                                            Raw line
+                                        </button>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label class="form-label" for="@($"{anchorId}-scope")">Applies to</label>
-                                    <select id="@($"{anchorId}-scope")" class="form-select form-select-sm"
-                                            @bind="_draftScopeSelect" @bind:after="OnDraftScopeAfterChange">
-                                        <option value="unconditional">Any client address (default)</option>
-                                        <option value="range">Limit to this subnet or IP</option>
-                                        <option value="interface">Limit to subnets on this interface</option>
-                                    </select>
-                                </div>
-                                @if (_draftScopeSelect == "range")
+                                @if (_draftUseRaw)
+                                {
+                                    <input class="form-control form-control-sm font-monospace"
+                                           @bind="_draftRawLine" @bind:event="oninput"
+                                           placeholder="domain[,subnet|IP|interface[,local]]" />
+                                }
+                                else
                                 {
                                     <div>
-                                        <label class="form-label" for="@($"{anchorId}-mid")">Subnet or IP</label>
-                                        <input id="@($"{anchorId}-mid")" class="form-control form-control-sm"
-                                               placeholder="e.g. 192.168.0.0/24 or 192.168.0.1"
-                                               @bind="_draftMiddle" @bind:event="oninput" />
-                                        <div class="ec-domain-rule-hint">Single IP, CIDR, or start,end pair per dnsmasq docs.</div>
+                                        <label class="form-label" for="@($"{anchorId}-dom")">Domain</label>
+                                        <input id="@($"{anchorId}-dom")" class="form-control form-control-sm"
+                                               placeholder="e.g. home.arpa or #"
+                                               @bind="_draftDomain" @bind:event="oninput" />
+                                        <div class="ec-domain-rule-hint-row">
+                                            <div class="ec-domain-rule-hint">Use <code>#</code> to take the search domain from resolv.conf.</div>
+                                            <button type="button"
+                                                    class="btn btn-link btn-sm text-muted ec-domain-rule-help p-0 border-0"
+                                                    title="@HashDomainHelpText"
+                                                    aria-label="@HashDomainHelpText"
+                                                    @onclick="ShowHashDomainHelp">
+                                                <i class="bi bi-question-circle" aria-hidden="true"></i>
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div class="form-check">
-                                        <input type="checkbox" class="form-check-input" id="@($"{anchorId}-loc")"
-                                               @bind="_draftAddLocal" />
-                                        <label class="form-check-label" for="@($"{anchorId}-loc")">
-                                            Also add matching <code>--local</code> forward and reverse DNS
-                                        </label>
-                                    </div>
-                                }
-                                else if (_draftScopeSelect == "interface")
-                                {
                                     <div>
-                                        <label class="form-label" for="@($"{anchorId}-if")">Interface</label>
-                                        <input id="@($"{anchorId}-if")" class="form-control form-control-sm"
-                                               placeholder="e.g. eth0 or br0"
-                                               @bind="_draftMiddle" @bind:event="oninput" />
+                                        <label class="form-label" for="@($"{anchorId}-scope")">Applies to</label>
+                                        <select id="@($"{anchorId}-scope")" class="form-select form-select-sm"
+                                                @bind="_draftScopeSelect" @bind:after="OnDraftScopeAfterChange">
+                                            <option value="unconditional">Any client address (default)</option>
+                                            <option value="range">Limit to this subnet or IP</option>
+                                            <option value="interface">Limit to subnets on this interface</option>
+                                        </select>
                                     </div>
+                                    @if (_draftScopeSelect == "range")
+                                    {
+                                        <div>
+                                            <label class="form-label" for="@($"{anchorId}-mid")">Subnet or IP</label>
+                                            <input id="@($"{anchorId}-mid")" class="form-control form-control-sm"
+                                                   placeholder="e.g. 192.168.0.0/24 or 192.168.0.1"
+                                                   @bind="_draftMiddle" @bind:event="oninput" />
+                                            <div class="ec-domain-rule-hint">Single IP, CIDR, or start,end pair per dnsmasq docs.</div>
+                                        </div>
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input" id="@($"{anchorId}-loc")"
+                                                   @bind="_draftAddLocal" />
+                                            <label class="form-check-label" for="@($"{anchorId}-loc")">
+                                                Also add matching <code>--local</code> forward and reverse DNS
+                                            </label>
+                                        </div>
+                                    }
+                                    else if (_draftScopeSelect == "interface")
+                                    {
+                                        <div>
+                                            <label class="form-label" for="@($"{anchorId}-if")">Interface</label>
+                                            <input id="@($"{anchorId}-if")" class="form-control form-control-sm"
+                                                   placeholder="e.g. eth0 or br0"
+                                                   @bind="_draftMiddle" @bind:event="oninput" />
+                                        </div>
+                                    }
+                                    else if (_draftScopeSelect == "unconditional")
+                                    {
+                                        <div class="form-check ec-domain-rule-local-check">
+                                            <input type="checkbox" class="form-check-input" id="@($"{anchorId}-loc2")"
+                                                   @bind="_draftAddLocal" />
+                                            <label class="form-check-label" for="@($"{anchorId}-loc2")">
+                                                Append <code>,local</code>
+                                            </label>
+                                            <button type="button"
+                                                    class="btn btn-link btn-sm text-muted ec-domain-rule-help p-0 border-0"
+                                                    title="@LocalSuffixHelpText"
+                                                    aria-label="@LocalSuffixHelpText"
+                                                    @onclick="ShowLocalSuffixHelp">
+                                                <i class="bi bi-question-circle" aria-hidden="true"></i>
+                                            </button>
+                                        </div>
+                                    }
                                 }
-                                else if (_draftScopeSelect == "unconditional")
-                                {
-                                    <div class="form-check">
-                                        <input type="checkbox" class="form-check-input" id="@($"{anchorId}-loc2")"
-                                               @bind="_draftAddLocal" />
-                                        <label class="form-check-label" for="@($"{anchorId}-loc2")">
-                                            Append <code>,local</code> (same as a lone <code>--local</code> for this name; uncommon)
-                                        </label>
-                                    </div>
-                                }
-                            }
-                            <div class="ec-domain-rule-actions">
-                                <StatusBadge Kind="StatusBadgeKind.ActionOk" Text="save" Clickable="true"
-                                             Title="Apply change" AriaLabel="Apply change"
-                                             PreventBlurOnMouseDown="true" OnClick="@(() => SaveEdit(rowIndex))" Class="status-badge-inline" />
-                                <StatusBadge Kind="StatusBadgeKind.ActionCancel" Text="cancel" Clickable="true"
-                                             Title="Discard edit" AriaLabel="Cancel edit"
-                                             PreventBlurOnMouseDown="true" OnClick="CancelInline" Class="status-badge-inline" />
+                                <div class="ec-domain-rule-actions">
+                                    <StatusBadge Kind="StatusBadgeKind.ActionOk" Text="save" Clickable="true"
+                                                 Title="Apply change" AriaLabel="Apply change"
+                                                 PreventBlurOnMouseDown="true" OnClick="@(() => SaveEdit(rowIndex))" Class="status-badge-inline" />
+                                    <StatusBadge Kind="StatusBadgeKind.ActionCancel" Text="cancel" Clickable="true"
+                                                 Title="Discard edit" AriaLabel="Cancel edit"
+                                                 PreventBlurOnMouseDown="true" OnClick="CancelInline" Class="status-badge-inline" />
+                                </div>
                             </div>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="ec-domain-rule-summary">
-                            <span class="ec-field-value-item">@DisplayLine(rowValue)</span>
-                            @if (!string.Equals(DomainRuleFields.FormatSummary(rowValue), rowValue, StringComparison.Ordinal))
-                            {
-                                <code class="text-muted small">@rowValue</code>
-                            }
-                            <span class="status-badge-inline">
-                                <OptionStateBadge
-                                    AnchorId="@anchorId"
-                                    Source="@item.Source"
-                                    OptionName="@OptionName"
-                                    Value="@rowValue"
-                                    IsInteractive="@IsEditMode"
-                                    ShowEditableBadge="@(!itemReadonly)"
-                                    EditableAsButton="@(!itemReadonly)"
-                                    OnEditableClickRequested="@(!itemReadonly ? EventCallback.Factory.Create(this, () => { BeginEdit(rowIndex, rowValue); return Task.CompletedTask; }) : default)" />
-                                @if (!itemReadonly)
+                        }
+                        else
+                        {
+                            <div class="ec-domain-rule-summary">
+                                <span class="ec-field-value-item">@DisplayLine(rowValue)</span>
+                                @if (!string.Equals(DomainRuleFields.FormatSummary(rowValue), rowValue, StringComparison.Ordinal))
                                 {
-                                    <StatusBadge Kind="StatusBadgeKind.ActionRevert" Text="remove" Clickable="true"
-                                                 Title="Remove this value" AriaLabel="Remove"
-                                                 PreventBlurOnMouseDown="true"
-                                                 OnClick="@(() => RemoveAt(rowIndex))" Class="status-badge-inline" />
+                                    <code class="text-muted small">@rowValue</code>
                                 }
-                            </span>
-                        </div>
-                    }
+                                <span class="status-badge-inline">
+                                    <OptionStateBadge
+                                        AnchorId="@anchorId"
+                                        Source="@item.Source"
+                                        OptionName="@OptionName"
+                                        Value="@rowValue"
+                                        IsInteractive="@IsEditMode"
+                                        ShowEditableBadge="@(!itemReadonly)"
+                                        EditableAsButton="@(!itemReadonly)"
+                                        OnEditableClickRequested="@(!itemReadonly ? EventCallback.Factory.Create(this, () => { BeginEdit(rowIndex, rowValue); return Task.CompletedTask; }) : default)" />
+                                    @if (!itemReadonly)
+                                    {
+                                        <StatusBadge Kind="StatusBadgeKind.ActionRevert" Text="remove" Clickable="true"
+                                                     Title="Remove this value" AriaLabel="Remove"
+                                                     PreventBlurOnMouseDown="true"
+                                                     OnClick="@(() => RemoveAt(rowIndex))" Class="status-badge-inline" />
+                                    }
+                                </span>
+                            </div>
+                        }
+                    </div>
                 </li>
             }
         }
@@ -145,19 +180,37 @@
                 @if (_addingNew)
                 {
                     <div class="ec-domain-rule-form">
-                        <p class="ec-domain-rule-intro">Sets the domain suffix dnsmasq uses: DHCP domain option, which FQDNs hosts may claim, and (with <code>expand-hosts</code>) how simple names are qualified in DNS.</p>
-                        <label class="form-label">Edit as raw line</label>
-                        <div class="form-check">
-                            <input type="checkbox" class="form-check-input" id="domain-add-raw"
-                                   checked="@_draftUseRaw"
-                                   @onchange="@(e => OnDraftUseRawChanged(e.Value is true))" />
-                            <label class="form-check-label" for="domain-add-raw">Edit as single line (advanced)</label>
+                        <div class="ec-domain-rule-toolbar">
+                            <div class="ec-domain-rule-toolbar__group">
+                                <span class="form-label mb-0">Editor mode</span>
+                                <button type="button"
+                                        class="btn btn-link btn-sm text-muted ec-domain-rule-help p-0 border-0"
+                                        title="@DomainRuleEditorHelpText"
+                                        aria-label="@DomainRuleEditorHelpText"
+                                        @onclick="ShowDomainRuleEditorHelp">
+                                    <i class="bi bi-question-circle" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <div class="ec-domain-rule-mode-toggle" role="group" aria-label="Domain rule editor mode">
+                                <button type="button"
+                                        class="btn btn-sm ec-domain-rule-mode-btn @(!_draftUseRaw ? "ec-domain-rule-mode-btn--active" : null)"
+                                        aria-pressed="@(!_draftUseRaw ? "true" : "false")"
+                                        @onclick="() => OnDraftUseRawChanged(false)">
+                                    Guided
+                                </button>
+                                <button type="button"
+                                        class="btn btn-sm ec-domain-rule-mode-btn @(_draftUseRaw ? "ec-domain-rule-mode-btn--active" : null)"
+                                        aria-pressed="@(_draftUseRaw ? "true" : "false")"
+                                        @onclick="() => OnDraftUseRawChanged(true)">
+                                    Raw line
+                                </button>
+                            </div>
                         </div>
                         @if (_draftUseRaw)
                         {
-                            <textarea class="form-control form-control-sm font-monospace" rows="2"
-                                      @bind="_draftRawLine" @bind:event="oninput"
-                                      placeholder="domain[,subnet|IP|interface[,local]]"></textarea>
+                            <input class="form-control form-control-sm font-monospace"
+                                   @bind="_draftRawLine" @bind:event="oninput"
+                                   placeholder="domain[,subnet|IP|interface[,local]]" />
                         }
                         else
                         {
@@ -166,6 +219,16 @@
                                 <input id="domain-add-dom" class="form-control form-control-sm"
                                        placeholder="e.g. home.arpa or #"
                                        @bind="_draftDomain" @bind:event="oninput" />
+                                <div class="ec-domain-rule-hint-row">
+                                    <div class="ec-domain-rule-hint">Use <code>#</code> to take the search domain from resolv.conf.</div>
+                                    <button type="button"
+                                            class="btn btn-link btn-sm text-muted ec-domain-rule-help p-0 border-0"
+                                            title="@HashDomainHelpText"
+                                            aria-label="@HashDomainHelpText"
+                                            @onclick="ShowHashDomainHelp">
+                                        <i class="bi bi-question-circle" aria-hidden="true"></i>
+                                    </button>
+                                </div>
                             </div>
                             <div>
                                 <label class="form-label" for="domain-add-scope">Applies to</label>
@@ -181,8 +244,9 @@
                                 <div>
                                     <label class="form-label" for="domain-add-mid">Subnet or IP</label>
                                     <input id="domain-add-mid" class="form-control form-control-sm"
-                                           placeholder="e.g. 192.168.0.0/24"
+                                           placeholder="e.g. 192.168.0.0/24 or 192.168.0.1"
                                            @bind="_draftMiddle" @bind:event="oninput" />
+                                    <div class="ec-domain-rule-hint">Single IP, CIDR, or start,end pair per dnsmasq docs.</div>
                                 </div>
                                 <div class="form-check">
                                     <input type="checkbox" class="form-check-input" id="domain-add-loc"
@@ -197,18 +261,25 @@
                                 <div>
                                     <label class="form-label" for="domain-add-if">Interface</label>
                                     <input id="domain-add-if" class="form-control form-control-sm"
-                                           placeholder="e.g. eth0"
+                                           placeholder="e.g. eth0 or br0"
                                            @bind="_draftMiddle" @bind:event="oninput" />
                                 </div>
                             }
                             else if (_draftScopeSelect == "unconditional")
                             {
-                                <div class="form-check">
+                                <div class="form-check ec-domain-rule-local-check">
                                     <input type="checkbox" class="form-check-input" id="domain-add-loc2"
                                            @bind="_draftAddLocal" />
                                     <label class="form-check-label" for="domain-add-loc2">
-                                        Append <code>,local</code> (uncommon)
+                                        Append <code>,local</code>
                                     </label>
+                                    <button type="button"
+                                            class="btn btn-link btn-sm text-muted ec-domain-rule-help p-0 border-0"
+                                            title="@LocalSuffixHelpText"
+                                            aria-label="@LocalSuffixHelpText"
+                                            @onclick="ShowLocalSuffixHelp">
+                                        <i class="bi bi-question-circle" aria-hidden="true"></i>
+                                    </button>
                                 </div>
                             }
                         }
@@ -230,7 +301,7 @@
                 }
             </li>
         }
-    </ul>
+    </ol>
 </div>
 
 @code {
@@ -353,6 +424,12 @@
 
         _draftUseRaw = useRaw;
     }
+
+    private void ShowDomainRuleEditorHelp() => NotificationService.ShowInfo(DomainRuleEditorHelpText);
+
+    private void ShowLocalSuffixHelp() => NotificationService.ShowInfo(LocalSuffixHelpText);
+
+    private void ShowHashDomainHelp() => NotificationService.ShowInfo(HashDomainHelpText);
 
     private void OnDraftScopeAfterChange()
     {
@@ -490,4 +567,13 @@
         await OnValuesChanged.InvokeAsync(next);
         StateHasChanged();
     }
+
+    private const string DomainRuleEditorHelpText =
+        "domain= sets the suffix dnsmasq uses for DHCP and local DNS naming. Guided mode builds the rule from fields; Raw line mode lets you enter the exact dnsmasq config line directly.";
+
+    private const string LocalSuffixHelpText =
+        "Appending ,local behaves like a matching --local rule for this domain, making dnsmasq answer locally instead of forwarding it upstream. This is uncommon for an unconditional domain= rule.";
+
+    private const string HashDomainHelpText =
+        "Use # as the domain value to take the search domain from resolv.conf instead of hard-coding a suffix in dnsmasq.";
 }

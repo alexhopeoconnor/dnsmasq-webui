@@ -38,42 +38,10 @@ else
                     </li>
                 }
             }
-            @if (Context.ShowEditableBadge && Context.EffectiveItems.Count > 0)
-            {
-                <li class="ec-multi-list-entry-point">
-                    <OptionStateBadge
-                        OptionName="@Context.Descriptor.OptionName"
-                        ShowEditableBadge="true"
-                        EditableAsButton="true"
-                        FieldKey="@Context.FieldKey"
-                        IsActiveEditor="false"
-                        IsInteractive="true"
-                        HasPendingChange="@Context.HasPendingOrDraft"
-                        IsCapabilityDisabled="@Context.Descriptor.IsCapabilityDisabled"
-                        CapabilityDisabledReason="@Context.Descriptor.CapabilityDisabledReason" />
-                </li>
-            }
-            else if (Context.EffectiveItems.Count == 0)
+            else
             {
                 <li class="ec-multi-list-empty-hint">
-                    @if (Context.ShowEditableBadge)
-                    {
-                        <span class="text-muted">(none)</span>
-                        <OptionStateBadge
-                            OptionName="@Context.Descriptor.OptionName"
-                            ShowEditableBadge="true"
-                            EditableAsButton="true"
-                            FieldKey="@Context.FieldKey"
-                            IsActiveEditor="false"
-                            IsInteractive="true"
-                            HasPendingChange="@Context.HasPendingOrDraft"
-                            IsCapabilityDisabled="@Context.Descriptor.IsCapabilityDisabled"
-                            CapabilityDisabledReason="@Context.Descriptor.CapabilityDisabledReason" />
-                    }
-                    else
-                    {
-                        <span class="text-muted">(none)</span>
-                    }
+                    <span class="text-muted">(none)</span>
                 </li>
             }
         </ol>

@@ -13,14 +13,18 @@
 }
 
 .ec-multi-list-row {
+    min-height: 2rem;
+}
+
+.ec-multi-list-row-body {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 0.5rem;
-    min-height: 2rem;
+    min-width: 0;
 }
 
-.ec-multi-list-row.ec-multi-list-row-with-controls {
+.ec-multi-list-row.ec-multi-list-row-with-controls .ec-multi-list-row-body {
     align-items: flex-start;
 }
 
@@ -47,18 +51,18 @@
     width: 100%;
 }
 
-.ec-multi-list-row .ec-field-value-item {
+.ec-multi-list-row-body .ec-field-value-item {
     min-width: 0;
 }
 
-.ec-multi-list-row .status-badge-inline {
+.ec-multi-list-row-body .status-badge-inline {
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
     flex-shrink: 0;
 }
 
-.ec-multi-list-row .form-control.ec-multi-list-input {
+.ec-multi-list-row-body .form-control.ec-multi-list-input {
     max-width: none;
     flex-shrink: 0;
     width: 100%;
@@ -86,7 +90,7 @@
     max-width: none;
 }
 
-.ec-multi-list-add-item .status-badge-inline {
+.ec-multi-list-add-item > .ec-multi-list-row-controls > .status-badge-inline {
     margin-left: auto;
 }
 

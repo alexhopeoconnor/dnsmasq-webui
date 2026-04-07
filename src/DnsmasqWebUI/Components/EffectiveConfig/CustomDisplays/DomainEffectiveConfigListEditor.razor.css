@@ -7,32 +7,22 @@
     background-color: var(--bs-body-bg, #fff);
 }
 
-.ec-domain-rule-editor .ec-field-value-list,
-.ec-domain-rule-list {
-    list-style: none;
+/* Keep <ol> markers (decimal) like the default multi-value editor; do not reset list-style here. */
+.ec-domain-rule-editor .ec-field-value-list {
     margin-bottom: 0;
-    padding-left: 0;
-}
-
-.ec-domain-rule-list > li {
-    list-style: none;
-}
-
-.ec-domain-rule-intro {
-    font-size: 0.8rem;
-    color: var(--bs-secondary-color, #6c757d);
-    margin-bottom: 0.35rem;
-    line-height: 1.35;
 }
 
 .ec-domain-rule-row {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
     min-height: 2rem;
 }
 
-.ec-domain-rule-row.ec-domain-rule-row-editing {
+.ec-domain-rule-row-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.ec-domain-rule-row.ec-domain-rule-row-editing .ec-domain-rule-row-body {
     align-items: stretch;
 }
 
@@ -52,11 +42,75 @@
     color: var(--bs-secondary-color, #6c757d);
 }
 
+.ec-domain-rule-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 0.75rem;
+    flex-wrap: wrap;
+}
+
+.ec-domain-rule-toolbar__group {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.ec-domain-rule-mode-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.2rem;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 999px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.ec-domain-rule-mode-btn {
+    border: 0;
+    border-radius: 999px;
+    padding: 0.2rem 0.65rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #475569;
+    background: transparent;
+    box-shadow: none;
+}
+
+.ec-domain-rule-mode-btn:hover,
+.ec-domain-rule-mode-btn:focus-visible {
+    color: #0f172a;
+    background: rgba(148, 163, 184, 0.12);
+}
+
+.ec-domain-rule-mode-btn--active,
+.ec-domain-rule-mode-btn--active:hover,
+.ec-domain-rule-mode-btn--active:focus-visible {
+    color: #fff;
+    background: linear-gradient(180deg, #0d6efd 0%, #0a58ca 100%);
+}
+
+.ec-domain-rule-help {
+    line-height: 1;
+    text-decoration: none;
+}
+
+.ec-domain-rule-help:hover,
+.ec-domain-rule-help:focus-visible {
+    color: var(--bs-primary) !important;
+}
+
 .ec-domain-rule-actions {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     flex-wrap: wrap;
     gap: 0.35rem;
+}
+
+.ec-domain-rule-editor .ec-field-value-list li.ec-multi-list-add-item .ec-domain-rule-actions .status-badge-inline,
+.ec-domain-rule-actions .status-badge-inline {
+    margin-left: 0;
 }
 
 .ec-domain-rule-summary {
@@ -76,4 +130,21 @@
     font-size: 0.75rem;
     color: var(--bs-secondary-color, #6c757d);
     margin-top: -0.25rem;
+}
+
+.ec-domain-rule-hint-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.25rem;
+}
+
+.ec-domain-rule-local-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.35rem;
+}
+
+.ec-domain-rule-local-check .form-check-label {
+    flex: 1 1 auto;
+    min-width: 0;
 }
