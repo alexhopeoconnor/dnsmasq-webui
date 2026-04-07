@@ -5,6 +5,7 @@
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 @using DnsmasqWebUI.Models.Dnsmasq.PageStates
 @using DnsmasqWebUI.Models.Hosts
+@using DnsmasqWebUI.Models.Ui
 @using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
 @using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Hosts.Abstractions
 @using DnsmasqWebUI.Infrastructure.Serialization.Parsers.DnsmasqConfig
@@ -78,63 +79,31 @@ else
                            @bind="_search"
                            @bind:event="oninput" />
                     <label class="visually-hidden" for="hosts-file-filter-trigger">Hosts file</label>
-                    <div class="hosts-file-filter-wrap @(_fileFilterMenuOpen ? "hosts-file-filter-wrap--open" : null)">
-                        @if (_fileFilterMenuOpen)
-                        {
-                            <div class="hosts-file-filter-backdrop" @onclick="CloseFileFilterMenu" aria-hidden="true"></div>
-                        }
-                        <button type="button"
-                                id="hosts-file-filter-trigger"
-                                class="hosts-file-filter-toggle hosts-toolbar-file-filter"
-                                title="Show entries from all loaded hosts files, or only one file"
-                                aria-label="Filter by hosts file"
-                                aria-haspopup="listbox"
-                                aria-expanded="@(_fileFilterMenuOpen ? "true" : "false")"
-                                aria-controls="hosts-file-filter-menu"
-                                @onclick="ToggleFileFilterMenu"
-                                @onclick:stopPropagation="true">
-                            <span class="hosts-file-filter-toggle-label text-truncate">@FileFilterSummaryText</span>
-                            <i class="bi bi-chevron-down hosts-file-filter-chevron flex-shrink-0" aria-hidden="true"></i>
-                        </button>
-                        @if (_fileFilterMenuOpen)
-                        {
-                            <div id="hosts-file-filter-menu"
-                                 class="hosts-file-filter-panel shadow"
-                                 role="listbox"
-                                 aria-label="Hosts files"
-                                 @onclick:stopPropagation="true">
+                    <div class="hosts-file-filter-wrap">
+                        <GroupedSelectDropdown TValue="string"
+                                               @ref="_hostsFileFilterDropdown"
+                                               Builder="HostsFileFilterBuilder"
+                                               @bind-Value="_sourceFileFilter"
+                                               @bind-Value:after="OnSourceFileFilterChangedAfterBind"
+                                               TriggerId="hosts-file-filter-trigger"
+                                               MenuId="hosts-file-filter-menu"
+                                               TriggerClass="hosts-toolbar-file-filter">
+                            <OptionTemplate Context="ctx">
                                 <button type="button"
-                                        class="hosts-file-filter-option hosts-file-filter-option--all @(string.IsNullOrWhiteSpace(_sourceFileFilter) ? "hosts-file-filter-option--active" : null)"
+                                        class="hosts-file-filter-option @(ctx.IsSelected ? "hosts-file-filter-option--active" : null)"
                                         role="option"
-                                        aria-selected="@(string.IsNullOrWhiteSpace(_sourceFileFilter) ? "true" : "false")"
-                                        @onclick="@(() => SelectSourceFileFilter(""))">
-                                    <span class="hosts-file-filter-option-main">All files</span>
-                                    <span class="hosts-file-filter-count">@HostsTotalDataRowCount</span>
+                                        aria-selected="@(ctx.IsSelected ? "true" : "false")"
+                                        title="@(ctx.Option.Title ?? ctx.Option.Label)"
+                                        @onclick="ctx.OnSelect">
+                                    <span class="hosts-file-filter-option-main hosts-file-filter-option-path"
+                                          title="@(ctx.Option.Title ?? ctx.Option.Label)">@(ctx.Option.Title ?? ctx.Option.Label)</span>
+                                    @if (ctx.Option.Count is not null)
+                                    {
+                                        <span class="hosts-file-filter-count">@ctx.Option.Count</span>
+                                    }
                                 </button>
-                                @foreach (var group in FileFilterMenuGroups)
-                                {
-                                    <div class="hosts-file-filter-group hosts-file-filter-group--@FileFilterGroupKindClass(group.SourceKind)">
-                                        <div class="hosts-file-filter-group-header" role="presentation">
-                                            <span class="hosts-file-filter-group-title">@group.Title</span>
-                                        </div>
-                                        @foreach (var file in group.Files)
-                                        {
-                                            var path = file.Path;
-                                            var active = IsSourceFilePathSelected(path);
-                                            <button type="button"
-                                                    class="hosts-file-filter-option @(active ? "hosts-file-filter-option--active" : null)"
-                                                    role="option"
-                                                    aria-selected="@(active ? "true" : "false")"
-                                                    title="@path"
-                                                    @onclick="@(() => SelectSourceFileFilter(path))">
-                                                <span class="hosts-file-filter-option-main hosts-file-filter-path" title="@path">@path</span>
-                                                <span class="hosts-file-filter-count">@file.RecordCount</span>
-                                            </button>
-                                        }
-                                    </div>
-                                }
-                            </div>
-                        }
+                            </OptionTemplate>
+                        </GroupedSelectDropdown>
                     </div>
                 </div>
             </div>
@@ -619,71 +588,18 @@ else
             ActiveFilter: null);
     }
 
-    private bool _fileFilterMenuOpen;
+    private GroupedSelectDropdown<string>? _hostsFileFilterDropdown;
 
-    private IReadOnlyList<HostsFileFilterMenuGroup> FileFilterMenuGroups =>
-        HostsSourcePathDisplay.BuildFileFilterMenuGroups(_unifiedRows, _status?.ManagedHostsFilePath);
-
-    private int HostsTotalDataRowCount => _unifiedRows.Count(r => !r.IsComment);
-
-    private string FileFilterSummaryText
-    {
-        get
-        {
-            if (string.IsNullOrWhiteSpace(_sourceFileFilter))
-            {
-                var n = HostsTotalDataRowCount;
-                return n == 0 ? "All files" : $"All files · {n} records";
-            }
-
-            var trimmed = _sourceFileFilter.Trim();
-            foreach (var g in FileFilterMenuGroups)
-            {
-                foreach (var f in g.Files)
-                {
-                    if (string.Equals(f.Path, trimmed, StringComparison.OrdinalIgnoreCase))
-                    {
-                        var prefix = HostsSourcePathDisplay.GroupSummaryPrefix(g.SourceKind);
-                        return $"{prefix} · {f.FileName} ({f.RecordCount})";
-                    }
-                }
-            }
-
-            return HostsSourcePathDisplay.FormatOptionLabel(trimmed);
-        }
-    }
-
-    private void ToggleFileFilterMenu() => _fileFilterMenuOpen = !_fileFilterMenuOpen;
-
-    private void CloseFileFilterMenu() => _fileFilterMenuOpen = false;
-
-    private void SelectSourceFileFilter(string path)
-    {
-        _sourceFileFilter = path ?? "";
-        CloseFileFilterMenu();
-        OnSourceFileFilterChangedAfterBind();
-    }
+    private IGroupedSelectBuilder<string> HostsFileFilterBuilder =>
+        new HostsFileFilterBuilder(_unifiedRows, _status?.ManagedHostsFilePath);
 
     private async Task OnHostsToolbarKeyDown(KeyboardEventArgs e)
     {
-        if (!_fileFilterMenuOpen || e.Key != "Escape")
+        if (e.Key != "Escape")
             return;
-        CloseFileFilterMenu();
-        await InvokeAsync(StateHasChanged);
+        if (_hostsFileFilterDropdown?.CloseMenu() == true)
+            await InvokeAsync(StateHasChanged);
     }
-
-    private bool IsSourceFilePathSelected(string path) =>
-        !string.IsNullOrWhiteSpace(_sourceFileFilter)
-        && string.Equals(_sourceFileFilter.Trim(), path.Trim(), StringComparison.OrdinalIgnoreCase);
-
-    private static string FileFilterGroupKindClass(HostsRowSourceKind kind) => kind switch
-    {
-        HostsRowSourceKind.Managed => "managed",
-        HostsRowSourceKind.SystemHosts => "system",
-        HostsRowSourceKind.AddnHosts => "addn",
-        HostsRowSourceKind.Hostsdir => "hostsdir",
-        _ => "other"
-    };
 
     private void OnSourceFileFilterChangedAfterBind()
     {
@@ -950,9 +866,8 @@ else
         if (_showRemoveHostsModal || _showInvalidHostEditModal)
             return;
 
-        if (_fileFilterMenuOpen && e.Key == "Escape")
+        if (e.Key == "Escape" && (_hostsFileFilterDropdown?.CloseMenu() ?? false))
         {
-            CloseFileFilterMenu();
             await InvokeAsync(StateHasChanged);
             return;
         }

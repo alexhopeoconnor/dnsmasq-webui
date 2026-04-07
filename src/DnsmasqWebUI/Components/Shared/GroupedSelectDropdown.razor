@@ -1,0 +1,187 @@
+@typeparam TValue
+@using DnsmasqWebUI.Models.Ui
+
+<div class="grouped-select @(_open ? "grouped-select--open" : null)"
+     @onkeydown="OnKeyDown">
+    @if (_open)
+    {
+        <div class="grouped-select__backdrop" @onclick="Close" aria-hidden="true"></div>
+    }
+    @{
+        var triggerSummaryProvider = Builder as IGroupedSelectTriggerSummary<TValue>;
+        var triggerSummary = triggerSummaryProvider?.GetTriggerSummary(Value);
+        var summaryText = triggerSummary?.AccessibleFullText ?? Builder.GetSummaryText(Value);
+        var triggerKindClass = triggerSummary?.Kind switch
+        {
+            GroupedSelectTriggerSummaryKind.SingleSource => "grouped-select__trigger--filtered",
+            GroupedSelectTriggerSummaryKind.UnknownSource => "grouped-select__trigger--unknown",
+            _ => null
+        };
+    }
+    <button type="button"
+            id="@TriggerId"
+            class="grouped-select__trigger @TriggerClass @triggerKindClass"
+            title="@($"{Builder.TriggerTitle} — {summaryText}")"
+            aria-label="@($"{Builder.TriggerAriaLabel}. Current: {summaryText}")"
+            aria-haspopup="listbox"
+            aria-expanded="@(_open ? "true" : "false")"
+            aria-controls="@MenuId"
+            @onclick="Toggle"
+            @onclick:stopPropagation="true">
+        @if (triggerSummary is not null)
+        {
+            <span class="grouped-select__trigger-label grouped-select__trigger-label--rich">
+                @if (!string.IsNullOrEmpty(triggerSummary.CategoryPrefix))
+                {
+                    <span class="grouped-select__trigger-prefix">@triggerSummary.CategoryPrefix</span>
+                    <span class="grouped-select__trigger-sep" aria-hidden="true">·</span>
+                }
+                <span class="grouped-select__trigger-primary text-truncate">@triggerSummary.PrimaryLabel</span>
+                @if (!string.IsNullOrEmpty(triggerSummary.SecondaryMeta))
+                {
+                    @if (triggerSummary.Kind == GroupedSelectTriggerSummaryKind.SingleSource)
+                    {
+                        <span class="grouped-select__trigger-count" aria-hidden="true">@triggerSummary.SecondaryMeta</span>
+                    }
+                    else
+                    {
+                        <span class="grouped-select__trigger-meta" aria-hidden="true">· @triggerSummary.SecondaryMeta</span>
+                    }
+                }
+            </span>
+        }
+        else
+        {
+            <span class="grouped-select__trigger-label text-truncate">@Builder.GetSummaryText(Value)</span>
+        }
+        <i class="bi bi-chevron-down grouped-select__chevron flex-shrink-0" aria-hidden="true"></i>
+    </button>
+    @if (_open)
+    {
+        var model = Builder.Build();
+        <div id="@MenuId"
+             class="grouped-select__panel shadow"
+             role="listbox"
+             aria-label="@Builder.MenuAriaLabel"
+             @onclick:stopPropagation="true">
+            @if (model.AllOption is not null)
+            {
+                var allSelected = IsSelected(model.AllOption.Value);
+                @if (AllOptionTemplate is not null)
+                {
+                    @AllOptionTemplate(new GroupedSelectAllOptionContext<TValue>(
+                        model.AllOption,
+                        allSelected,
+                        EventCallback.Factory.Create(this, () => Select(model.AllOption!.Value))))
+                }
+                else
+                {
+                    var option = model.AllOption;
+                    <button type="button"
+                            class="grouped-select__option grouped-select__option--all @(allSelected ? "grouped-select__option--active" : null)"
+                            role="option"
+                            aria-selected="@(allSelected ? "true" : "false")"
+                            @onclick="async () => await Select(option.Value)">
+                        <span class="grouped-select__option-main">@option.Label</span>
+                        @if (option.Count is not null)
+                        {
+                            <span class="grouped-select__count">@option.Count</span>
+                        }
+                    </button>
+                }
+            }
+            @foreach (var grp in model.Sections.OrderBy(s => s.Order))
+            {
+                <div class="grouped-select__group grouped-select__group--@(grp.Kind ?? "other")">
+                    @if (GroupHeaderTemplate is not null)
+                    {
+                        @GroupHeaderTemplate(grp)
+                    }
+                    else
+                    {
+                        <div class="grouped-select__group-header" role="presentation">@grp.Label</div>
+                    }
+                    @foreach (var option in grp.Options)
+                    {
+                        <div @key="option.Value">
+                            @if (OptionTemplate is not null)
+                            {
+                                var active = IsSelected(option.Value);
+                                @OptionTemplate(new GroupedSelectOptionSelectContext<TValue>(
+                                    option,
+                                    active,
+                                    EventCallback.Factory.Create(this, () => Select(option.Value))))
+                            }
+                            else
+                            {
+                                var active = IsSelected(option.Value);
+                                <button type="button"
+                                        class="grouped-select__option @(active ? "grouped-select__option--active" : null)"
+                                        role="option"
+                                        aria-selected="@(active ? "true" : "false")"
+                                        title="@(option.Title ?? option.Label)"
+                                        @onclick="async () => await Select(option.Value)">
+                                    <span class="grouped-select__option-main"
+                                          title="@(option.Title ?? option.Label)">@option.Label</span>
+                                    @if (option.Count is not null)
+                                    {
+                                        <span class="grouped-select__count">@option.Count</span>
+                                    }
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IGroupedSelectBuilder<TValue> Builder { get; set; } = default!;
+    [Parameter] public TValue? Value { get; set; }
+    [Parameter] public EventCallback<TValue?> ValueChanged { get; set; }
+    [Parameter] public string TriggerId { get; set; } = "grouped-select-trigger";
+    [Parameter] public string MenuId { get; set; } = "grouped-select-menu";
+    [Parameter] public string TriggerClass { get; set; } = "";
+    [Parameter] public RenderFragment<GroupedSelectSection<TValue>>? GroupHeaderTemplate { get; set; }
+    [Parameter] public RenderFragment<GroupedSelectOptionSelectContext<TValue>>? OptionTemplate { get; set; }
+    [Parameter] public RenderFragment<GroupedSelectAllOptionContext<TValue>>? AllOptionTemplate { get; set; }
+
+    private bool _open;
+
+    public bool CloseMenu()
+    {
+        if (!_open)
+            return false;
+        _open = false;
+        StateHasChanged();
+        return true;
+    }
+
+    private void Toggle() => _open = !_open;
+
+    private void Close()
+    {
+        _open = false;
+    }
+
+    private async Task Select(TValue? value)
+    {
+        _open = false;
+        await ValueChanged.InvokeAsync(value);
+    }
+
+    private bool IsSelected(TValue? candidate) =>
+        EqualityComparer<TValue?>.Default.Equals(Value, candidate);
+
+    private Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (_open && e.Key == "Escape")
+        {
+            _open = false;
+            StateHasChanged();
+        }
+        return Task.CompletedTask;
+    }
+}

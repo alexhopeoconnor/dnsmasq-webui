@@ -74,85 +74,23 @@
     max-width: none;
 }
 
-/* File filter: wrapper keeps toolbar flex slot; menu layers above table when open. */
+/* Flex slot for file filter; inner GroupedSelectDropdown fills width (matches pre-extract layout). */
 .hosts-file-filter-wrap {
     position: relative;
-    flex: 0 0 auto;
-    min-width: 13.5rem;
-    max-width: 22rem;
+    flex: 0 1 22rem;
+    min-width: min(13.5rem, 100%);
+    max-width: min(22rem, 100%);
     width: auto;
 }
 
-.hosts-file-filter-wrap--open {
-    z-index: 1080;
-}
-
-.hosts-file-filter-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 1070;
-    background: transparent;
-}
-
-.hosts-file-filter-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.35rem;
+.hosts-file-filter-wrap ::deep .grouped-select {
+    display: block;
     width: 100%;
-    padding: 0.25rem 0.55rem;
-    font-size: 0.875rem;
-    line-height: 1.5;
-    text-align: left;
-    color: var(--bs-body-color);
-    background-color: var(--bs-body-bg);
-    border: 1px solid var(--bs-border-color);
-    border-radius: var(--bs-border-radius-sm);
-    transition: border-color 0.12s ease, box-shadow 0.12s ease;
-}
-
-.hosts-file-filter-toggle:hover {
-    border-color: #bfc7d4;
-}
-
-.hosts-file-filter-wrap--open .hosts-file-filter-toggle {
-    border-color: #86b7fe;
-    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.2);
-}
-
-.hosts-file-filter-toggle-label {
     min-width: 0;
+    max-width: none;
 }
 
-.hosts-file-filter-chevron {
-    font-size: 0.75rem;
-    opacity: 0.65;
-    transition: transform 0.15s ease;
-}
-
-.hosts-file-filter-wrap--open .hosts-file-filter-chevron {
-    transform: rotate(180deg);
-}
-
-.hosts-file-filter-panel {
-    position: absolute;
-    top: calc(100% + 4px);
-    right: 0;
-    left: auto;
-    min-width: 100%;
-    width: max-content;
-    max-width: min(26rem, 92vw);
-    max-height: min(22rem, 55vh);
-    overflow-x: hidden;
-    overflow-y: auto;
-    z-index: 1085;
-    padding: 0.35rem;
-    background: var(--bs-body-bg, #fff);
-    border: 1px solid var(--bs-border-color, #e2e8f0);
-    border-radius: 10px;
-}
-
-.hosts-file-filter-option {
+.hosts-file-filter-wrap ::deep .hosts-file-filter-option {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -170,32 +108,26 @@
     cursor: pointer;
 }
 
-.hosts-file-filter-option:hover {
+.hosts-file-filter-wrap ::deep .hosts-file-filter-option:hover {
     background: rgba(15, 23, 42, 0.06);
 }
 
-.hosts-file-filter-option--active {
+.hosts-file-filter-wrap ::deep .hosts-file-filter-option--active {
     background: rgba(13, 110, 253, 0.12);
     font-weight: 600;
 }
 
-.hosts-file-filter-option--active:hover {
+.hosts-file-filter-wrap ::deep .hosts-file-filter-option--active:hover {
     background: rgba(13, 110, 253, 0.18);
 }
 
-.hosts-file-filter-option--all {
-    margin-bottom: 0.25rem;
-    border: 1px solid #e7ebf0;
-    background: linear-gradient(180deg, #fbfcfe 0%, #f4f6f9 100%);
-}
-
-.hosts-file-filter-option-main {
+.hosts-file-filter-wrap ::deep .hosts-file-filter-option-main {
     flex: 1 1 0%;
     min-width: 0;
 }
 
-/* Full path when width allows; when truncated, keep the end (usually the filename) visible. Full path in title for hover. */
-.hosts-file-filter-path {
+/* Hosts-specific menu rows show the full path, but truncate from the left so the filename stays visible. */
+.hosts-file-filter-wrap ::deep .hosts-file-filter-option-path {
     display: block;
     overflow: hidden;
     white-space: nowrap;
@@ -205,7 +137,7 @@
     unicode-bidi: plaintext;
 }
 
-.hosts-file-filter-count {
+.hosts-file-filter-wrap ::deep .hosts-file-filter-count {
     flex-shrink: 0;
     padding: 0.1rem 0.45rem;
     font-size: 0.7rem;
@@ -217,55 +149,9 @@
     border-radius: 999px;
 }
 
-.hosts-file-filter-option--active .hosts-file-filter-count {
+.hosts-file-filter-wrap ::deep .hosts-file-filter-option--active .hosts-file-filter-count {
     color: #0d47a1;
     background: rgba(13, 110, 253, 0.2);
-}
-
-.hosts-file-filter-group {
-    margin-top: 0.35rem;
-    padding: 0.3rem 0.35rem 0.45rem;
-    border-radius: 8px;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-}
-
-.hosts-file-filter-group:first-of-type {
-    margin-top: 0;
-}
-
-.hosts-file-filter-group--managed {
-    background: linear-gradient(180deg, #e8f4fd 0%, #dceef9 100%);
-    border-color: #b8d4ee;
-}
-
-.hosts-file-filter-group--system {
-    background: linear-gradient(180deg, #f1f5f9 0%, #e8edf3 100%);
-    border-color: #cbd5e1;
-}
-
-.hosts-file-filter-group--addn {
-    background: linear-gradient(180deg, #fff8e6 0%, #fff0cc 100%);
-    border-color: #e9d48a;
-}
-
-.hosts-file-filter-group--hostsdir {
-    background: linear-gradient(180deg, #ecfdf3 0%, #dff6e8 100%);
-    border-color: #a7e3c0;
-}
-
-.hosts-file-filter-group--other {
-    background: #f8fafc;
-}
-
-.hosts-file-filter-group-header {
-    padding: 0.2rem 0.35rem 0.45rem;
-    font-size: 0.65rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: #334155;
-    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-    margin-bottom: 0.15rem;
 }
 
 .hosts-toolbar-select {
