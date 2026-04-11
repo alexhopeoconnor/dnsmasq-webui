@@ -1,5 +1,6 @@
 using System.Linq;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.DnsRecords.Abstractions;
+using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata;
 using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Validation.Abstractions;
 using DnsmasqWebUI.Models.Dnsmasq;
@@ -12,43 +13,57 @@ public sealed class DnsRecordsPageProjectionService : IDnsRecordsPageProjectionS
 {
     private readonly IDnsRecordDirectiveCodecProvider _codecs;
     private readonly IOptionSemanticValidator _semanticValidator;
+    private readonly IEffectiveMultiValueProjectionService _multiValueProjection;
     private readonly DnsRecordConflictAnalyzer _conflicts = new();
 
     public DnsRecordsPageProjectionService(
         IDnsRecordDirectiveCodecProvider codecs,
-        IOptionSemanticValidator semanticValidator)
+        IOptionSemanticValidator semanticValidator,
+        IEffectiveMultiValueProjectionService multiValueProjection)
     {
         _codecs = codecs;
         _semanticValidator = semanticValidator;
+        _multiValueProjection = multiValueProjection;
     }
 
     /// <inheritdoc />
-    public IReadOnlyList<DnsRecordRow> BuildRows(DnsmasqServiceStatus status)
+    public IReadOnlyList<DnsRecordRow> BuildRows(
+        DnsmasqServiceStatus status,
+        Func<string, IReadOnlyList<string>>? currentValuesAccessor = null)
     {
         if (status.EffectiveConfig == null)
             return [];
 
-        var ec = status.EffectiveConfig;
         var list = new List<DnsRecordRow>();
         foreach (var optionName in _codecs.DnsRecordsSectionOptionNames)
         {
             if (!_codecs.TryGet(optionName, out var codec) || codec == null)
                 continue;
 
-            var items = GetValueWithSources(status, ec, optionName);
+            var currentValues = currentValuesAccessor?.Invoke(optionName) ?? GetPlainValues(status.EffectiveConfig, optionName);
+            var items = ProjectOccurrences(status, optionName, currentValues);
             for (var i = 0; i < items.Count; i++)
             {
-                var row = codec.Parse(items[i], i);
+                var item = items[i];
+                var row = codec.Parse(new ValueWithSource(item.Value, item.Source), item.EffectiveIndex);
                 var issues = new List<DnsRecordIssue>();
                 var semantics = EffectiveConfigSpecialOptionSemantics.TryGetSemantics(optionName);
                 if (semantics != null)
                 {
-                    var err = _semanticValidator.ValidateMultiItem(optionName, items[i].Value, semantics.Validation);
+                    var err = _semanticValidator.ValidateMultiItem(optionName, item.Value, semantics.Validation);
                     if (err != null)
                         issues.Add(new DnsRecordIssue(err, semantics.Validation.Severity));
                 }
 
-                row = row with { Issues = issues };
+                row = row with
+                {
+                    OccurrenceId = item.OccurrenceId,
+                    Issues = issues,
+                    SourcePath = item.DisplaySourcePath,
+                    SourceLabel = item.DisplaySourceLabel,
+                    IsDraftOnly = item.IsDraftOnly,
+                    IsEditable = item.IsEditable
+                };
                 list.Add(row);
             }
         }
@@ -77,7 +92,7 @@ public sealed class DnsRecordsPageProjectionService : IDnsRecordsPageProjectionS
         if (!string.IsNullOrWhiteSpace(query.SourcePathFilter))
         {
             var path = query.SourcePathFilter.Trim();
-            q = q.Where(r => string.Equals(r.Source?.FilePath, path, StringComparison.OrdinalIgnoreCase));
+            q = q.Where(r => string.Equals(r.SourcePath, path, StringComparison.OrdinalIgnoreCase));
         }
 
         if (query.UiFamily != DnsRecordsUiFamily.All)
@@ -92,6 +107,17 @@ public sealed class DnsRecordsPageProjectionService : IDnsRecordsPageProjectionS
         }
 
         return q.ToList();
+    }
+
+    public IReadOnlyList<ProjectedMultiValueOccurrence> ProjectOccurrences(
+        DnsmasqServiceStatus status,
+        string optionName,
+        IReadOnlyList<string> currentValues)
+    {
+        return _multiValueProjection.Project(
+            currentValues,
+            GetBaselineValues(status, optionName),
+            status.ManagedFilePath);
     }
 
     private static bool MatchesUiFamily(DnsRecordRow row, DnsRecordsUiFamily ui) => ui switch
@@ -113,18 +139,17 @@ public sealed class DnsRecordsPageProjectionService : IDnsRecordsPageProjectionS
             row.OptionName,
             row.RawValue,
             row.Summary,
-            row.Source?.FilePath ?? "",
-            row.Source?.FileName ?? "");
+            row.SourcePath ?? "",
+            row.SourceLabel ?? "");
         return haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static IReadOnlyList<ValueWithSource> GetValueWithSources(
+    private static IReadOnlyList<ValueWithSource>? GetBaselineValues(
         DnsmasqServiceStatus status,
-        EffectiveDnsmasqConfig ec,
         string optionName)
     {
         var sources = status.EffectiveConfigSources;
-        IReadOnlyList<ValueWithSource>? with = optionName switch
+        return optionName switch
         {
             DnsmasqConfKeys.Cname => sources?.CnameValues,
             DnsmasqConfKeys.MxHost => sources?.MxHostValues,
@@ -144,10 +169,12 @@ public sealed class DnsRecordsPageProjectionService : IDnsRecordsPageProjectionS
             DnsmasqConfKeys.AuthPeer => sources?.AuthPeerValues,
             _ => null
         };
+    }
 
-        if (with != null && with.Count > 0)
-            return with;
-
+    private static IReadOnlyList<string> GetPlainValues(
+        EffectiveDnsmasqConfig ec,
+        string optionName)
+    {
         IReadOnlyList<string>? plain = optionName switch
         {
             DnsmasqConfKeys.Cname => ec.CnameValues,
@@ -171,7 +198,6 @@ public sealed class DnsRecordsPageProjectionService : IDnsRecordsPageProjectionS
 
         if (plain == null || plain.Count == 0)
             return [];
-
-        return plain.Select(v => new ValueWithSource(v, null)).ToList();
+        return plain;
     }
 }

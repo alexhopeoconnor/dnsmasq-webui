@@ -1,4 +1,6 @@
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Filters;
+using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig;
+using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata;
 using DnsmasqWebUI.Models.Dnsmasq;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 using DnsmasqWebUI.Models.Filters;
@@ -427,7 +429,7 @@ public class FiltersPageProjectionServiceTests
             ["/ads.example/#"],
             [new ValueWithSource("/ads.example/#", managed)]);
 
-        var svc = new FiltersPageProjectionService(new FilterPolicySummaryFormatter());
+        var svc = new FiltersPageProjectionService(new FilterPolicySummaryFormatter(), new EffectiveMultiValueProjectionService());
         var groups = svc.BuildGroups(status, new FilterPolicyQueryState("", null, null, null, null));
         var blocking = groups.First(g => g.Category == FilterPolicyCategory.Blocking);
         var row = Assert.Single(blocking.Rows);
@@ -443,9 +445,30 @@ public class FiltersPageProjectionServiceTests
             ["/ads.example/#"],
             [new ValueWithSource("/ads.example/#", ro)]);
 
-        var svc = new FiltersPageProjectionService(new FilterPolicySummaryFormatter());
+        var svc = new FiltersPageProjectionService(new FilterPolicySummaryFormatter(), new EffectiveMultiValueProjectionService());
         var groups = svc.BuildGroups(status, new FilterPolicyQueryState("", null, null, null, null));
         var row = Assert.Single(groups.First(g => g.Category == FilterPolicyCategory.Blocking).Rows);
         Assert.False(row.IsEditable);
+    }
+
+    [Fact]
+    public void BuildGroups_CurrentValuesAccessor_UsesDraftManagedRows()
+    {
+        var ro = new ConfigValueSource("/etc/dnsmasq.d/z.conf", "z.conf", IsManaged: false, 2);
+        var status = MinimalStatus(
+            ["/ads.example/#"],
+            [new ValueWithSource("/ads.example/#", ro)]);
+
+        var svc = new FiltersPageProjectionService(new FilterPolicySummaryFormatter(), new EffectiveMultiValueProjectionService());
+        var groups = svc.BuildGroups(
+            status,
+            new FilterPolicyQueryState("", null, null, null, null),
+            optionName => optionName == DnsmasqConfKeys.Address ? ["/draft.example/#"] : []);
+
+        var row = Assert.Single(groups.First(g => g.Category == FilterPolicyCategory.Blocking).Rows);
+        Assert.Equal("/draft.example/#", row.RawValue);
+        Assert.True(row.IsEditable);
+        Assert.True(row.IsDraftOnly);
+        Assert.Equal("/managed.conf", row.SourcePath);
     }
 }

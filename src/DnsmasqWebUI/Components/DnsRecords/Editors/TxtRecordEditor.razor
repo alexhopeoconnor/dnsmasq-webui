@@ -62,11 +62,15 @@
         var row = isNew
             ? new DnsRecordRow(
                 Id: $"{DnsmasqConfKeys.TxtRecord}:new",
+                OccurrenceId: $"{DnsmasqConfKeys.TxtRecord}:new",
                 OptionName: DnsmasqConfKeys.TxtRecord,
                 Family: DnsRecordFamily.Txt,
                 IndexInOption: -1,
                 RawValue: "",
                 Source: null,
+                SourcePath: null,
+                SourceLabel: null,
+                IsDraftOnly: false,
                 IsEditable: true,
                 Payload: payload,
                 Issues: [],

@@ -7,10 +7,12 @@ namespace DnsmasqWebUI.Models.DnsRecords;
 public sealed class DnsRecordsFileFilterBuilder : IGroupedSelectBuilder<string>, IGroupedSelectTriggerSummary<string>
 {
     private readonly IReadOnlyList<DnsRecordRow> _rows;
+    private readonly string? _managedConfigPath;
 
-    public DnsRecordsFileFilterBuilder(IReadOnlyList<DnsRecordRow> rows)
+    public DnsRecordsFileFilterBuilder(IReadOnlyList<DnsRecordRow> rows, string? managedConfigPath)
     {
         _rows = rows;
+        _managedConfigPath = managedConfigPath;
     }
 
     public string TriggerTitle =>
@@ -23,12 +25,12 @@ public sealed class DnsRecordsFileFilterBuilder : IGroupedSelectBuilder<string>,
     public GroupedSelectModel<string> Build()
     {
         var byPath = _rows
-            .Where(r => r.Source is { FilePath: not null } && !string.IsNullOrWhiteSpace(r.Source.FilePath))
-            .GroupBy(r => r.Source!.FilePath.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Where(r => !string.IsNullOrWhiteSpace(r.SourcePath))
+            .GroupBy(r => r.SourcePath!.Trim(), StringComparer.OrdinalIgnoreCase)
             .Select(g => new
             {
                 Path = g.Key,
-                Managed = g.First().Source!.IsManaged,
+                Managed = IsManagedPath(g.Key),
                 Count = g.Count()
             })
             .ToList();
@@ -129,4 +131,11 @@ public sealed class DnsRecordsFileFilterBuilder : IGroupedSelectBuilder<string>,
         "managed" => "Managed",
         _ => "Config"
     };
+
+    private bool IsManagedPath(string path)
+    {
+        var managed = _managedConfigPath?.Trim();
+        return !string.IsNullOrWhiteSpace(managed)
+            && string.Equals(path, managed, StringComparison.OrdinalIgnoreCase);
+    }
 }

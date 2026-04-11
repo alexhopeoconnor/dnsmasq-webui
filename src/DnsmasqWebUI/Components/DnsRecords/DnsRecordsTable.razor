@@ -73,21 +73,25 @@ else
                 <tbody>
                 @foreach (var row in Rows)
                 {
-                    <tr @key="@row.Id">
+                    <tr @key="@row.OccurrenceId">
                         <td><span class="badge bg-secondary">@row.OptionName</span></td>
                         <td>
                             <div class="dns-records-summary" title="@row.RawValue">@row.Summary</div>
                             <code class="small text-muted dns-records-raw">@row.RawValue</code>
                         </td>
                         <td class="small">
-                            @if (row.Source == null)
+                            @if (string.IsNullOrWhiteSpace(row.SourcePath))
                             {
                                 <span class="text-muted">—</span>
                             }
                             else
                             {
-                                <span title="@row.Source.FilePath">@row.Source.FileName</span>
-                                @if (row.Source.IsReadOnly)
+                                <span title="@row.SourcePath">@(row.SourceLabel ?? row.SourcePath)</span>
+                                @if (row.IsDraftOnly)
+                                {
+                                    <span class="badge bg-primary-subtle text-primary-emphasis ms-1">draft</span>
+                                }
+                                else if (row.Source?.IsReadOnly == true)
                                 {
                                     <span class="badge bg-warning text-dark ms-1">read-only</span>
                                 }

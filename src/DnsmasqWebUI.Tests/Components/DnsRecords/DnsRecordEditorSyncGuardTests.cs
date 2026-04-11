@@ -28,11 +28,15 @@ public class DnsRecordEditorSyncGuardTests
     {
         var row = new DnsRecordRow(
             "cname:0",
+            "cname:0",
             DnsmasqConfKeys.Cname,
             DnsRecordFamily.Cname,
             0,
             "a,b",
             null,
+            null,
+            null,
+            false,
             true,
             new CnamePayload(["a"], "b", null),
             [],
@@ -49,11 +53,15 @@ public class DnsRecordEditorSyncGuardTests
         DnsRecordEditorSyncGuard.ShouldReseedFromExisting(ref k, null);
         var row = new DnsRecordRow(
             "txt:1",
+            "txt:1",
             DnsmasqConfKeys.TxtRecord,
             DnsRecordFamily.Txt,
             1,
             "x,y",
             null,
+            null,
+            null,
+            false,
             true,
             new TxtPayload("x", "y"),
             [],

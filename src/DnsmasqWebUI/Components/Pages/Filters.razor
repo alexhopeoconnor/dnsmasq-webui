@@ -322,9 +322,11 @@ else
 
     private readonly AddressEditorModel _addressModel = new();
     private string? _addressEditingRaw;
+    private string? _addressEditingOccurrenceId;
 
     private readonly SplitDnsEditorModel _splitModel = new();
     private string? _splitEditingRaw;
+    private string? _splitEditingOccurrenceId;
     private FilterPolicyKind? _splitEditingKind;
 
     private string _rebindDomain = "";
@@ -342,6 +344,7 @@ else
     private string _connDomain = "";
 
     private string? _simpleEditOriginal;
+    private string? _simpleEditOccurrenceId;
     private FilterPolicyKind? _simpleEditKind;
 
     private bool ShowSection(FilterPolicyCategory c) =>
@@ -374,7 +377,10 @@ else
             return;
         }
 
-        _groups = FiltersProjection.BuildGroups(_status, BuildQuery());
+        _groups = FiltersProjection.BuildGroups(
+            _status,
+            BuildQuery(),
+            optionName => PageEditor.GetEffectiveMultiValues(_status, PageEditor.Field(Resolver, optionName)));
     }
 
     private void RebuildSourceBuilder()
@@ -386,7 +392,10 @@ else
         }
 
         var flat = FiltersProjection
-            .BuildGroups(_status, new FilterPolicyQueryState("", null, null, null, null))
+            .BuildGroups(
+                _status,
+                new FilterPolicyQueryState("", null, null, null, null),
+                optionName => PageEditor.GetEffectiveMultiValues(_status, PageEditor.Field(Resolver, optionName)))
             .SelectMany(g => g.Rows)
             .ToList();
         _sourceFilterBuilder = new FilterSourceFileFilterBuilder(flat, _status.ManagedFilePath);
@@ -412,7 +421,8 @@ else
             return Task.CompletedTask;
         }
 
-        ReplaceOrAppend(DnsmasqConfKeys.Address, line.Trim(), _addressEditingRaw);
+        if (!ReplaceOrAppend(DnsmasqConfKeys.Address, line.Trim(), _addressEditingRaw, _addressEditingOccurrenceId))
+            return Task.CompletedTask;
         CancelAddressEdit();
         return Task.CompletedTask;
     }
@@ -420,6 +430,7 @@ else
     private void CancelAddressEdit()
     {
         _addressEditingRaw = null;
+        _addressEditingOccurrenceId = null;
         _addressModel.ResetForAdd();
         StateHasChanged();
     }
@@ -448,14 +459,17 @@ else
             if (originalOption != null &&
                 !string.Equals(originalOption, newOption, StringComparison.Ordinal))
             {
-                PageEditor.RemoveMultiValue(_status!, PageEditor.Field(Resolver, originalOption), _splitEditingRaw);
-                ReplaceOrAppend(newOption, trimmed, null);
+                if (!TryRemoveOccurrence(originalOption, _splitEditingRaw, _splitEditingOccurrenceId))
+                    return Task.CompletedTask;
+                if (!ReplaceOrAppend(newOption, trimmed, null, null))
+                    return Task.CompletedTask;
                 CancelSplitEdit();
                 return Task.CompletedTask;
             }
         }
 
-        ReplaceOrAppend(newOption, trimmed, _splitEditingRaw);
+        if (!ReplaceOrAppend(newOption, trimmed, _splitEditingRaw, _splitEditingOccurrenceId))
+            return Task.CompletedTask;
         CancelSplitEdit();
         return Task.CompletedTask;
     }
@@ -463,6 +477,7 @@ else
     private void CancelSplitEdit()
     {
         _splitEditingRaw = null;
+        _splitEditingOccurrenceId = null;
         _splitEditingKind = null;
         _splitModel.Reset();
         StateHasChanged();
@@ -478,7 +493,8 @@ else
             return;
         }
 
-        ReplaceOrAppend(DnsmasqConfKeys.RebindDomainOk, d, _simpleEditKind == FilterPolicyKind.RebindDomainOk ? _simpleEditOriginal : null);
+        if (!ReplaceOrAppend(DnsmasqConfKeys.RebindDomainOk, d, _simpleEditKind == FilterPolicyKind.RebindDomainOk ? _simpleEditOriginal : null, _simpleEditKind == FilterPolicyKind.RebindDomainOk ? _simpleEditOccurrenceId : null))
+            return;
         _rebindDomain = "";
         ClearSimpleEdit();
     }
@@ -493,7 +509,8 @@ else
             return;
         }
 
-        ReplaceOrAppend(DnsmasqConfKeys.BogusNxdomain, v, _simpleEditKind == FilterPolicyKind.BogusNxdomain ? _simpleEditOriginal : null);
+        if (!ReplaceOrAppend(DnsmasqConfKeys.BogusNxdomain, v, _simpleEditKind == FilterPolicyKind.BogusNxdomain ? _simpleEditOriginal : null, _simpleEditKind == FilterPolicyKind.BogusNxdomain ? _simpleEditOccurrenceId : null))
+            return;
         _bogusAddr = "";
         ClearSimpleEdit();
     }
@@ -508,7 +525,8 @@ else
             return;
         }
 
-        ReplaceOrAppend(DnsmasqConfKeys.IgnoreAddress, v, _simpleEditKind == FilterPolicyKind.IgnoreAddress ? _simpleEditOriginal : null);
+        if (!ReplaceOrAppend(DnsmasqConfKeys.IgnoreAddress, v, _simpleEditKind == FilterPolicyKind.IgnoreAddress ? _simpleEditOriginal : null, _simpleEditKind == FilterPolicyKind.IgnoreAddress ? _simpleEditOccurrenceId : null))
+            return;
         _ignoreAddr = "";
         ClearSimpleEdit();
     }
@@ -525,7 +543,8 @@ else
         }
 
         var line = $"{m},{t}";
-        ReplaceOrAppend(DnsmasqConfKeys.FilterRr, line, _simpleEditKind == FilterPolicyKind.FilterRr ? _simpleEditOriginal : null);
+        if (!ReplaceOrAppend(DnsmasqConfKeys.FilterRr, line, _simpleEditKind == FilterPolicyKind.FilterRr ? _simpleEditOriginal : null, _simpleEditKind == FilterPolicyKind.FilterRr ? _simpleEditOccurrenceId : null))
+            return;
         _filterRrMatch = "";
         _filterRrType = "";
         ClearSimpleEdit();
@@ -542,7 +561,8 @@ else
             return;
         }
 
-        ReplaceOrAppend(DnsmasqConfKeys.Alias, $"{a},{b}", _simpleEditKind == FilterPolicyKind.Alias ? _simpleEditOriginal : null);
+        if (!ReplaceOrAppend(DnsmasqConfKeys.Alias, $"{a},{b}", _simpleEditKind == FilterPolicyKind.Alias ? _simpleEditOriginal : null, _simpleEditKind == FilterPolicyKind.Alias ? _simpleEditOccurrenceId : null))
+            return;
         _aliasLeft = "";
         _aliasRight = "";
         ClearSimpleEdit();
@@ -560,7 +580,8 @@ else
         }
 
         var line = $"/{d}/{n}";
-        ReplaceOrAppend(DnsmasqConfKeys.Ipset, line, _simpleEditKind == FilterPolicyKind.Ipset ? _simpleEditOriginal : null);
+        if (!ReplaceOrAppend(DnsmasqConfKeys.Ipset, line, _simpleEditKind == FilterPolicyKind.Ipset ? _simpleEditOriginal : null, _simpleEditKind == FilterPolicyKind.Ipset ? _simpleEditOccurrenceId : null))
+            return;
         _ipsetDomain = "";
         _ipsetName = "";
         ClearSimpleEdit();
@@ -578,7 +599,8 @@ else
         }
 
         var line = $"/{d}/{sp}";
-        ReplaceOrAppend(DnsmasqConfKeys.Nftset, line, _simpleEditKind == FilterPolicyKind.Nftset ? _simpleEditOriginal : null);
+        if (!ReplaceOrAppend(DnsmasqConfKeys.Nftset, line, _simpleEditKind == FilterPolicyKind.Nftset ? _simpleEditOriginal : null, _simpleEditKind == FilterPolicyKind.Nftset ? _simpleEditOccurrenceId : null))
+            return;
         _nftDomain = "";
         _nftSpecs = "";
         ClearSimpleEdit();
@@ -595,23 +617,29 @@ else
             return;
         }
 
-        ReplaceOrAppend(DnsmasqConfKeys.ConnmarkAllowlist, $"{m},{d}", _simpleEditKind == FilterPolicyKind.ConnmarkAllowlist ? _simpleEditOriginal : null);
+        if (!ReplaceOrAppend(DnsmasqConfKeys.ConnmarkAllowlist, $"{m},{d}", _simpleEditKind == FilterPolicyKind.ConnmarkAllowlist ? _simpleEditOriginal : null, _simpleEditKind == FilterPolicyKind.ConnmarkAllowlist ? _simpleEditOccurrenceId : null))
+            return;
         _connMark = "";
         _connDomain = "";
         ClearSimpleEdit();
     }
 
-    private void ReplaceOrAppend(string option, string line, string? original)
+    private bool ReplaceOrAppend(string option, string line, string? original, string? occurrenceId)
     {
         var field = PageEditor.Field(Resolver, option);
         var current = PageEditor.GetEffectiveMultiValues(_status!, field).ToList();
-        if (original != null)
+        if (occurrenceId != null && original != null)
         {
-            var i = current.FindIndex(x => string.Equals(x, original, StringComparison.Ordinal));
-            if (i >= 0)
-                current[i] = line;
-            else if (!current.Contains(line, StringComparer.Ordinal))
-                current.Add(line);
+            if (!TryLocateOccurrenceIndex(option, current, occurrenceId, out var i)
+                || i < 0
+                || i >= current.Count
+                || !string.Equals(current[i], original, StringComparison.Ordinal))
+            {
+                _filterError = "This rule changed while you were editing it. Reopen the editor and try again.";
+                return false;
+            }
+
+            current[i] = line;
         }
         else if (!current.Contains(line, StringComparer.Ordinal))
             current.Add(line);
@@ -619,6 +647,44 @@ else
         PageEditor.ReplaceMultiValues(_status!, field, current);
         PageEditor.Activate(field);
         RefreshAfterMutation();
+        return true;
+    }
+
+    private bool TryRemoveOccurrence(string option, string? expectedRaw, string? occurrenceId)
+    {
+        if (occurrenceId == null)
+            return false;
+
+        var field = PageEditor.Field(Resolver, option);
+        var current = PageEditor.GetEffectiveMultiValues(_status!, field).ToList();
+        if (!TryLocateOccurrenceIndex(option, current, occurrenceId, out var idx)
+            || idx < 0
+            || idx >= current.Count
+            || (expectedRaw != null && !string.Equals(current[idx], expectedRaw, StringComparison.Ordinal)))
+        {
+            _filterError = "This rule changed before it could be removed. Refresh the table and try again.";
+            return false;
+        }
+
+        current.RemoveAt(idx);
+        PageEditor.ReplaceMultiValues(_status!, field, current);
+        PageEditor.Activate(field);
+        RefreshAfterMutation();
+        return true;
+    }
+
+    private bool TryLocateOccurrenceIndex(string option, IReadOnlyList<string> current, string occurrenceId, out int index)
+    {
+        var projected = FiltersProjection.ProjectOccurrences(_status!, option, current);
+        var match = projected.FirstOrDefault(p => string.Equals(p.OccurrenceId, occurrenceId, StringComparison.Ordinal));
+        if (match == null)
+        {
+            index = -1;
+            return false;
+        }
+
+        index = match.EffectiveIndex;
+        return true;
     }
 
     private void RefreshAfterMutation()
@@ -639,35 +705,42 @@ else
             case FilterPolicyKind.Address:
                 _addressModel.LoadFrom(row.RawValue);
                 _addressEditingRaw = row.RawValue;
+                _addressEditingOccurrenceId = row.OccurrenceId;
                 break;
             case FilterPolicyKind.Server:
                 _splitModel.LoadFromServerValue(row.RawValue);
                 _splitEditingRaw = row.RawValue;
+                _splitEditingOccurrenceId = row.OccurrenceId;
                 _splitEditingKind = row.Kind;
                 break;
             case FilterPolicyKind.RevServer:
                 _splitModel.LoadFromRevServerValue(row.RawValue);
                 _splitEditingRaw = row.RawValue;
+                _splitEditingOccurrenceId = row.OccurrenceId;
                 _splitEditingKind = row.Kind;
                 break;
             case FilterPolicyKind.Local:
                 _splitModel.LoadFromLocalValue(row.RawValue);
                 _splitEditingRaw = row.RawValue;
+                _splitEditingOccurrenceId = row.OccurrenceId;
                 _splitEditingKind = row.Kind;
                 break;
             case FilterPolicyKind.RebindDomainOk:
                 _rebindDomain = row.RawValue.Trim();
                 _simpleEditOriginal = row.RawValue;
+                _simpleEditOccurrenceId = row.OccurrenceId;
                 _simpleEditKind = row.Kind;
                 break;
             case FilterPolicyKind.BogusNxdomain:
                 _bogusAddr = row.RawValue.Trim();
                 _simpleEditOriginal = row.RawValue;
+                _simpleEditOccurrenceId = row.OccurrenceId;
                 _simpleEditKind = row.Kind;
                 break;
             case FilterPolicyKind.IgnoreAddress:
                 _ignoreAddr = row.RawValue.Trim();
                 _simpleEditOriginal = row.RawValue;
+                _simpleEditOccurrenceId = row.OccurrenceId;
                 _simpleEditKind = row.Kind;
                 break;
             case FilterPolicyKind.FilterRr:
@@ -684,17 +757,24 @@ else
                 }
 
                 _simpleEditOriginal = row.RawValue;
+                _simpleEditOccurrenceId = row.OccurrenceId;
                 _simpleEditKind = row.Kind;
                 break;
             case FilterPolicyKind.Alias:
-                var ap = row.RawValue.Split(',', 2);
-                if (ap.Length == 2)
+                var ap = AliasRuleFields.Parse(row.RawValue);
+                if (!ap.IsRaw)
                 {
-                    _aliasLeft = ap[0].Trim();
-                    _aliasRight = ap[1].Trim();
+                    _aliasLeft = ap.Left;
+                    _aliasRight = ap.Right;
+                }
+                else
+                {
+                    _aliasLeft = row.RawValue.Trim();
+                    _aliasRight = "";
                 }
 
                 _simpleEditOriginal = row.RawValue;
+                _simpleEditOccurrenceId = row.OccurrenceId;
                 _simpleEditKind = row.Kind;
                 break;
             case FilterPolicyKind.Ipset:
@@ -704,8 +784,14 @@ else
                     _ipsetDomain = ip.DomainPath;
                     _ipsetName = ip.SetName;
                 }
+                else
+                {
+                    _ipsetDomain = row.RawValue.Trim();
+                    _ipsetName = "";
+                }
 
                 _simpleEditOriginal = row.RawValue;
+                _simpleEditOccurrenceId = row.OccurrenceId;
                 _simpleEditKind = row.Kind;
                 break;
             case FilterPolicyKind.Nftset:
@@ -715,8 +801,14 @@ else
                     _nftDomain = nf.DomainPath;
                     _nftSpecs = nf.SetSpecs;
                 }
+                else
+                {
+                    _nftDomain = row.RawValue.Trim();
+                    _nftSpecs = "";
+                }
 
                 _simpleEditOriginal = row.RawValue;
+                _simpleEditOccurrenceId = row.OccurrenceId;
                 _simpleEditKind = row.Kind;
                 break;
             case FilterPolicyKind.ConnmarkAllowlist:
@@ -726,8 +818,14 @@ else
                     _connMark = cm.Mark;
                     _connDomain = cm.Domain;
                 }
+                else
+                {
+                    _connMark = row.RawValue.Trim();
+                    _connDomain = "";
+                }
 
                 _simpleEditOriginal = row.RawValue;
+                _simpleEditOccurrenceId = row.OccurrenceId;
                 _simpleEditKind = row.Kind;
                 break;
         }
@@ -743,14 +841,14 @@ else
         var option = OptionNameForKind(row.Kind);
         if (option == null)
             return;
-        PageEditor.RemoveMultiValue(_status!, PageEditor.Field(Resolver, option), row.RawValue);
-        if (_splitEditingRaw != null && string.Equals(_splitEditingRaw, row.RawValue, StringComparison.Ordinal))
+        if (!TryRemoveOccurrence(option, row.RawValue, row.OccurrenceId))
+            return;
+        if (_splitEditingOccurrenceId != null && string.Equals(_splitEditingOccurrenceId, row.OccurrenceId, StringComparison.Ordinal))
             CancelSplitEdit();
-        if (_addressEditingRaw != null && string.Equals(_addressEditingRaw, row.RawValue, StringComparison.Ordinal))
+        if (_addressEditingOccurrenceId != null && string.Equals(_addressEditingOccurrenceId, row.OccurrenceId, StringComparison.Ordinal))
             CancelAddressEdit();
-        if (_simpleEditOriginal != null && string.Equals(_simpleEditOriginal, row.RawValue, StringComparison.Ordinal))
+        if (_simpleEditOccurrenceId != null && string.Equals(_simpleEditOccurrenceId, row.OccurrenceId, StringComparison.Ordinal))
             ClearSimpleEdit();
-        RefreshAfterMutation();
     }
 
     private static string? OptionNameForKind(FilterPolicyKind k) => k switch
@@ -773,6 +871,7 @@ else
     private void ClearSimpleEdit()
     {
         _simpleEditOriginal = null;
+        _simpleEditOccurrenceId = null;
         _simpleEditKind = null;
     }
 

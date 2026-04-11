@@ -21,11 +21,15 @@ internal static class DnsRecordCodecHelpers
         string summary) =>
         new(
             Id: $"{optionName}:{index}",
+            OccurrenceId: $"{optionName}:{index}",
             OptionName: optionName,
             Family: family,
             IndexInOption: index,
             RawValue: raw,
             Source: source,
+            SourcePath: source?.FilePath,
+            SourceLabel: source?.FileName,
+            IsDraftOnly: false,
             IsEditable: source?.IsReadOnly != true,
             Payload: payload,
             Issues: [],

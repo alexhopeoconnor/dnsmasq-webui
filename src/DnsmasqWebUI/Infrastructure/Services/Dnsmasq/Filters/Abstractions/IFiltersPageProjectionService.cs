@@ -1,10 +1,19 @@
 using DnsmasqWebUI.Infrastructure.Services.Registration.Abstractions;
 using DnsmasqWebUI.Models.Dnsmasq;
+using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 using DnsmasqWebUI.Models.Filters;
 
 namespace DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Filters.Abstractions;
 
 public interface IFiltersPageProjectionService : IApplicationSingleton
 {
-    IReadOnlyList<FilterPolicyGroup> BuildGroups(DnsmasqServiceStatus status, FilterPolicyQueryState query);
+    IReadOnlyList<FilterPolicyGroup> BuildGroups(
+        DnsmasqServiceStatus status,
+        FilterPolicyQueryState query,
+        Func<string, IReadOnlyList<string>>? currentValuesAccessor = null);
+
+    IReadOnlyList<ProjectedMultiValueOccurrence> ProjectOccurrences(
+        DnsmasqServiceStatus status,
+        string optionName,
+        IReadOnlyList<string> currentValues);
 }

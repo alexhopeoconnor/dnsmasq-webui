@@ -112,11 +112,15 @@
         var row = isNew
             ? new DnsRecordRow(
                 Id: $"{DnsmasqConfKeys.Srv}:new",
+                OccurrenceId: $"{DnsmasqConfKeys.Srv}:new",
                 OptionName: DnsmasqConfKeys.Srv,
                 Family: DnsRecordFamily.Srv,
                 IndexInOption: -1,
                 RawValue: "",
                 Source: null,
+                SourcePath: null,
+                SourceLabel: null,
+                IsDraftOnly: false,
                 IsEditable: true,
                 Payload: payload,
                 Issues: [],

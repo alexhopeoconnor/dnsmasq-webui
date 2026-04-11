@@ -23,7 +23,7 @@ public sealed class FilterSourceFileFilterBuilder : IGroupedSelectBuilder<string
     public GroupedSelectModel<string> Build()
     {
         var byPath = _rows
-            .Select(r => r.Source?.FilePath)
+            .Select(r => r.SourcePath)
             .Where(p => !string.IsNullOrWhiteSpace(p))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Select(path => path!.Trim())
@@ -31,7 +31,7 @@ public sealed class FilterSourceFileFilterBuilder : IGroupedSelectBuilder<string
             {
                 Path = path,
                 Kind = KindForPath(path),
-                Count = _rows.Count(r => string.Equals(r.Source?.FilePath, path, StringComparison.OrdinalIgnoreCase))
+                Count = _rows.Count(r => string.Equals(r.SourcePath, path, StringComparison.OrdinalIgnoreCase))
             })
             .ToList();
 

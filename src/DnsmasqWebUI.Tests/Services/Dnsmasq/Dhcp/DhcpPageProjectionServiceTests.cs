@@ -1,5 +1,6 @@
 using DnsmasqWebUI.Infrastructure.Serialization.OptionHandlers;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Dhcp;
+using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig;
 using DnsmasqWebUI.Models.Dhcp;
 using DnsmasqWebUI.Models.Dhcp.Ui;
 using DnsmasqWebUI.Models.Dnsmasq;
@@ -8,7 +9,7 @@ namespace DnsmasqWebUI.Tests.Services.Dnsmasq.Dhcp;
 
 public class DhcpPageProjectionServiceTests
 {
-    private static readonly DhcpPageProjectionService Sut = new();
+    private static readonly DhcpPageProjectionService Sut = new(new EffectiveMultiValueProjectionService());
     private static readonly DhcpHostOptionValueHandler Handler = new();
 
     private static DhcpHostPageRow SyntheticRow(
@@ -23,8 +24,10 @@ public class DhcpPageProjectionServiceTests
             EffectiveIndex: effectiveIndex,
             ValueString: mac,
             RowKey: $"t:{effectiveIndex}",
+            OccurrenceId: $"t:{effectiveIndex}",
             SourceKind: kind,
             SourcePath: sourcePath,
+            IsDraftOnly: false,
             IsEditable: editable,
             IsActive: true,
             Entry: new DhcpHostEntry
@@ -70,8 +73,8 @@ public class DhcpPageProjectionServiceTests
         };
         var rows = new List<DhcpHostPageRow>
         {
-            new(0, "a", "k0", DhcpSourceKind.Managed, "/m", true, true, entry1, null, null, true),
-            new(1, "b", "k1", DhcpSourceKind.Managed, "/m", true, true, entry2, null, null, true)
+            new(0, "a", "k0", "k0", DhcpSourceKind.Managed, "/m", false, true, true, entry1, null, null, true),
+            new(1, "b", "k1", "k1", DhcpSourceKind.Managed, "/m", false, true, true, entry2, null, null, true)
         };
 
         DhcpPageProjectionService.ApplyHostConflictsAndLeases(rows, null, null);
@@ -175,8 +178,8 @@ public class DhcpPageProjectionServiceTests
         };
         var rows = new List<DhcpHostPageRow>
         {
-            new(0, "a", "k0", DhcpSourceKind.Managed, "/m", true, true, entry1, null, null, true),
-            new(1, "b", "k1", DhcpSourceKind.Managed, "/m", true, true, entry2, null, null, true)
+            new(0, "a", "k0", "k0", DhcpSourceKind.Managed, "/m", false, true, true, entry1, null, null, true),
+            new(1, "b", "k1", "k1", DhcpSourceKind.Managed, "/m", false, true, true, entry2, null, null, true)
         };
 
         DhcpPageProjectionService.ApplyHostConflictsAndLeases(rows, null, null);

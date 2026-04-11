@@ -233,11 +233,15 @@ else if (OptionName == DnsmasqConfKeys.AuthPeer)
         var row = isNew
             ? new DnsRecordRow(
                 Id: $"{OptionName}:new",
+                OccurrenceId: $"{OptionName}:new",
                 OptionName: OptionName,
                 Family: fam,
                 IndexInOption: -1,
                 RawValue: "",
                 Source: null,
+                SourcePath: null,
+                SourceLabel: null,
+                IsDraftOnly: false,
                 IsEditable: true,
                 Payload: payload,
                 Issues: [],

@@ -62,11 +62,15 @@
         var row = isNew
             ? new DnsRecordRow(
                 Id: $"{DnsmasqConfKeys.PtrRecord}:new",
+                OccurrenceId: $"{DnsmasqConfKeys.PtrRecord}:new",
                 OptionName: DnsmasqConfKeys.PtrRecord,
                 Family: DnsRecordFamily.Ptr,
                 IndexInOption: -1,
                 RawValue: "",
                 Source: null,
+                SourcePath: null,
+                SourceLabel: null,
+                IsDraftOnly: false,
                 IsEditable: true,
                 Payload: payload,
                 Issues: [],

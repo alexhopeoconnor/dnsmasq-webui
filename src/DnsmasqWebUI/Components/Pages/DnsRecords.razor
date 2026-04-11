@@ -82,6 +82,10 @@ else
             Filter and edit multi-value DNS directives with plain-language summaries. Use category chips to narrow the view; on narrow screens, use the table’s horizontal scroll cues.
             Prefer <strong>Effective configuration</strong> for options that do not need a specialized form.
         </p>
+        @if (_recordsError != null)
+        {
+            <div class="alert alert-danger py-2 mb-3">@_recordsError</div>
+        }
         <div class="app-page-controls-bar d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2"
              @onkeydown="OnToolbarKeyDown">
             <div class="app-page-toolbar-fields flex-grow-1">
@@ -275,8 +279,9 @@ else
     private bool _mxDefaultsAllReadOnly = true;
     private string? _mxTargetTitle;
     private string? _mxDefaultsError;
+    private string? _recordsError;
 
-    private DnsRecordsFileFilterBuilder FileFilterBuilder => new(_allRows);
+    private DnsRecordsFileFilterBuilder FileFilterBuilder => new(_allRows, _status?.ManagedFilePath);
 
     private bool EditorOpen => _editExisting != null || _addCommonFamily != null || _addAdvancedOption != null;
 
@@ -319,6 +324,7 @@ else
     private void OpenAddCommon(DnsRecordFamily family)
     {
         PageEditor.EnsureEditMode();
+        _recordsError = null;
         _addCommonFamily = family;
         _addAdvancedOption = null;
         _editExisting = null;
@@ -327,6 +333,7 @@ else
     private void OpenAddAdvanced(string optionName)
     {
         PageEditor.EnsureEditMode();
+        _recordsError = null;
         _addAdvancedOption = optionName;
         _addCommonFamily = null;
         _editExisting = null;
@@ -337,6 +344,7 @@ else
         if (!row.IsEditable)
             return;
         PageEditor.EnsureEditMode();
+        _recordsError = null;
         _editExisting = row;
         _addCommonFamily = null;
         _addAdvancedOption = null;
@@ -357,6 +365,7 @@ else
     {
         if (_status == null)
             return;
+        _recordsError = null;
         var codec = DnsRecordCodecs.Get(result.Row.OptionName);
         var serialized = codec.Serialize(result.Row);
         var field = PageEditor.Field(EffectiveConfigSections.SectionDnsRecords, result.Row.OptionName);
@@ -366,16 +375,17 @@ else
             list.Add(serialized);
         else
         {
-            var idx = result.Row.IndexInOption;
-            if (idx >= 0 && idx < list.Count && string.Equals(list[idx], result.Row.RawValue, StringComparison.Ordinal))
+            if (TryLocateOccurrenceIndex(result.Row.OptionName, list, result.Row.OccurrenceId, out var idx)
+                && idx >= 0
+                && idx < list.Count
+                && string.Equals(list[idx], result.Row.RawValue, StringComparison.Ordinal))
+            {
                 list[idx] = serialized;
+            }
             else
             {
-                var i = list.FindIndex(v => string.Equals(v, result.Row.RawValue, StringComparison.Ordinal));
-                if (i >= 0)
-                    list[i] = serialized;
-                else
-                    list.Add(serialized);
+                _recordsError = "This DNS record changed while you were editing it. Reopen the editor and try again.";
+                return;
             }
         }
 
@@ -389,21 +399,39 @@ else
     {
         if (_status == null || !row.IsEditable)
             return;
+        _recordsError = null;
         var field = PageEditor.Field(EffectiveConfigSections.SectionDnsRecords, row.OptionName);
         var list = PageEditor.GetEffectiveMultiValues(_status, field).ToList();
-        var idx = row.IndexInOption;
-        if (idx >= 0 && idx < list.Count && string.Equals(list[idx], row.RawValue, StringComparison.Ordinal))
+        if (TryLocateOccurrenceIndex(row.OptionName, list, row.OccurrenceId, out var idx)
+            && idx >= 0
+            && idx < list.Count
+            && string.Equals(list[idx], row.RawValue, StringComparison.Ordinal))
+        {
             list.RemoveAt(idx);
+        }
         else
         {
-            var i = list.FindIndex(v => string.Equals(v, row.RawValue, StringComparison.Ordinal));
-            if (i >= 0)
-                list.RemoveAt(i);
+            _recordsError = "This DNS record changed before it could be removed. Refresh the table and try again.";
+            return;
         }
 
         PageEditor.ReplaceMultiValues(_status, field, list);
         CloseEditor();
         await RefreshStatusAsync();
+    }
+
+    private bool TryLocateOccurrenceIndex(string optionName, IReadOnlyList<string> currentValues, string occurrenceId, out int index)
+    {
+        var projected = DnsRecordsProjection.ProjectOccurrences(_status!, optionName, currentValues);
+        var match = projected.FirstOrDefault(p => string.Equals(p.OccurrenceId, occurrenceId, StringComparison.Ordinal));
+        if (match == null)
+        {
+            index = -1;
+            return false;
+        }
+
+        index = match.EffectiveIndex;
+        return true;
     }
 
     private void SyncMxDraftsFromStatus()
@@ -466,7 +494,13 @@ else
 
     private void RebuildRows()
     {
-        _allRows = _status == null ? [] : DnsRecordsProjection.BuildRows(_status);
+        _allRows = _status == null
+            ? []
+            : DnsRecordsProjection.BuildRows(
+                _status,
+                optionName => PageEditor.GetEffectiveMultiValues(
+                    _status,
+                    PageEditor.Field(EffectiveConfigSections.SectionDnsRecords, optionName)));
     }
 
     private async Task LoadAsync()

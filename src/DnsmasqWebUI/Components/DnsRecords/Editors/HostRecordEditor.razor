@@ -91,11 +91,15 @@
         var row = isNew
             ? new DnsRecordRow(
                 Id: $"{DnsmasqConfKeys.HostRecord}:new",
+                OccurrenceId: $"{DnsmasqConfKeys.HostRecord}:new",
                 OptionName: DnsmasqConfKeys.HostRecord,
                 Family: DnsRecordFamily.HostRecord,
                 IndexInOption: -1,
                 RawValue: "",
                 Source: null,
+                SourcePath: null,
+                SourceLabel: null,
+                IsDraftOnly: false,
                 IsEditable: true,
                 Payload: payload,
                 Issues: [],

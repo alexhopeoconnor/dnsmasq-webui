@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Sockets;
 using DnsmasqWebUI.Infrastructure.Serialization.OptionHandlers.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Dhcp.Abstractions;
+using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata;
 using DnsmasqWebUI.Models.Dhcp;
 using DnsmasqWebUI.Models.Dhcp.Ui;
@@ -12,60 +13,56 @@ namespace DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Dhcp;
 
 public sealed class DhcpPageProjectionService : IDhcpPageProjectionService
 {
+    private readonly IEffectiveMultiValueProjectionService _multiValueProjection;
+
+    public DhcpPageProjectionService(IEffectiveMultiValueProjectionService multiValueProjection)
+    {
+        _multiValueProjection = multiValueProjection;
+    }
+
     public IReadOnlyList<DhcpHostPageRow> BuildHostRows(
         DnsmasqServiceStatus status,
         IReadOnlyList<string> effectiveDhcpHostValues,
         IStructuredOptionValueHandler<DhcpHostEntry> handler,
         IReadOnlyList<LeaseEntry>? leases = null)
     {
-        var baseline = status.EffectiveConfigSources?.DhcpHostLines;
-        var usedBaseline = baseline != null ? new bool[baseline.Count] : Array.Empty<bool>();
+        var projected = _multiValueProjection.Project(
+            effectiveDhcpHostValues,
+            status.EffectiveConfigSources?.DhcpHostLines,
+            status.ManagedFilePath);
 
         var rows = new List<DhcpHostPageRow>(effectiveDhcpHostValues.Count);
-        for (var i = 0; i < effectiveDhcpHostValues.Count; i++)
+        for (var i = 0; i < projected.Count; i++)
         {
-            var valueString = effectiveDhcpHostValues[i];
-            ConfigValueSource? matchedSource = null;
-            if (baseline != null)
-            {
-                for (var j = 0; j < baseline.Count; j++)
-                {
-                    if (usedBaseline[j]) continue;
-                    if (string.Equals(baseline[j].Value, valueString, StringComparison.Ordinal))
-                    {
-                        matchedSource = baseline[j].Source;
-                        usedBaseline[j] = true;
-                        break;
-                    }
-                }
-            }
+            var item = projected[i];
+            var valueString = item.Value;
 
-            var parsedOk = handler.TryParseValue(valueString, i + 1, out var entry) && entry != null;
+            var parsedOk = handler.TryParseValue(valueString, item.EffectiveIndex + 1, out var entry) && entry != null;
             var e = parsedOk
                 ? entry!
                 : new DhcpHostEntry
                 {
-                    LineNumber = i + 1,
+                    LineNumber = item.EffectiveIndex + 1,
                     IsComment = true,
                     RawLine = valueString,
                     MacAddresses = new List<string>()
                 };
 
-            e.SourcePath = matchedSource?.FilePath;
-            var isUnmatchedDraft = matchedSource == null;
-            var isManagedSource = matchedSource?.IsManaged == true || isUnmatchedDraft;
-            var sourceKind = isUnmatchedDraft
+            e.SourcePath = item.DisplaySourcePath;
+            var sourceKind = item.IsDraftOnly
                 ? DhcpSourceKind.Managed
-                : ClassifySourceKind(matchedSource!.FilePath, matchedSource.IsManaged, status);
-            var isEditable = isManagedSource;
+                : ClassifySourceKind(item.Source?.FilePath, item.Source?.IsManaged == true, status);
+            var isEditable = item.IsEditable;
             e.IsEditable = isEditable;
 
             rows.Add(new DhcpHostPageRow(
-                EffectiveIndex: i,
+                EffectiveIndex: item.EffectiveIndex,
                 ValueString: valueString,
-                RowKey: $"dhcp-host:{i}:{Fnv1aHash(valueString)}",
+                RowKey: $"dhcp-host:{item.EffectiveIndex}:{Fnv1aHash(valueString)}",
+                OccurrenceId: item.OccurrenceId,
                 SourceKind: sourceKind,
-                SourcePath: matchedSource?.FilePath ?? status.ManagedFilePath ?? "",
+                SourcePath: item.DisplaySourcePath ?? status.ManagedFilePath ?? "",
+                IsDraftOnly: item.IsDraftOnly,
                 IsEditable: isEditable,
                 IsActive: !e.IsDeleted && !e.IsComment,
                 Entry: e,
