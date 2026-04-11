@@ -17,6 +17,8 @@ public sealed class AppLogsPushTriggeredHostedService : IApplicationHostedServic
     private readonly Channel<byte> _channel;
     private readonly ILogsService _logsService;
     private readonly ILogger<AppLogsPushTriggeredHostedService> _logger;
+    private CancellationTokenSource? _stopCts;
+    private Task? _runLoopTask;
 
     public AppLogsPushTriggeredHostedService(
         Channel<byte> appLogsPushChannel,
@@ -30,11 +32,35 @@ public sealed class AppLogsPushTriggeredHostedService : IApplicationHostedServic
 
     public Task StartAsync(CancellationToken ct)
     {
-        _ = RunLoopAsync(ct);
+        _stopCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        _runLoopTask = RunLoopAsync(_stopCts.Token);
         return Task.CompletedTask;
     }
 
-    public Task StopAsync(CancellationToken ct) => Task.CompletedTask;
+    public async Task StopAsync(CancellationToken ct)
+    {
+        var stopCts = _stopCts;
+        _stopCts = null;
+        if (stopCts != null)
+        {
+            try { stopCts.Cancel(); }
+            finally { stopCts.Dispose(); }
+        }
+
+        var runLoopTask = _runLoopTask;
+        _runLoopTask = null;
+        if (runLoopTask == null)
+            return;
+
+        try
+        {
+            await runLoopTask;
+        }
+        catch (OperationCanceledException)
+        {
+            // expected during shutdown
+        }
+    }
 
     private async Task RunLoopAsync(CancellationToken ct)
     {

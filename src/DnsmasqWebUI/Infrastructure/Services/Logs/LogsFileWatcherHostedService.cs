@@ -21,6 +21,8 @@ public sealed class LogsFileWatcherHostedService : IApplicationHostedService
     private FileSystemWatcher? _watcher;
     private string? _currentPath;
     private readonly object _lock = new();
+    private CancellationTokenSource? _stopCts;
+    private Task? _runLoopTask;
 
     public LogsFileWatcherHostedService(
         IDnsmasqConfigSetService configSetService,
@@ -34,11 +36,41 @@ public sealed class LogsFileWatcherHostedService : IApplicationHostedService
 
     public Task StartAsync(CancellationToken ct)
     {
-        _ = RunLoopAsync(ct);
+        _stopCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        _runLoopTask = RunLoopAsync(_stopCts.Token);
         return Task.CompletedTask;
     }
 
-    public Task StopAsync(CancellationToken ct) => Task.CompletedTask;
+    public async Task StopAsync(CancellationToken ct)
+    {
+        var stopCts = _stopCts;
+        _stopCts = null;
+        if (stopCts != null)
+        {
+            try { stopCts.Cancel(); }
+            finally { stopCts.Dispose(); }
+        }
+
+        lock (_lock)
+        {
+            DisposeWatcherLocked();
+            _currentPath = null;
+        }
+
+        var runLoopTask = _runLoopTask;
+        _runLoopTask = null;
+        if (runLoopTask == null)
+            return;
+
+        try
+        {
+            await runLoopTask;
+        }
+        catch (OperationCanceledException)
+        {
+            // expected during shutdown
+        }
+    }
 
     private async Task RunLoopAsync(CancellationToken ct)
     {
@@ -67,8 +99,7 @@ public sealed class LogsFileWatcherHostedService : IApplicationHostedService
 
         lock (_lock)
         {
-            _watcher?.Dispose();
-            _watcher = null;
+            DisposeWatcherLocked();
             _currentPath = null;
         }
     }
@@ -82,8 +113,7 @@ public sealed class LogsFileWatcherHostedService : IApplicationHostedService
             if (string.Equals(_currentPath, normalized, StringComparison.Ordinal))
                 return;
 
-            _watcher?.Dispose();
-            _watcher = null;
+            DisposeWatcherLocked();
             _currentPath = normalized;
 
             if (string.IsNullOrEmpty(normalized))
@@ -126,18 +156,35 @@ public sealed class LogsFileWatcherHostedService : IApplicationHostedService
 
     private void OnFileChanged(object sender, FileSystemEventArgs e)
     {
-        _ = InvokePushAsync();
+        var ct = _stopCts?.Token ?? CancellationToken.None;
+        if (ct.IsCancellationRequested)
+            return;
+        _ = InvokePushAsync(ct);
     }
 
-    private async Task InvokePushAsync()
+    private async Task InvokePushAsync(CancellationToken ct)
     {
         try
         {
-            await _logsService.RunAndPushDnsmasqLogsAsync(CancellationToken.None);
+            await _logsService.RunAndPushDnsmasqLogsAsync(ct);
+        }
+        catch (OperationCanceledException)
+        {
+            // expected during shutdown
         }
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Error pushing logs on file change");
         }
+    }
+
+    private void DisposeWatcherLocked()
+    {
+        if (_watcher == null)
+            return;
+
+        _watcher.Changed -= OnFileChanged;
+        _watcher.Dispose();
+        _watcher = null;
     }
 }
