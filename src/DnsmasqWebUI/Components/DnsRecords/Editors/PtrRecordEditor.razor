@@ -1,0 +1,78 @@
+@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata
+<h4 class="h6 mb-2">PTR</h4>
+<div class="row g-2 align-items-end">
+    <div class="col-md-4">
+        <label class="form-label small mb-0">Reverse name</label>
+        <input class="form-control form-control-sm" @bind="_name" @bind:event="oninput" />
+    </div>
+    <div class="col-md-4">
+        <label class="form-label small mb-0">Target</label>
+        <input class="form-control form-control-sm" @bind="_target" @bind:event="oninput" placeholder="optional" />
+    </div>
+    <div class="col-md-4 d-flex gap-1">
+        <button type="button" class="btn btn-sm btn-primary" @onclick="SaveAsync">Save</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="OnCancel">Cancel</button>
+    </div>
+</div>
+@if (_error != null)
+{
+    <p class="text-danger small mt-2 mb-0">@_error</p>
+}
+
+@code {
+    [Parameter] public DnsRecordRow? Existing { get; set; }
+    [Parameter] public EventCallback<DnsRecordEditorResult> OnSave { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private string _name = "";
+    private string _target = "";
+    private string? _error;
+    private string? _boundRowKey;
+
+    protected override void OnParametersSet()
+    {
+        if (!DnsRecordEditorSyncGuard.ShouldReseedFromExisting(ref _boundRowKey, Existing))
+            return;
+
+        if (Existing?.Payload is PtrPayload p)
+        {
+            _name = p.Name;
+            _target = p.Target ?? "";
+        }
+        else
+        {
+            _name = "";
+            _target = "";
+        }
+
+        _error = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_name))
+        {
+            _error = "Reverse name is required.";
+            return;
+        }
+
+        var payload = new PtrPayload(_name.Trim(), string.IsNullOrWhiteSpace(_target) ? null : _target.Trim());
+        var isNew = Existing == null;
+        var row = isNew
+            ? new DnsRecordRow(
+                Id: $"{DnsmasqConfKeys.PtrRecord}:new",
+                OptionName: DnsmasqConfKeys.PtrRecord,
+                Family: DnsRecordFamily.Ptr,
+                IndexInOption: -1,
+                RawValue: "",
+                Source: null,
+                IsEditable: true,
+                Payload: payload,
+                Issues: [],
+                Summary: "")
+            : Existing! with { Payload = payload };
+
+        await OnSave.InvokeAsync(new DnsRecordEditorResult(row, isNew));
+    }
+}

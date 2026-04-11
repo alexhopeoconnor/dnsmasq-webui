@@ -183,4 +183,35 @@ public class ConfigSetCacheEffectiveConfigTests
         Assert.True(snapshot.Config.BogusPriv);
         Assert.True(snapshot.Config.ExpandHosts);
     }
+
+    [Fact]
+    public async Task GetSnapshot_WithManagedFilesDirectory_UsesOverridePaths()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-cache-" + Guid.NewGuid().ToString("N"));
+        var managedDir = Path.Combine(dir, "repo");
+        Directory.CreateDirectory(dir);
+        Directory.CreateDirectory(managedDir);
+        var mainPath = Path.Combine(dir, "dnsmasq.conf");
+        var managedFileName = "zz-managed.conf";
+        var managedHostsFileName = "zz-managed.hosts";
+        var managedPath = Path.Combine(managedDir, managedFileName);
+        File.WriteAllText(mainPath, $"conf-file={managedPath}\n");
+        File.WriteAllText(managedPath, $"addn-hosts={Path.Combine(managedDir, managedHostsFileName)}\n");
+
+        using var cache = new ConfigSetCache(
+            Options.Create(new DnsmasqOptions
+            {
+                MainConfigPath = mainPath,
+                ManagedFilesDirectory = managedDir,
+                ManagedFileName = managedFileName,
+                ManagedHostsFileName = managedHostsFileName
+            }),
+            NullLogger<ConfigSetCache>.Instance);
+
+        var snapshot = await cache.GetSnapshotAsync();
+
+        Assert.Equal(Path.GetFullPath(managedPath), snapshot.Set.ManagedFilePath);
+        Assert.Equal(Path.GetFullPath(Path.Combine(managedDir, managedHostsFileName)), snapshot.Set.ManagedHostsFilePath);
+        Assert.Contains(snapshot.Set.Files, f => f.IsManaged && string.Equals(f.Path, Path.GetFullPath(managedPath), StringComparison.Ordinal));
+    }
 }

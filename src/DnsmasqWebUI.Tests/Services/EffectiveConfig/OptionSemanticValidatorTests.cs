@@ -862,6 +862,8 @@ public class OptionSemanticValidatorTests
         var semantics = new OptionValidationSemantics(OptionValidationKind.Complex);
         Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthSoa, "1", semantics));
         Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthSoa, "1,hostmaster.example.com,3600,600,86400", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthSoa, "1,,3600", semantics));
+        Assert.Null(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthSoa, "1,,3600,600,86400", semantics));
         Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthSoa, "", semantics));
         Assert.NotNull(_validator.ValidateMultiItem(DnsmasqConfKeys.AuthSoa, "x", semantics));
     }

@@ -1,0 +1,95 @@
+@namespace DnsmasqWebUI.Components.Filters
+@using DnsmasqWebUI.Models.Filters
+@using DnsmasqWebUI.Infrastructure.Serialization.Parsers.Filters
+
+<div class="filter-rule-editor card card-body mb-3">
+    <div class="form-check mb-2">
+        <input type="checkbox" class="form-check-input" id="addr-raw" @bind="_rawToggle" @bind:after="OnRawToggleChanged" />
+        <label class="form-check-label" for="addr-raw">Edit as raw <code>address=</code> value</label>
+    </div>
+
+    @if (Model.RawMode)
+    {
+        <label class="form-label small mb-1">Raw value (middle of <code>/domain/target</code>)</label>
+        <input type="text" class="form-control form-control-sm font-monospace mb-2" @bind="Model.RawLine" @bind:event="oninput" placeholder="/example.com/#" />
+    }
+    else
+    {
+        <div class="mb-2">
+            <span class="small text-muted d-block mb-1">Match</span>
+            <InputRadioGroup @bind-Value="Model.MatchMode" class="d-flex flex-wrap gap-3">
+                <label class="form-check">
+                    <InputRadio class="form-check-input" Value="AddressMatchMode.AllDomains" />
+                    <span class="form-check-label">All domains</span>
+                </label>
+                <label class="form-check">
+                    <InputRadio class="form-check-input" Value="AddressMatchMode.DomainPattern" />
+                    <span class="form-check-label">Domain pattern</span>
+                </label>
+            </InputRadioGroup>
+        </div>
+        @if (Model.MatchMode == AddressMatchMode.DomainPattern)
+        {
+            <label class="form-label small">Domain path (e.g. <code>ads.example.com</code> or <code>corp.local</code>)</label>
+            <input type="text" class="form-control form-control-sm mb-2" @bind="Model.DomainPath" @bind:event="oninput" placeholder="example.com" />
+        }
+        <div class="mb-2">
+            <span class="small text-muted d-block mb-1">Response</span>
+            <InputRadioGroup @bind-Value="Model.ResponseMode" class="d-flex flex-wrap gap-3">
+                <label class="form-check">
+                    <InputRadio class="form-check-input" Value="AddressResponseMode.NullSinkhole" />
+                    <span class="form-check-label">Null / sinkhole (<code>#</code>)</span>
+                </label>
+                <label class="form-check">
+                    <InputRadio class="form-check-input" Value="AddressResponseMode.SpecificIp" />
+                    <span class="form-check-label">Specific IP</span>
+                </label>
+            </InputRadioGroup>
+        </div>
+        @if (Model.ResponseMode == AddressResponseMode.SpecificIp)
+        {
+            <label class="form-label small">IP address</label>
+            <input type="text" class="form-control form-control-sm mb-2" @bind="Model.ResponseValue" @bind:event="oninput" placeholder="127.0.0.1" />
+        }
+    }
+
+    <div class="d-flex flex-wrap gap-2">
+        <button type="button" class="btn btn-sm btn-primary" @onclick="SaveClick">@SubmitLabel</button>
+        @if (IsEditing)
+        {
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelClick">Cancel</button>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public AddressEditorModel Model { get; set; } = new();
+    [Parameter] public EventCallback<AddressEditorModel> ModelChanged { get; set; } = default;
+    [Parameter] public string SubmitLabel { get; set; } = "Add rule";
+    [Parameter] public bool IsEditing { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private bool _rawToggle;
+
+    protected override void OnParametersSet()
+    {
+        _rawToggle = Model.RawMode;
+    }
+
+    private Task OnRawToggleChanged()
+    {
+        Model.RawMode = _rawToggle;
+        return ModelChanged.InvokeAsync(Model);
+    }
+
+    private async Task SaveClick()
+    {
+        await OnSave.InvokeAsync();
+    }
+
+    private async Task CancelClick()
+    {
+        await OnCancel.InvokeAsync();
+    }
+}

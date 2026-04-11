@@ -44,13 +44,10 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
 
     private (string? MainPath, string? ManagedPath) GetPaths()
     {
-        var mainPath = _options.MainConfigPath;
-        if (string.IsNullOrEmpty(mainPath))
+        var paths = DnsmasqManagedPathSet.TryFromOptions(_options);
+        if (paths == null)
             return (null, null);
-        var mainFull = Path.GetFullPath(mainPath);
-        var mainDir = Path.GetDirectoryName(mainFull) ?? "";
-        var managedPath = Path.Combine(mainDir, _options.ManagedFileName);
-        return (mainFull, managedPath);
+        return (paths.MainConfigPath, paths.ManagedFilePath);
     }
 
     private void TryAddWatcher(string? dir, string? fileName, ref FileSystemWatcher? watcher, string label)
@@ -119,8 +116,8 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
 
     private ConfigSetSnapshot GetSnapshot(CancellationToken ct)
     {
-        var (mainFull, managedPath) = GetPaths();
-        if (string.IsNullOrEmpty(mainFull))
+        var paths = DnsmasqManagedPathSet.TryFromOptions(_options);
+        if (paths == null)
             return CreateDefaultSnapshot();
 
         lock (_lock)
@@ -133,12 +130,7 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
                 _dirty = true;
             }
 
-            var managedHostsFileName = (_options.ManagedHostsFileName ?? "").Trim();
-            if (string.IsNullOrEmpty(managedHostsFileName))
-                managedHostsFileName = "zz-dnsmasq-webui.hosts";
-            var mainDir = Path.GetDirectoryName(mainFull) ?? "";
-            var managedHostsFilePath = Path.Combine(mainDir, managedHostsFileName);
-            var set = BuildConfigSet(mainFull, managedPath, managedHostsFilePath);
+            var set = BuildConfigSet(paths.MainConfigPath, paths.ManagedFilePath, paths.ManagedHostsFilePath);
             if (set.Files.Count == 0)
             {
                 _snapshot = CreateDefaultSnapshot();
@@ -147,10 +139,10 @@ public sealed class ConfigSetCache : IConfigSetCache, IDisposable
                 return _snapshot;
             }
 
-            var paths = set.Files.Select(f => f.Path).ToList();
-            var pathToLines = ReadAllPaths(paths, ct);
-            var config = BuildEffectiveConfig(paths, pathToLines);
-            var sources = BuildEffectiveConfigSources(paths, pathToLines, set.ManagedFilePath, set.ManagedHostsFilePath);
+            var configPaths = set.Files.Select(f => f.Path).ToList();
+            var pathToLines = ReadAllPaths(configPaths, ct);
+            var config = BuildEffectiveConfig(configPaths, pathToLines);
+            var sources = BuildEffectiveConfigSources(configPaths, pathToLines, set.ManagedFilePath, set.ManagedHostsFilePath);
             var managedContent = BuildManagedContent(pathToLines, set.ManagedFilePath);
             var dhcpHostEntries = BuildDhcpHostEntries(set, pathToLines);
 

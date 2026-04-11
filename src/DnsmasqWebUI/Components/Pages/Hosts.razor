@@ -70,16 +70,16 @@ else
         <section class="page-section">
             <h2 class="page-section-title mb-3">Hosts entries</h2>
 
-            <div class="hosts-controls-bar d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2"
+            <div class="app-page-controls-bar d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2"
                  @onkeydown="OnHostsToolbarKeyDown">
-                <div class="hosts-toolbar-fields flex-grow-1">
+                <div class="app-page-toolbar-fields flex-grow-1">
                     <input type="text"
-                           class="form-control form-control-sm hosts-toolbar-search"
+                           class="form-control form-control-sm app-page-toolbar-search"
                            placeholder="Search address, names, path…"
                            @bind="_search"
                            @bind:event="oninput" />
                     <label class="visually-hidden" for="hosts-file-filter-trigger">Hosts file</label>
-                    <div class="hosts-file-filter-wrap">
+                    <div class="app-page-file-filter-wrap">
                         <GroupedSelectDropdown TValue="string"
                                                @ref="_hostsFileFilterDropdown"
                                                Builder="HostsFileFilterBuilder"
@@ -136,7 +136,7 @@ else
                                         <th scope="col" class="hosts-effective-names-th">
                                             <span class="align-middle">Effective names</span>
                                             <button type="button"
-                                                    class="btn btn-link btn-sm text-muted hosts-effective-names-help p-0 ms-1 align-middle border-0"
+                                                    class="btn btn-link btn-sm text-muted app-th-help-btn p-0 ms-1 align-middle border-0"
                                                     title="@EffectiveNamesHelpText"
                                                     aria-label="@EffectiveNamesHelpText"
                                                     @onclick="OnEffectiveNamesHelpClick"

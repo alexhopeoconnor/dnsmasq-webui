@@ -2,15 +2,21 @@
 @rendermode InteractiveServer
 @namespace DnsmasqWebUI.Components.Pages
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
-@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
-@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata
+@using DnsmasqWebUI.Components.EffectiveConfig
+@using DnsmasqWebUI.Extensions.Interop
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
 @inject IStatusClient StatusClient
 @inject IEffectiveConfigPageEditor PageEditor
+@inject IDnsRecordsPageProjectionService DnsRecordsProjection
+@inject IDnsRecordDirectiveCodecProvider DnsRecordCodecs
 @inject IOptions<ApplicationOptions> AppOptions
+@inject IJSRuntime JSRuntime
 
 <PageTitle>DNS records | @AppTitle</PageTitle>
 
-<h1 class="page-title">DNS Records Configuration</h1>
+<div class="dns-records-page">
+<h1 class="page-title">DNS Records</h1>
 
 @if (_status == null)
 {
@@ -21,125 +27,429 @@
 }
 else
 {
+    @if (_status.DnsmasqStatus == "inactive" || _status.DnsmasqStatus == "unknown")
+    {
+        <div class="alert alert-warning">Dnsmasq service appears to be <strong>@_status.DnsmasqStatus</strong>. Save may not apply until the service is running.</div>
+    }
+
     <section class="page-section">
+        <h2 class="page-section-title">Effective configuration</h2>
+        <p class="text-muted small mb-3">
+            Start here for <strong>save, revert, and validation</strong>—the same pending-change flow as <strong>Hosts</strong> and <strong>Resolver policy</strong>.
+            Structured editors below are shortcuts; they update the same effective options shown above.
+        </p>
         <EffectiveConfigSection Status="_status" Context="EffectiveConfigContext.DnsRecords" ShowSearchBox="true" OnSaveCompleted="RefreshStatusAsync" />
     </section>
+
     <section class="page-section">
-        <h2 class="page-section-title">Quick add</h2>
-        <div class="d-flex flex-wrap gap-3 align-items-end">
-            <div class="d-flex flex-wrap gap-2 align-items-end">
-                <input class="form-control form-control-sm" style="width:12rem" placeholder="Alias (e.g. www.example.com)" @bind="_cnameAlias" />
-                <input class="form-control form-control-sm" style="width:12rem" placeholder="Target (e.g. example.com)" @bind="_cnameTarget" />
-                <button type="button" class="btn btn-sm btn-primary" @onclick="AddCname">Add CNAME</button>
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+            <h2 class="page-section-title mb-0">MX defaults</h2>
+            <SectionHelpButton HelpText="@MxDefaultsSectionHelpText" />
+        </div>
+        <p class="text-muted small">
+            Quick access to <code>mx-target</code>, <code>localmx</code>, and <code>selfmx</code>. These also appear in <strong>Effective configuration</strong>; use either surface.
+            They affect how <code>mx-host</code> and local mail exchanger behaviour work.
+        </p>
+        <div class="row g-2 align-items-end dns-mx-defaults">
+            <div class="col-md-4">
+                <label class="form-label small mb-0" for="mx-target-input">mx-target</label>
+                <input id="mx-target-input" class="form-control form-control-sm" @bind="_mxTargetDraft" @bind:event="oninput" disabled="@(_mxTargetReadOnly)" title="@_mxTargetTitle" />
             </div>
-            <div class="d-flex flex-wrap gap-2 align-items-end">
-                <input class="form-control form-control-sm" style="width:10rem" placeholder="Host name" @bind="_hostRecordName" />
-                <input class="form-control form-control-sm" style="width:10rem" placeholder="IP address" @bind="_hostRecordIp" />
-                <button type="button" class="btn btn-sm btn-primary" @onclick="AddHostRecord">Add A/AAAA record</button>
+            <div class="col-md-2 form-check">
+                <input id="localmx-check" type="checkbox" class="form-check-input" @bind="_localmxDraft" disabled="@(_localmxReadOnly)" />
+                <label class="form-check-label small" for="localmx-check">localmx</label>
             </div>
-            <div class="d-flex flex-wrap gap-2 align-items-end">
-                <input class="form-control form-control-sm" style="width:10rem" placeholder="Name" @bind="_txtName" />
-                <input class="form-control form-control-sm" style="width:12rem" placeholder="Text value" @bind="_txtValue" />
-                <button type="button" class="btn btn-sm btn-primary" @onclick="AddTxtRecord">Add TXT record</button>
+            <div class="col-md-2 form-check">
+                <input id="selfmx-check" type="checkbox" class="form-check-input" @bind="_selfmxDraft" disabled="@(_selfmxReadOnly)" />
+                <label class="form-check-label small" for="selfmx-check">selfmx</label>
+            </div>
+            <div class="col-md-3">
+                <button type="button" class="btn btn-sm btn-primary" @onclick="ApplyMxDefaultsAsync" disabled="@(_mxDefaultsAllReadOnly)">Apply MX defaults</button>
             </div>
         </div>
-        @if (_recordError != null)
+        @if (_mxDefaultsError != null)
         {
-            <p class="text-danger small mt-2 mb-0">@_recordError</p>
+            <p class="text-danger small mt-2 mb-0">@_mxDefaultsError</p>
         }
     </section>
-    <div class="page-chips" role="group" aria-label="Record type">
-        <span class="page-chip active">All</span>
-        <span class="page-chip">CNAME</span>
-        <span class="page-chip">MX / SRV</span>
-        <span class="page-chip">PTR</span>
-        <span class="page-chip">TXT</span>
-        <span class="page-chip">A / AAAA</span>
-        <span class="page-chip">Other</span>
-    </div>
+
+    <section class="page-section">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+            <h2 class="page-section-title mb-0">Structured records</h2>
+            <SectionHelpButton HelpText="@StructuredRecordsSectionHelpText" />
+        </div>
+        <p class="text-muted small mb-3">
+            Filter and edit multi-value DNS directives with plain-language summaries. Use category chips to narrow the view; on narrow screens, use the table’s horizontal scroll cues.
+            Prefer <strong>Effective configuration</strong> for options that do not need a specialized form.
+        </p>
+        <div class="app-page-controls-bar d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2"
+             @onkeydown="OnToolbarKeyDown">
+            <div class="app-page-toolbar-fields flex-grow-1">
+                <label class="visually-hidden" for="dns-records-search">Search DNS records</label>
+                <input id="dns-records-search"
+                       type="search"
+                       class="form-control form-control-sm app-page-toolbar-search"
+                       placeholder="Search names, values, summary, file path…"
+                       value="@_query.Search"
+                       @oninput="OnSearchInput" />
+                <label class="visually-hidden" for="dns-file-filter-trigger">Config file</label>
+                <div class="app-page-file-filter-wrap">
+                    <GroupedSelectDropdown TValue="string"
+                                           @ref="_fileFilterDropdown"
+                                           Builder="FileFilterBuilder"
+                                           @bind-Value="_sourceFileFilter"
+                                           @bind-Value:after="OnSourceFileFilterChangedAfterBind"
+                                           TriggerId="dns-file-filter-trigger"
+                                           MenuId="dns-file-filter-menu"
+                                           TriggerClass="hosts-toolbar-file-filter">
+                        <OptionTemplate Context="ctx">
+                            <button type="button"
+                                    class="hosts-file-filter-option @(ctx.IsSelected ? "hosts-file-filter-option--active" : null)"
+                                    role="option"
+                                    aria-selected="@(ctx.IsSelected ? "true" : "false")"
+                                    title="@(ctx.Option.Title ?? ctx.Option.Label)"
+                                    @onclick="ctx.OnSelect">
+                                <span class="hosts-file-filter-option-main hosts-file-filter-option-path"
+                                      title="@(ctx.Option.Title ?? ctx.Option.Label)">@(ctx.Option.Title ?? ctx.Option.Label)</span>
+                                @if (ctx.Option.Count is not null)
+                                {
+                                    <span class="hosts-file-filter-count">@ctx.Option.Count</span>
+                                }
+                            </button>
+                        </OptionTemplate>
+                    </GroupedSelectDropdown>
+                </div>
+            </div>
+            <div class="d-flex flex-wrap gap-3 align-items-center">
+                <div class="form-check mb-0">
+                    <input class="form-check-input" type="checkbox" id="dns-show-ro" checked="@_query.ShowReadOnly" @onchange="OnShowReadOnlyChanged" />
+                    <label class="form-check-label small" for="dns-show-ro">Show read-only</label>
+                </div>
+                <div class="form-check mb-0">
+                    <input class="form-check-input" type="checkbox" id="dns-only-issues" checked="@_query.OnlyWithIssues" @onchange="OnOnlyIssuesChanged" />
+                    <label class="form-check-label small" for="dns-only-issues">Only warnings</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="page-chips dns-record-chips mb-3" role="group" aria-label="Record category">
+            @foreach (var chip in UiFamilyChips)
+            {
+                <button type="button"
+                        class="page-chip @(chip.Value == _query.UiFamily ? "active" : null)"
+                        @onclick="() => SetUiFamily(chip.Value)">
+                    @chip.Label
+                </button>
+            }
+        </div>
+
+        <div class="mb-2 d-flex flex-wrap gap-1">
+            <span class="small text-muted align-self-center me-1">Add:</span>
+            <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => OpenAddCommon(DnsRecordFamily.Cname)">CNAME</button>
+            <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => OpenAddCommon(DnsRecordFamily.HostRecord)">host-record</button>
+            <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => OpenAddCommon(DnsRecordFamily.Txt)">TXT</button>
+            <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => OpenAddCommon(DnsRecordFamily.Ptr)">PTR</button>
+            <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => OpenAddCommon(DnsRecordFamily.Mx)">MX</button>
+            <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => OpenAddCommon(DnsRecordFamily.Srv)">SRV</button>
+            <div class="dropdown d-inline-block">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Advanced type</button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    @foreach (var t in DnsRecordAdvancedTemplates.All)
+                    {
+                        <li>
+                            <button type="button" class="dropdown-item small" @onclick="() => OpenAddAdvanced(t.OptionName)">@t.Title</button>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+
+        @if (EditorOpen)
+        {
+            <div class="dns-record-editor-panel border rounded p-3 mb-3 bg-light">
+                @if (_addCommonFamily == DnsRecordFamily.Cname || (_editExisting?.Family == DnsRecordFamily.Cname))
+                {
+                    <CnameRecordEditor Existing="@(_editExisting?.Family == DnsRecordFamily.Cname ? _editExisting : null)" OnSave="OnEditorSaveAsync" OnCancel="CloseEditor" />
+                }
+                else if (_addCommonFamily == DnsRecordFamily.HostRecord || (_editExisting?.Family == DnsRecordFamily.HostRecord))
+                {
+                    <HostRecordEditor Existing="@(_editExisting?.Family == DnsRecordFamily.HostRecord ? _editExisting : null)" OnSave="OnEditorSaveAsync" OnCancel="CloseEditor" />
+                }
+                else if (_addCommonFamily == DnsRecordFamily.Txt || (_editExisting?.Family == DnsRecordFamily.Txt))
+                {
+                    <TxtRecordEditor Existing="@(_editExisting?.Family == DnsRecordFamily.Txt ? _editExisting : null)" OnSave="OnEditorSaveAsync" OnCancel="CloseEditor" />
+                }
+                else if (_addCommonFamily == DnsRecordFamily.Ptr || (_editExisting?.Family == DnsRecordFamily.Ptr))
+                {
+                    <PtrRecordEditor Existing="@(_editExisting?.Family == DnsRecordFamily.Ptr ? _editExisting : null)" OnSave="OnEditorSaveAsync" OnCancel="CloseEditor" />
+                }
+                else if (_addCommonFamily == DnsRecordFamily.Mx || (_editExisting?.Family == DnsRecordFamily.Mx))
+                {
+                    <MxRecordEditor Existing="@(_editExisting?.Family == DnsRecordFamily.Mx ? _editExisting : null)" OnSave="OnEditorSaveAsync" OnCancel="CloseEditor" />
+                }
+                else if (_addCommonFamily == DnsRecordFamily.Srv || (_editExisting?.Family == DnsRecordFamily.Srv))
+                {
+                    <SrvRecordEditor Existing="@(_editExisting?.Family == DnsRecordFamily.Srv ? _editExisting : null)" OnSave="OnEditorSaveAsync" OnCancel="CloseEditor" />
+                }
+                else if (!string.IsNullOrEmpty(_addAdvancedOption) || (_editExisting?.Family.IsAdvancedFamily() == true))
+                {
+                    <AdvancedDnsRecordEditor OptionName="@(_addAdvancedOption ?? _editExisting!.OptionName)"
+                                            Existing="@(_addAdvancedOption != null ? null : _editExisting)"
+                                            OnSave="OnEditorSaveAsync"
+                                            OnCancel="CloseEditor" />
+                }
+            </div>
+        }
+
+        @if (ShowCommonSection)
+        {
+            <h3 class="h6 text-muted mb-2">Common records</h3>
+            <DnsRecordsTable TableId="dns-common-table"
+                             TableCaption="Common DNS record lines for scanning and editing"
+                             Rows="@CommonRows"
+                             OnEditRow="HandleEditRow"
+                             OnDeleteRow="HandleDeleteRowAsync" />
+        }
+
+        @if (ShowAdvancedSection)
+        {
+            <h3 class="h6 text-muted mb-2 mt-4">Advanced records</h3>
+            <p class="small text-muted">Templates for less common directives. Each row still maps to a single dnsmasq option line.</p>
+            <DnsRecordsTable TableId="dns-advanced-table"
+                             TableCaption="Advanced DNS record lines for scanning and editing"
+                             Rows="@AdvancedRows"
+                             OnEditRow="HandleEditRow"
+                             OnDeleteRow="HandleDeleteRowAsync" />
+        }
+
+        @if (CommonRows.Count == 0 && ShowCommonSection && AdvancedRows.Count == 0 && ShowAdvancedSection && string.IsNullOrWhiteSpace(_query.Search) && string.IsNullOrWhiteSpace(_sourceFileFilter))
+        {
+            <p class="text-muted small">No DNS record lines in effective configuration.</p>
+        }
+    </section>
 }
+</div>
 
 @code {
+    private const string MxDefaultsSectionHelpText =
+        "mx-target sets the default mail exchanger host for local MX records. localmx and selfmx adjust how dnsmasq generates MX when you use mx-host or local mail routing. "
+        + "You can change these in Effective configuration as well; both views edit the same options.";
+
+    private const string StructuredRecordsSectionHelpText =
+        "Each row is one effective-config line for a DNS directive (cname, host-record, srv-host, etc.). "
+        + "Summary is a readable preview; the raw line is the exact value dnsmasq will use. "
+        + "Source shows which file supplied the line and whether the app can rewrite it. "
+        + "Status lists syntax checks and page-local warnings (e.g. duplicate or conflicting names). "
+        + "Use the table scroll region (keyboard-focusable) when columns overflow; edge cues indicate more content horizontally.";
+
+    private static readonly (string Label, DnsRecordsUiFamily Value)[] UiFamilyChips =
+    [
+        ("All", DnsRecordsUiFamily.All),
+        ("CNAME", DnsRecordsUiFamily.Cname),
+        ("Host", DnsRecordsUiFamily.HostRecord),
+        ("TXT", DnsRecordsUiFamily.Txt),
+        ("PTR", DnsRecordsUiFamily.Ptr),
+        ("MX", DnsRecordsUiFamily.Mx),
+        ("SRV", DnsRecordsUiFamily.Srv),
+        ("Advanced", DnsRecordsUiFamily.Advanced),
+    ];
+
     private string AppTitle => AppOptions!.Value!.EffectiveTitle;
     private DnsmasqServiceStatus? _status;
-    private string _cnameAlias = "";
-    private string _cnameTarget = "";
-    private string _hostRecordName = "";
-    private string _hostRecordIp = "";
-    private string _txtName = "";
-    private string _txtValue = "";
-    private string? _recordError;
+    private IReadOnlyList<DnsRecordRow> _allRows = [];
+    private DnsRecordsQueryState _query = new("", DnsRecordsUiFamily.All, null, true, false);
+    private string _sourceFileFilter = "";
+    private GroupedSelectDropdown<string>? _fileFilterDropdown;
+    private IJSObjectReference? _dnsRecordsTableScrollCueModule;
 
-    private static EffectiveConfigFieldRef CnameField(string sectionId) => EffectiveConfigFieldRef.For(sectionId, DnsmasqConfKeys.Cname);
-    private static EffectiveConfigFieldRef HostRecordField(string sectionId) => EffectiveConfigFieldRef.For(sectionId, DnsmasqConfKeys.HostRecord);
-    private static EffectiveConfigFieldRef TxtRecordField(string sectionId) => EffectiveConfigFieldRef.For(sectionId, DnsmasqConfKeys.TxtRecord);
+    private DnsRecordRow? _editExisting;
+    private DnsRecordFamily? _addCommonFamily;
+    private string? _addAdvancedOption;
 
-    private void AddCname()
+    private string _mxTargetDraft = "";
+    private bool _localmxDraft;
+    private bool _selfmxDraft;
+    private bool _mxTargetReadOnly = true;
+    private bool _localmxReadOnly = true;
+    private bool _selfmxReadOnly = true;
+    private bool _mxDefaultsAllReadOnly = true;
+    private string? _mxTargetTitle;
+    private string? _mxDefaultsError;
+
+    private DnsRecordsFileFilterBuilder FileFilterBuilder => new(_allRows);
+
+    private bool EditorOpen => _editExisting != null || _addCommonFamily != null || _addAdvancedOption != null;
+
+    private IReadOnlyList<DnsRecordRow> VisibleRows =>
+        DnsRecordsProjection.FilterRows(_allRows, _query with { SourcePathFilter = string.IsNullOrWhiteSpace(_sourceFileFilter) ? null : _sourceFileFilter.Trim() });
+
+    private List<DnsRecordRow> CommonRows => VisibleRows.Where(r => !r.Family.IsAdvancedFamily()).ToList();
+    private List<DnsRecordRow> AdvancedRows => VisibleRows.Where(r => r.Family.IsAdvancedFamily()).ToList();
+
+    private bool ShowCommonSection => _query.UiFamily is DnsRecordsUiFamily.All or DnsRecordsUiFamily.Cname or DnsRecordsUiFamily.HostRecord
+        or DnsRecordsUiFamily.Txt or DnsRecordsUiFamily.Ptr or DnsRecordsUiFamily.Mx or DnsRecordsUiFamily.Srv;
+
+    private bool ShowAdvancedSection => _query.UiFamily is DnsRecordsUiFamily.All or DnsRecordsUiFamily.Advanced;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private void OnSearchInput(ChangeEventArgs e)
     {
-        _recordError = null;
-        if (string.IsNullOrWhiteSpace(_cnameAlias) || string.IsNullOrWhiteSpace(_cnameTarget))
-        {
-            PageEditor.SetFieldIssues(CnameField(EffectiveConfigSections.SectionDnsRecords), [new FieldIssue(CnameField(EffectiveConfigSections.SectionDnsRecords).FieldKey, "Alias and target are required.", FieldIssueSeverity.Error, null)]);
-            _recordError = "Alias and target are required.";
-            return;
-        }
-        var field = PageEditor.Field(EffectiveConfigSections.SectionDnsRecords, DnsmasqConfKeys.Cname);
-        PageEditor.ClearFieldIssues(field);
-        var current = PageEditor.GetEffectiveMultiValues(_status!, field);
-        var next = current.Append($"{_cnameAlias.Trim()},{_cnameTarget.Trim()}").ToList();
-        PageEditor.ReplaceMultiValues(_status!, field, next);
-        PageEditor.Activate(field);
-        _cnameAlias = "";
-        _cnameTarget = "";
-        StateHasChanged();
+        _query = _query with { Search = e.Value?.ToString() ?? "" };
     }
 
-    private void AddHostRecord()
+    private void OnShowReadOnlyChanged(ChangeEventArgs e)
     {
-        _recordError = null;
-        var hostField = PageEditor.Field(EffectiveConfigSections.SectionDnsRecords, DnsmasqConfKeys.HostRecord);
-        if (string.IsNullOrWhiteSpace(_hostRecordName) || string.IsNullOrWhiteSpace(_hostRecordIp))
-        {
-            PageEditor.SetFieldIssues(hostField, [new FieldIssue(hostField.FieldKey, "Host name and IP are required.", FieldIssueSeverity.Error, null)]);
-            _recordError = "Host name and IP are required.";
-            return;
-        }
-        var field = hostField;
-        PageEditor.ClearFieldIssues(field);
-        var current = PageEditor.GetEffectiveMultiValues(_status!, field);
-        var next = current.Append($"{_hostRecordName.Trim()},{_hostRecordIp.Trim()}").ToList();
-        PageEditor.ReplaceMultiValues(_status!, field, next);
-        PageEditor.Activate(field);
-        _hostRecordName = "";
-        _hostRecordIp = "";
-        StateHasChanged();
+        _query = _query with { ShowReadOnly = e.Value is bool b && b };
     }
 
-    private void AddTxtRecord()
+    private void OnOnlyIssuesChanged(ChangeEventArgs e)
     {
-        _recordError = null;
-        var txtField = PageEditor.Field(EffectiveConfigSections.SectionDnsRecords, DnsmasqConfKeys.TxtRecord);
-        if (string.IsNullOrWhiteSpace(_txtName))
-        {
-            PageEditor.SetFieldIssues(txtField, [new FieldIssue(txtField.FieldKey, "Name is required.", FieldIssueSeverity.Error, null)]);
-            _recordError = "Name is required.";
-            return;
-        }
-        var field = txtField;
-        PageEditor.ClearFieldIssues(field);
-        var current = PageEditor.GetEffectiveMultiValues(_status!, field);
-        var value = string.IsNullOrWhiteSpace(_txtValue) ? _txtName.Trim() : $"{_txtName.Trim()},\"{_txtValue.Trim()}\"";
-        var next = current.Append(value).ToList();
-        PageEditor.ReplaceMultiValues(_status!, field, next);
-        PageEditor.Activate(field);
-        _txtName = "";
-        _txtValue = "";
-        StateHasChanged();
+        _query = _query with { OnlyWithIssues = e.Value is bool b && b };
     }
 
-    protected override async Task OnInitializedAsync()
+    private void OnSourceFileFilterChangedAfterBind() => StateHasChanged();
+
+    private void SetUiFamily(DnsRecordsUiFamily f)
     {
-        await Load();
+        _query = _query with { UiFamily = f };
+        CloseEditor();
+    }
+
+    private void OpenAddCommon(DnsRecordFamily family)
+    {
+        PageEditor.EnsureEditMode();
+        _addCommonFamily = family;
+        _addAdvancedOption = null;
+        _editExisting = null;
+    }
+
+    private void OpenAddAdvanced(string optionName)
+    {
+        PageEditor.EnsureEditMode();
+        _addAdvancedOption = optionName;
+        _addCommonFamily = null;
+        _editExisting = null;
+    }
+
+    private void OpenEdit(DnsRecordRow row)
+    {
+        if (!row.IsEditable)
+            return;
+        PageEditor.EnsureEditMode();
+        _editExisting = row;
+        _addCommonFamily = null;
+        _addAdvancedOption = null;
+    }
+
+    private void CloseEditor()
+    {
+        _editExisting = null;
+        _addCommonFamily = null;
+        _addAdvancedOption = null;
+    }
+
+    private void HandleEditRow(DnsRecordRow row) => OpenEdit(row);
+
+    private Task HandleDeleteRowAsync(DnsRecordRow row) => DeleteRowAsync(row);
+
+    private async Task OnEditorSaveAsync(DnsRecordEditorResult result)
+    {
+        if (_status == null)
+            return;
+        var codec = DnsRecordCodecs.Get(result.Row.OptionName);
+        var serialized = codec.Serialize(result.Row);
+        var field = PageEditor.Field(EffectiveConfigSections.SectionDnsRecords, result.Row.OptionName);
+        PageEditor.ClearFieldIssues(field);
+        var list = PageEditor.GetEffectiveMultiValues(_status, field).ToList();
+        if (result.IsNew)
+            list.Add(serialized);
+        else
+        {
+            var idx = result.Row.IndexInOption;
+            if (idx >= 0 && idx < list.Count && string.Equals(list[idx], result.Row.RawValue, StringComparison.Ordinal))
+                list[idx] = serialized;
+            else
+            {
+                var i = list.FindIndex(v => string.Equals(v, result.Row.RawValue, StringComparison.Ordinal));
+                if (i >= 0)
+                    list[i] = serialized;
+                else
+                    list.Add(serialized);
+            }
+        }
+
+        PageEditor.ReplaceMultiValues(_status, field, list);
+        PageEditor.Activate(field);
+        CloseEditor();
+        await RefreshStatusAsync();
+    }
+
+    private async Task DeleteRowAsync(DnsRecordRow row)
+    {
+        if (_status == null || !row.IsEditable)
+            return;
+        var field = PageEditor.Field(EffectiveConfigSections.SectionDnsRecords, row.OptionName);
+        var list = PageEditor.GetEffectiveMultiValues(_status, field).ToList();
+        var idx = row.IndexInOption;
+        if (idx >= 0 && idx < list.Count && string.Equals(list[idx], row.RawValue, StringComparison.Ordinal))
+            list.RemoveAt(idx);
+        else
+        {
+            var i = list.FindIndex(v => string.Equals(v, row.RawValue, StringComparison.Ordinal));
+            if (i >= 0)
+                list.RemoveAt(i);
+        }
+
+        PageEditor.ReplaceMultiValues(_status, field, list);
+        CloseEditor();
+        await RefreshStatusAsync();
+    }
+
+    private void SyncMxDraftsFromStatus()
+    {
+        if (_status == null)
+        {
+            _mxDefaultsAllReadOnly = true;
+            return;
+        }
+
+        var mxTargetField = PageEditor.Field(EffectiveConfigSections.SectionDnsRecords, DnsmasqConfKeys.MxTarget);
+        var localmxField = PageEditor.Field(EffectiveConfigSections.SectionDnsRecords, DnsmasqConfKeys.Localmx);
+        var selfmxField = PageEditor.Field(EffectiveConfigSections.SectionDnsRecords, DnsmasqConfKeys.Selfmx);
+
+        _mxTargetDraft = PageEditor.GetEffectiveValue(_status, mxTargetField) as string ?? "";
+        _localmxDraft = PageEditor.GetEffectiveValue(_status, localmxField) is bool lm && lm;
+        _selfmxDraft = PageEditor.GetEffectiveValue(_status, selfmxField) is bool sm && sm;
+        var src = _status.EffectiveConfigSources;
+        _mxTargetReadOnly = src?.MxTarget?.IsReadOnly == true;
+        _localmxReadOnly = src?.Localmx?.IsReadOnly == true;
+        _selfmxReadOnly = src?.Selfmx?.IsReadOnly == true;
+        _mxDefaultsAllReadOnly = _mxTargetReadOnly && _localmxReadOnly && _selfmxReadOnly;
+        _mxTargetTitle = src?.MxTarget?.GetReadOnlyTooltip();
+    }
+
+    private async Task ApplyMxDefaultsAsync()
+    {
+        _mxDefaultsError = null;
+        if (_status == null || _mxDefaultsAllReadOnly)
+            return;
+        try
+        {
+            PageEditor.EnsureEditMode();
+            if (!_mxTargetReadOnly)
+                PageEditor.SetSingleValue(_status, PageEditor.Field(EffectiveConfigSections.SectionDnsRecords, DnsmasqConfKeys.MxTarget),
+                    string.IsNullOrWhiteSpace(_mxTargetDraft) ? null : _mxTargetDraft.Trim());
+            if (!_localmxReadOnly)
+                PageEditor.SetSingleValue(_status, PageEditor.Field(EffectiveConfigSections.SectionDnsRecords, DnsmasqConfKeys.Localmx), _localmxDraft);
+            if (!_selfmxReadOnly)
+                PageEditor.SetSingleValue(_status, PageEditor.Field(EffectiveConfigSections.SectionDnsRecords, DnsmasqConfKeys.Selfmx), _selfmxDraft);
+            await RefreshStatusAsync();
+        }
+        catch (Exception ex)
+        {
+            _mxDefaultsError = ex.Message;
+        }
     }
 
     private async Task RefreshStatusAsync()
@@ -147,20 +457,70 @@ else
         try
         {
             _status = await StatusClient.GetStatusAsync();
+            RebuildRows();
+            SyncMxDraftsFromStatus();
             await InvokeAsync(StateHasChanged);
         }
         catch { /* ignore */ }
     }
 
-    private async Task Load()
+    private void RebuildRows()
+    {
+        _allRows = _status == null ? [] : DnsRecordsProjection.BuildRows(_status);
+    }
+
+    private async Task LoadAsync()
     {
         try
         {
             _status = await StatusClient.GetStatusAsync();
+            RebuildRows();
+            SyncMxDraftsFromStatus();
         }
         catch
         {
-            // Status will stay null; UI shows loading or empty
+            // stay null
         }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dnsRecordsTableScrollCueModule = await JSRuntime.InvokeAsyncSafe<IJSObjectReference>(
+                "import",
+                default,
+                "/js/modules/table-scroll-cue.js");
+            if (_dnsRecordsTableScrollCueModule != null)
+                await _dnsRecordsTableScrollCueModule.InvokeVoidAsyncSafe("initTableScrollCue");
+        }
+        else if (_dnsRecordsTableScrollCueModule != null)
+            await _dnsRecordsTableScrollCueModule.InvokeVoidAsyncSafe("updateTableScrollCue");
+    }
+
+    public async ValueTask DisposeAsync() => await CleanupDnsRecordsTableScrollCueAsync();
+
+    private async Task CleanupDnsRecordsTableScrollCueAsync()
+    {
+        var module = _dnsRecordsTableScrollCueModule;
+        _dnsRecordsTableScrollCueModule = null;
+        if (module == null)
+            return;
+
+        try
+        {
+            await module.InvokeVoidAsyncSafe("disposeTableScrollCue");
+        }
+        finally
+        {
+            await module.DisposeAsyncSafe();
+        }
+    }
+
+    private void OnToolbarKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key != "Escape")
+            return;
+        CloseEditor();
     }
 }

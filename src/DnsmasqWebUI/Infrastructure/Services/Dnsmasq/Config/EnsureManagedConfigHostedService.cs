@@ -41,13 +41,14 @@ public class EnsureManagedConfigHostedService : IApplicationHostedService
         var configService = scope.ServiceProvider.GetRequiredService<IDnsmasqConfigService>();
 
         var set = await configSetService.GetConfigSetAsync(cancellationToken);
-        if (string.IsNullOrEmpty(set.ManagedFilePath) || string.IsNullOrEmpty(_options.MainConfigPath))
+        var paths = DnsmasqManagedPathSet.TryFromOptions(_options);
+        if (string.IsNullOrEmpty(set.ManagedFilePath) || paths == null)
             return;
 
-        var mainFull = Path.GetFullPath(_options.MainConfigPath);
+        var mainFull = paths.MainConfigPath;
         var mainDir = Path.GetDirectoryName(mainFull) ?? "";
-        var managedPath = Path.GetFullPath(set.ManagedFilePath);
-        var managedDir = Path.GetDirectoryName(managedPath) ?? "";
+        var managedPath = paths.ManagedFilePath;
+        var managedDir = paths.ManagedFilesDirectory;
         // Use absolute path so dnsmasq finds the file regardless of CWD (e.g. systemd may run with CWD=/).
         var confFileLine = "conf-file=" + managedPath;
 

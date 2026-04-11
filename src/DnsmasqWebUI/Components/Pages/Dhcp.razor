@@ -2,12 +2,11 @@
 @page "/leases"
 @rendermode InteractiveServer
 @namespace DnsmasqWebUI.Components.Pages
-@using DnsmasqWebUI.Models.Dnsmasq
-@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
-@using DnsmasqWebUI.Models.Dnsmasq.PageStates
-@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
-@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata
-@using DnsmasqWebUI.Infrastructure.Serialization.OptionHandlers.Abstractions
+@using DnsmasqWebUI.Models.Dhcp
+@using DnsmasqWebUI.Models.Dhcp.Ui
+@using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Dhcp.Abstractions
+@using System.Net
+@using System.Net.Sockets
 @inject IStatusClient StatusClient
 @inject IDhcpHostsClient DhcpHostsClient
 @inject ILeasesClient LeasesClient
@@ -17,11 +16,17 @@
 @inject IEffectiveConfigPageEditor PageEditor
 @inject IEffectiveConfigEditSession Session
 @inject IStructuredOptionValueHandlerRegistry HandlerRegistry
+@inject IDhcpPageProjectionService DhcpProjection
+@inject IJSRuntime JSRuntime
 @inject IOptions<ApplicationOptions> AppOptions
-@implements IDisposable
+@inject INotificationService NotificationService
+@using DnsmasqWebUI.Infrastructure.Services.UI.Notifications.Abstractions
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
 
 <PageTitle>DHCP | @AppTitle</PageTitle>
 
+<div class="dhcp-page">
 <h1 class="page-title">DHCP Configuration</h1>
 
 @if (_status == null)
@@ -42,8 +47,8 @@ else
             <p class="mb-0">@pageState.DhcpUnavailableReason</p>
         </div>
         <section class="page-section">
-            <h2 class="page-section-title">Advanced configuration</h2>
-            <p class="text-muted">DHCP-specific options are not available, but you can view the effective config below.</p>
+            <h2 class="page-section-title">Effective configuration</h2>
+            <p class="text-muted small">DHCP-specific structured editors are unavailable in this build, but you can review and save options here.</p>
             <EffectiveConfigSection Status="_status" Context="EffectiveConfigContext.Dhcp" ShowSearchBox="true" OnSaveCompleted="RefreshStatusAsync" />
         </section>
     }
@@ -51,222 +56,548 @@ else
     {
         <section class="page-section">
             <h2 class="page-section-title">Effective configuration</h2>
-            <p class="text-muted small">Use the editor below for full dnsmasq flexibility. The workflow UI appears underneath.</p>
+            <p class="text-muted small">Review all dhcp-* options, track draft changes, then save or reload. Use the sections below for structured editing where available.</p>
             <EffectiveConfigSection Status="_status" Context="EffectiveConfigContext.Dhcp" ShowSearchBox="true" OnSaveCompleted="RefreshStatusAsync" />
         </section>
 
-        @if (pageState.ReadEthersEnabled)
-        {
-            <div class="alert alert-info">
-                <strong>read-ethers</strong> is enabled. Dnsmasq reads <code>/etc/ethers</code> and
-                treats its entries like <code>dhcp-host</code> mappings for DHCP clients.
+        <section class="page-section dhcp-status-section">
+            <h2 class="page-section-title">Status</h2>
+            <div class="dhcp-status-strip card card-body py-3">
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <StatusBadge Kind="@(pageState.DhcpAvailable ? StatusBadgeKind.Editable : StatusBadgeKind.ReadOnly)" Text="DHCP" Class="dhcp-status-badge" />
+                    <span class="small">@(pageState.DhcpAvailable ? "Supported" : "Not supported")</span>
+                    <span class="text-muted">·</span>
+                    <StatusBadge Kind="@(pageState.TftpAvailable ? StatusBadgeKind.Editable : StatusBadgeKind.ReadOnly)" Text="TFTP" Class="dhcp-status-badge" />
+                    <span class="small">@(pageState.TftpAvailable ? "Supported" : "Not supported")</span>
+                    <span class="text-muted">·</span>
+                    <span class="small"><strong>Lease file:</strong> @(_status.LeasesPathConfigured ? "configured" : "not set")</span>
+                    <span class="text-muted">·</span>
+                    <span class="small"><strong>IPv4 range:</strong> @(string.IsNullOrEmpty(_status.DhcpRangeStart) ? "not detected" : $"{_status.DhcpRangeStart} – {_status.DhcpRangeEnd}")</span>
+                    <span class="text-muted">·</span>
+                    <span class="small"><strong>Authoritative:</strong> @((_status.EffectiveConfig?.DhcpAuthoritative ?? false) ? "on" : "off")</span>
+                    <span class="text-muted">·</span>
+                    <span class="small"><strong>read-ethers:</strong> @(pageState.ReadEthersEnabled ? "on" : "off")</span>
+                </div>
+                @if (!string.IsNullOrEmpty(_status.ManagedFilePath))
+                {
+                    <p class="text-muted small mb-0 mt-2"><strong>Managed file:</strong> @_status.ManagedFilePath</p>
+                }
             </div>
-        }
+        </section>
 
-        @* ---- Static hosts (dhcp-host= in managed file) ---- *@
         <section class="page-section">
-        <h2 class="page-section-title">Static hosts</h2>
-        @if (!_status.ManagedFilePathExists)
-        {
-            <p class="text-warning">Managed config file not found: @_status.ManagedFilePath</p>
-        }
-        else
-        {
-    <p class="text-muted small mb-2">Managed file: @_status.ManagedFilePath</p>
-    <div class="row g-2 align-items-center mb-2">
-        <div class="col-auto">
-            <label for="filter-keyword" class="form-label mb-0 small text-muted">Search static hosts</label>
-        </div>
-        <div class="col-md-4 col-lg-3">
-            <input type="text" id="filter-keyword" class="form-control form-control-sm" placeholder="MAC, name, address, comment…" @bind="_filterKeyword" @bind:event="oninput" />
-        </div>
-    </div>
-    @if (_status.DnsmasqStatus == "inactive" || _status.DnsmasqStatus == "unknown")
-    {
-        <div class="alert alert-warning">Dnsmasq service appears to be <strong>@_status.DnsmasqStatus</strong>. Save will update the file but reload may fail until the service is fixed.</div>
-    }
-    @if (_error != null)
-    {
-        <div class="alert alert-danger">@_error</div>
-    }
-    @if (_message != null)
-    {
-        <div class="alert alert-success">@_message</div>
-    }
-    <div class="table-responsive-cards">
-        <div class="d-none d-md-block">
-            <table class="table table-bordered">
-                <thead>
-                    <tr>
-                        <th>#</th><th>Valid</th><th>MAC</th><th>Name</th><th>Address</th><th>Lease</th><th>Ignore</th><th>Comment</th><th>Source</th><th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var row in _visibleStaticHostRows)
-                    {
-                        var e = row.Entry;
-                        var editable = IsEditable(e);
-                        <tr class="@(e.IsComment ? "table-secondary" : "") @(editable ? "" : "table-light")" @key="@(row.Index + ":" + row.ValueString)">
-                            <td>@e.LineNumber</td>
-                            @if (editable)
-                            {
-                                <td><input type="checkbox" checked="@(!e.IsComment)" @onchange="() => ToggleValid(row)" title="Uncheck to comment out this line in config (dnsmasq will ignore it)" /></td>
-                                <td>
-                                    <input class="form-control form-control-sm" list="static-host-lease-datalist" value="@string.Join(", ", e.MacAddresses)" @oninput="ev => OnMacInput(e, ev.Value?.ToString())" @onchange="() => SyncRowToSession(row)" style="min-width:140px" placeholder="MAC or pick from leases" />
-                                    @if (_leases != null && _leases.Count > 0)
-                                    {
-                                        <datalist id="static-host-lease-datalist">
-                                            @foreach (var l in _visibleLeases)
-                                            {
-                                                <option value="@l.Mac">@l.Mac @(string.IsNullOrEmpty(l.Name) ? "" : $" – {l.Name}") @(string.IsNullOrEmpty(l.Address) ? "" : $" – {l.Address}")</option>
-                                            }
-                                        </datalist>
-                                    }
-                                </td>
-                                <td><input class="form-control form-control-sm" @bind="e.Name" @bind:after="() => SyncRowToSession(row)" placeholder="Name" /></td>
-                                <td><input class="form-control form-control-sm" @bind="e.Address" @bind:after="() => SyncRowToSession(row)" style="min-width:100px" placeholder="Address" /></td>
-                                <td>
-                                    <input class="form-control form-control-sm" list="lease-datalist" @bind="e.Lease" @bind:event="oninput" @bind:after="() => SyncRowToSession(row)" style="min-width:7rem" placeholder="e.g. infinite or seconds" />
-                                    <datalist id="lease-datalist">
-                                        @foreach (var p in LeaseDatalistOptions)
-                                        {
-                                            <option value="@p.Value">@p.Label</option>
-                                        }
-                                    </datalist>
-                                </td>
-                                <td><input type="checkbox" checked="@e.Ignore" @onchange="() => ToggleIgnore(row)" title="Add ignore flag so dnsmasq will not assign this client a lease" /></td>
-                                <td><input class="form-control form-control-sm" @bind="e.Comment" @bind:after="() => SyncRowToSession(row)" /></td>
-                                <td class="text-muted small">—</td>
-                                <td><button class="btn btn-sm btn-danger" @onclick="() => DeleteRow(row)"><i class="bi bi-trash me-1" aria-hidden="true"></i>Delete</button></td>
-                            }
-                            else
-                            {
-                                <td>@(e.IsComment ? "No" : "Yes")</td>
-                                <td>@string.Join(", ", e.MacAddresses)</td>
-                                <td>@e.Name</td>
-                                <td>@e.Address</td>
-                                <td>@e.Lease</td>
-                                <td>@(e.Ignore ? "Yes" : "No")</td>
-                                <td>@e.Comment</td>
-                                <td><span class="text-muted small" title="@e.SourcePath">@(e.IsEditable ? "—" : (string.IsNullOrEmpty(e.SourcePath) ? "" : System.IO.Path.GetFileName(e.SourcePath)))</span></td>
-                                <td></td>
-                            }
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-        <div class="d-md-none table-cards-mobile">
-            @foreach (var row in _visibleStaticHostRows)
+            <h2 class="page-section-title">External DHCP sources</h2>
+            <p class="text-muted small">Paths loaded via include options (typically read-only here). Static host lines from these files appear grouped below.</p>
+            @{
+                var ext = DhcpProjection.BuildExternalSources(_status);
+            }
+            <ul class="list-unstyled small mb-0 dhcp-external-sources">
+                <li><strong>read-ethers:</strong> @(ext.ReadEthers ? "enabled (/etc/ethers affects DHCP)" : "off")</li>
+                <li><strong>dhcp-hostsfile:</strong> @(ext.DhcpHostsfilePaths.Count == 0 ? "—" : string.Join("; ", ext.DhcpHostsfilePaths))</li>
+                <li><strong>dhcp-hostsdir:</strong> @(ext.DhcpHostsdirPaths.Count == 0 ? "—" : string.Join("; ", ext.DhcpHostsdirPaths))</li>
+                <li><strong>dhcp-optsfile:</strong> @(ext.DhcpOptsfilePaths.Count == 0 ? "—" : string.Join("; ", ext.DhcpOptsfilePaths))</li>
+                <li><strong>dhcp-optsdir:</strong> @(ext.DhcpOptsdirPaths.Count == 0 ? "—" : string.Join("; ", ext.DhcpOptsdirPaths))</li>
+            </ul>
+        </section>
+
+        <section class="page-section">
+            <h2 class="page-section-title mb-3">Static host entries</h2>
+            <p class="text-muted small mb-2">Unified view of <code>dhcp-host</code> lines from the managed file and included configs. Editable rows live in the managed file; save via <strong>Effective configuration</strong> above.</p>
+            @if (!_status.ManagedFilePathExists && !string.IsNullOrEmpty(_status.ManagedFilePath))
             {
-                var e = row.Entry;
-                var editable = IsEditable(e);
-                <div class="card mb-2 @(e.IsComment ? "table-secondary" : "") @(editable ? "" : "border-start border-3 border-info")" @key="@(row.Index + ":" + row.ValueString)">
-                    <div class="card-body py-2">
-                        <div class="table-card-row"><span class="table-card-label">#</span> @e.LineNumber</div>
-                        @if (!string.IsNullOrEmpty(e.SourcePath))
-                        {
-                            <div class="table-card-row">
-                                <span class="table-card-label">Source</span>
-                                <span class="text-muted small" title="@e.SourcePath">@System.IO.Path.GetFileName(e.SourcePath)</span>
-                            </div>
-                        }
-                        <div class="table-card-row">
-                            <span class="table-card-label">Valid</span>
-                            <div class="table-card-control">
-                                @if (editable)
+                <p class="text-warning">Managed config file not found: @_status.ManagedFilePath</p>
+            }
+            @if (_status.DnsmasqStatus == "inactive" || _status.DnsmasqStatus == "unknown")
+            {
+                <div class="alert alert-warning">Dnsmasq service appears to be <strong>@_status.DnsmasqStatus</strong>. Save will update the managed file but reload may fail until the service is fixed.</div>
+            }
+            @if (_error != null)
+            {
+                <div class="alert alert-danger">@_error</div>
+            }
+            @if (_message != null)
+            {
+                <div class="alert alert-success">@_message</div>
+            }
+
+            <div class="app-page-controls-bar d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div class="app-page-toolbar-fields flex-grow-1">
+                    <label class="visually-hidden" for="dhcp-host-file-filter-trigger">DHCP host source file</label>
+                    <input type="text"
+                           class="form-control form-control-sm app-page-toolbar-search"
+                           placeholder="Search MAC, name, address, tags, source path…"
+                           @bind="_hostSearch"
+                           @bind:event="oninput"
+                           @bind:after="InvalidateHostGroupsCache" />
+                    <div class="app-page-file-filter-wrap">
+                        <GroupedSelectDropdown TValue="string"
+                                               @ref="_hostFileFilterDropdown"
+                                               Builder="DhcpHostFilterBuilder"
+                                               @bind-Value="_hostSourcePathFilter"
+                                               @bind-Value:after="OnHostSourceFilterChanged"
+                                               TriggerId="dhcp-host-file-filter-trigger"
+                                               MenuId="dhcp-host-file-filter-menu"
+                                               TriggerClass="hosts-toolbar-file-filter">
+                            <OptionTemplate Context="ctx">
+                                <button type="button"
+                                        class="hosts-file-filter-option @(ctx.IsSelected ? "hosts-file-filter-option--active" : null)"
+                                        role="option"
+                                        aria-selected="@(ctx.IsSelected ? "true" : "false")"
+                                        title="@(ctx.Option.Title ?? ctx.Option.Label)"
+                                        @onclick="ctx.OnSelect">
+                                    <span class="hosts-file-filter-option-main hosts-file-filter-option-path"
+                                          title="@(ctx.Option.Title ?? ctx.Option.Label)">@(ctx.Option.Title ?? ctx.Option.Label)</span>
+                                    @if (ctx.Option.Count is not null)
+                                    {
+                                        <span class="hosts-file-filter-count">@ctx.Option.Count</span>
+                                    }
+                                </button>
+                            </OptionTemplate>
+                        </GroupedSelectDropdown>
+                    </div>
+                </div>
+            </div>
+
+            @if (VisibleHostGroups.Count == 0)
+            {
+                <p class="text-muted">@(string.IsNullOrWhiteSpace(_hostSourcePathFilter) ? "No static host lines found." : "No static host lines for the selected source.")</p>
+            }
+            else
+            {
+                @if (TotalVisibleDhcpHostRows == 0 && !string.IsNullOrWhiteSpace(_hostSearch))
+                {
+                    <p class="text-muted">No rows match the current search.</p>
+                }
+                <div class="table-responsive-cards">
+                    <div class="d-none d-md-block">
+                        <div class="app-table-scroll-shell" data-table-scroll-cue>
+                            <div class="app-table-scroll-region" data-table-scroll-region role="region" aria-label="DHCP static host reservations" tabindex="0">
+                            <table class="table table-bordered table-hover app-data-table dhcp-hosts-table mb-0">
+                                <caption class="visually-hidden">DHCP static hosts grouped by source file</caption>
+                                <thead>
+                                    <tr>
+                                        <th class="dhcp-col-sel" scope="col"><span class="visually-hidden">Select</span></th>
+                                        <th scope="col">
+                                            <span class="align-middle">Flags</span>
+                                            <button type="button" class="btn btn-link btn-sm text-muted app-th-help-btn p-0 ms-1 align-middle border-0" title="@DhcpHostFlagsHelpText" aria-label="@DhcpHostFlagsHelpText" @onclick="OnDhcpHostFlagsHelpClick" @onclick:stopPropagation="true"><i class="bi bi-question-circle" aria-hidden="true"></i></button>
+                                        </th>
+                                        <th scope="col">#</th>
+                                        <th scope="col">Valid</th>
+                                        <th scope="col">
+                                            <span class="align-middle">MAC</span>
+                                            <button type="button" class="btn btn-link btn-sm text-muted app-th-help-btn p-0 ms-1 align-middle border-0" title="@DhcpHostMacHelpText" aria-label="@DhcpHostMacHelpText" @onclick="OnDhcpHostMacHelpClick" @onclick:stopPropagation="true"><i class="bi bi-question-circle" aria-hidden="true"></i></button>
+                                        </th>
+                                        <th scope="col">Name</th>
+                                        <th scope="col">Address</th>
+                                        <th scope="col">Lease</th>
+                                        <th scope="col">Ignore</th>
+                                        <th scope="col">Comment</th>
+                                        <th scope="col">
+                                            <span class="align-middle">Lease (live)</span>
+                                            <button type="button" class="btn btn-link btn-sm text-muted app-th-help-btn p-0 ms-1 align-middle border-0" title="@DhcpHostLiveLeaseHelpText" aria-label="@DhcpHostLiveLeaseHelpText" @onclick="OnDhcpHostLiveLeaseHelpClick" @onclick:stopPropagation="true"><i class="bi bi-question-circle" aria-hidden="true"></i></button>
+                                        </th>
+                                        <th scope="col">
+                                            <span class="align-middle">Source</span>
+                                            <button type="button" class="btn btn-link btn-sm text-muted app-th-help-btn p-0 ms-1 align-middle border-0" title="@DhcpHostSourceHelpText" aria-label="@DhcpHostSourceHelpText" @onclick="OnDhcpHostSourceHelpClick" @onclick:stopPropagation="true"><i class="bi bi-question-circle" aria-hidden="true"></i></button>
+                                        </th>
+                                        <th scope="col"><span class="visually-hidden">Actions</span></th>
+                                    </tr>
+                                </thead>
+                                @foreach (var group in VisibleHostGroups)
                                 {
-                                    <input type="checkbox" checked="@(!e.IsComment)" @onchange="() => ToggleValid(row)" title="Uncheck to comment out this line in config (dnsmasq will ignore it)" />
+                                <tbody @key="@group.Key">
+                                    <tr class="dhcp-group-header">
+                                        <th colspan="13" class="dhcp-group-header-cell" scope="colgroup">
+                                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                                <div>
+                                                    <span class="fw-semibold">@group.Title</span>
+                                                    @if (!string.IsNullOrEmpty(group.Subtitle))
+                                                    {
+                                                        <span class="text-muted small ms-2" title="@group.Subtitle">@System.IO.Path.GetFileName(group.Subtitle)</span>
+                                                    }
+                                                    @if (group.IsSourceEditable)
+                                                    {
+                                                        <StatusBadge Kind="StatusBadgeKind.Editable" Text="editable" Class="ms-1" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <StatusBadge Kind="StatusBadgeKind.ReadOnly" Text="read-only" Class="ms-1" />
+                                                    }
+                                                </div>
+                                                @if (group.IsSourceEditable && ManagedSelectionInGroup(group) > 0)
+                                                {
+                                                    <div class="d-flex gap-1">
+                                                        <button type="button" class="btn btn-sm btn-outline-danger" @onclick="@(() => BulkDeleteSelectedInGroupAsync(group))" disabled="@_saving">Remove selected</button>
+                                                    </div>
+                                                }
+                                            </div>
+                                        </th>
+                                    </tr>
+                                    @foreach (var row in group.Rows)
+                                    {
+                                        var e = row.Entry;
+                                        var editable = row.IsEditable;
+                                        <tr id="@($"dhcp-host-row-{row.EffectiveIndex}")" class="@(e.IsComment ? "table-secondary" : "") @(editable ? "" : "table-light")" @key="@row.RowKey">
+                                            <td>
+                                                @if (editable)
+                                                {
+                                                    <input type="checkbox" class="form-check-input" checked="@_selectedHostIndices.Contains(row.EffectiveIndex)" @onchange="@(ev => ToggleHostSelected(row.EffectiveIndex, ev.Value is bool cb && cb))" />
+                                                }
+                                            </td>
+                                            <td class="small dhcp-host-badges">
+                                                @if (!editable)
+                                                {
+                                                    <span class="badge bg-secondary">read-only</span>
+                                                }
+                                                @if (_readEthersEnabled)
+                                                {
+                                                    <span class="badge bg-light text-dark border" title="read-ethers is enabled globally">ethers</span>
+                                                }
+                                                @if (row.Conflict?.DuplicateMac == true)
+                                                {
+                                                    <span class="badge bg-warning text-dark">dup MAC</span>
+                                                }
+                                                @if (row.Conflict?.DuplicateAddress == true)
+                                                {
+                                                    <span class="badge bg-warning text-dark">dup IP</span>
+                                                }
+                                                @if (row.Conflict?.LeaseAddressMismatch == true)
+                                                {
+                                                    <span class="badge bg-danger">lease≠static</span>
+                                                }
+                                            </td>
+                                            <td>@e.LineNumber</td>
+                                            @if (editable)
+                                            {
+                                                <td><input type="checkbox" class="form-check-input" checked="@(!e.IsComment)" @onchange="@(() => ToggleHostValid(row))" title="Uncheck to comment out" /></td>
+                                                <td>
+                                                    <input class="form-control form-control-sm" list="dhcp-static-lease-dl" value="@string.Join(", ", e.MacAddresses)" @oninput="ev => OnMacInput(row, ev.Value?.ToString())" @onchange="@(() => SyncHostRow(row))" placeholder="MAC" />
+                                                </td>
+                                                <td><input class="form-control form-control-sm" @bind="e.Name" @bind:after="@(() => SyncHostRow(row))" /></td>
+                                                <td><input class="form-control form-control-sm" @bind="e.Address" @bind:after="@(() => SyncHostRow(row))" /></td>
+                                                <td>
+                                                    <input class="form-control form-control-sm" list="dhcp-lease-dl" @bind="e.Lease" @bind:event="oninput" @bind:after="@(() => SyncHostRow(row))" />
+                                                </td>
+                                                <td><input type="checkbox" class="form-check-input" checked="@e.Ignore" @onchange="@(() => ToggleHostIgnore(row))" /></td>
+                                                <td><input class="form-control form-control-sm" @bind="e.Comment" @bind:after="@(() => SyncHostRow(row))" /></td>
+                                                <td class="small">@(row.LinkedLease == null ? "—" : row.LinkedLease.Timestamp.ToString("yyyy-MM-dd HH:mm:ss"))</td>
+                                                <td class="text-muted small" title="@row.SourcePath">@(string.IsNullOrEmpty(row.SourcePath) ? "—" : System.IO.Path.GetFileName(row.SourcePath))</td>
+                                                <td><button type="button" class="btn btn-sm btn-danger" @onclick="@(() => DeleteHostRow(row))"><i class="bi bi-trash" aria-hidden="true"></i></button></td>
+                                            }
+                                            else
+                                            {
+                                                <td>@(e.IsComment ? "No" : "Yes")</td>
+                                                <td>@string.Join(", ", e.MacAddresses)</td>
+                                                <td>@e.Name</td>
+                                                <td>@e.Address</td>
+                                                <td>@e.Lease</td>
+                                                <td>@(e.Ignore ? "Yes" : "No")</td>
+                                                <td>@e.Comment</td>
+                                                <td class="small">@(row.LinkedLease == null ? "—" : row.LinkedLease.Timestamp.ToString("yyyy-MM-dd HH:mm:ss"))</td>
+                                                <td class="text-muted small" title="@row.SourcePath">@(string.IsNullOrEmpty(row.SourcePath) ? "—" : System.IO.Path.GetFileName(row.SourcePath))</td>
+                                                <td></td>
+                                            }
+                                        </tr>
+                                    }
+                                </tbody>
                                 }
-                                else
-                                {
-                                    <span>@(e.IsComment ? "No" : "Yes")</span>
-                                }
+                            </table>
                             </div>
                         </div>
-                        <div class="table-card-row">
-                            <span class="table-card-label">MAC</span>
-                            @if (editable)
-                            {
-                                <div class="flex-grow-1" style="min-width:0">
-                                    <input class="form-control form-control-sm" list="static-host-lease-datalist-mobile" value="@string.Join(", ", e.MacAddresses)" @oninput="ev => OnMacInput(e, ev.Value?.ToString())" @onchange="() => SyncRowToSession(row)" placeholder="MAC or pick from leases" style="min-width:0; width:100%" />
-                                    @if (_leases != null && _leases.Count > 0)
+                    </div>
+                    <div class="d-md-none">
+                        @foreach (var group in VisibleHostGroups)
+                        {
+                            <div class="card mb-3">
+                                <div class="card-header py-2 dhcp-group-header-cell">
+                                    <span class="fw-semibold">@group.Title</span>
+                                    @if (!string.IsNullOrEmpty(group.Subtitle))
                                     {
-                                        <datalist id="static-host-lease-datalist-mobile">
-                                            @foreach (var l in _visibleLeases)
-                                            {
-                                                <option value="@l.Mac">@l.Mac @(string.IsNullOrEmpty(l.Name) ? "" : $" – {l.Name}") @(string.IsNullOrEmpty(l.Address) ? "" : $" – {l.Address}")</option>
-                                            }
-                                        </datalist>
+                                        <div class="text-muted small">@group.Subtitle</div>
                                     }
                                 </div>
-                            }
-                            else
-                            {
-                                <span>@string.Join(", ", e.MacAddresses)</span>
-                            }
-                        </div>
-                        <div class="table-card-row">
-                            <span class="table-card-label">Name</span>
-                            @if (editable) { <input class="form-control form-control-sm" @bind="e.Name" @bind:after="() => SyncRowToSession(row)" /> } else { <span>@e.Name</span> }
-                        </div>
-                        <div class="table-card-row">
-                            <span class="table-card-label">Address</span>
-                            @if (editable) { <input class="form-control form-control-sm" @bind="e.Address" @bind:after="() => SyncRowToSession(row)" /> } else { <span>@e.Address</span> }
-                        </div>
-                        <div class="table-card-row">
-                            <span class="table-card-label">Lease</span>
-                            @if (editable)
-                            {
-                                <input class="form-control form-control-sm" list="lease-datalist-mobile" @bind="e.Lease" @bind:event="oninput" @bind:after="() => SyncRowToSession(row)" style="min-width:0; width:100%" placeholder="e.g. infinite or seconds" />
-                                <datalist id="lease-datalist-mobile">
-                                    @foreach (var p in LeaseDatalistOptions)
+                                <div class="card-body p-2">
+                                    @foreach (var row in group.Rows)
                                     {
-                                        <option value="@p.Value">@p.Label</option>
+                                        var e = row.Entry;
+                                        var editable = row.IsEditable;
+                                        <div class="border rounded p-2 mb-2" @key="@row.RowKey">
+                                            @if (editable)
+                                            {
+                                                <div class="form-check mb-2">
+                                                    <input type="checkbox" class="form-check-input" checked="@_selectedHostIndices.Contains(row.EffectiveIndex)" @onchange="@(ev => ToggleHostSelected(row.EffectiveIndex, ev.Value is bool cb && cb))" id="@($"sel-{row.EffectiveIndex}")" />
+                                                    <label class="form-check-label" for="@($"sel-{row.EffectiveIndex}")">Select for bulk remove</label>
+                                                </div>
+                                            }
+                                            <div class="small text-muted">#@e.LineNumber</div>
+                                            @if (editable)
+                                            {
+                                                <input class="form-control form-control-sm mb-1" list="dhcp-static-lease-dl-m" value="@string.Join(", ", e.MacAddresses)" @oninput="ev => OnMacInput(row, ev.Value?.ToString())" @onchange="@(() => SyncHostRow(row))" />
+                                                <input class="form-control form-control-sm mb-1" @bind="e.Name" @bind:after="@(() => SyncHostRow(row))" />
+                                                <input class="form-control form-control-sm mb-1" @bind="e.Address" @bind:after="@(() => SyncHostRow(row))" />
+                                                <input class="form-control form-control-sm mb-1" list="dhcp-lease-dl-m" @bind="e.Lease" @bind:event="oninput" @bind:after="@(() => SyncHostRow(row))" />
+                                                <button type="button" class="btn btn-sm btn-danger" @onclick="@(() => DeleteHostRow(row))">Delete</button>
+                                            }
+                                            else
+                                            {
+                                                <div>@string.Join(", ", e.MacAddresses)</div>
+                                                <div>@e.Name · @e.Address</div>
+                                            }
+                                        </div>
                                     }
-                                </datalist>
-                            }
-                            else
-                            {
-                                <span>@e.Lease</span>
-                            }
-                        </div>
-                        <div class="table-card-row">
-                            <span class="table-card-label">Ignore</span>
-                            <div class="table-card-control">
-                                @if (editable) { <input type="checkbox" checked="@e.Ignore" @onchange="() => ToggleIgnore(row)" /> } else { <span>@(e.Ignore ? "Yes" : "No")</span> }
-                            </div>
-                        </div>
-                        <div class="table-card-row">
-                            <span class="table-card-label">Comment</span>
-                            @if (editable) { <input class="form-control form-control-sm" @bind="e.Comment" @bind:after="() => SyncRowToSession(row)" /> } else { <span>@e.Comment</span> }
-                        </div>
-                        @if (editable)
-                        {
-                            <div class="table-card-row mt-2">
-                                <button class="btn btn-sm btn-danger" @onclick="() => DeleteRow(row)"><i class="bi bi-trash me-1" aria-hidden="true"></i>Delete</button>
+                                </div>
                             </div>
                         }
                     </div>
                 </div>
             }
-        </div>
-    </div>
-    <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-        <button class="btn btn-primary" @onclick="Add"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Add host</button>
-        @if (_status.ReloadCommandConfigured)
-        {
-            <button class="btn btn-primary" @onclick="Reload" disabled="@_saving"><i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Reload config</button>
-        }
-    </div>
-        }
-    </section>
 
-        @* ---- Leases (dhcp-leasefile, read-only) ---- *@
+            @if (_leases != null && _leases.Count > 0)
+            {
+                <datalist id="dhcp-static-lease-dl">
+                    @foreach (var l in _leases)
+                    {
+                        <option value="@l.Mac">@l.Mac @(string.IsNullOrEmpty(l.Name) ? "" : $" – {l.Name}") @(string.IsNullOrEmpty(l.Address) ? "" : $" – {l.Address}")</option>
+                    }
+                </datalist>
+                <datalist id="dhcp-static-lease-dl-m">
+                    @foreach (var l in _leases)
+                    {
+                        <option value="@l.Mac">@l.Mac @(string.IsNullOrEmpty(l.Name) ? "" : $" – {l.Name}")</option>
+                    }
+                </datalist>
+            }
+            <datalist id="dhcp-lease-dl">
+                @foreach (var p in LeaseDatalistOptions)
+                {
+                    <option value="@p.Value">@p.Label</option>
+                }
+            </datalist>
+            <datalist id="dhcp-lease-dl-m">
+                @foreach (var p in LeaseDatalistOptions)
+                {
+                    <option value="@p.Value">@p.Label</option>
+                }
+            </datalist>
+
+            <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                <button type="button" class="btn btn-primary" @onclick="AddHost" disabled="@(_status == null)"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Add host</button>
+                @if (_status?.ReloadCommandConfigured == true)
+                {
+                    <button type="button" class="btn btn-primary" @onclick="Reload" disabled="@_saving"><i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Reload config</button>
+                }
+            </div>
+        </section>
+
+        <section class="page-section">
+            <h2 class="page-section-title">DHCP ranges</h2>
+            <p class="text-muted small">Structured edit with raw fallback. Draft changes are saved with <strong>Effective configuration</strong> at the top of this page. Use that editor for uncommon <code>dhcp-range</code> syntax.</p>
+            @if (RangeStrings.Count == 0)
+            {
+                <p class="text-muted">No <code>dhcp-range</code> entries in effective config.</p>
+            }
+            else
+            {
+                <ul class="list-group mb-3">
+                    @for (var i = 0; i < RangeStrings.Count; i++)
+                    {
+                        var idx = i;
+                        var raw = RangeStrings[idx];
+                        var draft = DhcpRangeDraft.FromRaw(raw);
+                        <li class="list-group-item">
+                            <div class="d-flex flex-wrap justify-content-between gap-2">
+                                <code class="small flex-grow-1 text-break">@raw</code>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => BeginEditRange(idx)">Edit</button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveRangeAt(idx)">Remove</button>
+                            </div>
+                            @if (_editingRangeIndex == idx)
+                            {
+                                <div class="mt-3 border-top pt-3">
+                                    @if (!draft.IsStructured)
+                                    {
+                                        <div class="alert alert-warning small">This range uses syntax the structured form does not parse. Edit as raw text only.</div>
+                                        <label class="form-label small">Raw value</label>
+                                        <input class="form-control form-control-sm font-monospace mb-2" @bind="_rangeEditRaw" @bind:event="oninput" />
+                                    }
+                                    else
+                                    {
+                                        <label class="form-label small">Tags (comma-separated, e.g. tag:guest,set:known)</label>
+                                        <input class="form-control form-control-sm mb-2" @bind="_rangeEditTags" @bind:event="oninput" />
+                                        <label class="form-label small">Start (IPv4/IPv6 or constructor:iface)</label>
+                                        <input class="form-control form-control-sm mb-2" @bind="_rangeEditStart" @bind:event="oninput" />
+                                        <label class="form-label small">Second token (end IP or mode)</label>
+                                        <input class="form-control form-control-sm mb-2" @bind="_rangeEditSecond" @bind:event="oninput" />
+                                        <label class="form-label small">Remaining (comma-separated: lease time, modes…)</label>
+                                        <input class="form-control form-control-sm mb-2" @bind="_rangeEditRemaining" @bind:event="oninput" />
+                                    }
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-sm btn-primary" @onclick="CommitRangeEdit">Apply</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelRangeEdit">Cancel</button>
+                                    </div>
+                                </div>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+            <button type="button" class="btn btn-sm btn-outline-primary" @onclick="AddEmptyRange">Add range</button>
+        </section>
+
+        <section class="page-section">
+            <h2 class="page-section-title">DHCP options</h2>
+            <p class="text-muted small">Quick presets append to the draft. Full option lists and validation live under <strong>Effective configuration</strong>.</p>
+            <div class="btn-group btn-group-sm mb-3" role="group">
+                <button type="button" class="btn @(_optionUseForce ? "btn-outline-primary" : "btn-primary")" @onclick="() => SetOptionForce(false)">dhcp-option</button>
+                <button type="button" class="btn @(_optionUseForce ? "btn-primary" : "btn-outline-primary")" @onclick="() => SetOptionForce(true)">dhcp-option-force</button>
+            </div>
+            <div class="row g-2 align-items-end mb-3">
+                <div class="col-md-3">
+                    <label class="form-label small mb-0">Preset</label>
+                    <select class="form-select form-select-sm" @bind="_optionPresetKey">
+                        @foreach (var p in DhcpOptionPresets.All)
+                        {
+                            <option value="@p.Key">@p.Label</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small mb-0">Prefix (optional, e.g. tag:guest)</label>
+                    <input class="form-control form-control-sm" placeholder="tag:guest" @bind="_optionPrefix" @bind:event="oninput" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-0">Values (comma-separated)</label>
+                    <input class="form-control form-control-sm" placeholder="192.168.1.1" @bind="_optionValues" @bind:event="oninput" />
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-sm btn-primary w-100" @onclick="AppendOptionFromPreset">Add</button>
+                </div>
+            </div>
+            <label class="form-label small">Custom raw line (advanced)</label>
+            <div class="input-group input-group-sm mb-3">
+                <input class="form-control font-monospace" placeholder="option:router,192.168.1.1" @bind="_optionCustomRaw" @bind:event="oninput" />
+                <button type="button" class="btn btn-outline-primary" @onclick="AppendCustomOption">Append</button>
+            </div>
+            <ul class="list-group">
+                @foreach (var (line, i) in CurrentOptionLines.Select((l, i) => (l, i)))
+                {
+                    var idx = i;
+                    <li class="list-group-item d-flex justify-content-between align-items-start gap-2">
+                        <code class="small text-break">@line</code>
+                        <button type="button" class="btn btn-sm btn-outline-danger flex-shrink-0" @onclick="() => RemoveOptionAt(idx)">Remove</button>
+                    </li>
+                }
+            </ul>
+        </section>
+
+        <section class="page-section">
+            <h2 class="page-section-title">Classification &amp; policy</h2>
+            <p class="text-muted small">Ordered rules from effective config (read-only summary). Edit in <strong>Effective configuration</strong> or on disk—order matters for tags and matching.</p>
+            @if (_status is { } ruleStatus)
+            {
+            <div class="app-table-scroll-shell" data-table-scroll-cue>
+                <div class="app-table-scroll-region" data-table-scroll-region role="region" aria-label="DHCP classification rules" tabindex="0">
+                <table class="table table-sm table-bordered table-hover app-data-table mb-0">
+                    <caption class="visually-hidden">DHCP match and tag rules</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">#</th>
+                            <th scope="col">
+                                <span class="align-middle">Type</span>
+                                <button type="button" class="btn btn-link btn-sm text-muted app-th-help-btn p-0 ms-1 align-middle border-0" title="@DhcpClassificationTypeHelpText" aria-label="@DhcpClassificationTypeHelpText" @onclick="OnDhcpClassificationTypeHelpClick" @onclick:stopPropagation="true"><i class="bi bi-question-circle" aria-hidden="true"></i></button>
+                            </th>
+                            <th scope="col">Value</th>
+                            <th scope="col">Source</th>
+                            <th scope="col"><span class="visually-hidden">Managed</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var rule in DhcpProjection.BuildClassificationRules(ruleStatus))
+                        {
+                            <tr>
+                                <td>@rule.Order</td>
+                                <td><code>@rule.DisplayLabel</code></td>
+                                <td class="text-break"><code>@rule.RawValue</code></td>
+                                <td class="small text-muted">@(string.IsNullOrEmpty(rule.SourcePath) ? "—" : System.IO.Path.GetFileName(rule.SourcePath))</td>
+                                <td>
+                                    @if (rule.IsManaged)
+                                    {
+                                        <StatusBadge Kind="StatusBadgeKind.Editable" Text="managed" />
+                                    }
+                                    else
+                                    {
+                                        <StatusBadge Kind="StatusBadgeKind.ReadOnly" Text="readonly" />
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                </div>
+            </div>
+            }
+        </section>
+
+        <section class="page-section">
+            <h2 class="page-section-title">TFTP / PXE</h2>
+            @if (!pageState.TftpAvailable)
+            {
+                <div class="alert alert-info small mb-3">@pageState.TftpUnavailableReason</div>
+            }
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h3 class="h6">Flags &amp; paths</h3>
+                            @if (pageState.TftpAvailable)
+                            {
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" id="dhcp-enable-tftp" checked="@GetEnableTftp()" @onchange="OnEnableTftpChanged" />
+                                    <label class="form-check-label" for="dhcp-enable-tftp">enable-tftp</label>
+                                </div>
+                                <label class="form-label small">tftp-root</label>
+                                <input class="form-control form-control-sm mb-2" value="@GetTftpRoot()" @onchange="OnTftpRootChanged" />
+                            }
+                            else
+                            {
+                                <p class="small mb-1"><strong>enable-tftp:</strong> @((_status!.EffectiveConfig?.EnableTftp ?? false) ? "yes" : "no")</p>
+                                <p class="small mb-0"><strong>tftp-root:</strong> @(_status!.EffectiveConfig?.TftpRootPath ?? "—")</p>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h3 class="h6">Boot / PXE lines</h3>
+                            <p class="small text-muted mb-2">Manage <code>dhcp-boot</code>, <code>pxe-service</code>, <code>dhcp-option-pxe</code> in the advanced editor, or append below when TFTP is supported.</p>
+                            @if (pageState.TftpAvailable)
+                            {
+                                <label class="form-label small">Append dhcp-boot value</label>
+                                <div class="input-group input-group-sm mb-2">
+                                    <input class="form-control font-monospace" @bind="_tftpBootAppend" @bind:event="oninput" />
+                                    <button type="button" class="btn btn-outline-primary" @onclick="AppendDhcpBoot">Add</button>
+                                </div>
+                                <label class="form-label small">Append pxe-service value</label>
+                                <div class="input-group input-group-sm mb-2">
+                                    <input class="form-control font-monospace" @bind="_pxeServiceAppend" @bind:event="oninput" />
+                                    <button type="button" class="btn btn-outline-primary" @onclick="AppendPxeService">Add</button>
+                                </div>
+                                <label class="form-label small">Append dhcp-option-pxe value</label>
+                                <div class="input-group input-group-sm">
+                                    <input class="form-control font-monospace" @bind="_dhcpOptionPxeAppend" @bind:event="oninput" />
+                                    <button type="button" class="btn btn-outline-primary" @onclick="AppendDhcpOptionPxe">Add</button>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <section class="page-section">
             <div class="d-flex align-items-center justify-content-between mb-2">
                 <h2 class="page-section-title mb-0">Leases</h2>
-                @if (pageState.LeasesAvailable && _status.LeasesPathConfigured)
+                @if (pageState.LeasesAvailable && _status!.LeasesPathConfigured)
                 {
                     <button type="button" class="btn btn-link btn-sm p-0 text-body" aria-label="Leases refresh interval settings" @onclick="OpenLeasesSettings" title="Configure leases refresh interval">
                         <i class="bi bi-gear-fill bi-gear-sm" aria-hidden="true"></i>
@@ -275,13 +606,11 @@ else
             </div>
             @if (!pageState.LeasesAvailable)
             {
-                <div class="alert alert-info">
-                    <p class="mb-0">@pageState.LeasesUnavailableReason</p>
-                </div>
+                <div class="alert alert-info"><p class="mb-0">@pageState.LeasesUnavailableReason</p></div>
             }
             else
             {
-                @if (_status.LeasesPathConfigured && !string.IsNullOrEmpty(_status.LeasesPath))
+                @if (_status!.LeasesPathConfigured && !string.IsNullOrEmpty(_status.LeasesPath))
                 {
                     <p class="text-muted small mb-2">Path: @_status.LeasesPath (read-only).</p>
                 }
@@ -291,7 +620,7 @@ else
                 }
                 else if (!_status.LeasesPathExists)
                 {
-                    <p class="text-warning">Leases file not found: @_status.LeasesPath. DHCP may be disabled or path may be wrong.</p>
+                    <p class="text-warning">Leases file not found: @_status.LeasesPath</p>
                 }
                 else if (_leases == null)
                 {
@@ -299,168 +628,238 @@ else
                 }
                 else if (_leases.Count == 0)
                 {
-                    <p class="text-muted">No leases yet. Leases appear here when DHCP clients obtain an address; use Refresh to update.</p>
-                    <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-                        <button class="btn btn-primary" @onclick="() => LoadLeases(showLoading: true, forceRefresh: true)" disabled="@_leasesLoading"><i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Refresh</button>
-                    </div>
+                    <p class="text-muted">No leases yet.</p>
+                    <button class="btn btn-primary btn-sm" @onclick="() => LoadLeases(showLoading: true, forceRefresh: true)" disabled="@_leasesLoading">Refresh</button>
                 }
                 else
                 {
-            <div class="row g-2 align-items-center mb-2">
-                <div class="col-auto">
-                    <label for="lease-filter-keyword" class="form-label mb-0 small text-muted">Search leases</label>
-                </div>
-                <div class="col-md-4 col-lg-3">
-                    <input type="text" id="lease-filter-keyword" class="form-control form-control-sm" placeholder="MAC, address, name, client ID…" @bind="_leaseFilterKeyword" @bind:event="oninput" />
-                </div>
-            </div>
-            <div class="table-responsive-cards">
-                <div class="d-none d-md-block">
-                    <table class="table table-bordered">
-                        <thead>
-                            <tr><th>#</th><th>Expiry</th><th>MAC</th><th>Address</th><th>Name</th><th>Client ID</th><th>Control</th></tr>
-                        </thead>
-                        <tbody>
-                            @{ var leaseIndex = 0; }
-                            @foreach (var e in _visibleLeases)
-                            {
-                                var idx = ++leaseIndex;
-                                <tr>
-                                    <td>@idx</td>
-                                    <td>@e.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                                    <td>@e.Mac</td>
-                                    <td>@e.Address</td>
-                                    <td>@e.Name</td>
-                                    <td>@e.ClientId</td>
-                                    <td>
-                                        <div class="d-flex flex-wrap gap-1">
-                                            <button type="button" class="btn btn-primary btn-sm" title="Add a new static host entry using this lease's MAC, name, and address" @onclick="() => AddStaticFromLease(e)"><i class="bi bi-plus me-1" aria-hidden="true"></i>Add static</button>
-                                            <button type="button" class="btn btn-outline-danger btn-sm" title="Add a static host with ignore flag (dnsmasq will not assign this client a lease)" @onclick="() => AddStaticFromLeaseWithIgnore(e)"><i class="bi bi-slash-circle me-1" aria-hidden="true"></i>Ignore</button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-                <div class="d-md-none table-cards-mobile">
-                    @{ leaseIndex = 0; }
-                    @foreach (var e in _visibleLeases)
-                    {
-                        var idx = ++leaseIndex;
-                        <div class="card mb-2">
-                            <div class="card-body py-2">
-                                <div class="table-card-row"><span class="table-card-label">#</span> @idx</div>
-                                <div class="table-card-row"><span class="table-card-label">Expiry</span> @e.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</div>
-                                <div class="table-card-row"><span class="table-card-label">MAC</span> @e.Mac</div>
-                                <div class="table-card-row"><span class="table-card-label">Address</span> @e.Address</div>
-                                <div class="table-card-row"><span class="table-card-label">Name</span> @e.Name</div>
-                                <div class="table-card-row"><span class="table-card-label">Client ID</span> @e.ClientId</div>
-                                <div class="table-card-row mt-2 d-flex flex-wrap gap-1">
-                                    <button type="button" class="btn btn-primary btn-sm" title="Add a new static host entry using this lease's MAC, name, and address" @onclick="() => AddStaticFromLease(e)"><i class="bi bi-plus me-1" aria-hidden="true"></i>Add static</button>
-                                    <button type="button" class="btn btn-outline-danger btn-sm" title="Add a static host with ignore flag (dnsmasq will not assign this client a lease)" @onclick="() => AddStaticFromLeaseWithIgnore(e)"><i class="bi bi-slash-circle me-1" aria-hidden="true"></i>Ignore</button>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-4">
+                            <input type="text" class="form-control form-control-sm" placeholder="Search leases…" @bind="_leaseFilterKeyword" @bind:event="oninput" />
+                        </div>
+                    </div>
+                    <div class="table-responsive-cards">
+                        <div class="d-none d-md-block">
+                            <div class="app-table-scroll-shell" data-table-scroll-cue>
+                                <div class="app-table-scroll-region" data-table-scroll-region role="region" aria-label="DHCP leases" tabindex="0">
+                            <table class="table table-bordered table-sm table-hover app-data-table mb-0">
+                                <caption class="visually-hidden">Active DHCP leases</caption>
+                                <thead>
+                                    <tr>
+                                        <th scope="col">#</th>
+                                        <th scope="col">Expiry</th>
+                                        <th scope="col">MAC</th>
+                                        <th scope="col">Address</th>
+                                        <th scope="col">Name</th>
+                                        <th scope="col">Client ID</th>
+                                        <th scope="col">
+                                            <span class="align-middle">Link</span>
+                                            <button type="button" class="btn btn-link btn-sm text-muted app-th-help-btn p-0 ms-1 align-middle border-0" title="@DhcpLeaseLinkHelpText" aria-label="@DhcpLeaseLinkHelpText" @onclick="OnDhcpLeaseLinkHelpClick" @onclick:stopPropagation="true"><i class="bi bi-question-circle" aria-hidden="true"></i></button>
+                                        </th>
+                                        <th scope="col">Control</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @{ var li = 0; }
+                                    @foreach (var vm in VisibleLeaseViewModels)
+                                    {
+                                        var n = ++li;
+                                        <tr>
+                                            <td>@n</td>
+                                            <td>@vm.Lease.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                            <td>@vm.Lease.Mac</td>
+                                            <td>@vm.Lease.Address</td>
+                                            <td>@vm.Lease.Name</td>
+                                            <td class="small">@vm.Lease.ClientId</td>
+                                            <td class="small">
+                                                @if (vm.HasManagedStaticByMac)
+                                                {
+                                                    <span class="badge bg-success">Managed static</span>
+                                                }
+                                                else if (vm.HasAnyStaticByMac)
+                                                {
+                                                    <span class="badge bg-info text-dark">Static (ext.)</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">—</span>
+                                                }
+                                                @if (!string.IsNullOrEmpty(vm.RangeContext))
+                                                {
+                                                    <div class="text-muted">@vm.RangeContext</div>
+                                                }
+                                            </td>
+                                            <td>
+                                                <div class="d-flex flex-wrap gap-1">
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Filter static hosts to this MAC" @onclick="() => JumpToStaticForLease(vm.Lease)">Static table</button>
+                                                    <button type="button" class="btn btn-primary btn-sm" @onclick="() => AddStaticFromLease(vm.Lease)">Add static</button>
+                                                    <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => AddStaticFromLeaseWithIgnore(vm.Lease)">Ignore</button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
                                 </div>
                             </div>
                         </div>
-                    }
-                </div>
-            </div>
-                    <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-                        <button class="btn btn-primary" @onclick="() => LoadLeases(showLoading: true, forceRefresh: true)" disabled="@_leasesLoading"><i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Refresh</button>
+                        <div class="d-md-none">
+                            @{ li = 0; }
+                            @foreach (var vm in VisibleLeaseViewModels)
+                            {
+                                var n = ++li;
+                                <div class="card mb-2">
+                                    <div class="card-body py-2">
+                                        <div class="small"><strong>#</strong> @n</div>
+                                        <div class="small"><strong>MAC</strong> @vm.Lease.Mac</div>
+                                        <div class="small"><strong>Address</strong> @vm.Lease.Address</div>
+                                        <div class="d-flex flex-wrap gap-1 mt-2">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => JumpToStaticForLease(vm.Lease)">Static</button>
+                                            <button type="button" class="btn btn-primary btn-sm" @onclick="() => AddStaticFromLease(vm.Lease)">Add static</button>
+                                            <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => AddStaticFromLeaseWithIgnore(vm.Lease)">Ignore</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
                     </div>
+                    <button class="btn btn-primary btn-sm mt-2" @onclick="() => LoadLeases(showLoading: true, forceRefresh: true)" disabled="@_leasesLoading">Refresh</button>
                 }
             }
         </section>
-
     }
 }
+</div>
 
 @code {
     private string AppTitle => AppOptions!.Value!.EffectiveTitle;
     private DnsmasqServiceStatus? _status;
-    private List<DhcpHostEntry> _entries = new();
-    private List<string> _staticValueStrings = new();
+    private List<DhcpHostPageRow> _unifiedHostRows = new();
     private IReadOnlyList<LeaseEntry>? _leases;
-    private string _filterKeyword = "";
+    private string _hostSearch = "";
+    private string _hostSourcePathFilter = "";
+    private bool _readEthersEnabled;
+    private readonly HashSet<int> _selectedHostIndices = new();
     private string _leaseFilterKeyword = "";
     private bool _leasesLoading;
-    private string? _error;
     private Timer? _leasesRefreshTimer;
     private int _leasesRefreshIntervalSeconds = 5;
+    private string? _error;
     private string? _message;
     private bool _saving;
     private IStructuredOptionValueHandler<DhcpHostEntry> _dhcpHostHandler = null!;
+    private GroupedSelectDropdown<string>? _hostFileFilterDropdown;
+    private IJSObjectReference? _tableScrollCueModule;
+
+    private int? _editingRangeIndex;
+    private string _rangeEditRaw = "";
+    private string _rangeEditTags = "";
+    private string _rangeEditStart = "";
+    private string _rangeEditSecond = "";
+    private string _rangeEditRemaining = "";
+
+    private bool _optionUseForce;
+    private string _optionPresetKey = "router";
+    private string _optionPrefix = "";
+    private string _optionValues = "192.168.1.1";
+    private string _optionCustomRaw = "";
+
+    private string _tftpBootAppend = "";
+    private string _pxeServiceAppend = "";
+    private string _dhcpOptionPxeAppend = "";
+
+    private IReadOnlyList<DhcpHostPageGroup>? _visibleHostGroupsCache;
+    private object? _visibleHostGroupsRowsRef;
+    private string _visibleHostGroupsSearch = "\0";
+    private string _visibleHostGroupsPathFilter = "\0";
 
     private EffectiveConfigFieldRef DhcpHostField => PageEditor.Field(EffectiveConfigSections.SectionDhcp, DnsmasqConfKeys.DhcpHost);
+    private EffectiveConfigFieldRef DhcpRangeField => PageEditor.Field(EffectiveConfigSections.SectionDhcp, DnsmasqConfKeys.DhcpRange);
+    private EffectiveConfigFieldRef DhcpOptionField => PageEditor.Field(EffectiveConfigSections.SectionDhcp, DnsmasqConfKeys.DhcpOption);
+    private EffectiveConfigFieldRef DhcpOptionForceField => PageEditor.Field(EffectiveConfigSections.SectionDhcp, DnsmasqConfKeys.DhcpOptionForce);
+    private EffectiveConfigFieldRef EnableTftpField => PageEditor.Field(EffectiveConfigSections.SectionTftpPxe, DnsmasqConfKeys.EnableTftp);
+    private EffectiveConfigFieldRef TftpRootField => PageEditor.Field(EffectiveConfigSections.SectionTftpPxe, DnsmasqConfKeys.TftpRoot);
+    private EffectiveConfigFieldRef DhcpBootField => PageEditor.Field(EffectiveConfigSections.SectionTftpPxe, DnsmasqConfKeys.DhcpBoot);
+    private EffectiveConfigFieldRef PxeServiceField => PageEditor.Field(EffectiveConfigSections.SectionTftpPxe, DnsmasqConfKeys.PxeService);
+    private EffectiveConfigFieldRef DhcpOptionPxeField => PageEditor.Field(EffectiveConfigSections.SectionTftpPxe, DnsmasqConfKeys.DhcpOptionPxe);
 
-    private List<(int Index, string ValueString, DhcpHostEntry Entry)> _staticHostRows =>
-        Enumerable.Range(0, Math.Min(_entries.Count, _staticValueStrings.Count))
-            .Select(i => (i, _staticValueStrings[i], _entries[i]))
-            .ToList();
+    private IReadOnlyList<string> RangeStrings =>
+        _status == null ? Array.Empty<string>() : PageEditor.GetEffectiveMultiValues(_status, DhcpRangeField);
 
-    private IEnumerable<(int Index, string ValueString, DhcpHostEntry Entry)> _visibleStaticHostRows =>
-        _staticHostRows.Where(x => !x.Entry.IsDeleted && StaticEntryMatchesKeyword(x.Entry, _filterKeyword));
+    private IReadOnlyList<string> CurrentOptionLines =>
+        _status == null
+            ? Array.Empty<string>()
+            : PageEditor.GetEffectiveMultiValues(_status, _optionUseForce ? DhcpOptionForceField : DhcpOptionField);
 
-    private IEnumerable<DhcpHostEntry> _visibleStaticEntries =>
-        _entries.Where(x => !x.IsDeleted && StaticEntryMatchesKeyword(x, _filterKeyword));
+    private IGroupedSelectBuilder<string> DhcpHostFilterBuilder =>
+        new DhcpHostFileFilterBuilder(_unifiedHostRows, _status?.ManagedFilePath);
 
-    private static bool IsEditable(DhcpHostEntry e) => e.IsEditable;
+    private IReadOnlyList<DhcpHostPageGroup> VisibleHostGroups
+    {
+        get
+        {
+            if (_visibleHostGroupsCache != null
+                && ReferenceEquals(_visibleHostGroupsRowsRef, _unifiedHostRows)
+                && _visibleHostGroupsSearch == _hostSearch
+                && _visibleHostGroupsPathFilter == _hostSourcePathFilter)
+                return _visibleHostGroupsCache;
 
-    private static bool StaticEntryMatchesKeyword(DhcpHostEntry e, string keyword)
+            var query = new DhcpPageQueryState(
+                Search: _hostSearch,
+                SourcePathFilter: string.IsNullOrWhiteSpace(_hostSourcePathFilter) ? null : _hostSourcePathFilter.Trim(),
+                Sort: DhcpHostSortMode.LineNumber,
+                Descending: false);
+
+            var built = DhcpProjection.BuildHostGroups(_unifiedHostRows, query, _status?.ManagedFilePath);
+            _visibleHostGroupsCache = built;
+            _visibleHostGroupsRowsRef = _unifiedHostRows;
+            _visibleHostGroupsSearch = _hostSearch;
+            _visibleHostGroupsPathFilter = _hostSourcePathFilter;
+            return built;
+        }
+    }
+
+    private int TotalVisibleDhcpHostRows => VisibleHostGroups.Sum(g => g.Rows.Count);
+
+    private const string DhcpHostFlagsHelpText =
+        "Badges show read-only sources, whether read-ethers is active, duplicate MAC or IP across reservations, or when a live lease address disagrees with the static reservation.";
+    private const string DhcpHostMacHelpText =
+        "Hardware addresses for this reservation. Multiple MACs can be comma-separated. Managed rows are written to your managed config file when you save effective configuration.";
+    private const string DhcpHostLiveLeaseHelpText =
+        "Last-seen timestamp from the live lease file for this MAC, if dnsmasq reported a matching lease. The lease file itself is not edited here.";
+    private const string DhcpHostSourceHelpText =
+        "Config file or include that supplied this line. Only the managed file group is editable in this table; other sources are shown for context.";
+    private const string DhcpClassificationTypeHelpText =
+        "dnsmasq directive (dhcp-match, dhcp-mac, tag-if, …). Rules apply in configuration order; later rules can depend on tags set earlier.";
+    private const string DhcpLeaseLinkHelpText =
+        "Whether this lease’s MAC matches a static dhcp-host line in the managed file or only in an external include, plus optional range context from the projection.";
+
+    private void OnDhcpHostFlagsHelpClick() => NotificationService.ShowInfo(DhcpHostFlagsHelpText);
+    private void OnDhcpHostMacHelpClick() => NotificationService.ShowInfo(DhcpHostMacHelpText);
+    private void OnDhcpHostLiveLeaseHelpClick() => NotificationService.ShowInfo(DhcpHostLiveLeaseHelpText);
+    private void OnDhcpHostSourceHelpClick() => NotificationService.ShowInfo(DhcpHostSourceHelpText);
+    private void OnDhcpClassificationTypeHelpClick() => NotificationService.ShowInfo(DhcpClassificationTypeHelpText);
+    private void OnDhcpLeaseLinkHelpClick() => NotificationService.ShowInfo(DhcpLeaseLinkHelpText);
+
+    private IEnumerable<DhcpLeaseRowViewModel> VisibleLeaseViewModels =>
+        (_leases == null
+            ? Array.Empty<DhcpLeaseRowViewModel>()
+            : DhcpProjection.BuildLeaseRows(_status!, _leases, _unifiedHostRows))
+        .Where(vm => LeaseVmMatches(vm, _leaseFilterKeyword));
+
+    private static bool LeaseVmMatches(DhcpLeaseRowViewModel vm, string keyword)
     {
         if (string.IsNullOrWhiteSpace(keyword)) return true;
         var k = keyword.Trim();
-        var mac = string.Join(" ", e.MacAddresses);
-        return Contains(mac, k) || Contains(e.Name, k) || Contains(e.Address, k) || Contains(e.Lease, k) || Contains(e.Comment, k);
+        return Contains(vm.Lease.Mac, k) || Contains(vm.Lease.Address, k) || Contains(vm.Lease.Name, k) ||
+               Contains(vm.Lease.ClientId, k);
     }
 
     private static bool Contains(string? value, string keyword) =>
         !string.IsNullOrEmpty(value) && value.Contains(keyword, StringComparison.OrdinalIgnoreCase);
 
-    private IEnumerable<LeaseEntry> _visibleLeases =>
-        _leases?.Where(e => LeaseEntryMatchesKeyword(e, _leaseFilterKeyword)) ?? Array.Empty<LeaseEntry>();
-
-    private static bool LeaseEntryMatchesKeyword(LeaseEntry e, string keyword)
-    {
-        if (string.IsNullOrWhiteSpace(keyword)) return true;
-        var k = keyword.Trim();
-        return Contains(e.Mac, k) || Contains(e.Address, k) || Contains(e.Name, k) || Contains(e.ClientId, k);
-    }
-
-    private static string LeaseKey(LeaseEntry e) => $"{e.Mac}|{e.Address}";
-
-    private void OnMacInput(DhcpHostEntry e, string? value)
-    {
-        SetMac(e, value);
-        TryFillFromLeaseByMac(e, value);
-        SyncRowForEntry(e);
-    }
-
-    private void SyncRowForEntry(DhcpHostEntry e)
-    {
-        var idx = _entries.IndexOf(e);
-        if (idx < 0 || idx >= _staticValueStrings.Count) return;
-        var row = (idx, _staticValueStrings[idx], e);
-        SyncRowToSession(row);
-    }
-
-    private void TryFillFromLeaseByMac(DhcpHostEntry e, string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value) || _leases == null) return;
-        var mac = value.Trim();
-        if (mac.Contains(',')) return;
-        var lease = _visibleLeases.FirstOrDefault(l => string.Equals(l.Mac, mac, StringComparison.OrdinalIgnoreCase));
-        if (lease != null)
-        {
-            e.Name = lease.Name ?? "";
-            e.Address = lease.Address ?? "";
-            e.Lease = "infinite";
-        }
-        StateHasChanged();
-    }
-
     private static readonly (string Value, string Label)[] LeaseDatalistOptions =
-    {
+    [
         ("", "(none)"),
         ("infinite", "Infinite"),
         ("3600", "1 hour"),
@@ -469,7 +868,7 @@ else
         ("86400", "24 hours"),
         ("604800", "7 days"),
         ("2592000", "30 days"),
-    };
+    ];
 
     protected override void OnInitialized()
     {
@@ -484,25 +883,43 @@ else
         _ = InvokeAsync(StateHasChanged);
     }
 
+    private void InvalidateHostGroupsCache()
+    {
+        _visibleHostGroupsCache = null;
+    }
+
+    private void OnHostSourceFilterChanged()
+    {
+        InvalidateHostGroupsCache();
+        StateHasChanged();
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender) return;
-        await Load();
-        StateHasChanged();
+        if (firstRender)
+        {
+            await Load();
+            _tableScrollCueModule = await JSRuntime.InvokeAsyncSafe<IJSObjectReference>(
+                "import",
+                default,
+                "/js/modules/table-scroll-cue.js");
+            if (_tableScrollCueModule != null)
+                await _tableScrollCueModule.InvokeVoidAsyncSafe("initTableScrollCue");
+            StateHasChanged();
+        }
+        else if (_tableScrollCueModule != null)
+        {
+            await _tableScrollCueModule.InvokeVoidAsyncSafe("updateTableScrollCue");
+        }
     }
 
     private void RefreshStaticHostsFromSession()
     {
         if (_status == null) return;
         var values = PageEditor.GetEffectiveMultiValues(_status, DhcpHostField).ToList();
-        _staticValueStrings = values;
-        _entries = values
-            .Select((v, i) => _dhcpHostHandler.TryParseValue(v, i + 1, out var parsed) && parsed != null
-                ? parsed
-                : new DhcpHostEntry { LineNumber = i + 1, IsComment = true })
-            .ToList();
-        foreach (var e in _entries)
-            e.IsEditable = true;
+        _readEthersEnabled = _status.EffectiveConfig?.ReadEthers ?? false;
+        _unifiedHostRows = DhcpProjection.BuildHostRows(_status, values, _dhcpHostHandler, _leases).ToList();
+        InvalidateHostGroupsCache();
     }
 
     private async Task RefreshStatusAsync()
@@ -510,6 +927,7 @@ else
         try
         {
             _status = await StatusClient.GetStatusAsync();
+            RefreshStaticHostsFromSession();
             await InvokeAsync(StateHasChanged);
         }
         catch { /* ignore */ }
@@ -533,6 +951,400 @@ else
         {
             _error = ex.Message;
         }
+    }
+
+    private int ManagedSelectionInGroup(DhcpHostPageGroup group)
+    {
+        var set = new HashSet<int>(group.Rows.Where(r => r.IsEditable).Select(r => r.EffectiveIndex));
+        return _selectedHostIndices.Count(i => set.Contains(i));
+    }
+
+    private void ToggleHostSelected(int effectiveIndex, bool selected)
+    {
+        if (selected) _selectedHostIndices.Add(effectiveIndex);
+        else _selectedHostIndices.Remove(effectiveIndex);
+    }
+
+    /// <summary>
+    /// Managed host checkboxes use list indices. After lines are removed, remap selection so indices
+    /// still point at the same rows (and bulk delete cannot target wrong lines).
+    /// </summary>
+    private void RemapHostSelectionAfterRemovals(IReadOnlyCollection<int> removedIndices) =>
+        DhcpManagedHostSelection.RemapAfterRemovals(_selectedHostIndices, removedIndices);
+
+    private async Task BulkDeleteSelectedInGroupAsync(DhcpHostPageGroup group)
+    {
+        if (_status == null) return;
+        var inGroup = new HashSet<int>(group.Rows.Where(r => r.IsEditable).Select(r => r.EffectiveIndex));
+        var toRemove = _selectedHostIndices.Where(inGroup.Contains).OrderByDescending(i => i).ToList();
+        if (toRemove.Count == 0) return;
+
+        var module = await JSRuntime.InvokeAsyncSafe<IJSObjectReference>("import", default, "./js/dialog.js");
+        if (module == null) return;
+        try
+        {
+            var ok = await module.InvokeAsyncSafe<bool>("confirmMessage", $"Remove {toRemove.Count} static host line(s) from the managed file?");
+            if (ok != true) return;
+        }
+        finally
+        {
+            await module.DisposeAsyncSafe();
+        }
+
+        var list = PageEditor.GetEffectiveMultiValues(_status, DhcpHostField).ToList();
+        foreach (var idx in toRemove)
+        {
+            if (idx >= 0 && idx < list.Count)
+                list.RemoveAt(idx);
+        }
+
+        PageEditor.ReplaceMultiValues(_status, DhcpHostField, list);
+        RemapHostSelectionAfterRemovals(toRemove);
+        RefreshStaticHostsFromSession();
+        StateHasChanged();
+    }
+
+    private void ToggleHostValid(DhcpHostPageRow row)
+    {
+        row.Entry.IsComment = !row.Entry.IsComment;
+        SyncHostRow(row);
+    }
+
+    private void ToggleHostIgnore(DhcpHostPageRow row)
+    {
+        row.Entry.Ignore = !row.Entry.Ignore;
+        SyncHostRow(row);
+    }
+
+    private void SyncHostRow(DhcpHostPageRow row)
+    {
+        if (_status == null || !row.IsEditable) return;
+        var list = PageEditor.GetEffectiveMultiValues(_status, DhcpHostField).ToList();
+        var idx = row.EffectiveIndex;
+        if (idx < 0 || idx >= list.Count) return;
+        list[idx] = _dhcpHostHandler.SerializeValue(row.Entry);
+        PageEditor.ReplaceMultiValues(_status, DhcpHostField, list);
+        RefreshStaticHostsFromSession();
+        StateHasChanged();
+    }
+
+    private void OnMacInput(DhcpHostPageRow row, string? value)
+    {
+        row.Entry.MacAddresses = value?.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0).ToList() ?? new List<string>();
+        TryFillFromLeaseByMac(row, value);
+        SyncHostRow(row);
+    }
+
+    private void TryFillFromLeaseByMac(DhcpHostPageRow row, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || _leases == null) return;
+        var mac = value.Trim();
+        if (mac.Contains(',')) return;
+        var lease = _leases.FirstOrDefault(l => string.Equals(l.Mac, mac, StringComparison.OrdinalIgnoreCase));
+        if (lease == null) return;
+        row.Entry.Name = lease.Name ?? "";
+        row.Entry.Address = lease.Address ?? "";
+        row.Entry.Lease = "infinite";
+    }
+
+    private void DeleteHostRow(DhcpHostPageRow row)
+    {
+        if (_status == null || !row.IsEditable) return;
+        var list = PageEditor.GetEffectiveMultiValues(_status, DhcpHostField).ToList();
+        if (row.EffectiveIndex < 0 || row.EffectiveIndex >= list.Count) return;
+        var removedAt = row.EffectiveIndex;
+        list.RemoveAt(removedAt);
+        PageEditor.ReplaceMultiValues(_status, DhcpHostField, list);
+        RemapHostSelectionAfterRemovals(new[] { removedAt });
+        RefreshStaticHostsFromSession();
+        StateHasChanged();
+    }
+
+    private void AddHost()
+    {
+        if (_status == null) return;
+        var nextAddress = GetNextAvailableAddress();
+        var entry = new DhcpHostEntry
+        {
+            Id = "new:" + Guid.NewGuid().ToString("N"),
+            LineNumber = 0,
+            MacAddresses = new List<string>(),
+            Extra = new List<string>(),
+            Name = "*",
+            Address = nextAddress,
+            IsEditable = true
+        };
+        PageEditor.AppendMultiValue(_status, DhcpHostField, _dhcpHostHandler.SerializeValue(entry));
+        PageEditor.Activate(DhcpHostField);
+        RefreshStaticHostsFromSession();
+        StateHasChanged();
+    }
+
+    private string? GetNextAvailableAddress()
+    {
+        if (_status == null || string.IsNullOrEmpty(_status.DhcpRangeStart) || string.IsNullOrEmpty(_status.DhcpRangeEnd))
+            return null;
+        if (!IPAddress.TryParse(_status.DhcpRangeStart, out var startIp) || startIp.AddressFamily != AddressFamily.InterNetwork)
+            return null;
+        if (!IPAddress.TryParse(_status.DhcpRangeEnd, out var endIp) || endIp.AddressFamily != AddressFamily.InterNetwork)
+            return null;
+        var used = new HashSet<uint>();
+        foreach (var r in _unifiedHostRows.Where(x => x.IsActive && !x.Entry.IsComment && !string.IsNullOrEmpty(x.Entry.Address)))
+        {
+            if (IPAddress.TryParse(r.Entry.Address, out var ip) && ip.AddressFamily == AddressFamily.InterNetwork)
+                used.Add(ToUint(ip));
+        }
+        if (_leases != null)
+        {
+            foreach (var l in _leases)
+            {
+                if (!string.IsNullOrEmpty(l.Address) && IPAddress.TryParse(l.Address, out var ip) && ip.AddressFamily == AddressFamily.InterNetwork)
+                    used.Add(ToUint(ip));
+            }
+        }
+        var start = ToUint(startIp);
+        var end = ToUint(endIp);
+        if (start > end) return null;
+        for (var u = start; u <= end; u++)
+        {
+            if (!used.Contains(u))
+                return FromUint(u);
+        }
+        return null;
+    }
+
+    private static uint ToUint(IPAddress ip)
+    {
+        var b = ip.GetAddressBytes();
+        return ((uint)b[0] << 24) | ((uint)b[1] << 16) | ((uint)b[2] << 8) | b[3];
+    }
+
+    private static string FromUint(uint u) =>
+        $"{(u >> 24) & 0xff}.{(u >> 16) & 0xff}.{(u >> 8) & 0xff}.{u & 0xff}";
+
+    private void AddStaticFromLease(LeaseEntry lease) => AddStaticFromLeaseCore(lease, ignore: false);
+    private void AddStaticFromLeaseWithIgnore(LeaseEntry lease) => AddStaticFromLeaseCore(lease, ignore: true);
+
+    private void AddStaticFromLeaseCore(LeaseEntry lease, bool ignore)
+    {
+        if (_status == null) return;
+        var entry = new DhcpHostEntry
+        {
+            Id = "new:" + Guid.NewGuid().ToString("N"),
+            LineNumber = 0,
+            IsComment = false,
+            IsDeleted = false,
+            Ignore = ignore,
+            MacAddresses = string.IsNullOrEmpty(lease.Mac) ? new List<string>() : new List<string> { lease.Mac },
+            Name = lease.Name ?? "",
+            Address = lease.Address ?? "",
+            Lease = "infinite",
+            Extra = new List<string>(),
+            Comment = null
+        };
+        PageEditor.AppendMultiValue(_status, DhcpHostField, _dhcpHostHandler.SerializeValue(entry));
+        PageEditor.Activate(DhcpHostField);
+        RefreshStaticHostsFromSession();
+        StateHasChanged();
+    }
+
+    private void JumpToStaticForLease(LeaseEntry lease)
+    {
+        _hostSourcePathFilter = "";
+        _hostSearch = string.IsNullOrWhiteSpace(lease.Mac) ? lease.Address ?? "" : lease.Mac;
+        InvalidateHostGroupsCache();
+        StateHasChanged();
+    }
+
+    private void BeginEditRange(int index)
+    {
+        var list = RangeStrings.ToList();
+        if (index < 0 || index >= list.Count) return;
+        var raw = list[index];
+        var draft = DhcpRangeDraft.FromRaw(raw);
+        _editingRangeIndex = index;
+        if (!draft.IsStructured)
+        {
+            _rangeEditRaw = raw;
+            _rangeEditTags = "";
+            _rangeEditStart = "";
+            _rangeEditSecond = "";
+            _rangeEditRemaining = "";
+        }
+        else
+        {
+            _rangeEditRaw = "";
+            _rangeEditTags = string.Join(',', draft.Tags);
+            _rangeEditStart = draft.StartToken;
+            _rangeEditSecond = draft.SecondToken;
+            _rangeEditRemaining = string.Join(',', draft.RemainingTokens);
+        }
+    }
+
+    private void CancelRangeEdit() => _editingRangeIndex = null;
+
+    private void CommitRangeEdit()
+    {
+        if (_status == null || _editingRangeIndex is not { } idx) return;
+        var list = RangeStrings.ToList();
+        if (idx < 0 || idx >= list.Count) return;
+
+        var original = DhcpRangeDraft.FromRaw(list[idx]);
+        var newValue = !original.IsStructured ? _rangeEditRaw.Trim() : BuildRangeFromFields();
+
+        if (string.IsNullOrWhiteSpace(newValue))
+            return;
+
+        list[idx] = newValue;
+        PageEditor.ReplaceMultiValues(_status, DhcpRangeField, list);
+        _editingRangeIndex = null;
+        PageEditor.RefreshCrossOptionIssues(_status);
+        StateHasChanged();
+    }
+
+    private string BuildRangeFromFields()
+    {
+        var tags = string.IsNullOrWhiteSpace(_rangeEditTags)
+            ? Array.Empty<string>()
+            : _rangeEditTags.Split(',').Select(t => t.Trim()).Where(t => t.Length > 0).ToArray();
+        var parts = new List<string>();
+        parts.AddRange(tags);
+        parts.Add(_rangeEditStart.Trim());
+        parts.Add(_rangeEditSecond.Trim());
+        if (!string.IsNullOrWhiteSpace(_rangeEditRemaining))
+            parts.AddRange(_rangeEditRemaining.Split(',').Select(t => t.Trim()).Where(t => t.Length > 0));
+        return string.Join(',', parts);
+    }
+
+    private void RemoveRangeAt(int index)
+    {
+        if (_status == null) return;
+        var list = RangeStrings.ToList();
+        if (index < 0 || index >= list.Count) return;
+        list.RemoveAt(index);
+        PageEditor.ReplaceMultiValues(_status, DhcpRangeField, list);
+        if (_editingRangeIndex is { } editIdx)
+        {
+            if (editIdx == index)
+                _editingRangeIndex = null;
+            else if (editIdx > index)
+                _editingRangeIndex = editIdx - 1;
+        }
+        PageEditor.RefreshCrossOptionIssues(_status);
+        StateHasChanged();
+    }
+
+    private void AddEmptyRange()
+    {
+        if (_status == null) return;
+        PageEditor.AppendMultiValue(_status, DhcpRangeField, "192.168.1.50,192.168.1.150,12h");
+        PageEditor.Activate(DhcpRangeField);
+        StateHasChanged();
+    }
+
+    private void SetOptionForce(bool force)
+    {
+        _optionUseForce = force;
+        StateHasChanged();
+    }
+
+    private void AppendOptionFromPreset()
+    {
+        if (_status == null) return;
+        var preset = DhcpOptionPresets.All.FirstOrDefault(p => p.Key == _optionPresetKey) ?? DhcpOptionPresets.All[0];
+        var prefixes = string.IsNullOrWhiteSpace(_optionPrefix)
+            ? Array.Empty<string>()
+            : _optionPrefix.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0).ToArray();
+        var vals = string.IsNullOrWhiteSpace(_optionValues)
+            ? preset.DefaultValues.ToList()
+            : _optionValues.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
+        var draft = new DhcpOptionDraft
+        {
+            PrefixTokens = prefixes,
+            Selector = preset.Selector,
+            ValueTokens = vals
+        };
+        var field = _optionUseForce ? DhcpOptionForceField : DhcpOptionField;
+        PageEditor.AppendMultiValue(_status, field, draft.ToRaw());
+        PageEditor.Activate(field);
+        StateHasChanged();
+    }
+
+    private void AppendCustomOption()
+    {
+        if (_status == null || string.IsNullOrWhiteSpace(_optionCustomRaw)) return;
+        var field = _optionUseForce ? DhcpOptionForceField : DhcpOptionField;
+        PageEditor.AppendMultiValue(_status, field, _optionCustomRaw.Trim());
+        PageEditor.Activate(field);
+        _optionCustomRaw = "";
+        StateHasChanged();
+    }
+
+    private void RemoveOptionAt(int index)
+    {
+        if (_status == null) return;
+        var field = _optionUseForce ? DhcpOptionForceField : DhcpOptionField;
+        var list = PageEditor.GetEffectiveMultiValues(_status, field).ToList();
+        if (index < 0 || index >= list.Count) return;
+        list.RemoveAt(index);
+        PageEditor.ReplaceMultiValues(_status, field, list);
+        StateHasChanged();
+    }
+
+    private bool GetEnableTftp()
+    {
+        if (_status == null) return false;
+        var v = PageEditor.GetEffectiveValue(_status, EnableTftpField);
+        return v is bool b && b;
+    }
+
+    private string GetTftpRoot()
+    {
+        if (_status == null) return "";
+        return PageEditor.GetEffectiveValue(_status, TftpRootField)?.ToString() ?? "";
+    }
+
+    private void OnEnableTftpChanged(ChangeEventArgs e)
+    {
+        if (_status == null) return;
+        var on = e.Value is bool b && b;
+        PageEditor.SetSingleValue(_status, EnableTftpField, on);
+        StateHasChanged();
+    }
+
+    private void OnTftpRootChanged(ChangeEventArgs e)
+    {
+        if (_status == null) return;
+        var v = e.Value?.ToString()?.Trim() ?? "";
+        PageEditor.SetSingleValue(_status, TftpRootField, string.IsNullOrEmpty(v) ? null : v);
+        StateHasChanged();
+    }
+
+    private void AppendDhcpBoot()
+    {
+        if (_status == null || string.IsNullOrWhiteSpace(_tftpBootAppend)) return;
+        PageEditor.AppendMultiValue(_status, DhcpBootField, _tftpBootAppend.Trim());
+        PageEditor.Activate(DhcpBootField);
+        _tftpBootAppend = "";
+        StateHasChanged();
+    }
+
+    private void AppendPxeService()
+    {
+        if (_status == null || string.IsNullOrWhiteSpace(_pxeServiceAppend)) return;
+        PageEditor.AppendMultiValue(_status, PxeServiceField, _pxeServiceAppend.Trim());
+        PageEditor.Activate(PxeServiceField);
+        _pxeServiceAppend = "";
+        StateHasChanged();
+    }
+
+    private void AppendDhcpOptionPxe()
+    {
+        if (_status == null || string.IsNullOrWhiteSpace(_dhcpOptionPxeAppend)) return;
+        PageEditor.AppendMultiValue(_status, DhcpOptionPxeField, _dhcpOptionPxeAppend.Trim());
+        PageEditor.Activate(DhcpOptionPxeField);
+        _dhcpOptionPxeAppend = "";
+        StateHasChanged();
     }
 
     private void OpenLeasesSettings() => SettingsModalService.Open(SettingsModalContext.LeasesPolling, "Leases refresh interval");
@@ -562,6 +1374,7 @@ else
     {
         if (_status == null || !_status.LeasesPathConfigured) return;
         await LoadLeases(showLoading: false);
+        RefreshStaticHostsFromSession();
         await InvokeAsync(StateHasChanged);
     }
 
@@ -578,143 +1391,6 @@ else
         {
             if (showLoading) _leasesLoading = false;
         }
-    }
-
-    private void Add()
-    {
-        var nextAddress = GetNextAvailableAddress();
-        var entry = new DhcpHostEntry
-        {
-            Id = "new:" + Guid.NewGuid().ToString("N"),
-            LineNumber = 0,
-            MacAddresses = new List<string>(),
-            Extra = new List<string>(),
-            Name = "*",
-            Address = nextAddress,
-            IsEditable = true
-        };
-        if (_status != null)
-        {
-            PageEditor.AppendMultiValue(_status, DhcpHostField, _dhcpHostHandler.SerializeValue(entry));
-            PageEditor.Activate(DhcpHostField);
-        }
-        RefreshStaticHostsFromSession();
-        StateHasChanged();
-    }
-
-    private string? GetNextAvailableAddress()
-    {
-        if (_status == null || string.IsNullOrEmpty(_status.DhcpRangeStart) || string.IsNullOrEmpty(_status.DhcpRangeEnd))
-            return null;
-        if (!System.Net.IPAddress.TryParse(_status.DhcpRangeStart, out var startIp) || startIp.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
-            return null;
-        if (!System.Net.IPAddress.TryParse(_status.DhcpRangeEnd, out var endIp) || endIp.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
-            return null;
-        var used = new HashSet<uint>();
-        foreach (var e in _entries.Where(x => !x.IsDeleted && !string.IsNullOrEmpty(x.Address)))
-        {
-            if (System.Net.IPAddress.TryParse(e.Address, out var ip) && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-                used.Add(ToUint(ip));
-        }
-        if (_leases != null)
-        {
-            foreach (var l in _leases)
-            {
-                if (!string.IsNullOrEmpty(l.Address) && System.Net.IPAddress.TryParse(l.Address, out var ip) && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-                    used.Add(ToUint(ip));
-            }
-        }
-        var start = ToUint(startIp);
-        var end = ToUint(endIp);
-        if (start > end) return null;
-        for (var u = start; u <= end; u++)
-        {
-            if (!used.Contains(u))
-                return FromUint(u);
-        }
-        return null;
-    }
-
-    private static uint ToUint(System.Net.IPAddress ip)
-    {
-        var b = ip.GetAddressBytes();
-        return ((uint)b[0] << 24) | ((uint)b[1] << 16) | ((uint)b[2] << 8) | b[3];
-    }
-
-    private static string FromUint(uint u)
-    {
-        return $"{(u >> 24) & 0xff}.{(u >> 16) & 0xff}.{(u >> 8) & 0xff}.{u & 0xff}";
-    }
-
-    private void DeleteRow((int Index, string ValueString, DhcpHostEntry Entry) row)
-    {
-        if (_status == null || row.Index < 0 || row.Index >= _staticValueStrings.Count) return;
-        var newList = _staticValueStrings.ToList();
-        newList.RemoveAt(row.Index);
-        PageEditor.ReplaceMultiValues(_status, DhcpHostField, newList);
-        RefreshStaticHostsFromSession();
-        StateHasChanged();
-    }
-
-    private void ToggleValid((int Index, string ValueString, DhcpHostEntry Entry) row)
-    {
-        row.Entry.IsComment = !row.Entry.IsComment;
-        SyncRowToSession(row);
-    }
-
-    private void ToggleIgnore((int Index, string ValueString, DhcpHostEntry Entry) row)
-    {
-        row.Entry.Ignore = !row.Entry.Ignore;
-        SyncRowToSession(row);
-    }
-
-    private void SyncRowToSession((int Index, string ValueString, DhcpHostEntry Entry) row)
-    {
-        if (_status == null || row.Index < 0 || row.Index >= _staticValueStrings.Count) return;
-        var newList = _staticValueStrings.ToList();
-        newList[row.Index] = _dhcpHostHandler!.SerializeValue(row.Entry);
-        PageEditor.ReplaceMultiValues(_status, DhcpHostField, newList);
-        RefreshStaticHostsFromSession();
-        StateHasChanged();
-    }
-
-    private void SetMac(DhcpHostEntry e, string? value)
-    {
-        e.MacAddresses = value?.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0).ToList() ?? new List<string>();
-        StateHasChanged();
-    }
-
-    private void AddStaticFromLease(LeaseEntry lease)
-    {
-        AddStaticFromLeaseCore(lease, ignore: false);
-    }
-
-    private void AddStaticFromLeaseWithIgnore(LeaseEntry lease)
-    {
-        AddStaticFromLeaseCore(lease, ignore: true);
-    }
-
-    private void AddStaticFromLeaseCore(LeaseEntry lease, bool ignore)
-    {
-        if (_status == null) return;
-        var entry = new DhcpHostEntry
-        {
-            Id = "new:" + Guid.NewGuid().ToString("N"),
-            LineNumber = 0,
-            IsComment = false,
-            IsDeleted = false,
-            Ignore = ignore,
-            MacAddresses = string.IsNullOrEmpty(lease.Mac) ? new List<string>() : new List<string> { lease.Mac },
-            Name = lease.Name ?? "",
-            Address = lease.Address ?? "",
-            Lease = "infinite",
-            Extra = new List<string>(),
-            Comment = null
-        };
-        PageEditor.AppendMultiValue(_status, DhcpHostField, _dhcpHostHandler!.SerializeValue(entry));
-        PageEditor.Activate(DhcpHostField);
-        RefreshStaticHostsFromSession();
-        StateHasChanged();
     }
 
     private async Task Reload()
@@ -740,11 +1416,15 @@ else
         }
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         Session.Changed -= OnSessionChanged;
         SettingsModalService.SettingsChanged -= OnSettingsChanged;
         _leasesRefreshTimer?.Dispose();
         _leasesRefreshTimer = null;
+        var module = _tableScrollCueModule;
+        _tableScrollCueModule = null;
+        if (module != null)
+            await module.DisposeAsyncSafe();
     }
 }

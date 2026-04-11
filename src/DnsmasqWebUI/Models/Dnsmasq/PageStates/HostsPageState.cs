@@ -40,7 +40,7 @@ public sealed record HostsPageState(
             ManagedHostsAvailable: managedHostsAvailable,
             ManagedHostsUnavailableReason: managedHostsAvailable
                 ? null
-                : "Hosts editing is unavailable: managed hosts path is not configured. Set Dnsmasq:MainConfigPath (and optionally Dnsmasq:ManagedHostsFileName) so the app can create and edit the managed hosts file.",
+                : "Hosts editing is unavailable: managed hosts path is not configured. Set Dnsmasq:MainConfigPath and optionally Dnsmasq:ManagedFilesDirectory or Dnsmasq:ManagedHostsFileName so the app can create and edit the managed hosts file.",
             SystemHostsActive: systemHostsActive,
             SystemHostsInactiveReason: noHosts
                 ? "Dnsmasq is ignoring system hosts (no-hosts is enabled), so system hosts rows are hidden from this table."

@@ -31,9 +31,9 @@ public sealed class ApplicationLifecycleLoggingHostedService : IApplicationHoste
     {
         var version = typeof(ApplicationLifecycleLoggingHostedService).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "?";
-        var mainDir = Path.GetDirectoryName(Path.GetFullPath(_dnsmasq.MainConfigPath)) ?? "";
-        var managedConfigPath = Path.Combine(mainDir, _dnsmasq.ManagedFileName);
-        var managedHostsPath = Path.Combine(mainDir, _dnsmasq.ManagedHostsFileName);
+        var paths = DnsmasqManagedPathSet.TryFromOptions(_dnsmasq);
+        var managedConfigPath = paths?.ManagedFilePath ?? "(not resolved)";
+        var managedHostsPath = paths?.ManagedHostsFilePath ?? "(not resolved)";
 
         _logger.LogInformation(
             "Application started: version={Version}, env={Environment}, os={OS}, arch={Arch}. " +

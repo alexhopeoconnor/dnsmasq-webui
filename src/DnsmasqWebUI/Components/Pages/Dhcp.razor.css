@@ -20,6 +20,17 @@
     margin-bottom: 0.5rem;
 }
 
+/* Unified static-host table: group bands (Hosts-style single table + tbody) */
+::deep .dhcp-hosts-table .dhcp-group-header-cell {
+    background: linear-gradient(180deg, #f8fafc 0%, #f6f8fb 100%);
+    border-top: 1px solid #dbe3ec;
+    border-bottom: 1px solid #dbe3ec;
+    font-weight: 600;
+    vertical-align: middle;
+    padding-top: 0.6rem;
+    padding-bottom: 0.6rem;
+}
+
 ::deep .table-responsive-cards {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;

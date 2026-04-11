@@ -32,7 +32,7 @@ public class HostsFileService : IHostsFileService
         var set = await _configSetService.GetConfigSetAsync(ct);
         var path = set.ManagedHostsFilePath;
         if (string.IsNullOrEmpty(path))
-            throw new InvalidOperationException("No managed hosts path configured. Set Dnsmasq:MainConfigPath and Dnsmasq:ManagedHostsFileName to enable hosts editing.");
+            throw new InvalidOperationException("No managed hosts path configured. Set Dnsmasq:MainConfigPath and optionally Dnsmasq:ManagedFilesDirectory or Dnsmasq:ManagedHostsFileName to enable hosts editing.");
         var dir = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
             Directory.CreateDirectory(dir);

@@ -1,0 +1,60 @@
+/* Shared toolbar/table chrome: .app-page-* and .app-table-* in wwwroot/app.css */
+
+.dns-records-page {
+    display: block;
+}
+
+::deep .page-section {
+    margin-bottom: 2rem;
+}
+
+::deep .table {
+    margin-bottom: 1rem;
+}
+
+::deep .table th,
+::deep .table td {
+    vertical-align: middle;
+}
+
+@media (max-width: 640.98px) {
+    ::deep .table {
+        font-size: 0.875rem;
+    }
+
+    ::deep .table th,
+    ::deep .table td {
+        padding: 0.5rem;
+    }
+}
+
+.dns-record-chips .page-chip {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+}
+
+.dns-record-editor-panel {
+    border-color: var(--bs-border-color, #dee2e6) !important;
+}
+
+.dns-records-summary {
+    font-size: 0.9rem;
+}
+
+.dns-records-raw {
+    display: block;
+    max-width: 42rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dns-records-actions-col {
+    width: 9rem;
+    white-space: nowrap;
+}
+
+.dns-mx-defaults {
+    max-width: 52rem;
+}

@@ -4,7 +4,7 @@ namespace DnsmasqWebUI.Infrastructure.Serialization.Parsers.EffectiveConfig;
 /// Shared token parsing helpers for DHCP option-style values such as <c>dhcp-option</c>,
 /// <c>dhcp-option-force</c>, and <c>dhcp-match</c>.
 /// </summary>
-internal static class DnsmasqDhcpOptionSyntax
+public static class DnsmasqDhcpOptionSyntax
 {
     public static string[] SplitTokens(string raw) =>
         raw.Split(',').Select(t => t.Trim()).ToArray();

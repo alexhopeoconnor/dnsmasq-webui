@@ -1,16 +1,32 @@
 @page "/filters"
 @rendermode InteractiveServer
 @namespace DnsmasqWebUI.Components.Pages
+@using DnsmasqWebUI.Models.Dnsmasq
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Models.Filters
 @using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
 @using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata
+@using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Filters.Abstractions
+@using DnsmasqWebUI.Infrastructure.Services.UI.Notifications.Abstractions
+@using DnsmasqWebUI.Components.EffectiveConfig
+@using DnsmasqWebUI.Components.Filters
+@using DnsmasqWebUI.Components.Shared
+@using DnsmasqWebUI.Infrastructure.Serialization.Parsers.Filters
+@using DnsmasqWebUI.Extensions.Interop
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
 @inject IStatusClient StatusClient
 @inject IEffectiveConfigPageEditor PageEditor
+@inject IFiltersPageProjectionService FiltersProjection
 @inject IOptions<ApplicationOptions> AppOptions
+@inject IJSRuntime JSRuntime
+@inject INotificationService NotificationService
 
 <PageTitle>Filters | @AppTitle</PageTitle>
 
-<h1 class="page-title">Filters Configuration</h1>
+<div class="filters-page">
+<h1 class="page-title">Resolver policy</h1>
 
 @if (_status == null)
 {
@@ -21,112 +37,785 @@
 }
 else
 {
+    @if (_status.DnsmasqStatus == "inactive" || _status.DnsmasqStatus == "unknown")
+    {
+        <div class="alert alert-warning">Dnsmasq service appears to be <strong>@_status.DnsmasqStatus</strong>. Save may not apply until the service is running.</div>
+    }
+
     <section class="page-section">
+        <h2 class="page-section-title">Effective configuration</h2>
         <EffectiveConfigSection Status="_status" Context="EffectiveConfigContext.Filters" ShowSearchBox="true" OnSaveCompleted="RefreshStatusAsync" />
     </section>
+
     <section class="page-section">
-        <h2 class="page-section-title">Quick add</h2>
-        <div class="d-flex flex-wrap gap-3 align-items-end">
-            <div class="d-flex flex-wrap gap-2 align-items-end">
-                <input class="form-control form-control-sm" style="width:14rem" placeholder="Domain to block (e.g. ads.example.com)" @bind="_blockDomain" />
-                <button type="button" class="btn btn-sm btn-primary" @onclick="BlockDomain">Block domain</button>
-            </div>
-            <div class="d-flex flex-wrap gap-2 align-items-end">
-                <input class="form-control form-control-sm" style="width:12rem" placeholder="Domain (e.g. internal.local)" @bind="_splitDomain" />
-                <input class="form-control form-control-sm" style="width:10rem" placeholder="Upstream (e.g. 10.0.0.1)" @bind="_splitUpstream" />
-                <button type="button" class="btn btn-sm btn-primary" @onclick="AddSplitDnsRoute">Split DNS route</button>
-            </div>
-            <div class="d-flex flex-wrap gap-2 align-items-end">
-                <input class="form-control form-control-sm" style="width:14rem" placeholder="Domain (local only, e.g. lan)" @bind="_localDomain" />
-                <button type="button" class="btn btn-sm btn-primary" @onclick="AddLocalOnlyDomain">Local-only domain</button>
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+            <h2 class="page-section-title mb-0">Policy overview</h2>
+            <SectionHelpButton HelpText="@PolicyOverviewHelpText" />
+        </div>
+        <p class="text-muted mb-3">
+            Use the forms and table below for multi-value resolver rules with plain-language summaries.
+            <strong>Save, revert, and validation</strong> use the same pending-change flow as <strong>Effective configuration</strong> above—expand that section to review everything before saving.
+        </p>
+        <div class="alert alert-light border small mb-3 mb-md-4">
+            Single flags and key-only options (<code>domain-needed</code>, <code>bogus-priv</code>, <code>stop-dns-rebind</code>, <code>rebind-localhost-ok</code>, <code>filter-A</code>, <code>filter-AAAA</code>, <code>filterwin2k</code>, <code>no-round-robin</code>, <code>connmark-allowlist-enable</code>, …) are edited in <strong>Effective configuration</strong>. This overview lists multi-value lines and provides focused editors where they reduce dnsmasq syntax friction.
+        </div>
+
+        <div class="app-page-controls-bar d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div class="app-page-toolbar-fields flex-grow-1">
+                <label class="visually-hidden" for="filters-search">Search policy</label>
+                <input id="filters-search"
+                       type="search"
+                       class="form-control form-control-sm app-page-toolbar-search"
+                       placeholder="Search summary, config value, file…"
+                       @bind="_search"
+                       @bind:event="oninput"
+                       @bind:after="OnFilterChanged" />
+                <label class="visually-hidden" for="filters-source-trigger">Config file</label>
+                <div class="app-page-file-filter-wrap">
+                    <GroupedSelectDropdown TValue="string"
+                                           Builder="@_sourceFilterBuilder"
+                                           @bind-Value="_sourcePathFilter"
+                                           @bind-Value:after="OnFilterChanged"
+                                           TriggerId="filters-source-trigger"
+                                           MenuId="filters-source-menu"
+                                           TriggerClass="hosts-toolbar-file-filter">
+                        <OptionTemplate Context="ctx">
+                            <button type="button"
+                                    class="hosts-file-filter-option @(ctx.IsSelected ? "hosts-file-filter-option--active" : null)"
+                                    role="option"
+                                    aria-selected="@(ctx.IsSelected ? "true" : "false")"
+                                    title="@(ctx.Option.Title ?? ctx.Option.Label)"
+                                    @onclick="ctx.OnSelect">
+                                <span class="hosts-file-filter-option-main hosts-file-filter-option-path"
+                                      title="@(ctx.Option.Title ?? ctx.Option.Label)">@(ctx.Option.Title ?? ctx.Option.Label)</span>
+                                @if (ctx.Option.Count is not null)
+                                {
+                                    <span class="hosts-file-filter-count">@ctx.Option.Count</span>
+                                }
+                            </button>
+                        </OptionTemplate>
+                    </GroupedSelectDropdown>
+                </div>
+                <label class="visually-hidden" for="filters-editable">Editability</label>
+                <select id="filters-editable" class="form-select form-select-sm app-page-toolbar-select" @bind="_editableFilterMode" @bind:after="OnFilterChanged">
+                    <option value="0">Any editability</option>
+                    <option value="1">Editable only</option>
+                    <option value="2">Read-only only</option>
+                </select>
             </div>
         </div>
+
+        <div class="page-chips filters-page-chips mb-3" role="group" aria-label="Policy category">
+            <button type="button" class="page-chip @ChipClass(null)" @onclick="@(() => SetCategoryChip(null))">All</button>
+            @foreach (var c in CategoryOrder)
+            {
+                var cat = c;
+                <button type="button" class="page-chip @ChipClass(cat)" @onclick="@(() => SetCategoryChip(cat))">@FilterPolicyCategoryMap.CategoryChipLabel(cat)</button>
+            }
+        </div>
+
         @if (_filterError != null)
         {
-            <p class="text-danger small mt-2 mb-0">@_filterError</p>
+            <div class="alert alert-danger py-2">@_filterError</div>
+        }
+
+        @if (ShowSection(FilterPolicyCategory.Blocking))
+        {
+            <div class="mb-4">
+                <h3 class="h5 d-flex align-items-center flex-wrap gap-1 mb-2">
+                    <span>@FilterPolicyCategoryMap.CategoryTitle(FilterPolicyCategory.Blocking)</span>
+                    <SectionHelpButton HelpText="@BlockingSectionHelpText" />
+                </h3>
+                <p class="text-muted small">Return <code>#</code> (sinkhole) or a fixed IP for matching names via <code>address=</code>.</p>
+                <FilterAddressRuleEditor Model="_addressModel"
+                                         SubmitLabel="@(_addressEditingRaw != null ? "Save rule" : "Add rule")"
+                                         IsEditing="@(_addressEditingRaw != null)"
+                                         OnSave="SaveAddressAsync"
+                                         OnCancel="CancelAddressEdit" />
+                <FilterPolicyTable Items="RowsOf(FilterPolicyCategory.Blocking)"
+                                   Caption="Blocking and sinkhole rules"
+                                   AriaLabel="Blocking policy rules"
+                                   EmptyText="No blocking rules match the current filters."
+                                   OnEdit="OnRowEdit"
+                                   OnRemove="OnRowRemove" />
+            </div>
+        }
+
+        @if (ShowSection(FilterPolicyCategory.SplitDns))
+        {
+            <div class="mb-4">
+                <h3 class="h5 d-flex align-items-center flex-wrap gap-1 mb-2">
+                    <span>@FilterPolicyCategoryMap.CategoryTitle(FilterPolicyCategory.SplitDns)</span>
+                    <SectionHelpButton HelpText="@SplitDnsSectionHelpText" />
+                </h3>
+                <p class="text-muted small">Forward domains (<code>server=</code>), reverse zones (<code>rev-server=</code>), or local-only (<code>local=</code>).</p>
+                <FilterSplitDnsRuleEditor Model="_splitModel"
+                                          SubmitLabel="@(_splitEditingRaw != null ? "Save rule" : "Add rule")"
+                                          IsEditing="@(_splitEditingRaw != null)"
+                                          OnSave="SaveSplitDnsAsync"
+                                          OnCancel="CancelSplitEdit" />
+                <FilterPolicyTable Items="RowsOf(FilterPolicyCategory.SplitDns)"
+                                   Caption="Split DNS and local routing rules"
+                                   AriaLabel="Split DNS policy rules"
+                                   EmptyText="No split-DNS rules match the current filters."
+                                   OnEdit="OnRowEdit"
+                                   OnRemove="OnRowRemove" />
+            </div>
+        }
+
+        @if (ShowSection(FilterPolicyCategory.Safety))
+        {
+            <div class="mb-4">
+                <h3 class="h5 d-flex align-items-center flex-wrap gap-1 mb-2">
+                    <span>@FilterPolicyCategoryMap.CategoryTitle(FilterPolicyCategory.Safety)</span>
+                    <SectionHelpButton HelpText="@SafetySectionHelpText" />
+                </h3>
+                <p class="text-muted small">List-style exceptions for rebind relaxation, bogus NXDOMAIN ranges, and ignored answer addresses. Use <strong>Effective configuration</strong> for related flags.</p>
+                <div class="card card-body py-2 mb-3">
+                    <div class="fw-semibold small mb-2"><code>rebind-domain-ok</code></div>
+                    <div class="d-flex flex-wrap gap-2 align-items-end">
+                        <input type="text" class="form-control form-control-sm" style="min-width:14rem" placeholder="example.com" @bind="_rebindDomain" />
+                        <button type="button" class="btn btn-sm btn-primary" @onclick="AddRebindDomainOk">@SimpleAddButtonLabel(FilterPolicyKind.RebindDomainOk)</button>
+                    </div>
+                </div>
+                <div class="card card-body py-2 mb-3">
+                    <div class="fw-semibold small mb-2"><code>bogus-nxdomain</code></div>
+                    <div class="d-flex flex-wrap gap-2 align-items-end">
+                        <input type="text" class="form-control form-control-sm" style="min-width:14rem" placeholder="192.168.0.0/16 or 10.0.0.1" @bind="_bogusAddr" />
+                        <button type="button" class="btn btn-sm btn-primary" @onclick="AddBogusNxdomain">@SimpleAddButtonLabel(FilterPolicyKind.BogusNxdomain)</button>
+                    </div>
+                </div>
+                <div class="card card-body py-2 mb-3">
+                    <div class="fw-semibold small mb-2"><code>ignore-address</code></div>
+                    <div class="d-flex flex-wrap gap-2 align-items-end">
+                        <input type="text" class="form-control form-control-sm" style="min-width:14rem" placeholder="192.168.1.0/24" @bind="_ignoreAddr" />
+                        <button type="button" class="btn btn-sm btn-primary" @onclick="AddIgnoreAddress">@SimpleAddButtonLabel(FilterPolicyKind.IgnoreAddress)</button>
+                    </div>
+                </div>
+                <FilterPolicyTable Items="RowsOf(FilterPolicyCategory.Safety)"
+                                   Caption="Safety and rebinding list rules"
+                                   AriaLabel="Safety policy rules"
+                                   EmptyText="No safety list rules match the current filters."
+                                   OnEdit="OnRowEdit"
+                                   OnRemove="OnRowRemove" />
+            </div>
+        }
+
+        @if (ShowSection(FilterPolicyCategory.ResponseShaping))
+        {
+            <div class="mb-4">
+                <h3 class="h5 d-flex align-items-center flex-wrap gap-1 mb-2">
+                    <span>@FilterPolicyCategoryMap.CategoryTitle(FilterPolicyCategory.ResponseShaping)</span>
+                    <SectionHelpButton HelpText="@ResponseShapingSectionHelpText" />
+                </h3>
+                <p class="text-muted small">Per-answer RR filtering via <code>filter-rr</code>. Other response-shaping flags live in <strong>Effective configuration</strong>.</p>
+                <div class="card card-body py-2 mb-3">
+                    <div class="fw-semibold small mb-2"><code>filter-rr</code></div>
+                    <div class="d-flex flex-wrap gap-2 align-items-end">
+                        <input type="text" class="form-control form-control-sm" style="width:10rem" placeholder="Match (e.g. 0.0.0.0)" @bind="_filterRrMatch" />
+                        <input type="text" class="form-control form-control-sm" style="width:8rem" placeholder="RR type" @bind="_filterRrType" />
+                        <button type="button" class="btn btn-sm btn-primary" @onclick="AddFilterRr">@SimpleAddButtonLabel(FilterPolicyKind.FilterRr)</button>
+                    </div>
+                </div>
+                <FilterPolicyTable Items="RowsOf(FilterPolicyCategory.ResponseShaping)"
+                                   Caption="Response shaping rules"
+                                   AriaLabel="Response shaping policy rules"
+                                   EmptyText="No filter-rr rules match the current filters."
+                                   OnEdit="OnRowEdit"
+                                   OnRemove="OnRowRemove" />
+            </div>
+        }
+
+        @if (ShowSection(FilterPolicyCategory.SetTargeting))
+        {
+            <div class="mb-4">
+                <h3 class="h5 d-flex align-items-center flex-wrap gap-1 mb-2">
+                    <span>@FilterPolicyCategoryMap.CategoryTitle(FilterPolicyCategory.SetTargeting)</span>
+                    <SectionHelpButton HelpText="@SetTargetingSectionHelpText" />
+                </h3>
+                <p class="text-muted small"><code>alias</code>, <code>ipset</code>, <code>nftset</code>, and <code>connmark-allowlist</code> lines. Enable connmark allowlisting in <strong>Effective configuration</strong>.</p>
+                <div class="card card-body py-2 mb-3">
+                    <div class="fw-semibold small mb-2"><code>alias</code></div>
+                    <div class="d-flex flex-wrap gap-2 align-items-end">
+                        <input type="text" class="form-control form-control-sm" style="width:10rem" placeholder="From" @bind="_aliasLeft" />
+                        <input type="text" class="form-control form-control-sm" style="width:12rem" placeholder="To" @bind="_aliasRight" />
+                        <button type="button" class="btn btn-sm btn-primary" @onclick="AddAlias">@SimpleAddButtonLabel(FilterPolicyKind.Alias)</button>
+                    </div>
+                </div>
+                <div class="card card-body py-2 mb-3">
+                    <div class="fw-semibold small mb-2"><code>ipset</code></div>
+                    <div class="d-flex flex-wrap gap-2 align-items-end">
+                        <input type="text" class="form-control form-control-sm" style="width:12rem" placeholder="Domain path" @bind="_ipsetDomain" />
+                        <input type="text" class="form-control form-control-sm" style="width:10rem" placeholder="Set name" @bind="_ipsetName" />
+                        <button type="button" class="btn btn-sm btn-primary" @onclick="AddIpset">@SimpleAddButtonLabel(FilterPolicyKind.Ipset)</button>
+                    </div>
+                </div>
+                <div class="card card-body py-2 mb-3">
+                    <div class="fw-semibold small mb-2"><code>nftset</code></div>
+                    <div class="d-flex flex-wrap gap-2 align-items-end">
+                        <input type="text" class="form-control form-control-sm" style="width:12rem" placeholder="Domain path" @bind="_nftDomain" />
+                        <input type="text" class="form-control form-control-sm" style="min-width:16rem" placeholder="Set spec (see dnsmasq man)" @bind="_nftSpecs" />
+                        <button type="button" class="btn btn-sm btn-primary" @onclick="AddNftset">@SimpleAddButtonLabel(FilterPolicyKind.Nftset)</button>
+                    </div>
+                </div>
+                <div class="card card-body py-2 mb-3">
+                    <div class="fw-semibold small mb-2"><code>connmark-allowlist</code></div>
+                    <div class="d-flex flex-wrap gap-2 align-items-end">
+                        <input type="text" class="form-control form-control-sm" style="width:8rem" placeholder="Mark" @bind="_connMark" />
+                        <input type="text" class="form-control form-control-sm" style="width:14rem" placeholder="Domain" @bind="_connDomain" />
+                        <button type="button" class="btn btn-sm btn-primary" @onclick="AddConnmarkAllowlist">@SimpleAddButtonLabel(FilterPolicyKind.ConnmarkAllowlist)</button>
+                    </div>
+                </div>
+                <FilterPolicyTable Items="RowsOf(FilterPolicyCategory.SetTargeting)"
+                                   Caption="Rewrite and set targeting rules"
+                                   AriaLabel="Set targeting policy rules"
+                                   EmptyText="No set-targeting rules match the current filters."
+                                   OnEdit="OnRowEdit"
+                                   OnRemove="OnRowRemove" />
+            </div>
         }
     </section>
-    <div class="page-chips" role="group" aria-label="Filter policy category">
-        <span class="page-chip active">All</span>
-        <span class="page-chip">Blocking / sinkhole</span>
-        <span class="page-chip">Split DNS</span>
-        <span class="page-chip">Safety</span>
-        <span class="page-chip">Response shaping</span>
-        <span class="page-chip">Firewall</span>
-    </div>
 }
+</div>
 
 @code {
+    private const string Resolver = EffectiveConfigSections.SectionResolver;
+
+    private const string PolicyOverviewHelpText =
+        "Policy overview shows multi-value resolver lines as a searchable table. Changes you make here and in Effective configuration share one pending-change draft: use Save there after reviewing all edits. Flags and single-value options are only in Effective configuration to avoid duplicating controls.";
+
+    private const string BlockingSectionHelpText =
+        "address= uses dnsmasq /domain/target syntax. Use “all domains” for /#/# or a specific pattern for /example.com/# sinkholes. Editable rows can be changed from the managed config file; read-only rows come from other includes.";
+
+    private const string SplitDnsSectionHelpText =
+        "server=/domain/upstream sends matching queries to that resolver. rev-server=CIDR,upstream handles reverse lookups for that network. local=/domain/ answers locally only. Empty domain path in local mode saves as // for unqualified names.";
+
+    private const string SafetySectionHelpText =
+        "These list options complement rebinding and hygiene flags in Effective configuration: rebind-domain-ok relaxes rebind checks for a name; bogus-nxdomain treats answers in a subnet as NXDOMAIN; ignore-address drops answers matching an address range.";
+
+    private const string ResponseShapingSectionHelpText =
+        "filter-rr removes specific RR types from answers that match a condition. For filter-A, filter-AAAA, filterwin2k, and no-round-robin toggles, use Effective configuration above.";
+
+    private const string SetTargetingSectionHelpText =
+        "alias, ipset, nftset, and connmark-allowlist lines tie DNS to rewriting or firewall sets. Enable connmark-allowlist-enable and optional masks in Effective configuration; add per-mark rules here.";
+
+    private static readonly FilterPolicyCategory[] CategoryOrder =
+    [
+        FilterPolicyCategory.Blocking,
+        FilterPolicyCategory.SplitDns,
+        FilterPolicyCategory.Safety,
+        FilterPolicyCategory.ResponseShaping,
+        FilterPolicyCategory.SetTargeting
+    ];
+
     private string AppTitle => AppOptions!.Value!.EffectiveTitle;
     private DnsmasqServiceStatus? _status;
-    private string _blockDomain = "";
-    private string _splitDomain = "";
-    private string _splitUpstream = "";
-    private string _localDomain = "";
+    private IReadOnlyList<FilterPolicyGroup> _groups = [];
+    private FilterSourceFileFilterBuilder _sourceFilterBuilder = new([], null);
+    private IJSObjectReference? _filtersTableScrollCueModule;
+
+    private string _search = "";
+    private string _sourcePathFilter = "";
+    private int _editableFilterMode;
+    private FilterPolicyCategory? _categoryChip;
     private string? _filterError;
 
-    private void BlockDomain()
+    private readonly AddressEditorModel _addressModel = new();
+    private string? _addressEditingRaw;
+
+    private readonly SplitDnsEditorModel _splitModel = new();
+    private string? _splitEditingRaw;
+    private FilterPolicyKind? _splitEditingKind;
+
+    private string _rebindDomain = "";
+    private string _bogusAddr = "";
+    private string _ignoreAddr = "";
+    private string _filterRrMatch = "";
+    private string _filterRrType = "";
+    private string _aliasLeft = "";
+    private string _aliasRight = "";
+    private string _ipsetDomain = "";
+    private string _ipsetName = "";
+    private string _nftDomain = "";
+    private string _nftSpecs = "";
+    private string _connMark = "";
+    private string _connDomain = "";
+
+    private string? _simpleEditOriginal;
+    private FilterPolicyKind? _simpleEditKind;
+
+    private bool ShowSection(FilterPolicyCategory c) =>
+        _categoryChip is null || _categoryChip == c;
+
+    private string ChipClass(FilterPolicyCategory? c) =>
+        _categoryChip == c ? "active" : "";
+
+    private string SimpleAddButtonLabel(FilterPolicyKind kind) =>
+        _simpleEditKind == kind && _simpleEditOriginal != null ? "Save" : "Add";
+
+    private void SetCategoryChip(FilterPolicyCategory? c)
     {
-        _filterError = null;
-        var domain = _blockDomain?.Trim() ?? "";
-        if (string.IsNullOrEmpty(domain))
+        _categoryChip = c;
+        OnFilterChanged();
+    }
+
+    private FilterPolicyQueryState BuildQuery() => new(
+        _search,
+        null,
+        string.IsNullOrWhiteSpace(_sourcePathFilter) ? null : _sourcePathFilter.Trim(),
+        _editableFilterMode switch { 1 => true, 2 => false, _ => null },
+        null);
+
+    private void RebuildGroups()
+    {
+        if (_status == null)
         {
-            _filterError = "Enter a domain to block.";
+            _groups = [];
             return;
         }
-        var field = PageEditor.Field(EffectiveConfigSections.SectionResolver, DnsmasqConfKeys.Address);
-        var current = PageEditor.GetEffectiveMultiValues(_status!, field);
-        var rule = $"/{domain}/#";
-        var next = current.Contains(rule, StringComparer.OrdinalIgnoreCase) ? current.ToList() : current.Append(rule).ToList();
-        PageEditor.ReplaceMultiValues(_status!, field, next);
-        PageEditor.Activate(field);
-        _blockDomain = "";
+
+        _groups = FiltersProjection.BuildGroups(_status, BuildQuery());
+    }
+
+    private void RebuildSourceBuilder()
+    {
+        if (_status == null)
+        {
+            _sourceFilterBuilder = new FilterSourceFileFilterBuilder([], null);
+            return;
+        }
+
+        var flat = FiltersProjection
+            .BuildGroups(_status, new FilterPolicyQueryState("", null, null, null, null))
+            .SelectMany(g => g.Rows)
+            .ToList();
+        _sourceFilterBuilder = new FilterSourceFileFilterBuilder(flat, _status.ManagedFilePath);
+    }
+
+    private IReadOnlyList<FilterPolicyRow> RowsOf(FilterPolicyCategory cat) =>
+        _groups.FirstOrDefault(g => g.Category == cat)?.Rows ?? [];
+
+    private void OnFilterChanged()
+    {
+        RebuildGroups();
         StateHasChanged();
     }
 
-    private void AddSplitDnsRoute()
+    private Task SaveAddressAsync()
     {
         _filterError = null;
-        var domain = _splitDomain?.Trim() ?? "";
-        var upstream = _splitUpstream?.Trim() ?? "";
-        if (string.IsNullOrEmpty(domain) || string.IsNullOrEmpty(upstream))
+        var fields = _addressModel.ToFields();
+        var line = fields.ToConfigLine();
+        if (string.IsNullOrWhiteSpace(line))
         {
-            _filterError = "Domain and upstream are required.";
-            return;
+            _filterError = "Enter a valid address rule.";
+            return Task.CompletedTask;
         }
-        var field = PageEditor.Field(EffectiveConfigSections.SectionResolver, DnsmasqConfKeys.Server);
-        var current = PageEditor.GetEffectiveMultiValues(_status!, field);
-        var rule = $"/{domain}/{upstream}";
-        var next = current.Append(rule).ToList();
-        PageEditor.ReplaceMultiValues(_status!, field, next);
-        PageEditor.Activate(field);
-        _splitDomain = "";
-        _splitUpstream = "";
+
+        ReplaceOrAppend(DnsmasqConfKeys.Address, line.Trim(), _addressEditingRaw);
+        CancelAddressEdit();
+        return Task.CompletedTask;
+    }
+
+    private void CancelAddressEdit()
+    {
+        _addressEditingRaw = null;
+        _addressModel.ResetForAdd();
         StateHasChanged();
     }
 
-    private void AddLocalOnlyDomain()
+    private Task SaveSplitDnsAsync()
     {
         _filterError = null;
-        var domain = _localDomain?.Trim() ?? "";
-        if (string.IsNullOrEmpty(domain))
+        var line = _splitModel.TryBuildConfigLine();
+        if (string.IsNullOrWhiteSpace(line))
+        {
+            _filterError = "Fill in all fields for this rule type.";
+            return Task.CompletedTask;
+        }
+
+        var newOption = _splitModel.Mode switch
+        {
+            SplitDnsRuleMode.Forward => DnsmasqConfKeys.Server,
+            SplitDnsRuleMode.Reverse => DnsmasqConfKeys.RevServer,
+            _ => DnsmasqConfKeys.Local
+        };
+
+        var trimmed = line.Trim();
+        if (_splitEditingRaw != null && _splitEditingKind is { } origKind)
+        {
+            var originalOption = OptionNameForKind(origKind);
+            if (originalOption != null &&
+                !string.Equals(originalOption, newOption, StringComparison.Ordinal))
+            {
+                PageEditor.RemoveMultiValue(_status!, PageEditor.Field(Resolver, originalOption), _splitEditingRaw);
+                ReplaceOrAppend(newOption, trimmed, null);
+                CancelSplitEdit();
+                return Task.CompletedTask;
+            }
+        }
+
+        ReplaceOrAppend(newOption, trimmed, _splitEditingRaw);
+        CancelSplitEdit();
+        return Task.CompletedTask;
+    }
+
+    private void CancelSplitEdit()
+    {
+        _splitEditingRaw = null;
+        _splitEditingKind = null;
+        _splitModel.Reset();
+        StateHasChanged();
+    }
+
+    private void AddRebindDomainOk()
+    {
+        _filterError = null;
+        var d = _rebindDomain.Trim();
+        if (string.IsNullOrEmpty(d))
         {
             _filterError = "Enter a domain.";
             return;
         }
-        var field = PageEditor.Field(EffectiveConfigSections.SectionResolver, DnsmasqConfKeys.Local);
-        var current = PageEditor.GetEffectiveMultiValues(_status!, field);
-        var rule = $"/{domain}/";
-        var next = current.Contains(rule, StringComparer.OrdinalIgnoreCase) ? current.ToList() : current.Append(rule).ToList();
-        PageEditor.ReplaceMultiValues(_status!, field, next);
+
+        ReplaceOrAppend(DnsmasqConfKeys.RebindDomainOk, d, _simpleEditKind == FilterPolicyKind.RebindDomainOk ? _simpleEditOriginal : null);
+        _rebindDomain = "";
+        ClearSimpleEdit();
+    }
+
+    private void AddBogusNxdomain()
+    {
+        _filterError = null;
+        var v = _bogusAddr.Trim();
+        if (string.IsNullOrEmpty(v))
+        {
+            _filterError = "Enter an address or subnet.";
+            return;
+        }
+
+        ReplaceOrAppend(DnsmasqConfKeys.BogusNxdomain, v, _simpleEditKind == FilterPolicyKind.BogusNxdomain ? _simpleEditOriginal : null);
+        _bogusAddr = "";
+        ClearSimpleEdit();
+    }
+
+    private void AddIgnoreAddress()
+    {
+        _filterError = null;
+        var v = _ignoreAddr.Trim();
+        if (string.IsNullOrEmpty(v))
+        {
+            _filterError = "Enter an address or subnet.";
+            return;
+        }
+
+        ReplaceOrAppend(DnsmasqConfKeys.IgnoreAddress, v, _simpleEditKind == FilterPolicyKind.IgnoreAddress ? _simpleEditOriginal : null);
+        _ignoreAddr = "";
+        ClearSimpleEdit();
+    }
+
+    private void AddFilterRr()
+    {
+        _filterError = null;
+        var m = _filterRrMatch.Trim();
+        var t = _filterRrType.Trim();
+        if (string.IsNullOrEmpty(m) || string.IsNullOrEmpty(t))
+        {
+            _filterError = "Match value and RR type are required.";
+            return;
+        }
+
+        var line = $"{m},{t}";
+        ReplaceOrAppend(DnsmasqConfKeys.FilterRr, line, _simpleEditKind == FilterPolicyKind.FilterRr ? _simpleEditOriginal : null);
+        _filterRrMatch = "";
+        _filterRrType = "";
+        ClearSimpleEdit();
+    }
+
+    private void AddAlias()
+    {
+        _filterError = null;
+        var a = _aliasLeft.Trim();
+        var b = _aliasRight.Trim();
+        if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b))
+        {
+            _filterError = "Both alias fields are required.";
+            return;
+        }
+
+        ReplaceOrAppend(DnsmasqConfKeys.Alias, $"{a},{b}", _simpleEditKind == FilterPolicyKind.Alias ? _simpleEditOriginal : null);
+        _aliasLeft = "";
+        _aliasRight = "";
+        ClearSimpleEdit();
+    }
+
+    private void AddIpset()
+    {
+        _filterError = null;
+        var d = _ipsetDomain.Trim();
+        var n = _ipsetName.Trim();
+        if (string.IsNullOrEmpty(d) || string.IsNullOrEmpty(n))
+        {
+            _filterError = "Domain path and set name are required.";
+            return;
+        }
+
+        var line = $"/{d}/{n}";
+        ReplaceOrAppend(DnsmasqConfKeys.Ipset, line, _simpleEditKind == FilterPolicyKind.Ipset ? _simpleEditOriginal : null);
+        _ipsetDomain = "";
+        _ipsetName = "";
+        ClearSimpleEdit();
+    }
+
+    private void AddNftset()
+    {
+        _filterError = null;
+        var d = _nftDomain.Trim();
+        var sp = _nftSpecs.Trim();
+        if (string.IsNullOrEmpty(d) || string.IsNullOrEmpty(sp))
+        {
+            _filterError = "Domain path and nft set spec are required.";
+            return;
+        }
+
+        var line = $"/{d}/{sp}";
+        ReplaceOrAppend(DnsmasqConfKeys.Nftset, line, _simpleEditKind == FilterPolicyKind.Nftset ? _simpleEditOriginal : null);
+        _nftDomain = "";
+        _nftSpecs = "";
+        ClearSimpleEdit();
+    }
+
+    private void AddConnmarkAllowlist()
+    {
+        _filterError = null;
+        var m = _connMark.Trim();
+        var d = _connDomain.Trim();
+        if (string.IsNullOrEmpty(m) || string.IsNullOrEmpty(d))
+        {
+            _filterError = "Mark and domain are required.";
+            return;
+        }
+
+        ReplaceOrAppend(DnsmasqConfKeys.ConnmarkAllowlist, $"{m},{d}", _simpleEditKind == FilterPolicyKind.ConnmarkAllowlist ? _simpleEditOriginal : null);
+        _connMark = "";
+        _connDomain = "";
+        ClearSimpleEdit();
+    }
+
+    private void ReplaceOrAppend(string option, string line, string? original)
+    {
+        var field = PageEditor.Field(Resolver, option);
+        var current = PageEditor.GetEffectiveMultiValues(_status!, field).ToList();
+        if (original != null)
+        {
+            var i = current.FindIndex(x => string.Equals(x, original, StringComparison.Ordinal));
+            if (i >= 0)
+                current[i] = line;
+            else if (!current.Contains(line, StringComparer.Ordinal))
+                current.Add(line);
+        }
+        else if (!current.Contains(line, StringComparer.Ordinal))
+            current.Add(line);
+
+        PageEditor.ReplaceMultiValues(_status!, field, current);
         PageEditor.Activate(field);
-        _localDomain = "";
+        RefreshAfterMutation();
+    }
+
+    private void RefreshAfterMutation()
+    {
+        RebuildGroups();
+        RebuildSourceBuilder();
         StateHasChanged();
+    }
+
+    private void OnRowEdit(FilterPolicyRow row)
+    {
+        _filterError = null;
+        ClearSimpleEdit();
+        CancelAddressEdit();
+        CancelSplitEdit();
+        switch (row.Kind)
+        {
+            case FilterPolicyKind.Address:
+                _addressModel.LoadFrom(row.RawValue);
+                _addressEditingRaw = row.RawValue;
+                break;
+            case FilterPolicyKind.Server:
+                _splitModel.LoadFromServerValue(row.RawValue);
+                _splitEditingRaw = row.RawValue;
+                _splitEditingKind = row.Kind;
+                break;
+            case FilterPolicyKind.RevServer:
+                _splitModel.LoadFromRevServerValue(row.RawValue);
+                _splitEditingRaw = row.RawValue;
+                _splitEditingKind = row.Kind;
+                break;
+            case FilterPolicyKind.Local:
+                _splitModel.LoadFromLocalValue(row.RawValue);
+                _splitEditingRaw = row.RawValue;
+                _splitEditingKind = row.Kind;
+                break;
+            case FilterPolicyKind.RebindDomainOk:
+                _rebindDomain = row.RawValue.Trim();
+                _simpleEditOriginal = row.RawValue;
+                _simpleEditKind = row.Kind;
+                break;
+            case FilterPolicyKind.BogusNxdomain:
+                _bogusAddr = row.RawValue.Trim();
+                _simpleEditOriginal = row.RawValue;
+                _simpleEditKind = row.Kind;
+                break;
+            case FilterPolicyKind.IgnoreAddress:
+                _ignoreAddr = row.RawValue.Trim();
+                _simpleEditOriginal = row.RawValue;
+                _simpleEditKind = row.Kind;
+                break;
+            case FilterPolicyKind.FilterRr:
+                var fr = FilterRrRuleFields.Parse(row.RawValue);
+                if (!fr.IsRaw)
+                {
+                    _filterRrMatch = fr.MatchValue;
+                    _filterRrType = fr.RecordType;
+                }
+                else
+                {
+                    _filterRrMatch = row.RawValue.Trim();
+                    _filterRrType = "";
+                }
+
+                _simpleEditOriginal = row.RawValue;
+                _simpleEditKind = row.Kind;
+                break;
+            case FilterPolicyKind.Alias:
+                var ap = row.RawValue.Split(',', 2);
+                if (ap.Length == 2)
+                {
+                    _aliasLeft = ap[0].Trim();
+                    _aliasRight = ap[1].Trim();
+                }
+
+                _simpleEditOriginal = row.RawValue;
+                _simpleEditKind = row.Kind;
+                break;
+            case FilterPolicyKind.Ipset:
+                var ip = IpsetRuleFields.Parse(row.RawValue);
+                if (!ip.IsRaw)
+                {
+                    _ipsetDomain = ip.DomainPath;
+                    _ipsetName = ip.SetName;
+                }
+
+                _simpleEditOriginal = row.RawValue;
+                _simpleEditKind = row.Kind;
+                break;
+            case FilterPolicyKind.Nftset:
+                var nf = NftsetRuleFields.Parse(row.RawValue);
+                if (!nf.IsRaw)
+                {
+                    _nftDomain = nf.DomainPath;
+                    _nftSpecs = nf.SetSpecs;
+                }
+
+                _simpleEditOriginal = row.RawValue;
+                _simpleEditKind = row.Kind;
+                break;
+            case FilterPolicyKind.ConnmarkAllowlist:
+                var cm = ConnmarkAllowlistRuleFields.Parse(row.RawValue);
+                if (!cm.IsRaw)
+                {
+                    _connMark = cm.Mark;
+                    _connDomain = cm.Domain;
+                }
+
+                _simpleEditOriginal = row.RawValue;
+                _simpleEditKind = row.Kind;
+                break;
+        }
+
+        StateHasChanged();
+    }
+
+    private void OnRowRemove(FilterPolicyRow row)
+    {
+        if (!row.IsEditable)
+            return;
+        _filterError = null;
+        var option = OptionNameForKind(row.Kind);
+        if (option == null)
+            return;
+        PageEditor.RemoveMultiValue(_status!, PageEditor.Field(Resolver, option), row.RawValue);
+        if (_splitEditingRaw != null && string.Equals(_splitEditingRaw, row.RawValue, StringComparison.Ordinal))
+            CancelSplitEdit();
+        if (_addressEditingRaw != null && string.Equals(_addressEditingRaw, row.RawValue, StringComparison.Ordinal))
+            CancelAddressEdit();
+        if (_simpleEditOriginal != null && string.Equals(_simpleEditOriginal, row.RawValue, StringComparison.Ordinal))
+            ClearSimpleEdit();
+        RefreshAfterMutation();
+    }
+
+    private static string? OptionNameForKind(FilterPolicyKind k) => k switch
+    {
+        FilterPolicyKind.Address => DnsmasqConfKeys.Address,
+        FilterPolicyKind.Server => DnsmasqConfKeys.Server,
+        FilterPolicyKind.RevServer => DnsmasqConfKeys.RevServer,
+        FilterPolicyKind.Local => DnsmasqConfKeys.Local,
+        FilterPolicyKind.RebindDomainOk => DnsmasqConfKeys.RebindDomainOk,
+        FilterPolicyKind.BogusNxdomain => DnsmasqConfKeys.BogusNxdomain,
+        FilterPolicyKind.IgnoreAddress => DnsmasqConfKeys.IgnoreAddress,
+        FilterPolicyKind.FilterRr => DnsmasqConfKeys.FilterRr,
+        FilterPolicyKind.Alias => DnsmasqConfKeys.Alias,
+        FilterPolicyKind.Ipset => DnsmasqConfKeys.Ipset,
+        FilterPolicyKind.Nftset => DnsmasqConfKeys.Nftset,
+        FilterPolicyKind.ConnmarkAllowlist => DnsmasqConfKeys.ConnmarkAllowlist,
+        _ => null
+    };
+
+    private void ClearSimpleEdit()
+    {
+        _simpleEditOriginal = null;
+        _simpleEditKind = null;
     }
 
     protected override async Task OnInitializedAsync()
     {
-        await Load();
+        await LoadAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _filtersTableScrollCueModule = await JSRuntime.InvokeAsyncSafe<IJSObjectReference>(
+                "import",
+                default,
+                "/js/modules/table-scroll-cue.js");
+            if (_filtersTableScrollCueModule != null)
+                await _filtersTableScrollCueModule.InvokeVoidAsyncSafe("initTableScrollCue");
+        }
+        else if (_filtersTableScrollCueModule != null)
+            await _filtersTableScrollCueModule.InvokeVoidAsyncSafe("updateTableScrollCue");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await CleanupFiltersTableScrollCueAsync();
+    }
+
+    private async Task CleanupFiltersTableScrollCueAsync()
+    {
+        var module = _filtersTableScrollCueModule;
+        _filtersTableScrollCueModule = null;
+        if (module == null)
+            return;
+
+        try
+        {
+            await module.InvokeVoidAsyncSafe("disposeTableScrollCue");
+        }
+        finally
+        {
+            await module.DisposeAsyncSafe();
+        }
     }
 
     private async Task RefreshStatusAsync()
@@ -134,20 +823,27 @@ else
         try
         {
             _status = await StatusClient.GetStatusAsync();
+            RebuildGroups();
+            RebuildSourceBuilder();
             await InvokeAsync(StateHasChanged);
         }
-        catch { /* ignore */ }
+        catch
+        {
+            // ignore
+        }
     }
 
-    private async Task Load()
+    private async Task LoadAsync()
     {
         try
         {
             _status = await StatusClient.GetStatusAsync();
+            RebuildGroups();
+            RebuildSourceBuilder();
         }
         catch
         {
-            // Status will stay null; UI shows loading or empty
+            // leave null
         }
     }
 }

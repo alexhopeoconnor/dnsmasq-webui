@@ -1,4 +1,4 @@
-/* Sizing is owned by the parent (e.g. Hosts .hosts-file-filter-wrap); default fills container width. */
+/* Sizing is owned by the parent (e.g. .app-page-file-filter-wrap); default fills container width. */
 .grouped-select {
     position: relative;
     width: 100%;

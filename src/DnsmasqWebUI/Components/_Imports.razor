@@ -1,3 +1,4 @@
+@using System.Net
 @using System.Net.Http
 @using System.Net.Http.Json
 @using Microsoft.AspNetCore.Components.Forms
@@ -38,9 +39,17 @@
 @using DnsmasqWebUI.Infrastructure
 @using DnsmasqWebUI.Models
 @using DnsmasqWebUI.Models.Dnsmasq
+@using DnsmasqWebUI.Models.Dnsmasq.PageStates
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Models.Ui
 @using DnsmasqWebUI.Models.Hosts
+@using DnsmasqWebUI.Models.DnsRecords
+@using DnsmasqWebUI.Components.DnsRecords
+@using DnsmasqWebUI.Components.DnsRecords.Editors
+@using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.DnsRecords
+@using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.DnsRecords.Abstractions
 @using DnsmasqWebUI.Models.Dhcp
 @using DnsmasqWebUI.Models.Config
 @using DnsmasqWebUI.Infrastructure.Client.Abstractions
+@using DnsmasqWebUI.Infrastructure.Serialization.OptionHandlers.Abstractions
 @using Microsoft.Extensions.Options

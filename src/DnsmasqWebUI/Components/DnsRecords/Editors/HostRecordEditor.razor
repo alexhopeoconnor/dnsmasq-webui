@@ -1,0 +1,107 @@
+@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata
+<h4 class="h6 mb-2">host-record (A / AAAA)</h4>
+<div class="row g-2 align-items-end">
+    <div class="col-md-3">
+        <label class="form-label small mb-0">Owner names (comma-separated)</label>
+        <input class="form-control form-control-sm" @bind="_owners" @bind:event="oninput" />
+    </div>
+    <div class="col-md-2">
+        <label class="form-label small mb-0">IPv4</label>
+        <input class="form-control form-control-sm" @bind="_v4" @bind:event="oninput" placeholder="optional" />
+    </div>
+    <div class="col-md-2">
+        <label class="form-label small mb-0">IPv6</label>
+        <input class="form-control form-control-sm" @bind="_v6" @bind:event="oninput" placeholder="optional" />
+    </div>
+    <div class="col-md-2">
+        <label class="form-label small mb-0">TTL</label>
+        <input class="form-control form-control-sm" type="number" min="1" @bind="_ttl" @bind:event="oninput" placeholder="optional" />
+    </div>
+    <div class="col-md-3 d-flex gap-1">
+        <button type="button" class="btn btn-sm btn-primary" @onclick="SaveAsync">Save</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="OnCancel">Cancel</button>
+    </div>
+</div>
+@if (_error != null)
+{
+    <p class="text-danger small mt-2 mb-0">@_error</p>
+}
+
+@code {
+    [Parameter] public DnsRecordRow? Existing { get; set; }
+    [Parameter] public EventCallback<DnsRecordEditorResult> OnSave { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private string _owners = "";
+    private string _v4 = "";
+    private string _v6 = "";
+    private string _ttl = "";
+    private string? _error;
+    private string? _boundRowKey;
+
+    protected override void OnParametersSet()
+    {
+        if (!DnsRecordEditorSyncGuard.ShouldReseedFromExisting(ref _boundRowKey, Existing))
+            return;
+
+        if (Existing?.Payload is HostRecordPayload p)
+        {
+            _owners = string.Join(", ", p.Owners);
+            _v4 = p.IPv4 ?? "";
+            _v6 = p.IPv6 ?? "";
+            _ttl = p.Ttl?.ToString() ?? "";
+        }
+        else
+        {
+            _owners = "";
+            _v4 = "";
+            _v6 = "";
+            _ttl = "";
+        }
+
+        _error = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        _error = null;
+        var owners = _owners.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
+        if (owners.Count == 0)
+        {
+            _error = "At least one owner name is required.";
+            return;
+        }
+
+        int? ttl = null;
+        if (!string.IsNullOrWhiteSpace(_ttl))
+        {
+            if (!int.TryParse(_ttl, out var t) || t <= 0)
+            {
+                _error = "TTL must be a positive integer.";
+                return;
+            }
+
+            ttl = t;
+        }
+
+        var v4 = string.IsNullOrWhiteSpace(_v4) ? null : _v4.Trim();
+        var v6 = string.IsNullOrWhiteSpace(_v6) ? null : _v6.Trim();
+        var payload = new HostRecordPayload(owners, v4, v6, ttl);
+        var isNew = Existing == null;
+        var row = isNew
+            ? new DnsRecordRow(
+                Id: $"{DnsmasqConfKeys.HostRecord}:new",
+                OptionName: DnsmasqConfKeys.HostRecord,
+                Family: DnsRecordFamily.HostRecord,
+                IndexInOption: -1,
+                RawValue: "",
+                Source: null,
+                IsEditable: true,
+                Payload: payload,
+                Issues: [],
+                Summary: "")
+            : Existing! with { Payload = payload };
+
+        await OnSave.InvokeAsync(new DnsRecordEditorResult(row, isNew));
+    }
+}

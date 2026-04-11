@@ -73,6 +73,7 @@ public static class OptionCoverageData
             (DnsmasqConfKeys.DhcpRange, "dhcp-range=192.168.1.50,192.168.1.150,12h"),
             (DnsmasqConfKeys.DhcpHost, "dhcp-host=aa:bb:cc:dd:ee:ff,192.168.1.10"),
             (DnsmasqConfKeys.DhcpOption, "dhcp-option=3,192.168.1.1"),
+            (DnsmasqConfKeys.DhcpOptionForce, "dhcp-option-force=option:dns-server,192.168.1.1"),
             (DnsmasqConfKeys.DhcpMatch, "dhcp-match=set:efi,option:client-arch,6"),
             (DnsmasqConfKeys.DhcpMac, "dhcp-mac=set:vendor,aa:bb:cc:dd:ee:ff"),
             (DnsmasqConfKeys.DhcpNameMatch, "dhcp-name-match=set:name,hostname*"),

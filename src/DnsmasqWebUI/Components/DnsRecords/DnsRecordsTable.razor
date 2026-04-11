@@ -1,0 +1,167 @@
+@using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
+@using DnsmasqWebUI.Infrastructure.Services.UI.Notifications.Abstractions
+@inject INotificationService NotificationService
+@if (Rows.Count == 0)
+{
+    <p class="text-muted small">No rows for the current filters.</p>
+}
+else
+{
+    <div class="app-table-scroll-shell" data-table-scroll-cue>
+        <div class="app-table-scroll-region" data-table-scroll-region role="region" aria-label="DNS records table" tabindex="0">
+            <table class="table table-bordered table-hover app-data-table dns-records-table mb-0" id="@TableId">
+                <caption class="visually-hidden">@TableCaption</caption>
+                <thead>
+                <tr>
+                    <th scope="col" class="dns-records-type-th">
+                        <span class="align-middle">Type</span>
+                        <button type="button"
+                                class="btn btn-link btn-sm text-muted app-th-help-btn p-0 ms-1 align-middle border-0"
+                                title="@TypeColumnHelpText"
+                                aria-label="@TypeColumnHelpText"
+                                @onclick="OnTypeHelpClick"
+                                @onclick:stopPropagation="true">
+                            <i class="bi bi-question-circle" aria-hidden="true"></i>
+                        </button>
+                    </th>
+                    <th scope="col" class="dns-records-summary-th">
+                        <span class="align-middle">Summary</span>
+                        <button type="button"
+                                class="btn btn-link btn-sm text-muted app-th-help-btn p-0 ms-1 align-middle border-0"
+                                title="@SummaryColumnHelpText"
+                                aria-label="@SummaryColumnHelpText"
+                                @onclick="OnSummaryHelpClick"
+                                @onclick:stopPropagation="true">
+                            <i class="bi bi-question-circle" aria-hidden="true"></i>
+                        </button>
+                    </th>
+                    <th scope="col" class="dns-records-source-th">
+                        <span class="align-middle">Source</span>
+                        <button type="button"
+                                class="btn btn-link btn-sm text-muted app-th-help-btn p-0 ms-1 align-middle border-0"
+                                title="@SourceColumnHelpText"
+                                aria-label="@SourceColumnHelpText"
+                                @onclick="OnSourceHelpClick"
+                                @onclick:stopPropagation="true">
+                            <i class="bi bi-question-circle" aria-hidden="true"></i>
+                        </button>
+                    </th>
+                    <th scope="col" class="dns-records-status-th">
+                        <span class="align-middle">Status</span>
+                        <button type="button"
+                                class="btn btn-link btn-sm text-muted app-th-help-btn p-0 ms-1 align-middle border-0"
+                                title="@StatusColumnHelpText"
+                                aria-label="@StatusColumnHelpText"
+                                @onclick="OnStatusHelpClick"
+                                @onclick:stopPropagation="true">
+                            <i class="bi bi-question-circle" aria-hidden="true"></i>
+                        </button>
+                    </th>
+                    <th scope="col" class="dns-records-actions-col">
+                        <span class="align-middle">Actions</span>
+                        <button type="button"
+                                class="btn btn-link btn-sm text-muted app-th-help-btn p-0 ms-1 align-middle border-0"
+                                title="@ActionsColumnHelpText"
+                                aria-label="@ActionsColumnHelpText"
+                                @onclick="OnActionsHelpClick"
+                                @onclick:stopPropagation="true">
+                            <i class="bi bi-question-circle" aria-hidden="true"></i>
+                        </button>
+                    </th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in Rows)
+                {
+                    <tr @key="@row.Id">
+                        <td><span class="badge bg-secondary">@row.OptionName</span></td>
+                        <td>
+                            <div class="dns-records-summary" title="@row.RawValue">@row.Summary</div>
+                            <code class="small text-muted dns-records-raw">@row.RawValue</code>
+                        </td>
+                        <td class="small">
+                            @if (row.Source == null)
+                            {
+                                <span class="text-muted">—</span>
+                            }
+                            else
+                            {
+                                <span title="@row.Source.FilePath">@row.Source.FileName</span>
+                                @if (row.Source.IsReadOnly)
+                                {
+                                    <span class="badge bg-warning text-dark ms-1">read-only</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success ms-1">editable</span>
+                                }
+                            }
+                        </td>
+                        <td class="small">
+                            @if (row.Issues.Count == 0)
+                            {
+                                <span class="text-muted">OK</span>
+                            }
+                            else
+                            {
+                                @foreach (var issue in row.Issues.Take(3))
+                                {
+                                    var cls = issue.Severity == FieldIssueSeverity.Error ? "text-danger" : "text-warning";
+                                    <div class="@cls">@issue.Message</div>
+                                }
+                                @if (row.Issues.Count > 3)
+                                {
+                                    <div class="text-muted">…</div>
+                                }
+                            }
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-primary btn-sm" disabled="@(!row.IsEditable)" @onclick="() => OnEditRow.InvokeAsync(row)">Edit</button>
+                                <button type="button" class="btn btn-outline-danger btn-sm" disabled="@(!row.IsEditable)" @onclick="() => OnDeleteRow.InvokeAsync(row)">Remove</button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    private const string TypeColumnHelpText =
+        "The dnsmasq option name for this line (for example cname, host-record, srv-host).";
+
+    private const string SummaryColumnHelpText =
+        "A short plain-language description of the record. The monospace line below is the exact config value dnsmasq uses.";
+
+    private const string SourceColumnHelpText =
+        "Which configuration file defined this line. Editable means the app can write changes to that source; read-only means it appears in the effective config but is not managed from the app’s writable file.";
+
+    private const string StatusColumnHelpText =
+        "Per-line syntax validation from option semantics plus page-local warnings (duplicates, incomplete rows, or unusual combinations such as CNAME vs host-record on the same name).";
+
+    private const string ActionsColumnHelpText =
+        "Edit opens the structured form for this directive when the row is editable. Remove drops this exact line from the effective multi-value list (same as deleting in Effective configuration).";
+
+    [Parameter] public string TableId { get; set; } = "dns-records-table";
+
+    [Parameter] public string TableCaption { get; set; } = "DNS record lines for scanning and editing";
+
+    [Parameter] public IReadOnlyList<DnsRecordRow> Rows { get; set; } = [];
+
+    [Parameter] public EventCallback<DnsRecordRow> OnEditRow { get; set; }
+
+    [Parameter] public EventCallback<DnsRecordRow> OnDeleteRow { get; set; }
+
+    private void OnTypeHelpClick() => NotificationService.ShowInfo(TypeColumnHelpText);
+
+    private void OnSummaryHelpClick() => NotificationService.ShowInfo(SummaryColumnHelpText);
+
+    private void OnSourceHelpClick() => NotificationService.ShowInfo(SourceColumnHelpText);
+
+    private void OnStatusHelpClick() => NotificationService.ShowInfo(StatusColumnHelpText);
+
+    private void OnActionsHelpClick() => NotificationService.ShowInfo(ActionsColumnHelpText);
+}

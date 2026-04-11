@@ -1,0 +1,78 @@
+@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata
+<h4 class="h6 mb-2">TXT</h4>
+<div class="row g-2 align-items-end">
+    <div class="col-md-3">
+        <label class="form-label small mb-0">Name</label>
+        <input class="form-control form-control-sm" @bind="_name" @bind:event="oninput" />
+    </div>
+    <div class="col-md-5">
+        <label class="form-label small mb-0">Text (optional; use quotes in raw config for commas)</label>
+        <input class="form-control form-control-sm" @bind="_text" @bind:event="oninput" />
+    </div>
+    <div class="col-md-4 d-flex gap-1">
+        <button type="button" class="btn btn-sm btn-primary" @onclick="SaveAsync">Save</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="OnCancel">Cancel</button>
+    </div>
+</div>
+@if (_error != null)
+{
+    <p class="text-danger small mt-2 mb-0">@_error</p>
+}
+
+@code {
+    [Parameter] public DnsRecordRow? Existing { get; set; }
+    [Parameter] public EventCallback<DnsRecordEditorResult> OnSave { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private string _name = "";
+    private string _text = "";
+    private string? _error;
+    private string? _boundRowKey;
+
+    protected override void OnParametersSet()
+    {
+        if (!DnsRecordEditorSyncGuard.ShouldReseedFromExisting(ref _boundRowKey, Existing))
+            return;
+
+        if (Existing?.Payload is TxtPayload p)
+        {
+            _name = p.Name;
+            _text = p.Text ?? "";
+        }
+        else
+        {
+            _name = "";
+            _text = "";
+        }
+
+        _error = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_name))
+        {
+            _error = "Name is required.";
+            return;
+        }
+
+        var payload = new TxtPayload(_name.Trim(), string.IsNullOrWhiteSpace(_text) ? null : _text.Trim());
+        var isNew = Existing == null;
+        var row = isNew
+            ? new DnsRecordRow(
+                Id: $"{DnsmasqConfKeys.TxtRecord}:new",
+                OptionName: DnsmasqConfKeys.TxtRecord,
+                Family: DnsRecordFamily.Txt,
+                IndexInOption: -1,
+                RawValue: "",
+                Source: null,
+                IsEditable: true,
+                Payload: payload,
+                Issues: [],
+                Summary: "")
+            : Existing! with { Payload = payload };
+
+        await OnSave.InvokeAsync(new DnsRecordEditorResult(row, isNew));
+    }
+}

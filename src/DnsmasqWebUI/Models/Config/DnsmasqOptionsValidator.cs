@@ -30,9 +30,28 @@ public sealed class DnsmasqOptionsValidator : IApplicationOptionsValidator<Dnsma
             }
         }
 
-        // SystemHostsPath is optional. When set, the UI shows system hosts as read-only. The app only writes to the
-        // managed hosts file (ManagedHostsFileName in the same directory as main config). Hosts UI is available when
-        // MainConfigPath is set (managed hosts path is then derived from it and ManagedHostsFileName).
+        if (!string.IsNullOrWhiteSpace(options.ManagedFilesDirectory) &&
+            !Path.IsPathRooted(options.ManagedFilesDirectory.Trim()))
+        {
+            failures.Add("Dnsmasq:ManagedFilesDirectory must be an absolute path when set.");
+        }
+
+        if (HasDirectorySeparators(options.ManagedFileName))
+            failures.Add("Dnsmasq:ManagedFileName must be a file name, not a path.");
+
+        if (HasDirectorySeparators(options.ManagedHostsFileName))
+            failures.Add("Dnsmasq:ManagedHostsFileName must be a file name, not a path.");
+
+        if (failures.Count == 0)
+        {
+            var paths = DnsmasqManagedPathSet.FromOptions(options);
+            if (string.Equals(paths.MainConfigPath, paths.ManagedFilePath, StringComparison.Ordinal))
+                failures.Add("Resolved managed config path must differ from Dnsmasq:MainConfigPath.");
+            if (string.Equals(paths.MainConfigPath, paths.ManagedHostsFilePath, StringComparison.Ordinal))
+                failures.Add("Resolved managed hosts path must differ from Dnsmasq:MainConfigPath.");
+            if (string.Equals(paths.ManagedFilePath, paths.ManagedHostsFilePath, StringComparison.Ordinal))
+                failures.Add("Resolved managed config path and managed hosts path must differ.");
+        }
 
         const int minTimeoutSeconds = 1;
         const int maxTimeoutSeconds = 600;
@@ -57,4 +76,8 @@ public sealed class DnsmasqOptionsValidator : IApplicationOptionsValidator<Dnsma
 
         return ValidateOptionsResult.Fail(failures);
     }
+
+    private static bool HasDirectorySeparators(string? value) =>
+        !string.IsNullOrWhiteSpace(value)
+        && value.IndexOfAny(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }) >= 0;
 }

@@ -1,0 +1,24 @@
+/* Page-specific only; shared toolbar/table patterns live in wwwroot/app.css. */
+
+.filters-page-chips {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--bs-body-bg, #fff);
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+}
+
+.filters-policy-table__summary {
+    font-size: 0.9375rem;
+    line-height: 1.35;
+}
+
+.filters-policy-table__raw {
+    min-width: 10rem;
+}
+
+.filters-policy-table__actions {
+    min-width: 7rem;
+    white-space: nowrap;
+}

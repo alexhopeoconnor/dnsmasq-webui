@@ -15,7 +15,7 @@ namespace DnsmasqWebUI.Models.Dnsmasq;
 /// <param name="EffectiveConfig">Effective dnsmasq config (single-value, flags, multi-value) after parsing all config files.</param>
 /// <param name="EffectiveConfigSources">Source per field (file path, readonly). Use for tooltips and readonly badges; null when not available.</param>
 /// <param name="MainConfigPath">Path to the main dnsmasq config file (e.g. /etc/dnsmasq.conf).</param>
-/// <param name="ManagedFilePath">Path to the app's managed config file (same directory as main config, e.g. zz-dnsmasq-webui.conf).</param>
+/// <param name="ManagedFilePath">Path to the app's managed config file (in ManagedFilesDirectory when configured, otherwise beside the main config).</param>
 /// <param name="LeasesPath">Path to the DHCP leases file from effective config (dhcp-leasefile). Null when not configured.</param>
 /// <param name="MainConfigPathExists">True if <paramref name="MainConfigPath"/> exists on disk.</param>
 /// <param name="ManagedFilePathExists">True if <paramref name="ManagedFilePath"/> exists on disk.</param>

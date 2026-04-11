@@ -20,10 +20,13 @@ public class DnsmasqOptions
     /// <summary>Path to the main dnsmasq config (e.g. /etc/dnsmasq.conf). App appends conf-file= at the end if missing so the managed file is included; process must have write access.</summary>
     public string MainConfigPath { get; set; } = "";
 
-    /// <summary>Filename of the managed config (e.g. zz-dnsmasq-webui.conf), created in the same directory as the main config and included only via a conf-file= directive as the last line of the main config. Managed file content parsed with DnsmasqConfFileLineParser.</summary>
+    /// <summary>Optional directory for the managed config and managed hosts files. When unset, the app writes them beside <see cref="MainConfigPath"/>.</summary>
+    public string? ManagedFilesDirectory { get; set; }
+
+    /// <summary>Filename of the managed config (e.g. zz-dnsmasq-webui.conf), created in <see cref="ManagedFilesDirectory"/> when set or otherwise in the same directory as the main config. Included only via a conf-file= directive as the last line of the main config. Managed file content parsed with DnsmasqConfFileLineParser.</summary>
     public string ManagedFileName { get; set; } = "zz-dnsmasq-webui.conf";
 
-    /// <summary>Filename of the managed hosts file (e.g. zz-dnsmasq-webui.hosts), created in the same directory as the main config. The app adds addn-hosts=&lt;this path&gt; in the managed config so dnsmasq loads it last. This is the only hosts file the app writes to.</summary>
+    /// <summary>Filename of the managed hosts file (e.g. zz-dnsmasq-webui.hosts), created in <see cref="ManagedFilesDirectory"/> when set or otherwise in the same directory as the main config. The app adds addn-hosts=&lt;this path&gt; in the managed config so dnsmasq loads it last. This is the only hosts file the app writes to.</summary>
     public string ManagedHostsFileName { get; set; } = "zz-dnsmasq-webui.hosts";
 
     /// <summary>Optional path to the system hosts file (e.g. /etc/hosts). When set, shown in the UI as read-only so users can see those entries. The app never writes to it; editing is via the managed hosts file only. When unset, the system hosts row is not shown.</summary>

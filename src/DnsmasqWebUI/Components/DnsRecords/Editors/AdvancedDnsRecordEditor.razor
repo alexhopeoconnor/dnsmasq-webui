@@ -1,0 +1,249 @@
+@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata
+<h4 class="h6 mb-2">@_title</h4>
+@if (OptionName == DnsmasqConfKeys.NaptrRecord)
+{
+    <div class="row g-2">
+        <div class="col-md-3"><label class="form-label small mb-0">Name</label><input class="form-control form-control-sm" @bind="_nName" @bind:event="oninput" /></div>
+        <div class="col-md-1"><label class="form-label small mb-0">Order</label><input class="form-control form-control-sm" @bind="_nOrder" @bind:event="oninput" /></div>
+        <div class="col-md-1"><label class="form-label small mb-0">Pref</label><input class="form-control form-control-sm" @bind="_nPref" @bind:event="oninput" /></div>
+        <div class="col-md-2"><label class="form-label small mb-0">Flags</label><input class="form-control form-control-sm" @bind="_nFlags" @bind:event="oninput" /></div>
+        <div class="col-md-2"><label class="form-label small mb-0">Service</label><input class="form-control form-control-sm" @bind="_nService" @bind:event="oninput" /></div>
+        <div class="col-md-3"><label class="form-label small mb-0">Regexp</label><input class="form-control form-control-sm" @bind="_nRegexp" @bind:event="oninput" /></div>
+        <div class="col-md-6"><label class="form-label small mb-0">Replacement (optional)</label><input class="form-control form-control-sm" @bind="_nRepl" @bind:event="oninput" /></div>
+    </div>
+}
+else if (OptionName == DnsmasqConfKeys.CaaRecord)
+{
+    <div class="row g-2">
+        <div class="col-md-3"><label class="form-label small mb-0">Name</label><input class="form-control form-control-sm" @bind="_cName" @bind:event="oninput" /></div>
+        <div class="col-md-1"><label class="form-label small mb-0">Flags</label><input class="form-control form-control-sm" @bind="_cFlags" @bind:event="oninput" /></div>
+        <div class="col-md-2"><label class="form-label small mb-0">Tag</label><input class="form-control form-control-sm" @bind="_cTag" @bind:event="oninput" /></div>
+        <div class="col-md-6"><label class="form-label small mb-0">Value</label><input class="form-control form-control-sm" @bind="_cValue" @bind:event="oninput" /></div>
+    </div>
+}
+else if (OptionName == DnsmasqConfKeys.DnsRr)
+{
+    <div class="row g-2">
+        <div class="col-md-3"><label class="form-label small mb-0">Name</label><input class="form-control form-control-sm" @bind="_dName" @bind:event="oninput" /></div>
+        <div class="col-md-2"><label class="form-label small mb-0">RR number</label><input class="form-control form-control-sm" @bind="_dNum" @bind:event="oninput" /></div>
+        <div class="col-md-7"><label class="form-label small mb-0">Hex data (optional)</label><input class="form-control form-control-sm" @bind="_dHex" @bind:event="oninput" /></div>
+    </div>
+}
+else if (OptionName == DnsmasqConfKeys.DynamicHost)
+{
+    <div class="row g-2">
+        <div class="col-md-2"><label class="form-label small mb-0">Name</label><input class="form-control form-control-sm" @bind="_yName" @bind:event="oninput" /></div>
+        <div class="col-md-2"><label class="form-label small mb-0">IPv4</label><input class="form-control form-control-sm" @bind="_yV4" @bind:event="oninput" /></div>
+        <div class="col-md-2"><label class="form-label small mb-0">IPv6</label><input class="form-control form-control-sm" @bind="_yV6" @bind:event="oninput" /></div>
+        <div class="col-md-3"><label class="form-label small mb-0">Interface</label><input class="form-control form-control-sm" @bind="_yIface" @bind:event="oninput" /></div>
+    </div>
+}
+else if (OptionName == DnsmasqConfKeys.InterfaceName)
+{
+    <div class="row g-2">
+        <div class="col-md-4"><label class="form-label small mb-0">DNS name</label><input class="form-control form-control-sm" @bind="_iName" @bind:event="oninput" /></div>
+        <div class="col-md-4"><label class="form-label small mb-0">Interface[/4|/6]</label><input class="form-control form-control-sm" @bind="_iIface" @bind:event="oninput" /></div>
+    </div>
+}
+else if (OptionName == DnsmasqConfKeys.SynthDomain)
+{
+    <div class="row g-2">
+        <div class="col-md-3"><label class="form-label small mb-0">Domain</label><input class="form-control form-control-sm" @bind="_sDomain" @bind:event="oninput" /></div>
+        <div class="col-md-3"><label class="form-label small mb-0">Address range</label><input class="form-control form-control-sm" @bind="_sRange" @bind:event="oninput" /></div>
+        <div class="col-md-4"><label class="form-label small mb-0">Prefix (optional)</label><input class="form-control form-control-sm" @bind="_sPrefix" @bind:event="oninput" /></div>
+    </div>
+}
+else if (OptionName == DnsmasqConfKeys.AuthZone)
+{
+    <div class="row g-2">
+        <div class="col-md-3"><label class="form-label small mb-0">Domain</label><input class="form-control form-control-sm" @bind="_zDomain" @bind:event="oninput" /></div>
+        <div class="col-md-9"><label class="form-label small mb-0">Subnets / exclude:… (comma-separated)</label><input class="form-control form-control-sm" @bind="_zRest" @bind:event="oninput" /></div>
+    </div>
+}
+else if (OptionName == DnsmasqConfKeys.AuthSoa)
+{
+    <div class="row g-2">
+        <div class="col-md-2"><label class="form-label small mb-0">Serial</label><input class="form-control form-control-sm" @bind="_aSerial" @bind:event="oninput" /></div>
+        <div class="col-md-3"><label class="form-label small mb-0">Hostmaster</label><input class="form-control form-control-sm" @bind="_aHm" @bind:event="oninput" /></div>
+        <div class="col-md-2"><label class="form-label small mb-0">Refresh</label><input class="form-control form-control-sm" @bind="_aRef" @bind:event="oninput" /></div>
+        <div class="col-md-2"><label class="form-label small mb-0">Retry</label><input class="form-control form-control-sm" @bind="_aRetry" @bind:event="oninput" /></div>
+        <div class="col-md-2"><label class="form-label small mb-0">Expiry</label><input class="form-control form-control-sm" @bind="_aEx" @bind:event="oninput" /></div>
+    </div>
+}
+else if (OptionName == DnsmasqConfKeys.AuthSecServers)
+{
+    <div class="row g-2">
+        <div class="col-md-12"><label class="form-label small mb-0">Domains (comma-separated)</label><input class="form-control form-control-sm" @bind="_secDom" @bind:event="oninput" /></div>
+    </div>
+}
+else if (OptionName == DnsmasqConfKeys.AuthPeer)
+{
+    <div class="row g-2">
+        <div class="col-md-12"><label class="form-label small mb-0">IPs (comma-separated)</label><input class="form-control form-control-sm" @bind="_peerIp" @bind:event="oninput" /></div>
+    </div>
+}
+<div class="mt-2 d-flex gap-1">
+    <button type="button" class="btn btn-sm btn-primary" @onclick="SaveAsync">Save</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="OnCancel">Cancel</button>
+</div>
+@if (_error != null)
+{
+    <p class="text-danger small mt-2 mb-0">@_error</p>
+}
+
+@code {
+    [Parameter, EditorRequired] public string OptionName { get; set; } = "";
+    [Parameter] public DnsRecordRow? Existing { get; set; }
+    [Parameter] public EventCallback<DnsRecordEditorResult> OnSave { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private string _title = "Advanced record";
+    private string? _error;
+
+    private string _nName = "", _nOrder = "", _nPref = "", _nFlags = "", _nService = "", _nRegexp = "", _nRepl = "";
+    private string _cName = "", _cFlags = "", _cTag = "", _cValue = "";
+    private string _dName = "", _dNum = "", _dHex = "";
+    private string _yName = "", _yV4 = "", _yV6 = "", _yIface = "";
+    private string _iName = "", _iIface = "";
+    private string _sDomain = "", _sRange = "", _sPrefix = "";
+    private string _zDomain = "", _zRest = "";
+    private string _aSerial = "", _aHm = "", _aRef = "", _aRetry = "", _aEx = "";
+    private string _secDom = "";
+    private string _peerIp = "";
+    private string? _boundRowKey;
+
+    protected override void OnParametersSet()
+    {
+        _title = OptionName switch
+        {
+            DnsmasqConfKeys.NaptrRecord => "NAPTR",
+            DnsmasqConfKeys.CaaRecord => "CAA",
+            DnsmasqConfKeys.DnsRr => "dns-rr",
+            DnsmasqConfKeys.DynamicHost => "dynamic-host",
+            DnsmasqConfKeys.InterfaceName => "interface-name",
+            DnsmasqConfKeys.SynthDomain => "synth-domain",
+            DnsmasqConfKeys.AuthZone => "auth-zone",
+            DnsmasqConfKeys.AuthSoa => "auth-soa",
+            DnsmasqConfKeys.AuthSecServers => "auth-sec-servers",
+            DnsmasqConfKeys.AuthPeer => "auth-peer",
+            _ => OptionName
+        };
+
+        if (!DnsRecordEditorSyncGuard.ShouldReseedFromExisting(ref _boundRowKey, Existing, $"add:{OptionName}"))
+            return;
+
+        _error = null;
+        switch (Existing?.Payload)
+        {
+            case NaptrPayload n:
+                _nName = n.Name; _nOrder = n.Order; _nPref = n.Preference; _nFlags = n.Flags; _nService = n.Service; _nRegexp = n.Regexp; _nRepl = n.Replacement ?? "";
+                break;
+            case CaaPayload c:
+                _cName = c.Name; _cFlags = c.Flags; _cTag = c.Tag; _cValue = c.Value;
+                break;
+            case DnsRrPayload d:
+                _dName = d.Name; _dNum = d.RrNumber; _dHex = d.HexData ?? "";
+                break;
+            case DynamicHostPayload y:
+                _yName = y.Name; _yV4 = y.IPv4 ?? ""; _yV6 = y.IPv6 ?? ""; _yIface = y.Interface;
+                break;
+            case InterfaceNamePayload i:
+                _iName = i.DnsName; _iIface = i.InterfaceSpec;
+                break;
+            case SynthDomainPayload s:
+                _sDomain = s.Domain; _sRange = s.AddressRange; _sPrefix = s.Prefix ?? "";
+                break;
+            case AuthZonePayload z:
+                _zDomain = z.Domain; _zRest = z.SubnetsAndExcludes.Count > 0 ? string.Join(",", z.SubnetsAndExcludes) : "";
+                break;
+            case AuthSoaPayload a:
+                _aSerial = a.Serial; _aHm = a.Hostmaster ?? ""; _aRef = a.Refresh ?? ""; _aRetry = a.Retry ?? ""; _aEx = a.Expiry ?? "";
+                break;
+            case AuthSecServersPayload sec:
+                _secDom = string.Join(",", sec.Domains);
+                break;
+            case AuthPeerPayload ap:
+                _peerIp = string.Join(",", ap.Ips);
+                break;
+            default:
+                ClearIfNew();
+                break;
+        }
+    }
+
+    private void ClearIfNew()
+    {
+        if (Existing != null) return;
+        _nName = _nOrder = _nPref = _nFlags = _nService = _nRegexp = _nRepl = "";
+        _cName = _cFlags = _cTag = _cValue = "";
+        _dName = _dNum = _dHex = "";
+        _yName = _yV4 = _yV6 = _yIface = "";
+        _iName = _iIface = "";
+        _sDomain = _sRange = _sPrefix = "";
+        _zDomain = _zRest = "";
+        _aSerial = _aHm = _aRef = _aRetry = _aEx = "";
+        _secDom = "";
+        _peerIp = "";
+    }
+
+    private DnsRecordFamily FamilyForOption() => OptionName switch
+    {
+        DnsmasqConfKeys.NaptrRecord => DnsRecordFamily.Naptr,
+        DnsmasqConfKeys.CaaRecord => DnsRecordFamily.Caa,
+        DnsmasqConfKeys.DnsRr => DnsRecordFamily.DnsRr,
+        DnsmasqConfKeys.DynamicHost => DnsRecordFamily.DynamicHost,
+        DnsmasqConfKeys.InterfaceName => DnsRecordFamily.InterfaceName,
+        DnsmasqConfKeys.SynthDomain => DnsRecordFamily.SynthDomain,
+        DnsmasqConfKeys.AuthZone => DnsRecordFamily.AuthZone,
+        DnsmasqConfKeys.AuthSoa => DnsRecordFamily.AuthSoa,
+        DnsmasqConfKeys.AuthSecServers => DnsRecordFamily.AuthSecServers,
+        DnsmasqConfKeys.AuthPeer => DnsRecordFamily.AuthPeer,
+        _ => DnsRecordFamily.Cname
+    };
+
+    private async Task SaveAsync()
+    {
+        _error = null;
+        DnsRecordPayload payload;
+        try
+        {
+            payload = OptionName switch
+            {
+                DnsmasqConfKeys.NaptrRecord => new NaptrPayload(_nName.Trim(), _nOrder.Trim(), _nPref.Trim(), _nFlags.Trim(), _nService.Trim(), _nRegexp.Trim(), string.IsNullOrWhiteSpace(_nRepl) ? null : _nRepl.Trim()),
+                DnsmasqConfKeys.CaaRecord => new CaaPayload(_cName.Trim(), _cFlags.Trim(), _cTag.Trim(), _cValue.Trim()),
+                DnsmasqConfKeys.DnsRr => new DnsRrPayload(_dName.Trim(), _dNum.Trim(), string.IsNullOrWhiteSpace(_dHex) ? null : _dHex.Trim()),
+                DnsmasqConfKeys.DynamicHost => new DynamicHostPayload(_yName.Trim(), string.IsNullOrWhiteSpace(_yV4) ? null : _yV4.Trim(), string.IsNullOrWhiteSpace(_yV6) ? null : _yV6.Trim(), _yIface.Trim()),
+                DnsmasqConfKeys.InterfaceName => new InterfaceNamePayload(_iName.Trim(), _iIface.Trim()),
+                DnsmasqConfKeys.SynthDomain => new SynthDomainPayload(_sDomain.Trim(), _sRange.Trim(), string.IsNullOrWhiteSpace(_sPrefix) ? null : _sPrefix.Trim()),
+                DnsmasqConfKeys.AuthZone => new AuthZonePayload(_zDomain.Trim(), string.IsNullOrWhiteSpace(_zRest) ? [] : _zRest.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToArray()),
+                DnsmasqConfKeys.AuthSoa => new AuthSoaPayload(_aSerial.Trim(), string.IsNullOrWhiteSpace(_aHm) ? null : _aHm.Trim(), string.IsNullOrWhiteSpace(_aRef) ? null : _aRef.Trim(), string.IsNullOrWhiteSpace(_aRetry) ? null : _aRetry.Trim(), string.IsNullOrWhiteSpace(_aEx) ? null : _aEx.Trim()),
+                DnsmasqConfKeys.AuthSecServers => new AuthSecServersPayload(string.IsNullOrWhiteSpace(_secDom) ? [] : _secDom.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToArray()),
+                DnsmasqConfKeys.AuthPeer => new AuthPeerPayload(string.IsNullOrWhiteSpace(_peerIp) ? [] : _peerIp.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToArray()),
+                _ => throw new InvalidOperationException($"Unsupported option {OptionName}")
+            };
+        }
+        catch
+        {
+            _error = "Invalid input.";
+            return;
+        }
+
+        var fam = FamilyForOption();
+        var isNew = Existing == null;
+        var row = isNew
+            ? new DnsRecordRow(
+                Id: $"{OptionName}:new",
+                OptionName: OptionName,
+                Family: fam,
+                IndexInOption: -1,
+                RawValue: "",
+                Source: null,
+                IsEditable: true,
+                Payload: payload,
+                Issues: [],
+                Summary: "")
+            : Existing! with { Payload = payload };
+
+        await OnSave.InvokeAsync(new DnsRecordEditorResult(row, isNew));
+    }
+}

@@ -1,0 +1,61 @@
+@namespace DnsmasqWebUI.Components.Filters
+@using DnsmasqWebUI.Models.Filters
+
+<div class="filter-rule-editor card card-body mb-3">
+    <div class="mb-2">
+        <span class="small text-muted d-block mb-1">Rule type</span>
+        <InputRadioGroup @bind-Value="Model.Mode" class="d-flex flex-wrap gap-3">
+            <label class="form-check">
+                <InputRadio class="form-check-input" Value="SplitDnsRuleMode.Forward" />
+                <span class="form-check-label">Forward domain (<code>server=</code>)</span>
+            </label>
+            <label class="form-check">
+                <InputRadio class="form-check-input" Value="SplitDnsRuleMode.Reverse" />
+                <span class="form-check-label">Reverse zone (<code>rev-server=</code>)</span>
+            </label>
+            <label class="form-check">
+                <InputRadio class="form-check-input" Value="SplitDnsRuleMode.LocalOnly" />
+                <span class="form-check-label">Local only (<code>local=</code>)</span>
+            </label>
+        </InputRadioGroup>
+    </div>
+
+    @if (Model.Mode == SplitDnsRuleMode.Reverse)
+    {
+        <label class="form-label small">Reverse network (CIDR)</label>
+        <input type="text" class="form-control form-control-sm mb-2" @bind="Model.ReverseNetwork" @bind:event="oninput" placeholder="10.20.30.0/24" />
+        <label class="form-label small">Upstream resolver</label>
+        <input type="text" class="form-control form-control-sm mb-2" @bind="Model.UpstreamServer" @bind:event="oninput" placeholder="10.0.0.53" />
+    }
+    else if (Model.Mode == SplitDnsRuleMode.LocalOnly)
+    {
+        <label class="form-label small">Domain path (labels separated by <code>/</code>; use empty for <code>//</code> unqualified)</label>
+        <input type="text" class="form-control form-control-sm mb-2" @bind="Model.DomainPath" @bind:event="oninput" placeholder="lan" />
+    }
+    else
+    {
+        <label class="form-label small">Domain path</label>
+        <input type="text" class="form-control form-control-sm mb-2" @bind="Model.DomainPath" @bind:event="oninput" placeholder="corp.local" />
+        <label class="form-label small">Upstream server</label>
+        <input type="text" class="form-control form-control-sm mb-2" @bind="Model.UpstreamServer" @bind:event="oninput" placeholder="10.0.0.2 or 1.1.1.1#53" />
+    }
+
+    <div class="d-flex flex-wrap gap-2">
+        <button type="button" class="btn btn-sm btn-primary" @onclick="SaveClick">@SubmitLabel</button>
+        @if (IsEditing)
+        {
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelClick">Cancel</button>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public SplitDnsEditorModel Model { get; set; } = new();
+    [Parameter] public string SubmitLabel { get; set; } = "Add rule";
+    [Parameter] public bool IsEditing { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private async Task SaveClick() => await OnSave.InvokeAsync();
+    private async Task CancelClick() => await OnCancel.InvokeAsync();
+}

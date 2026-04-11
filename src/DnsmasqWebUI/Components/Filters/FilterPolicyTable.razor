@@ -1,0 +1,91 @@
+@namespace DnsmasqWebUI.Components.Filters
+@using DnsmasqWebUI.Models.Filters
+@using DnsmasqWebUI.Components.Shared
+
+@if (Items.Count == 0)
+{
+    <p class="text-muted small mb-0">@EmptyText</p>
+}
+else
+{
+    <div class="app-table-scroll-shell" data-table-scroll-cue>
+        <div class="app-table-scroll-region" data-table-scroll-region role="region" aria-label="@AriaLabel" tabindex="0">
+            <table class="table table-bordered table-hover app-data-table filters-policy-table mb-0">
+                <caption class="visually-hidden">@Caption</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Rule type</th>
+                        <th scope="col">Summary</th>
+                        <th scope="col" class="filters-policy-table__raw">Config value</th>
+                        <th scope="col">Source</th>
+                        @if (ShowActions)
+                        {
+                            <th scope="col" class="text-end filters-policy-table__actions">Actions</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Items)
+                    {
+                        <tr @key="row.Id">
+                            <td class="small text-nowrap">@row.Title</td>
+                            <td>
+                                <div class="filters-policy-table__summary" title="@row.Summary">@row.Summary</div>
+                            </td>
+                            <td class="small">
+                                <code class="text-break d-block">@row.RawValue</code>
+                            </td>
+                            <td class="small">
+                                @if (row.Source == null)
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                                else
+                                {
+                                    <span class="d-block text-truncate" style="max-width:14rem" title="@row.Source.FilePath">@row.Source.FileName</span>
+                                    @if (row.IsEditable)
+                                    {
+                                        <StatusBadge Kind="StatusBadgeKind.Editable" Text="editable" Class="mt-1" />
+                                    }
+                                    else
+                                    {
+                                        <StatusBadge Kind="StatusBadgeKind.ReadOnly"
+                                                     Text="read-only"
+                                                     Class="mt-1"
+                                                     Title="@row.Source.GetReadOnlyTooltip()" />
+                                    }
+                                }
+                            </td>
+                            @if (ShowActions)
+                            {
+                                <td class="text-end text-nowrap">
+                                    @if (row.IsEditable)
+                                    {
+                                        <div class="btn-group btn-group-sm">
+                                            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="@(() => OnEdit.InvokeAsync(row))">Edit</button>
+                                            <button type="button" class="btn btn-outline-danger btn-sm" @onclick="@(() => OnRemove.InvokeAsync(row))">Remove</button>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">—</span>
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<FilterPolicyRow> Items { get; set; } = Array.Empty<FilterPolicyRow>();
+    [Parameter] public string EmptyText { get; set; } = "No rules.";
+    [Parameter] public string Caption { get; set; } = "Resolver policy rules";
+    [Parameter] public string AriaLabel { get; set; } = "Resolver policy rules";
+    [Parameter] public bool ShowActions { get; set; } = true;
+    [Parameter] public EventCallback<FilterPolicyRow> OnEdit { get; set; }
+    [Parameter] public EventCallback<FilterPolicyRow> OnRemove { get; set; }
+}
