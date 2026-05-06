@@ -163,32 +163,39 @@ public class StatusController : ControllerBase
 
     /// <summary>Returns the full log file from the path in effective config (log-facility). Untruncated.</summary>
     [HttpGet("logs/download")]
-    public async Task<IActionResult> GetLogsDownload(CancellationToken ct)
+    public Task<IActionResult> GetLogsDownload(CancellationToken ct)
     {
         var (effectiveConfig, _) = _configSetService.GetEffectiveConfigWithSources();
         var logsPath = EffectiveDnsmasqConfig.GetLogsPath(effectiveConfig);
         if (string.IsNullOrEmpty(logsPath))
-            return NotFound();
+            return Task.FromResult<IActionResult>(NotFound());
 
         try
         {
+            ct.ThrowIfCancellationRequested();
             _logger.LogDebug("Get status logs download");
             var fullPath = Path.IsPathRooted(logsPath) ? Path.GetFullPath(logsPath) : Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), logsPath));
             if (!System.IO.File.Exists(fullPath))
-                return NotFound();
+                return Task.FromResult<IActionResult>(NotFound());
 
-            var content = await System.IO.File.ReadAllTextAsync(fullPath, System.Text.Encoding.UTF8, ct);
             var fileName = Path.GetFileName(fullPath);
             if (string.IsNullOrEmpty(fileName)) fileName = "dnsmasq.log";
-            return File(
-                System.Text.Encoding.UTF8.GetBytes(content),
-                "text/plain",
-                fileName);
+
+            // ReadAllTextAsync pre-allocates from Length; concurrent log writes can grow the file mid-read
+            // and trigger ArgumentOutOfRangeException. Stream with FileShare.ReadWrite and stream the response.
+            var stream = new FileStream(
+                fullPath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete,
+                bufferSize: 64 * 1024,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
+            return Task.FromResult<IActionResult>(File(stream, "text/plain; charset=utf-8", fileName));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Status logs download failed");
-            return StatusCode(500, new { error = ex.Message });
+            return Task.FromResult<IActionResult>(StatusCode(500, new { error = ex.Message }));
         }
     }
 }
