@@ -23,16 +23,21 @@ public sealed class HostsClient : IHostsClient
         return list ?? new List<ReadOnlyHostsFile>();
     }
 
+    public async Task<IReadOnlyList<HostSource>> GetSourcesAsync(CancellationToken ct = default)
+    {
+        var list = await _http.GetFromJsonAsync<List<HostSource>>("api/hosts/sources", ApiJsonOptions.ClientOptions, ct);
+        return list ?? new List<HostSource>();
+    }
+
     public async Task<IReadOnlyList<HostsPageRow>> GetUnifiedRowsAsync(
         bool expandHosts,
         bool noHosts,
         string? managedHostsPath,
         CancellationToken ct = default)
     {
-        var queryParams = $"?expandHosts={expandHosts}&noHosts={noHosts}";
-        if (!string.IsNullOrEmpty(managedHostsPath))
-            queryParams += $"&managedHostsPath={Uri.EscapeDataString(managedHostsPath)}";
-        var list = await _http.GetFromJsonAsync<List<HostsPageRow>>($"api/hosts/unified{queryParams}", ApiJsonOptions.ClientOptions, ct);
+        // Server derives activation, managed path, and effective-name semantics from its current config snapshot.
+        // Preserve this method signature while older page builds are still using it.
+        var list = await _http.GetFromJsonAsync<List<HostsPageRow>>("api/hosts/unified", ApiJsonOptions.ClientOptions, ct);
         return list ?? new List<HostsPageRow>();
     }
 }

@@ -30,6 +30,9 @@ RUN dotnet publish "DnsmasqWebUI.csproj" -c Release -o /app/publish /p:UseAppHos
 FROM base AS final
 ARG DNSMASQ_VERSION=latest
 WORKDIR /app
+# Containers need an all-interface listener for their internal network. Control
+# host exposure with the Docker/Compose port mapping rather than copying this
+# value into a host installation.
 ENV ASPNETCORE_URLS=http://+:8080
 # Install dnsmasq either from the distro package or by building an upstream release.
 RUN if [ "$DNSMASQ_VERSION" = "distro" ]; then \

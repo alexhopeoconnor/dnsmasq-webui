@@ -5,6 +5,9 @@
 set -e
 
 GITHUB_REPO="alexhopeoconnor/dnsmasq-webui"
+# Host installs are intentionally local-only. Container images set their own
+# all-interface binding because the container network is the intended boundary.
+DEFAULT_ASPNETCORE_URLS="ASPNETCORE_URLS=http://127.0.0.1:8080"
 
 RELEASE_TAG=""
 LIST=false
@@ -52,9 +55,10 @@ usage() {
   echo "                     With --system: installs system unit (requires root). Without: installs user unit (no sudo)."
   echo "                     If you already have the other type (user vs system), it is removed first."
   echo "                     Only supported on systemd-based systems; errors if systemd is not available."
+  echo "                     New services listen only on 127.0.0.1:8080 unless ASPNETCORE_URLS is set explicitly."
   echo ""
   echo "Config (applied at install for service or written to install dir for manual run):"
-  echo "  --set KEY=VALUE    Set an env var for the app (e.g. Application__ApplicationTitle=Tree DNS, ASPNETCORE_URLS=http://0.0.0.0:8080)."
+  echo "  --set KEY=VALUE    Set an env var for the app (e.g. Application__ApplicationTitle=Tree DNS, ASPNETCORE_URLS=http://127.0.0.1:8080)."
   echo "                     Multiple --set allowed. With sudo, use --set (env vars are not passed to the script by default)."
   echo "  Env: DNSMASQ_WEBUI_*  Any env var starting with DNSMASQ_WEBUI_ is passed through (e.g. DNSMASQ_WEBUI_Application__ApplicationTitle=Tree DNS)."
   echo "                     For system install with sudo, prefer --set or run with sudo -E to preserve env."
@@ -73,7 +77,8 @@ usage() {
   echo "  sudo $0 --system             # System-wide install to /opt, runnable as dnsmasq-webui"
   echo "  $0 --service                 # Install + user systemd service (starts when you log in)"
   echo "  sudo $0 --system --service   # Install + system systemd service (starts at boot)"
-  echo "  sudo $0 --system --service --set Application__ApplicationTitle=Tree\ DNS --set ASPNETCORE_URLS=http://0.0.0.0:8080"
+  echo "  sudo $0 --system --service --set Application__ApplicationTitle=Tree\ DNS"
+  echo "  sudo $0 --system --service --set ASPNETCORE_URLS=http://0.0.0.0:8080  # deliberately expose on the network"
   echo "  $0 --uninstall               # Remove services and symlinks only"
   echo "  $0 --uninstall --purge       # Remove services, symlinks, and default install dir"
   echo "  sudo $0 --uninstall --purge --system   # Also remove /opt/dnsmasq-webui"
@@ -106,20 +111,37 @@ collect_config() {
   [ -s "$CONFIG_SET_FILE" ] && cat "$CONFIG_SET_FILE" >> "$CONFIG_VARS_FILE" || true
 }
 
-# Write env file for the app/service. $1 = path. Adds ASPNETCORE_URLS=http://0.0.0.0:8080 if not in config (for service).
+# Write env file for the app/service. $1 = path. When $2 is supplied, it is used
+# as a default only if neither the new config nor an existing env file declares
+# ASPNETCORE_URLS. This preserves a deliberate existing URL override when a
+# later install only changes unrelated settings.
 # Reads CONFIG_VARS_FILE. Values are escaped for env file (double-quote wrapped, internal " escaped).
 write_env_file() {
-  local path default_urls
+  local path default_urls existing_urls
   path="$1"
-  default_urls="${2:-}"   # optional: e.g. "ASPNETCORE_URLS=http://0.0.0.0:8080" to add when missing
+  default_urls="${2:-}"   # optional: e.g. "ASPNETCORE_URLS=http://127.0.0.1:8080" to add when missing
   if [ ! -s "$CONFIG_VARS_FILE" ] && [ -z "$default_urls" ]; then
     return
   fi
+
+  # Preserve an already-configured address unless this invocation explicitly
+  # supplies ASPNETCORE_URLS. Keep the complete right-hand side so systemd's
+  # quoting is retained exactly.
+  existing_urls=""
+  if [ -f "$path" ] && ! grep -q '^ASPNETCORE_URLS=' "$CONFIG_VARS_FILE" 2>/dev/null; then
+    existing_urls="$(sed -n 's/^ASPNETCORE_URLS=//p' "$path" | tail -n 1)"
+  fi
+
   : > "$path"
   if [ -n "$default_urls" ]; then
-    # Add default only if not already in config
+    # New config takes precedence; otherwise retain an existing explicit URL
+    # before falling back to the local-only default.
     if ! grep -q '^ASPNETCORE_URLS=' "$CONFIG_VARS_FILE" 2>/dev/null; then
-      echo "$default_urls" >> "$path"
+      if [ -n "$existing_urls" ]; then
+        echo "ASPNETCORE_URLS=$existing_urls" >> "$path"
+      else
+        echo "$default_urls" >> "$path"
+      fi
     fi
   fi
   if [ -s "$CONFIG_VARS_FILE" ]; then
@@ -413,6 +435,12 @@ do_install_from_source() {
       exit 1
     fi
     install_systemd_unit "$INSTALL_DIR"
+  elif [ -s "$CONFIG_VARS_FILE" ]; then
+    # Keep source installs consistent with release installs: configuration for
+    # manual runs is persisted in the install directory, with a local-only URL
+    # unless the user explicitly chose another address.
+    write_env_file "$INSTALL_DIR/dnsmasq-webui.env" "$DEFAULT_ASPNETCORE_URLS"
+    echo "Wrote config: $INSTALL_DIR/dnsmasq-webui.env (use when running manually: set -a && . $INSTALL_DIR/dnsmasq-webui.env && set +a && $INSTALL_DIR/dnsmasq-webui)"
   fi
 
   echo "Configure via appsettings.json in that directory or Dnsmasq__* environment variables (e.g. Dnsmasq__MainConfigPath=/etc/dnsmasq.conf)."
@@ -497,7 +525,7 @@ do_install() {
   if [ "$SERVICE" = true ]; then
     install_systemd_unit "$INSTALL_DIR"
   elif [ -s "$CONFIG_VARS_FILE" ]; then
-    write_env_file "$INSTALL_DIR/dnsmasq-webui.env" "ASPNETCORE_URLS=http://0.0.0.0:8080"
+    write_env_file "$INSTALL_DIR/dnsmasq-webui.env" "$DEFAULT_ASPNETCORE_URLS"
     echo "Wrote config: $INSTALL_DIR/dnsmasq-webui.env (use when running manually: set -a && . $INSTALL_DIR/dnsmasq-webui.env && set +a && $INSTALL_DIR/dnsmasq-webui)"
   fi
 
@@ -507,7 +535,8 @@ do_install() {
 
 # Install systemd unit. Call only when SERVICE=true and systemctl exists.
 # Removes the other service type first (user vs system) so switching works cleanly.
-# $1 = INSTALL_DIR. Uses CONFIG_VARS_FILE to write env file; default ASPNETCORE_URLS=http://0.0.0.0:8080.
+# $1 = INSTALL_DIR. Uses CONFIG_VARS_FILE to write an env file. New host services
+# default to loopback on port 8080; an explicit ASPNETCORE_URLS always wins.
 install_systemd_unit() {
   local dir bin env_file
   dir="$1"
@@ -526,9 +555,11 @@ install_systemd_unit() {
       remove_user_service_for "$SUDO_USER"
     fi
     env_file="/etc/default/dnsmasq-webui"
-    # Only write when we have new config so update preserves existing /etc/default/dnsmasq-webui
-    if [ -s "$CONFIG_VARS_FILE" ]; then
-      write_env_file "$env_file" ""
+    # Always create a default env file for a new service. Existing files are
+    # retained when no new config is supplied, so deliberate URL overrides
+    # survive service reinstalls and updates.
+    if [ -s "$CONFIG_VARS_FILE" ] || [ ! -f "$env_file" ]; then
+      write_env_file "$env_file" "$DEFAULT_ASPNETCORE_URLS"
       echo "Wrote config: $env_file"
     fi
     cat > /etc/systemd/system/dnsmasq-webui.service << EOF
@@ -541,7 +572,6 @@ Wants=network-online.target
 Type=exec
 WorkingDirectory=$dir
 ExecStart=$bin
-Environment=ASPNETCORE_URLS=http://0.0.0.0:8080
 EnvironmentFile=-$env_file
 Restart=on-failure
 RestartSec=5
@@ -564,9 +594,9 @@ EOF
       echo "Note: A system-wide service also exists. To remove it and use only this user service: sudo $0 --uninstall  (then re-run without --system --service)." >&2
     fi
     env_file="$dir/dnsmasq-webui.env"
-    # Only write when we have new config or file doesn't exist (first install), so update preserves existing env
+    # Only write when we have new config or file doesn't exist (first install), so update preserves existing env.
     if [ -s "$CONFIG_VARS_FILE" ] || [ ! -f "$env_file" ]; then
-      write_env_file "$env_file" "ASPNETCORE_URLS=http://0.0.0.0:8080"
+      write_env_file "$env_file" "$DEFAULT_ASPNETCORE_URLS"
       echo "Wrote config: $env_file"
     fi
     mkdir -p "${HOME:-}/.config/systemd/user"

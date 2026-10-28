@@ -107,8 +107,14 @@ public class EffectiveConfigSaveServiceCapabilityTests
 
     private sealed class UnexpectedReloadService : IReloadService
     {
+        public bool RestartCommandConfigured => true;
+        public bool ReloadCommandConfigured => true;
+
         public Task<ReloadResult> ReloadAsync(CancellationToken ct = default) =>
             throw new InvalidOperationException("ReloadAsync should not be called when capabilities are unsupported.");
+
+        public Task<ReloadResult> RestartAsync(CancellationToken ct = default) =>
+            throw new InvalidOperationException("RestartAsync should not be called when capabilities are unsupported.");
     }
 
     private sealed class StubHostsFileService : IHostsFileService

@@ -203,7 +203,7 @@
 
         var raw = _draftValue ?? "";
         var normalized = Behavior?.Normalize(raw) ?? raw.Trim();
-        if (normalized.Length == 0)
+        if (normalized.Length == 0 && !EffectiveConfigWriteSemantics.AllowsEmptyMultiValue(OptionName))
         {
             ShowValidationError("Value cannot be empty.");
             return;
@@ -232,7 +232,7 @@
     {
         var raw = _draftValue ?? "";
         var normalized = Behavior?.Normalize(raw) ?? raw.Trim();
-        if (normalized.Length == 0)
+        if (normalized.Length == 0 && !EffectiveConfigWriteSemantics.AllowsEmptyMultiValue(OptionName))
         {
             ShowValidationError("Value cannot be empty.");
             return;

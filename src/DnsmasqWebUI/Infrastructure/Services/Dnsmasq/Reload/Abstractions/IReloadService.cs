@@ -2,11 +2,30 @@ using DnsmasqWebUI.Infrastructure.Services.Registration.Abstractions;
 
 namespace DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Reload.Abstractions;
 
-/// <summary>Runs the configured dnsmasq reload command (e.g. systemctl reload dnsmasq).</summary>
+/// <summary>
+/// Runs the configured dnsmasq apply commands. Reload is intentionally limited to
+/// hosts data; a full restart is required for managed <c>.conf</c> changes.
+/// </summary>
 public interface IReloadService : IApplicationScopedService
 {
-    /// <summary>Executes the reload command and returns exit code and output. Serialised so only one reload runs at a time.</summary>
+    /// <summary>True when a full <see cref="RestartAsync"/> command is configured.</summary>
+    bool RestartCommandConfigured { get; }
+
+    /// <summary>True when a hosts-data <see cref="ReloadAsync"/> command is configured.</summary>
+    bool ReloadCommandConfigured { get; }
+
+    /// <summary>
+    /// Executes the configured reload command (for example SIGHUP) and returns its result.
+    /// This must not be used to apply <c>.conf</c> changes because dnsmasq does not re-read
+    /// its include topology on SIGHUP.
+    /// </summary>
     Task<ReloadResult> ReloadAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Executes the configured full restart command and returns its result. This does not
+    /// fall back to <see cref="ReloadAsync"/> when no restart command is configured.
+    /// </summary>
+    Task<ReloadResult> RestartAsync(CancellationToken ct = default);
 }
 
 /// <summary>Result of running the reload command.</summary>

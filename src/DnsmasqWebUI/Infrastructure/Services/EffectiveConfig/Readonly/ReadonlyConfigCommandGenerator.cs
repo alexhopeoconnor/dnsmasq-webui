@@ -5,8 +5,9 @@ namespace DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Readonly;
 
 /// <summary>
 /// Generates copyable commands or hints for readonly effective-config values:
-/// remove or edit the line in the source file, or override by adding to managed config.
-/// Uses EffectiveConfigWriteSemantics so inverse-pair and key-only-or-value options are handled correctly.
+/// remove or edit the line in the source file, or (only when it is genuinely safe) override by
+/// adding to managed config. Flags, inverse pairs, and multi-value directives deliberately do not
+/// receive a copyable override line: adding one cannot safely remove/replace the external state.
 /// </summary>
 public static class ReadonlyConfigCommandGenerator
 {
@@ -28,6 +29,8 @@ public static class ReadonlyConfigCommandGenerator
             return $"sed -i -e '|^{escapedA}$|d' -e '|^{escapedB}$|d' {pathEscaped}";
         }
         var escaped = EscapeForSedPattern(optionName);
+        if (writeBehavior == EffectiveConfigWriteBehavior.KeyOnlyOrValue)
+            return $"sed -i -e '|^{escaped}$|d' -e '|^{escaped}=.*$|d' {pathEscaped}";
         var pattern = writeBehavior == EffectiveConfigWriteBehavior.Flag
             ? $"^{escaped}$"
             : $"^{escaped}=.*$";
@@ -43,33 +46,25 @@ public static class ReadonlyConfigCommandGenerator
     }
 
     /// <summary>
-    /// The line to add to managed config to override (e.g. "port=53" or "expand-hosts"). Empty if managed path not set.
-    /// Consults EffectiveConfigWriteSemantics: InversePair uses ExplicitToggleState (Enabled→KeyA, Disabled→KeyB, Default→remove);
-    /// KeyOnlyOrValue uses key-only or key=value; Flag uses key-only when true; other options use key=value fallback.
+    /// The line to add to managed config to override a last-wins single-value/key-only directive
+    /// (for example <c>port=53</c>). Empty when a managed override cannot safely express the
+    /// requested effect, or when no managed path is configured.
     /// </summary>
     public static string GetOverrideLine(string optionName, object? value, string? managedFilePath)
     {
         if (string.IsNullOrEmpty(managedFilePath)) return "";
         var writeBehavior = EffectiveConfigWriteSemantics.GetBehavior(optionName);
-        if (writeBehavior == EffectiveConfigWriteBehavior.InversePair)
-        {
-            var pair = EffectiveConfigWriteSemantics.GetInversePairKeys(optionName);
-            if (pair is null || value is not ExplicitToggleState s) return "";
-            return s switch
-            {
-                ExplicitToggleState.Enabled => pair.Value.KeyA,
-                ExplicitToggleState.Disabled => pair.Value.KeyB,
-                _ => "" // Default means remove/unset
-            };
-        }
+        if (writeBehavior is not (EffectiveConfigWriteBehavior.SingleValue or EffectiveConfigWriteBehavior.KeyOnlyOrValue))
+            return "";
+
         if (writeBehavior == EffectiveConfigWriteBehavior.KeyOnlyOrValue)
         {
             if (value is null) return "";
             var str = value.ToString() ?? "";
             return str.Length == 0 ? optionName : $"{optionName}={str}";
         }
-        if (writeBehavior == EffectiveConfigWriteBehavior.Flag)
-            return value is bool b && b ? optionName : "";
+        if (value is null)
+            return "";
         var v = ValueToConfString(value);
         return string.IsNullOrEmpty(v) ? optionName : $"{optionName}={v}";
     }

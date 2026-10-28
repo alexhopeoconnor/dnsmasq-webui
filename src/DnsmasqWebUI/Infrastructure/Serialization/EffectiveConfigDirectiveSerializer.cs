@@ -17,9 +17,7 @@ public sealed class EffectiveConfigDirectiveSerializer : IEffectiveConfigDirecti
             EffectiveConfigWriteBehavior.SingleValue =>
                 DnsmasqConfText.DirectiveLine(optionName, value?.ToString()),
             EffectiveConfigWriteBehavior.KeyOnlyOrValue =>
-                string.IsNullOrWhiteSpace(value?.ToString())
-                    ? optionName
-                    : DnsmasqConfText.DirectiveLine(optionName, value?.ToString()),
+                SerializeKeyOnlyOrValue(optionName, value),
             EffectiveConfigWriteBehavior.InversePair =>
                 SerializeInversePair(optionName, value),
             _ => throw new InvalidOperationException($"Unsupported single-value write behavior for '{optionName}'.")
@@ -50,5 +48,15 @@ public sealed class EffectiveConfigDirectiveSerializer : IEffectiveConfigDirecti
             ExplicitToggleState.Disabled => pair.Value.KeyB,
             _ => ""
         };
+    }
+
+    private static string SerializeKeyOnlyOrValue(string optionName, object? value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        var text = value.ToString();
+        return string.IsNullOrWhiteSpace(text)
+            ? optionName
+            : DnsmasqConfText.DirectiveLine(optionName, text);
     }
 }

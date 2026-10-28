@@ -37,6 +37,15 @@ public class EffectiveConfigDirectiveSerializerTests
     }
 
     [Fact]
+    public void SerializeSingle_KeyOnlyOrValue_Null_ThrowsRatherThanWritingBareKey()
+    {
+        var exception = Assert.Throws<ArgumentNullException>(
+            () => _sut.SerializeSingle(DnsmasqConfKeys.UseStaleCache, null));
+
+        Assert.Equal("value", exception.ParamName);
+    }
+
+    [Fact]
     public void SerializeMulti_MultiValue_WritesEachDirective()
     {
         var result = _sut.SerializeMulti(DnsmasqConfKeys.Server, ["1.1.1.1", "8.8.8.8"]);

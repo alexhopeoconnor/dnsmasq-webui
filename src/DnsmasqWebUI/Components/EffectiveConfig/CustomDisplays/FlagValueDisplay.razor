@@ -3,7 +3,7 @@
 @inherits EffectiveConfigValueDisplayBase
 
 @* Reusable value-only display for boolean/flag options. When active editor: switch (unless readonly); View: "Enabled" / "Disabled". Pending value shown until save. *@
-@if (IsActiveEditor && Descriptor.GetSource()?.IsReadOnly != true)
+@if (IsActiveEditor && CanEditFromUi)
 {
     var isSet = GetEffectiveDisplayValue() is bool b && b;
     <div class="form-check form-switch ec-effective-switch">

@@ -32,10 +32,20 @@ public class DnsmasqOptions
     /// <summary>Optional path to the system hosts file (e.g. /etc/hosts). When set, shown in the UI as read-only so users can see those entries. The app never writes to it; editing is via the managed hosts file only. When unset, the system hosts row is not shown.</summary>
     public string? SystemHostsPath { get; set; }
 
-    /// <summary>Command to run to apply config changes (e.g. "systemctl restart dnsmasq"). When set, this is used instead of <see cref="ReloadCommand"/> so that .conf file changes take effect (dnsmasq does not re-read config on SIGHUP). If unset, <see cref="ReloadCommand"/> is used.</summary>
+    /// <summary>
+    /// Command to run after the app changes managed dnsmasq configuration (for example
+    /// <c>systemctl restart dnsmasq</c>). This is required for managed <c>.conf</c> changes and
+    /// startup overlay attachment because dnsmasq does not re-read its include topology on SIGHUP.
+    /// The app never falls back to <see cref="ReloadCommand"/> for those changes.
+    /// </summary>
     public string? RestartCommand { get; set; }
 
-    /// <summary>Command to run after config changes when <see cref="RestartCommand"/> is not set (e.g. "systemctl reload dnsmasq" or "pkill -HUP -x dnsmasq"). SIGHUP only re-reads hosts/addn-hosts etc., not .conf files. Runs in the same environment as the app.</summary>
+    /// <summary>
+    /// Optional lightweight command to apply hosts data changes (for example
+    /// <c>systemctl reload dnsmasq</c> or <c>pkill -HUP -x dnsmasq</c>). SIGHUP re-reads
+    /// hosts/addn-hosts data but not <c>.conf</c> files; it is never used as a fallback for a
+    /// managed configuration write. Runs in the same environment as the app.
+    /// </summary>
     public string? ReloadCommand { get; set; }
 
     /// <summary>Optional command to validate config before restart (e.g. "dnsmasq --test --conf-file=\"{{MainConfigPath}}\""). Token {{MainConfigPath}} is replaced with <see cref="MainConfigPath"/>. When set, run after write and before restart; if it fails, restart is not attempted. When unset, validation is skipped.</summary>

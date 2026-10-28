@@ -4,26 +4,46 @@
   <img src="src/DnsmasqWebUI/wwwroot/logo.webp" alt="dnsmasq-webui logo" width="200">
 </div>
 
-A self-hosted web UI for managing [dnsmasq](https://thekelleys.org.uk/dnsmasq/doc.html) configuration and hosts. It runs alongside your existing dnsmasq setup and edits the same config files; it does not replace dnsmasq.
+A self-hosted web UI for managing [dnsmasq](https://thekelleys.org.uk/dnsmasq/doc.html) configuration and hosts. It runs alongside your existing dnsmasq setup, shows its effective configuration with provenance, and maintains one managed overlay; it does not replace dnsmasq or edit arbitrary external config files.
 
 ---
 
 ## Purpose and features
 
-**Purpose:** Point the UI at your dnsmasq config (and optionally hosts). Use the browser to view and edit config, managed hosts, and (if you use DHCP) reservations. Reload dnsmasq after changes via a configurable command.
+**Purpose:** Point the UI at your dnsmasq config (and optionally hosts). Use the browser to inspect effective configuration, manage safe overlay settings, managed hosts, and (if you use DHCP) reservations. Apply changes with a configurable restart command.
 
 **Features:**
 
-- View and edit **dnsmasq config** (main config + conf-dir), with per-option source (which file or managed block).
+- View effective **dnsmasq config** (main config + includes), with per-option source and clear managed/readonly state.
+- Edit supported settings through one **managed config overlay**, leaving main config and other included files as external, read-only inputs.
 - **Managed hosts file** (addn-hosts) editable in the UI; app writes a single managed hosts file and includes it via the managed config.
 - **DHCP host entries** (reservations) if you use DHCP; edit in the UI, written into the managed config.
-- **Reload dnsmasq** after config changes (configurable command, e.g. `systemctl reload dnsmasq` or `pkill -HUP -x dnsmasq`).
+- **Restart dnsmasq** after config changes (configurable command, e.g. `systemctl restart dnsmasq`), so `.conf` includes are re-read.
 - Optional **status** and **recent logs** commands (e.g. systemctl/journalctl or custom scripts) shown on the Dnsmasq page.
 - **Minimum dnsmasq version** check (configurable; e.g. 2.91). The UI can refuse to start or block config save if the detected version is too old. Version is shown on the Dnsmasq page with a link to release notes.
 - **Readiness endpoint** `GET /healthz/ready` for orchestration (Kubernetes, Docker, load balancers). Returns healthy when dnsmasq version meets the minimum and, if configured, dnsmasq is running. The Docker image includes a HEALTHCHECK that uses this endpoint.
 - **Self-contained Linux binaries** per OS/arch (RID); no .NET install required. Can run in Docker or directly on the host.
 
 <!-- SUGGESTED SCREENSHOT: MAIN CONFIG OR CONFIG EDITOR PAGE IN THE BROWSER -->
+
+---
+
+## Operating model for local DNS
+
+dnsmasq-webui is designed as a **managed overlay**, not as a general-purpose editor for every file on the host:
+
+- The app writes one managed dnsmasq config file and one managed hosts file.
+- Your main config and other included sources remain visible with provenance but are treated as external inputs.
+- Safe last-wins settings can be overridden through the managed file; values that cannot be safely removed or negated remain protected.
+- Every save creates backups, validates dnsmasq, applies managed `.conf` changes with a full restart (or Hosts-only changes with a lightweight reload), and restores the previous managed files automatically if validation or apply fails.
+- The Hosts page shows managed, system, `addn-hosts`, and `hostsdir` sources separately. Refresh before editing if an external tool also writes these files.
+- The legacy raw managed-config API (`/api/config/managed`) is retired and returns HTTP 410. It is not a supported automation boundary; use the Effective Config and Hosts workflows so changes receive the same validation, conflict checks, backup, reload, and rollback protections.
+
+Host installs and generated systemd services bind to loopback (`127.0.0.1:8080`) by default. For an internal deployment, put Traefik (or another reverse proxy) in front of that loopback address. Authentication is intentionally delegated to that boundary, for example Authentik through Traefik. Do not expose the app's management port directly unless you have separately established an appropriate network and authentication boundary. An explicit `ASPNETCORE_URLS` setting always overrides the local default.
+
+```bash
+ASPNETCORE_URLS=http://127.0.0.1:8080
+```
 
 ---
 
@@ -74,10 +94,10 @@ sudo ./scripts/install.sh --system --service     # System service (starts at boo
 
 After install: configure the app (see [Configuration](#configuration)), then start the service: `systemctl --user start dnsmasq-webui` or `sudo systemctl start dnsmasq-webui`. User services run only when you’re logged in unless you enable linger: `loginctl enable-linger`. If you add `--service` later or switch from user to system service (or vice versa), the script removes the previous service type before installing the new one.
 
-**Configure at install:** You can pass config when installing so the app and service are configured in one step. Use **`--set KEY=VALUE`** (e.g. `--set Application__ApplicationTitle=Tree DNS` or `--set ASPNETCORE_URLS=http://0.0.0.0:8080`) or **env vars** with prefix **`DNSMASQ_WEBUI_`** (e.g. `DNSMASQ_WEBUI_Application__ApplicationTitle=Tree DNS`). With `sudo`, env vars are not passed to the script by default—use `--set` or `sudo -E`. The script writes an env file used by the service (system: `/etc/default/dnsmasq-webui`; user: `install-dir/dnsmasq-webui.env`) and sets the service to listen on **port 8080** by default.
+**Configure at install:** You can pass config when installing so the app and service are configured in one step. Use **`--set KEY=VALUE`** (e.g. `--set Application__ApplicationTitle=Tree DNS` or `--set ASPNETCORE_URLS=http://127.0.0.1:8080`) or **env vars** with prefix **`DNSMASQ_WEBUI_`** (e.g. `DNSMASQ_WEBUI_Application__ApplicationTitle=Tree DNS`). With `sudo`, env vars are not passed to the script by default—use `--set` or `sudo -E`. The script writes an env file used by the service (system: `/etc/default/dnsmasq-webui`; user: `install-dir/dnsmasq-webui.env`) and sets new host services to listen on **`127.0.0.1:8080`** by default. Use `ASPNETCORE_URLS=http://0.0.0.0:8080` only when a separate, trusted network and authentication boundary protects the port.
 
 ```bash
-sudo ./scripts/install.sh --system --service --set Application__ApplicationTitle=Tree\ DNS --set Dnsmasq__MainConfigPath=/etc/dnsmasq.conf --set Dnsmasq__ReloadCommand="systemctl reload dnsmasq"
+sudo ./scripts/install.sh --system --service --set Application__ApplicationTitle=Tree\ DNS --set Dnsmasq__MainConfigPath=/etc/dnsmasq.conf --set Dnsmasq__RestartCommand="systemctl restart dnsmasq"
 ```
 
 **Update to latest release:**
@@ -128,16 +148,16 @@ Build the image from this repo’s **Dockerfile**. It builds the app and install
 
 ```bash
 docker build -t dnsmasq-webui .
-docker run -d -p 8080:8080 \
+docker run -d -p 127.0.0.1:8080:8080 \
   -e DNSMASQ_CONF=/data/dnsmasq.conf \
   -e Dnsmasq__MainConfigPath=/data/dnsmasq.conf \
-  -e Dnsmasq__ReloadCommand="pkill -HUP -x dnsmasq" \
+  -e Dnsmasq__RestartCommand="pkill -x dnsmasq || true; sleep 1; dnsmasq --test --conf-file=/data/dnsmasq.conf && dnsmasq --conf-file=/data/dnsmasq.conf" \
   -v /path/on/host:/data \
   --cap-add=NET_ADMIN \
   dnsmasq-webui
 ```
 
-Mount your dnsmasq config directory as `/data` (or adjust paths and env vars). The app and dnsmasq both use files under `/data`.
+Mount your dnsmasq config directory as `/data` (or adjust paths and env vars). The app and dnsmasq both use files under `/data`. The image listens on all **container** interfaces so Docker networking works, while the example publishes it only on the host loopback address. To publish the port to the LAN, use an explicit `-p 8080:8080` mapping only behind an appropriate authentication and network boundary.
 
 ### Option B: Build your own image (self-contained binary from a release)
 
@@ -157,6 +177,7 @@ RUN curl -sSL "https://github.com/alexhopeoconnor/dnsmasq-webui/releases/downloa
   && unzip -o /tmp/app.zip -d /app && rm /tmp/app.zip
 
 WORKDIR /app
+# Containers need an all-interface listener; keep the host port mapping local unless a proxy/auth boundary is in place.
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 
@@ -165,7 +186,7 @@ COPY entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 ```
 
-Set `Dnsmasq__MainConfigPath`, `Dnsmasq__ReloadCommand`, and other options via environment variables or an `appsettings.json` in `/app`. Mount your config dir and expose 8080. The image includes a **HEALTHCHECK** that calls `GET /healthz/ready`; orchestration (e.g. Kubernetes readiness probe, or Compose `depends_on: condition: service_healthy`) can use the same endpoint.
+Set `Dnsmasq__MainConfigPath`, `Dnsmasq__RestartCommand`, and other options via environment variables or an `appsettings.json` in `/app`. Mount your config dir and expose 8080. The image includes a **HEALTHCHECK** that calls `GET /healthz/ready`; orchestration (e.g. Kubernetes readiness probe, or Compose `depends_on: condition: service_healthy`) can use the same endpoint.
 
 **Config summary for containers:**
 
@@ -173,10 +194,11 @@ Set `Dnsmasq__MainConfigPath`, `Dnsmasq__ReloadCommand`, and other options via e
 |--------|--------|--------|
 | `DNSMASQ_CONF` | `/data/dnsmasq.conf` | Path used by entrypoint to start dnsmasq (optional) |
 | `Dnsmasq__MainConfigPath` | `/data/dnsmasq.conf` | Main dnsmasq config path (required) |
-| `Dnsmasq__ReloadCommand` | `pkill -HUP -x dnsmasq` | Run after config changes |
+| `Dnsmasq__RestartCommand` | `pkill -x dnsmasq \|\| true; sleep 1; dnsmasq --test --conf-file=/data/dnsmasq.conf && dnsmasq --conf-file=/data/dnsmasq.conf` | Required for app-managed `.conf` changes and startup overlay attachment; must make dnsmasq re-read `.conf` includes. |
+| `Dnsmasq__ReloadCommand` | `pkill -HUP -x dnsmasq` | Optional lightweight reload for hosts data only; HUP does not re-read a newly added `conf-file=` include. |
 | `Dnsmasq__StatusShowCommand` | `/app/dnsmasq-status.sh` | Optional status output (e.g. our script in test harness) |
 | `Dnsmasq__MinimumVersion` | `2.91` | Minimum dnsmasq version (optional; default 2.91). Set `Dnsmasq__EnforceMinimumVersion=false` to allow older versions. |
-| `ASPNETCORE_URLS` | `http://+:8080` | Port the app listens on |
+| `ASPNETCORE_URLS` | `http://+:8080` | Container listener; use `http://127.0.0.1:8080` for a host install unless deliberately publishing it behind a trusted boundary. |
 
 **Readiness:** `GET http://localhost:8080/healthz/ready` returns JSON `{"status":"ok"}` when dnsmasq version meets the minimum and (if `StatusCommand` is set) dnsmasq is running. Use this for Kubernetes readiness probes, Docker HEALTHCHECK, or load balancer health checks.
 
@@ -206,7 +228,8 @@ The app is configured via **appsettings.json**, **environment variables**, and *
 | `ManagedFileName` | Filename of the managed config file the app writes | `zz-dnsmasq-webui.conf` |
 | `ManagedHostsFileName` | Filename of the managed hosts file the app writes | `zz-dnsmasq-webui.hosts` |
 | `SystemHostsPath` | Optional path to system hosts (read-only in UI) | `/etc/hosts` |
-| `ReloadCommand` | Command run after config changes | `systemctl reload dnsmasq` or `pkill -HUP -x dnsmasq` |
+| `RestartCommand` | Required for app-managed `.conf` changes and startup overlay attachment; must re-read `.conf` includes | `systemctl restart dnsmasq` |
+| `ReloadCommand` | Optional lightweight command for managed Hosts-only changes; never a fallback for `.conf` changes | `pkill -HUP -x dnsmasq` |
 | `StatusCommand` | Optional: check if dnsmasq is running | `pgrep -x dnsmasq` |
 | `StatusShowCommand` | Optional: full status output (e.g. systemctl status) | `systemctl status dnsmasq --no-pager` |
 | `LogsCommand` | Optional: recent logs (e.g. journalctl) | `journalctl -u dnsmasq -n 100 --no-pager` |
@@ -220,13 +243,15 @@ The app is configured via **appsettings.json**, **environment variables**, and *
 |--------|-------------|---------|
 | `ApplicationTitle` | Title shown in the sidebar brand and browser tab (default: "Local DNS") | `"ApplicationTitle": "My DNS"` or `Application__ApplicationTitle=My DNS` |
 
-**Host / URLs:** `ASPNETCORE_URLS=http://0.0.0.0:8080` or `--urls=http://0.0.0.0:8080` to bind to a specific address and port.
+**Host / URLs:** Host services installed by this project default to `http://127.0.0.1:8080`; the development launch profiles also use localhost. Override that explicitly with `ASPNETCORE_URLS` or `--urls`, for example `ASPNETCORE_URLS=http://127.0.0.1:8080`. `http://0.0.0.0:8080` deliberately publishes on all host interfaces and should only be used behind a separate network and authentication boundary. Containers are different: use `http://+:8080` inside the container, then control host exposure with the Docker port mapping.
 
 Place `appsettings.json` in the same directory as the executable (or use the default project paths when running with `dotnet run`). You can override any option via environment variables using the `Dnsmasq__` prefix (e.g. `Dnsmasq__MainConfigPath=/path/to/dnsmasq.conf`). To use the repo test config:
 
 ```bash
 Dnsmasq__MainConfigPath=/path/to/dnsmasq-webui/testdata/dnsmasq-test.conf dnsmasq-webui
 ```
+
+The app adds its managed `conf-file=` include as the final line of the main config when necessary. dnsmasq does not re-read `.conf` topology on SIGHUP, so `RestartCommand` is required before the app will attach the overlay at startup or save managed configuration changes. If it is missing, the app leaves the files unchanged and reports an actionable error; it never treats `ReloadCommand`/SIGHUP as a configuration restart. Managed Hosts-only changes may use `ReloadCommand`, or a configured restart when no lightweight reload is available. If a configured apply fails, the app restores the startup files it changed, attempts to reapply the previous state with the same operation, then stops the app rather than presenting an unapplied effective configuration.
 
 ---
 
@@ -240,6 +265,8 @@ All scripts live under `scripts/` and are intended for Linux (WSL may work but i
 
 **Usage:** `./scripts/install.sh [OPTIONS]`
 
+**Binding-default regression check:** `./scripts/test-install-defaults.sh` verifies the host loopback default, explicit URL overrides, local test-harness publishing, and the container listener setting without downloading or installing anything.
+
 **Options:**
 
 | Option | Description |
@@ -250,7 +277,7 @@ All scripts live under `scripts/` and are intended for Linux (WSL may work but i
 | `--dir DIR` | Install into DIR instead of default. |
 | `--system` | Install to /opt/dnsmasq-webui and symlink /usr/local/bin/dnsmasq-webui. Requires root (run with sudo). |
 | `--service` | Install a systemd unit so the app runs as a service. With `--system`: system unit (requires root, starts at boot). Without: user unit (no sudo, starts at login). Removes the other type first if present. Only on systemd-based systems. |
-| `--set KEY=VALUE` | Set an env var for the app at install (e.g. `Application__ApplicationTitle=Tree DNS`, `ASPNETCORE_URLS=http://0.0.0.0:8080`). Multiple allowed. Written to the service env file or install-dir `dnsmasq-webui.env` for manual runs. With sudo, prefer `--set` (env is not passed by default). |
+| `--set KEY=VALUE` | Set an env var for the app at install (e.g. `Application__ApplicationTitle=Tree DNS`, `ASPNETCORE_URLS=http://127.0.0.1:8080`). Multiple allowed. Written to the service env file or install-dir `dnsmasq-webui.env` for manual runs. With sudo, prefer `--set` (env is not passed by default). |
 | Env `DNSMASQ_WEBUI_*` | Any env var starting with `DNSMASQ_WEBUI_` is passed through (e.g. `DNSMASQ_WEBUI_Application__ApplicationTitle=Tree DNS`). For system install with sudo use `--set` or `sudo -E`. |
 | `--uninstall` | Remove systemd units and symlinks (user and, if root, system). Does not remove the install directory. |
 | `--purge` | With `--uninstall` only: also remove the install directory. Use `--dir DIR` or `--system` to target a specific location. Errors if used without `--uninstall`. |
@@ -456,6 +483,22 @@ sudo ./scripts/install.sh --uninstall --purge --system
 
 ---
 
+### scripts/smoke-test-harness.sh
+
+**Purpose:** Run an isolated Docker end-to-end smoke test. It creates a temporary mount and Compose project, seeds a managed config/hosts overlay before dnsmasq starts, then verifies the startup restart made it live through real DNS queries. It also checks the API config load order, effective managed overlay, and Hosts source inventory. It never changes `testdata-mount` or the normal harness project.
+
+**Usage:** `./scripts/smoke-test-harness.sh [--keep]`
+
+```bash
+# Build the current checkout and run the full isolated smoke test
+./scripts/smoke-test-harness.sh
+
+# Retain the temporary project/mount for debugging
+./scripts/smoke-test-harness.sh --keep
+```
+
+---
+
 ### scripts/dnsmasq-status.sh
 
 **Purpose:** Simulates `systemctl status dnsmasq`-style output when run inside a container that has no systemd. Used by the test harness (and any similar setup) so the Dnsmasq page can show a status block. Uses `pgrep`/`ps` to show dnsmasq process info. No arguments.
@@ -540,6 +583,8 @@ Use `appsettings.json` or launch settings to set `Dnsmasq__MainConfigPath` and o
 2. Open the UI (e.g. http://localhost:8080). The app and dnsmasq use the mounted config; you can edit config/hosts in the UI and trigger reload.
 
 3. Stop: `./scripts/prepare-test-mount.sh --stop`. Clean mount for next run: `./scripts/prepare-test-mount.sh --tidy`.
+
+For a disposable end-to-end verification (including that a managed overlay is live in dnsmasq immediately after startup), run `./scripts/smoke-test-harness.sh`. It uses a separate Compose project and temporary mount, then removes both by default.
 
 **Unit tests:**
 

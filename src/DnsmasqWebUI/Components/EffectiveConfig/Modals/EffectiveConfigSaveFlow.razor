@@ -42,7 +42,8 @@
     /// <summary>Invoked when the modal reverts a change so the parent can re-run validation (e.g. cross-option evaluator).</summary>
     [Parameter] public EventCallback OnRevertedNotify { get; set; }
     [Parameter] public EventCallback OnSaveCompleted { get; set; }
-    [Parameter] public EventCallback OnContinueEditingAfterSavedFailure { get; set; }
+    /// <summary>Invoked after a save failure. The argument is true when disk changes were rolled back and the draft should be preserved.</summary>
+    [Parameter] public EventCallback<bool> OnContinueEditingAfterSavedFailure { get; set; }
     [Parameter] public EventCallback OnCloseAndEndEdit { get; set; }
     [Parameter] public IEffectiveConfigEditSession Session { get; set; } = null!;
 
@@ -84,18 +85,20 @@
         var result = await Session.Draft.ApplyAsync();
 
         _saveResult = result;
-        if (result.Saved)
+        // A failed validation/reload must leave the draft available even if a rollback failed
+        // and the new bytes are still on disk.
+        if (result.Saved && result.ErrorCode == null)
         {
             Session.Draft.AcceptAppliedChanges();
-            if (!result.IsValidateFailed && result.Restarted)
+            if (!result.IsValidateFailed && result.Applied)
                 Session.Ui.ExitEditMode();
             else
                 Session.Ui.EnterEditMode();
         }
 
-        if (result.Saved && result.Restarted)
+        if (result.Saved && result.Applied)
         {
-            var message = result.UserMessage ?? "Config saved and dnsmasq restarted.";
+            var message = result.UserMessage ?? "Config saved and dnsmasq applied.";
             NotificationService.ShowSuccess(message);
             _saveState = SaveUiState.Review;
             _saveResult = null;
@@ -104,9 +107,9 @@
             return;
         }
 
-        if (result.Saved && result.IsValidateFailed)
+        if (result.IsValidateFailed)
             _saveState = SaveUiState.ValidateFailed;
-        else if (result.Saved && !result.Restarted)
+        else if (result.ErrorCode is EffectiveConfigSaveResult.ErrorCodes.RestartFailed or EffectiveConfigSaveResult.ErrorCodes.ReloadFailed)
             _saveState = SaveUiState.ReloadFailed;
         else if (!result.Saved)
             _saveState = SaveUiState.WriteFailed;
@@ -127,15 +130,15 @@
         var result = await SaveService.RestoreAsync(backups);
 
         _restoreResult = result;
-        if (result.Restored)
+        if (result.Restored && result.Applied)
         {
             Session.Draft.AcceptAppliedChanges();
             Session.Ui.ExitEditMode();
         }
 
-        if (result.Restored && result.Restarted)
+        if (result.Restored && result.Applied)
         {
-            var message = result.UserMessage ?? "Backup restored and dnsmasq restarted.";
+            var message = result.UserMessage ?? "Backup restored and dnsmasq applied.";
             NotificationService.ShowSuccess(message);
             _saveState = SaveUiState.Review;
             _saveResult = null;
@@ -153,7 +156,7 @@
     {
         if (_saveState == SaveUiState.ValidateFailed || _saveState == SaveUiState.ReloadFailed)
         {
-            await OnContinueEditingAfterSavedFailure.InvokeAsync();
+            await OnContinueEditingAfterSavedFailure.InvokeAsync(_saveResult?.RolledBack == true);
             return;
         }
 

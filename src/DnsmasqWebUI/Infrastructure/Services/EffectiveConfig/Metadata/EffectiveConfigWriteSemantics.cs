@@ -34,8 +34,16 @@ public static class EffectiveConfigWriteSemantics
         };
     }
 
+    /// <summary>
+    /// Whether an empty item represents a valid bare directive in a repeatable option. This is
+    /// intentionally narrower than validation's general <c>AllowEmpty</c> setting: ordinary
+    /// multi-value options must not gain an empty item merely because their validator accepts it.
+    /// </summary>
+    public static bool AllowsEmptyMultiValue(string optionName) =>
+        GetBehavior(optionName) == EffectiveConfigWriteBehavior.MultiKeyOnlyOrValue &&
+        EffectiveConfigSpecialOptionSemantics.TryGetSemantics(optionName)?.Validation.AllowEmpty == true;
+
     /// <summary>Returns inverse-pair keys (enabled, disabled) for InversePair options; null otherwise.</summary>
     public static (string KeyA, string KeyB)? GetInversePairKeys(string optionName) =>
         EffectiveConfigSpecialOptionSemantics.GetInversePairKeys(optionName);
 }
-

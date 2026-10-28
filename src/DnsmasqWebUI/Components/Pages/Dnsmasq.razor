@@ -43,9 +43,20 @@ else if (_status != null)
         <h2 class="page-section-title">Service configuration</h2>
         <ConfigFileList Status="_status" ConfigSet="_configSet" />
         <EffectiveConfigSection Status="_status" Context="EffectiveConfigContext.All" ShowSearchBox="true" OnSaveCompleted="RefreshStatusAsync" />
+        <div class="d-flex align-items-center gap-2 flex-wrap mt-3">
+            <button class="btn btn-outline-secondary btn-sm" @onclick="RefreshStatusAsync" disabled="@_refreshing" title="Reload the effective configuration and source list from disk">
+                @if (_refreshing)
+                {
+                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                }
+                else
+                {
+                    <i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>
+                }
+                @(_refreshing ? "Refreshing…" : "Refresh configuration")
+            </button>
         @if (_status.ReloadCommandConfigured)
         {
-            <div class="d-flex align-items-center gap-2 flex-wrap mt-3">
                 <button class="btn btn-primary btn-sm" @onclick="ReloadDnsmasq" disabled="@_reloading">
                     @if (_reloading)
                     {
@@ -57,8 +68,8 @@ else if (_status != null)
                     }
                     @(_reloading ? "Reloading…" : "Reload config")
                 </button>
-            </div>
         }
+        </div>
 
         <StatusSection RefreshIntervalSeconds="@ClientSettingsFields.ServiceStatusPollingInterval.Value" IsReloading="_reloading" OnReloadRequested="ReloadDnsmasq" ReloadCommandConfigured="_status.ReloadCommandConfigured" OnOpenSettings="OpenServiceStatusSettings" />
         <LogsSection Status="_status" RefreshIntervalSeconds="@ClientSettingsFields.RecentLogsPollingInterval.Value" LogsMaxLines="@ClientSettingsFields.RecentLogsMaxLines.Value" LogsAutoScroll="@ClientSettingsFields.RecentLogsAutoScroll.Value" OnOpenSettings="OpenRecentLogsSettings" />
@@ -74,6 +85,7 @@ else if (_status != null)
     private string? _error;
     private bool _loading = true;
     private bool _reloading;
+    private bool _refreshing;
     private readonly CancellationTokenSource _cts = new();
 
     protected override void OnInitialized()
@@ -131,15 +143,39 @@ else if (_status != null)
 
     private async Task RefreshStatusAsync()
     {
+        if (_refreshing)
+            return;
+        _refreshing = true;
         try
         {
             _status = await StatusClient.GetStatusAsync(_cts.Token);
+            if (_status != null)
+            {
+                try
+                {
+                    _configSet = await ConfigSetClient.GetConfigSetAsync(_cts.Token);
+                }
+                catch
+                {
+                    // Config set is optional for the status dashboard.
+                    _configSet = null;
+                }
+            }
+            else
+            {
+                _configSet = null;
+            }
             await InvokeAsync(StateHasChanged);
         }
         catch (OperationCanceledException) { }
         catch (ObjectDisposedException)
         {
             // Component disposed (e.g. navigated away) while callback was pending; ignore
+        }
+        finally
+        {
+            _refreshing = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -162,14 +198,7 @@ else if (_status != null)
                     msg += " " + result.StdErr;
                 NotificationService.ShowError(msg);
             }
-            try
-            {
-                _status = await StatusClient.GetStatusAsync(token);
-            }
-            catch
-            {
-                // Keep _reloadMessage; status will refresh on next page load
-            }
+            await RefreshStatusAsync();
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)

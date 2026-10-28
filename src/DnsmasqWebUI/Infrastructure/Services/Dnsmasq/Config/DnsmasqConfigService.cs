@@ -197,9 +197,7 @@ public class DnsmasqConfigService : IDnsmasqConfigService
         foreach (var entry in appended)
             output.Add(DnsmasqConfDhcpHostLineParser.ToLine(entry));
 
-        var tmpPath = path + ".tmp";
-        await File.WriteAllLinesAsync(tmpPath, output, DnsmasqFileEncoding.Utf8NoBom, ct);
-        File.Move(tmpPath, path, overwrite: true);
+        await WriteAllLinesAtomicallyAsync(path, output, ct);
         EnsureManagedHostsFileExists(set.ManagedHostsFilePath);
 
         var writtenLines = DnsmasqConfFileLineParser.ParseFile(output).ToList();
@@ -270,8 +268,21 @@ public class DnsmasqConfigService : IDnsmasqConfigService
                 continue;
             }
 
-            if (writeBehavior == EffectiveConfigWriteBehavior.MultiKeyOnlyOrValue && TryGetMultiValues(c.NewValue, out var multiKeyOnlyValues))
+            if (writeBehavior == EffectiveConfigWriteBehavior.MultiKeyOnlyOrValue)
             {
+                IReadOnlyList<string> multiKeyOnlyValues;
+                if (c.NewValue is null)
+                {
+                    // A missing repeatable value means no managed entries, just as an empty list
+                    // does. Handle it here so it cannot fall through to the single serializer.
+                    multiKeyOnlyValues = Array.Empty<string>();
+                }
+                else if (!TryGetMultiValues(c.NewValue, out multiKeyOnlyValues))
+                {
+                    throw new InvalidOperationException(
+                        $"Expected a string collection for multi-value option '{confKey}'.");
+                }
+
                 IReadOnlyList<string> readonlyValues = readonlyByOption.TryGetValue(confKey, out var listValues) ? listValues : Array.Empty<string>();
                 var valuesToWrite = FilterManagedOnly(multiKeyOnlyValues, readonlyValues);
                 RemoveAllMatchingLines(list, MatchesOption);
@@ -310,14 +321,8 @@ public class DnsmasqConfigService : IDnsmasqConfigService
             {
                 IReadOnlyList<string> readonlyValues = readonlyByOption.TryGetValue(confKey, out var listValues) ? listValues : Array.Empty<string>();
                 var valuesToWrite = FilterManagedOnly(values, readonlyValues);
-                var matchingIndices = new List<int>();
-                for (var i = 0; i < list.Count; i++)
-                {
-                    if (MatchesOption(list[i])) matchingIndices.Add(i);
-                }
-                for (var i = matchingIndices.Count - 1; i >= 0; i--)
-                    list.RemoveAt(matchingIndices[i]);
-                var insertIdx = matchingIndices.Count > 0 ? matchingIndices[0] : list.Count;
+                var removedMultiAtIndex = RemoveAllMatchingLines(list, MatchesOption);
+                var insertIdx = removedMultiAtIndex >= 0 ? removedMultiAtIndex : list.Count;
                 var serialized = _directiveSerializer.SerializeMulti(confKey, valuesToWrite.Select(v => v.Trim()).ToList());
                 for (var i = 0; i < serialized.Count; i++)
                 {
@@ -328,42 +333,49 @@ public class DnsmasqConfigService : IDnsmasqConfigService
                 continue;
             }
 
-            var idx = list.FindIndex(MatchesOption);
+            // A managed file is the application's canonical overlay. Removing every previous
+            // occurrence matters for last-wins directives: replacing only the first one leaves
+            // a later stale line active in dnsmasq.
+            var removedAtIndex = RemoveAllMatchingLines(list, MatchesOption);
             if (isFlag && c.NewValue is bool b && !b)
             {
-                if (idx >= 0) list.RemoveAt(idx);
                 continue;
             }
             if (writeBehavior == EffectiveConfigWriteBehavior.SingleValue &&
                 string.IsNullOrWhiteSpace(c.NewValue?.ToString()))
             {
-                if (idx >= 0) list.RemoveAt(idx);
                 continue;
             }
 
             var rawLine = _directiveSerializer.SerializeSingle(confKey, c.NewValue);
             if (string.IsNullOrWhiteSpace(rawLine))
             {
-                if (idx >= 0) list.RemoveAt(idx);
                 continue;
             }
             var newLine = new OtherLine { LineNumber = maxLineNumber + 1, RawLine = rawLine };
             maxLineNumber++;
-            if (idx >= 0)
-                list[idx] = newLine;
-            else
-                list.Add(newLine);
+            list.Insert(removedAtIndex >= 0 ? removedAtIndex : list.Count, newLine);
         }
         await WriteManagedConfigAsync(list, ct);
     }
 
-    private static void RemoveAllMatchingLines(List<DnsmasqConfLine> list, Predicate<DnsmasqConfLine> match)
+    /// <summary>
+    /// Removes every matching managed directive and returns the first original index. Returning
+    /// the index allows a replacement to keep its surrounding comments and unrelated directives
+    /// in a stable order while still canonicalising stale duplicates.
+    /// </summary>
+    private static int RemoveAllMatchingLines(List<DnsmasqConfLine> list, Predicate<DnsmasqConfLine> match)
     {
+        var firstIndex = -1;
         for (var i = list.Count - 1; i >= 0; i--)
         {
             if (match(list[i]))
+            {
+                firstIndex = i;
                 list.RemoveAt(i);
+            }
         }
+        return firstIndex;
     }
 
     /// <summary>
@@ -458,13 +470,37 @@ public class DnsmasqConfigService : IDnsmasqConfigService
         EnsureManagedConfigInvariants(list, set.ManagedHostsFilePath);
         var output = list.Select(DnsmasqConfFileLineParser.ToLine).ToList();
 
-        var tmpPath = path + ".tmp";
-        await File.WriteAllLinesAsync(tmpPath, output, DnsmasqFileEncoding.Utf8NoBom, ct);
-        File.Move(tmpPath, path, overwrite: true);
+        await WriteAllLinesAtomicallyAsync(path, output, ct);
         EnsureManagedHostsFileExists(set.ManagedHostsFilePath);
         var effectiveHostsPath = list.OfType<AddnHostsLine>().FirstOrDefault()?.AddnHostsPath ?? "";
         _configSetCache.NotifyWeWroteManagedConfig(new ManagedConfigContent(list, effectiveHostsPath));
         _logger.LogInformation("Wrote managed config file: {Path}", path);
+    }
+
+    /// <summary>
+    /// Replaces a managed config file through a unique sibling temporary file. The save service
+    /// serialises normal UI saves, but this service is also used during startup and by focused
+    /// workflows, so a fixed <c>.tmp</c> name could still let concurrent callers overwrite or
+    /// move one another's work.
+    /// </summary>
+    private static async Task WriteAllLinesAtomicallyAsync(string path, IReadOnlyList<string> lines, CancellationToken ct)
+    {
+        var directory = Path.GetDirectoryName(path);
+        var temporaryPath = Path.Combine(
+            string.IsNullOrWhiteSpace(directory) ? Directory.GetCurrentDirectory() : directory,
+            $".{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
+
+        try
+        {
+            await File.WriteAllLinesAsync(temporaryPath, lines, DnsmasqFileEncoding.Utf8NoBom, ct);
+            // A same-directory move prevents readers from observing a partially written config.
+            File.Move(temporaryPath, path, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+                File.Delete(temporaryPath);
+        }
     }
 
 }

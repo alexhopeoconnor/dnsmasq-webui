@@ -74,9 +74,9 @@ else
                     <span class="text-muted">·</span>
                     <span class="small"><strong>IPv4 range:</strong> @(string.IsNullOrEmpty(_status.DhcpRangeStart) ? "not detected" : $"{_status.DhcpRangeStart} – {_status.DhcpRangeEnd}")</span>
                     <span class="text-muted">·</span>
-                    <span class="small"><strong>Authoritative:</strong> @((_status.EffectiveConfig?.DhcpAuthoritative ?? false) ? "on" : "off")</span>
+                    <span class="small"><strong>Authoritative:</strong> @(GetEffectiveDhcpFlag(DnsmasqConfKeys.DhcpAuthoritative) ? "on" : "off")</span>
                     <span class="text-muted">·</span>
-                    <span class="small"><strong>read-ethers:</strong> @(pageState.ReadEthersEnabled ? "on" : "off")</span>
+                    <span class="small"><strong>read-ethers:</strong> @(_readEthersEnabled ? "on" : "off")</span>
                 </div>
                 @if (!string.IsNullOrEmpty(_status.ManagedFilePath))
                 {
@@ -917,10 +917,17 @@ else
     {
         if (_status == null) return;
         var values = PageEditor.GetEffectiveMultiValues(_status, DhcpHostField).ToList();
-        _readEthersEnabled = _status.EffectiveConfig?.ReadEthers ?? false;
+        _readEthersEnabled = GetEffectiveDhcpFlag(DnsmasqConfKeys.ReadEthers);
         _unifiedHostRows = DhcpProjection.BuildHostRows(_status, values, _dhcpHostHandler, _leases).ToList();
         InvalidateHostGroupsCache();
     }
+
+    private bool GetEffectiveDhcpFlag(string optionName) =>
+        _status != null
+        && PageEditor.GetEffectiveValue(
+            _status,
+            PageEditor.Field(EffectiveConfigSections.SectionDhcp, optionName)) is bool enabled
+        && enabled;
 
     private async Task RefreshStatusAsync()
     {

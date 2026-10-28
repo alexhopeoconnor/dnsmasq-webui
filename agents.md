@@ -33,6 +33,14 @@ This will:
 
 App is at **http://localhost:8080**. Main config path in the container is `/data/dnsmasq-test.conf`; managed file is `zz-dnsmasq-webui.conf` in the same directory. The app service has a healthcheck (`GET /healthz/ready`); DHCP client services use `depends_on: app: condition: service_healthy` so they start only after the app (and dnsmasq) is ready.
 
+### Isolated end-to-end smoke test
+
+```bash
+./scripts/smoke-test-harness.sh
+```
+
+This uses a separate Compose project and a fresh temporary mount, so it does not stop or alter the normal harness. It seeds a managed config and hosts overlay before dnsmasq starts, then proves the app's startup apply command made both records resolvable. It also verifies the API's config include order and authoritative Hosts source inventory. Use `--keep` to retain the project and mount for debugging.
+
 ### Stop the harness
 
 ```bash

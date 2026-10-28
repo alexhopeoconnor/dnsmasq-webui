@@ -75,6 +75,48 @@
     color: #64748b;
 }
 
+.hosts-source-health {
+    padding: 0.7rem 0.85rem;
+    border: 1px solid #dbe3ec;
+    border-radius: 0.65rem;
+    background: #f8fafc;
+}
+
+.hosts-source-health > summary {
+    cursor: pointer;
+    color: #334155;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.hosts-source-health__list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.hosts-source-health__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.55rem;
+    min-width: 0;
+}
+
+.hosts-source-health__kind {
+    min-width: 6.8rem;
+    color: #475569;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.hosts-source-health__path {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: #334155;
+    font-size: 0.8rem;
+}
+
 /* Group header row (colspan, not rowspan) */
 ::deep .hosts-table .hosts-comment-col,
 ::deep .hosts-table .hosts-comment-col-cell {

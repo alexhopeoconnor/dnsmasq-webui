@@ -3,7 +3,7 @@
 @inherits EffectiveConfigValueDisplayBase
 
 @* Value-only display for int? options. Pending value shown until save. *@
-@if (IsActiveEditor && Descriptor.GetSource()?.IsReadOnly != true)
+@if (IsActiveEditor && CanEditFromUi)
 {
     var current = GetEffectiveDisplayValue() is int i ? i : DefaultValue;
     <input type="number" class="form-control form-control-sm" style="max-width: 8rem;"

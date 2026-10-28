@@ -1,0 +1,2 @@
+# Copied into an isolated smoke-test mount as zz-dnsmasq-webui.hosts before dnsmasq starts.
+192.0.2.62 startup-host.smoke.test

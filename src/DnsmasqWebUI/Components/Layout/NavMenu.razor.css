@@ -131,6 +131,27 @@
     color: white;
 }
 
+.nav-draft-indicator {
+    border: 1px solid rgba(255, 193, 7, 0.7);
+    background: rgba(255, 193, 7, 0.14);
+    border-radius: 6px;
+}
+
+.nav-draft-indicator ::deep .nav-draft-link {
+    color: #fff3cd;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.6rem;
+    font-size: 0.8rem;
+    line-height: 1.15;
+    text-decoration: none;
+}
+
+.nav-draft-indicator ::deep .nav-draft-link:hover {
+    color: white;
+}
+
 .nav-footer {
     margin-top: auto;
     flex-shrink: 0;

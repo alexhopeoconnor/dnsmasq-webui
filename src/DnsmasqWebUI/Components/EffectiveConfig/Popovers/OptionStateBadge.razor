@@ -11,8 +11,47 @@
 }
 else if (Source?.IsReadOnly == true)
 {
-    var readonlyTitle = Source?.GetReadOnlyTooltip();
-    if (IsInteractive && Ui != null)
+    var readonlyTitle = ManagedOverrideTooltip ?? Source?.GetReadOnlyTooltip();
+    if (CanCreateManagedOverride && ShowEditableBadge)
+    {
+        @if (EditableAsButton)
+        {
+            @if (IsActiveEditor)
+            {
+                <span class="status-badge-inline">
+                    <StatusBadge Kind="StatusBadgeKind.ActionOk" Text="ok" Clickable="true"
+                                 Title="Apply this managed override" AriaLabel="Apply managed override"
+                                 PreventBlurOnMouseDown="true" OnClick="OnConfirmClick" />
+                    <StatusBadge Kind="StatusBadgeKind.ActionCancel" Text="cancel" Clickable="true"
+                                 Title="Discard the in-progress managed override" AriaLabel="Cancel managed override"
+                                 PreventBlurOnMouseDown="true" OnClick="OnCancelClick" />
+                    @if (HasPendingChange)
+                    {
+                        <StatusBadge Kind="StatusBadgeKind.ActionRevert" Text="revert" Clickable="true"
+                                     Title="Remove the pending managed override" AriaLabel="Revert pending managed override"
+                                     PreventBlurOnMouseDown="true" OnClick="OnRevertClick" />
+                    }
+                </span>
+            }
+            else
+            {
+                <StatusBadge Kind="@(HasPendingChange ? StatusBadgeKind.Pending : StatusBadgeKind.Editable)"
+                             Text="@(HasPendingChange ? "pending override" : "override")"
+                             Clickable="true"
+                             Title="@(HasPendingChange ? "Pending managed override" : readonlyTitle)"
+                             AriaLabel="Create managed override"
+                             OnClick="OnEditableClick"
+                             Class="status-badge-inline" />
+            }
+        }
+        else
+        {
+            <StatusBadge Kind="StatusBadgeKind.Editable" Text="override"
+                         Title="@readonlyTitle"
+                         Class="status-badge-inline" />
+        }
+    }
+    else if (IsInteractive && Ui != null)
     {
         <StatusBadge Kind="StatusBadgeKind.ReadOnly" Text="readonly" Clickable="true"
                      Id="@AnchorId" Title="@readonlyTitle"
@@ -75,6 +114,13 @@ else if (ShowEditableBadge)
     [Parameter] public bool HasPendingChange { get; set; }
     [Parameter] public bool EditableAsButton { get; set; } = true;
     [Parameter] public bool IsActiveEditor { get; set; }
+    /// <summary>
+    /// When true, the readonly source is a last-wins setting that can be shadowed by the managed
+    /// config. The badge activates an editor instead of opening the readonly-file popover.
+    /// </summary>
+    [Parameter] public bool CanCreateManagedOverride { get; set; }
+    /// <summary>Source-aware explanatory text for a managed override action.</summary>
+    [Parameter] public string? ManagedOverrideTooltip { get; set; }
     [Parameter] public EventCallback OnConfirmRequested { get; set; }
     [Parameter] public EventCallback OnCancelRequested { get; set; }
     [Parameter] public EventCallback OnRevertRequested { get; set; }

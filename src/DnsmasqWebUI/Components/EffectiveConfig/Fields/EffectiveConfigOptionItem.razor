@@ -3,7 +3,7 @@
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 
 <OptionHelpLabel AnchorId="@(OptionHelpAnchorId ?? "")" HelpKey="@OptionHelpKey" OptionLabel="@Label" Title="@(LabelTooltip ?? Source?.GetReadOnlyTooltip())"><strong>@Label:</strong></OptionHelpLabel>
-@if (DisplayMode == EffectiveConfigDisplayMode.Edit && IsActive && Source?.IsReadOnly != true && !IsCapabilityDisabled)
+@if (DisplayMode == EffectiveConfigDisplayMode.Edit && IsActive && CanEditFromUi && !IsCapabilityDisabled)
 {
     <span class="ec-field-value" @onclick:stopPropagation="true">
         <input type="text"
@@ -12,14 +12,14 @@
                value="@(_editValue ?? EditValue)"
                @oninput="OnValueInput"
                @onfocusout="OnInputBlur" />
-        <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorId ?? "")" Source="@Source" OptionName="@Label" Value="@(RawValue ?? DisplayValue)" IsInteractive="@(DisplayMode == EffectiveConfigDisplayMode.Edit && !string.IsNullOrEmpty(ReadonlyBadgeAnchorId))" ShowEditableBadge="@ShowEditableBadge" HasPendingChange="@HasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="true" IsCapabilityDisabled="@IsCapabilityDisabled" CapabilityDisabledReason="@CapabilityDisabledReason" OnConfirmRequested="@OnConfirmRequested" OnCancelRequested="@OnCancelRequested" OnRevertRequested="@OnRevertRequested" />
+        <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorId ?? "")" Source="@Source" OptionName="@Label" Value="@(RawValue ?? DisplayValue)" IsInteractive="@(DisplayMode == EffectiveConfigDisplayMode.Edit && !string.IsNullOrEmpty(ReadonlyBadgeAnchorId))" ShowEditableBadge="@ShowEditableBadge" HasPendingChange="@HasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="true" CanCreateManagedOverride="@CanCreateManagedOverride" ManagedOverrideTooltip="@ManagedOverrideTooltip" IsCapabilityDisabled="@IsCapabilityDisabled" CapabilityDisabledReason="@CapabilityDisabledReason" OnConfirmRequested="@OnConfirmRequested" OnCancelRequested="@OnCancelRequested" OnRevertRequested="@OnRevertRequested" />
     </span>
 }
 else
 {
     <span class="ec-field-value">
         @DisplayValue
-        <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorId ?? "")" Source="@Source" OptionName="@Label" Value="@(RawValue ?? DisplayValue)" IsInteractive="@(DisplayMode == EffectiveConfigDisplayMode.Edit && !string.IsNullOrEmpty(ReadonlyBadgeAnchorId))" ShowEditableBadge="@ShowEditableBadge" HasPendingChange="@HasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="false" IsCapabilityDisabled="@IsCapabilityDisabled" CapabilityDisabledReason="@CapabilityDisabledReason" OnConfirmRequested="@OnConfirmRequested" OnCancelRequested="@OnCancelRequested" OnRevertRequested="@OnRevertRequested" />
+        <OptionStateBadge AnchorId="@(ReadonlyBadgeAnchorId ?? "")" Source="@Source" OptionName="@Label" Value="@(RawValue ?? DisplayValue)" IsInteractive="@(DisplayMode == EffectiveConfigDisplayMode.Edit && !string.IsNullOrEmpty(ReadonlyBadgeAnchorId))" ShowEditableBadge="@ShowEditableBadge" HasPendingChange="@HasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="false" CanCreateManagedOverride="@CanCreateManagedOverride" ManagedOverrideTooltip="@ManagedOverrideTooltip" IsCapabilityDisabled="@IsCapabilityDisabled" CapabilityDisabledReason="@CapabilityDisabledReason" OnConfirmRequested="@OnConfirmRequested" OnCancelRequested="@OnCancelRequested" OnRevertRequested="@OnRevertRequested" />
     </span>
 }
 
@@ -44,6 +44,10 @@ else
     [Parameter] public string FieldKey { get; set; } = "";
     /// <summary>When true, add ec-field-editing class and show input when DisplayMode is Edit.</summary>
     [Parameter] public bool IsActive { get; set; }
+    /// <summary>Whether this externally sourced field can be safely shadowed by managed config.</summary>
+    [Parameter] public bool CanCreateManagedOverride { get; set; }
+    /// <summary>Source-aware explanation shown for the managed override badge.</summary>
+    [Parameter] public string? ManagedOverrideTooltip { get; set; }
     /// <summary>When true, option is disabled because dnsmasq build does not support it; show disabled badge and no editor.</summary>
     [Parameter] public bool IsCapabilityDisabled { get; set; }
     /// <summary>Tooltip when <see cref="IsCapabilityDisabled"/> is true.</summary>
@@ -61,6 +65,7 @@ else
     [CascadingParameter] public EffectiveConfigDisplayMode DisplayMode { get; set; } = EffectiveConfigDisplayMode.View;
 
     private string? _editValue;
+    private bool CanEditFromUi => Source?.IsReadOnly != true || CanCreateManagedOverride;
 
     protected override void OnParametersSet()
     {

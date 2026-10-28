@@ -4,7 +4,7 @@
 @inherits EffectiveConfigValueDisplayBase
 
 @* do-0x20-encode / no-0x20-encode: tri-state. Switch shows Enabled vs not-Enabled; uncheck maps back to Default when that was the value at activation, else Disabled. *@
-@if (IsActiveEditor && Descriptor.GetSource()?.IsReadOnly != true)
+@if (IsActiveEditor && CanEditFromUi)
 {
     var isOn = GetState() == ExplicitToggleState.Enabled;
     <div class="form-check form-switch ec-effective-switch">

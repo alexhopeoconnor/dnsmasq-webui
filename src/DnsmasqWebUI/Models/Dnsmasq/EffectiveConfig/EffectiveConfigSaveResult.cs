@@ -7,7 +7,7 @@ namespace DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 /// <param name="ValidationExitCode">Validation command exit code; -1 when not run or failed to start.</param>
 /// <param name="ValidationStdOut">Standard output from the validation command.</param>
 /// <param name="ValidationStdErr">Standard error from the validation command.</param>
-/// <param name="Restarted">True when the restart command succeeded after write (and after validation if run).</param>
+/// <param name="Restarted">True when the full restart command succeeded after a managed <c>.conf</c> write (and after validation if run).</param>
 /// <param name="RestartExitCode">Restart command process exit code; -1 when not run or failed to start.</param>
 /// <param name="RestartStdOut">Standard output from the restart command.</param>
 /// <param name="RestartStdErr">Standard error from the restart command.</param>
@@ -27,6 +27,21 @@ public record EffectiveConfigSaveResult(
     string? ErrorCode,
     string? UserMessage)
 {
+    /// <summary>
+    /// True when a hosts-only save was applied by the lightweight reload command. This is kept
+    /// separate from <see cref="Restarted"/> so SIGHUP is never reported as a full restart.
+    /// </summary>
+    public bool Reloaded { get; init; }
+
+    /// <summary>True when either the required restart or the hosts-only reload completed.</summary>
+    public bool Applied => Restarted || Reloaded;
+
+    /// <summary>
+    /// True when a write was reverted automatically after validation or reload failed.
+    /// The pending draft remains available so the user can correct it rather than losing work.
+    /// </summary>
+    public bool RolledBack { get; init; }
+
     /// <summary>True when at least one backup was created (for restore UI).</summary>
     public bool BackupCreated => Backups.Count > 0;
     /// <summary>Machine-readable error codes for <see cref="ErrorCode"/>.</summary>
@@ -41,9 +56,23 @@ public record EffectiveConfigSaveResult(
         public const string SemanticValidationFailed = "semantic_validation_failed";
         public const string ValidateFailed = "validate_failed";
         public const string RestartFailed = "restart_failed";
+        /// <summary>A hosts-only reload command failed after writing the managed hosts file.</summary>
+        public const string ReloadFailed = "reload_failed";
+        /// <summary>
+        /// Save was blocked before writing because a managed <c>.conf</c> change requires a
+        /// configured full restart; ReloadCommand/SIGHUP cannot apply it.
+        /// </summary>
+        public const string RestartCommandRequired = "restart_command_required";
+        /// <summary>Save was blocked before writing because no command can apply a hosts-only change.</summary>
+        public const string ApplyCommandRequired = "apply_command_required";
         public const string UnsupportedVersion = "unsupported_version";
         /// <summary>Version probe failed (timeout, command missing, unparseable output). Distinct from <see cref="UnsupportedVersion"/> (probe succeeded but version below minimum).</summary>
         public const string VersionProbeFailed = "version_probe_failed";
+        /// <summary>
+        /// Save was blocked before any backup or write because an edited effective field or the
+        /// managed Hosts document changed after the browser draft was created.
+        /// </summary>
+        public const string StaleDraftConflict = "stale_draft_conflict";
     }
 
     /// <summary>True when config was written but validation failed (restart not attempted).</summary>

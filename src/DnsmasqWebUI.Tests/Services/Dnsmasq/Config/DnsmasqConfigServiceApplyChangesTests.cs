@@ -268,6 +268,48 @@ public class DnsmasqConfigServiceApplyChangesTests
     }
 
     [Fact]
+    public async Task ApplyEffectiveConfigChangesAsync_LogQueriesKeyOnly_WritesBareKeyAndRoundTripsAsEnabled()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-log-queries-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var mainPath = Path.Combine(dir, "dnsmasq.conf");
+        var managedName = "zz-managed.conf";
+        var managedPath = Path.Combine(dir, managedName);
+        ConfigSetCache? cache = null;
+        try
+        {
+            File.WriteAllText(mainPath, "port=53\n");
+            var options = Options.Create(new DnsmasqOptions { MainConfigPath = mainPath, ManagedFileName = managedName });
+            cache = new ConfigSetCache(options, NullLogger<ConfigSetCache>.Instance);
+            var setService = new DnsmasqConfigSetService(cache);
+            var configService = new DnsmasqConfigService(setService, cache, NullLogger<DnsmasqConfigService>.Instance);
+
+            await configService.ApplyEffectiveConfigChangesAsync(
+            [
+                new PendingEffectiveConfigChange(
+                    EffectiveConfigSections.SectionResolver,
+                    DnsmasqConfKeys.LogQueries,
+                    null,
+                    "",
+                    null)
+            ]);
+
+            var content = await File.ReadAllTextAsync(managedPath);
+            Assert.Contains("log-queries", content);
+            Assert.DoesNotContain("log-queries=", content);
+
+            cache.Invalidate();
+            var snapshot = await cache.GetSnapshotAsync();
+            Assert.Equal("", snapshot.Config.LogQueries);
+        }
+        finally
+        {
+            cache?.Dispose();
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ApplyEffectiveConfigChangesAsync_InversePair_Enabled_WritesDo0x20Encode()
     {
         var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-apply-" + Guid.NewGuid().ToString("N"));
@@ -730,6 +772,163 @@ public class DnsmasqConfigServiceApplyChangesTests
             cache?.Dispose();
             if (Directory.Exists(dir))
                 Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ApplyEffectiveConfigChangesAsync_Leasequery_Null_RemovesManagedValues()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-apply-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var mainPath = Path.Combine(dir, "dnsmasq.conf");
+        var managedName = "zz-managed.conf";
+        var managedPath = Path.Combine(dir, managedName);
+        ConfigSetCache? cache = null;
+        try
+        {
+            File.WriteAllText(mainPath, "port=53\n");
+            File.WriteAllText(managedPath, "leasequery\nleasequery=10.0.0.0/24\n");
+            cache = new ConfigSetCache(
+                Options.Create(new DnsmasqOptions { MainConfigPath = mainPath, ManagedFileName = managedName }),
+                NullLogger<ConfigSetCache>.Instance);
+            var configService = new DnsmasqConfigService(
+                new DnsmasqConfigSetService(cache), cache, NullLogger<DnsmasqConfigService>.Instance);
+
+            await configService.ApplyEffectiveConfigChangesAsync(
+            [
+                new PendingEffectiveConfigChange(
+                    EffectiveConfigSections.SectionDhcp,
+                    DnsmasqConfKeys.Leasequery,
+                    new List<string> { "", "10.0.0.0/24" },
+                    null,
+                    null)
+            ]);
+
+            var leasequeryLines = (await File.ReadAllLinesAsync(managedPath))
+                .Where(line => line.TrimStart().StartsWith(DnsmasqConfKeys.Leasequery, StringComparison.Ordinal))
+                .ToList();
+            Assert.Empty(leasequeryLines);
+        }
+        finally
+        {
+            cache?.Dispose();
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ApplyEffectiveConfigChangesAsync_SingleValue_CanonicalizesAllManagedDuplicates()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-apply-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var mainPath = Path.Combine(dir, "dnsmasq.conf");
+        var managedName = "zz-managed.conf";
+        var managedPath = Path.Combine(dir, managedName);
+        ConfigSetCache? cache = null;
+        try
+        {
+            File.WriteAllText(mainPath, "port=53\n");
+            File.WriteAllText(managedPath, "port=54\ncache-size=100\nport=55\n");
+            cache = new ConfigSetCache(
+                Options.Create(new DnsmasqOptions { MainConfigPath = mainPath, ManagedFileName = managedName }),
+                NullLogger<ConfigSetCache>.Instance);
+            var configService = new DnsmasqConfigService(
+                new DnsmasqConfigSetService(cache), cache, NullLogger<DnsmasqConfigService>.Instance);
+
+            await configService.ApplyEffectiveConfigChangesAsync(new[]
+            {
+                new PendingEffectiveConfigChange(EffectiveConfigSections.SectionResolver, DnsmasqConfKeys.Port, "55", "5353", null)
+            });
+
+            var portLines = (await File.ReadAllLinesAsync(managedPath))
+                .Select(line => line.Trim())
+                .Where(line => line.StartsWith("port", StringComparison.Ordinal))
+                .ToList();
+            Assert.Single(portLines);
+            Assert.Equal("port=5353", portLines[0]);
+            Assert.Contains("cache-size=100", await File.ReadAllTextAsync(managedPath));
+        }
+        finally
+        {
+            cache?.Dispose();
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ApplyEffectiveConfigChangesAsync_FlagFalse_RemovesAllManagedDuplicates()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-apply-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var mainPath = Path.Combine(dir, "dnsmasq.conf");
+        var managedName = "zz-managed.conf";
+        var managedPath = Path.Combine(dir, managedName);
+        ConfigSetCache? cache = null;
+        try
+        {
+            File.WriteAllText(mainPath, "port=53\n");
+            File.WriteAllText(managedPath, "conntrack\nconntrack\n");
+            cache = new ConfigSetCache(
+                Options.Create(new DnsmasqOptions { MainConfigPath = mainPath, ManagedFileName = managedName }),
+                NullLogger<ConfigSetCache>.Instance);
+            var configService = new DnsmasqConfigService(
+                new DnsmasqConfigSetService(cache), cache, NullLogger<DnsmasqConfigService>.Instance);
+
+            await configService.ApplyEffectiveConfigChangesAsync(new[]
+            {
+                new PendingEffectiveConfigChange(EffectiveConfigSections.SectionResolver, DnsmasqConfKeys.Conntrack, true, false, null)
+            });
+
+            var content = await File.ReadAllTextAsync(managedPath);
+            Assert.DoesNotContain(content.Split('\n').Select(line => line.Trim()), line => line == DnsmasqConfKeys.Conntrack);
+        }
+        finally
+        {
+            cache?.Dispose();
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ApplyEffectiveConfigChangesAsync_MultiValue_PreservesPermittedDuplicateValues()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-apply-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var mainPath = Path.Combine(dir, "dnsmasq.conf");
+        var managedName = "zz-managed.conf";
+        var managedPath = Path.Combine(dir, managedName);
+        ConfigSetCache? cache = null;
+        try
+        {
+            File.WriteAllText(mainPath, "port=53\n");
+            File.WriteAllText(managedPath, "server=1.1.1.1\nserver=8.8.8.8\n");
+            cache = new ConfigSetCache(
+                Options.Create(new DnsmasqOptions { MainConfigPath = mainPath, ManagedFileName = managedName }),
+                NullLogger<ConfigSetCache>.Instance);
+            var configService = new DnsmasqConfigService(
+                new DnsmasqConfigSetService(cache), cache, NullLogger<DnsmasqConfigService>.Instance);
+
+            await configService.ApplyEffectiveConfigChangesAsync(new[]
+            {
+                new PendingEffectiveConfigChange(
+                    EffectiveConfigSections.SectionResolver,
+                    DnsmasqConfKeys.Server,
+                    null,
+                    new List<string> { "9.9.9.9", "9.9.9.9" },
+                    null)
+            });
+
+            var serverLines = (await File.ReadAllLinesAsync(managedPath))
+                .Select(line => line.Trim())
+                .Where(line => line.StartsWith("server=", StringComparison.Ordinal))
+                .ToList();
+            Assert.Equal(new[] { "server=9.9.9.9", "server=9.9.9.9" }, serverLines);
+        }
+        finally
+        {
+            cache?.Dispose();
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
         }
     }
 }

@@ -29,6 +29,11 @@ public class HostsFileService : IHostsFileService
 
     public async Task WriteAsync(IReadOnlyList<HostEntry> entries, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(entries);
+        var validationErrors = HostsEntryEditValidator.GetEntryErrors(entries);
+        if (validationErrors.Count > 0)
+            throw new ArgumentException("Managed hosts file contains invalid entries: " + string.Join(" ", validationErrors), nameof(entries));
+
         var set = await _configSetService.GetConfigSetAsync(ct);
         var path = set.ManagedHostsFilePath;
         if (string.IsNullOrEmpty(path))
@@ -37,10 +42,22 @@ public class HostsFileService : IHostsFileService
         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
             Directory.CreateDirectory(dir);
 
-        var tmpPath = path + ".tmp";
+        var tmpPath = Path.Combine(
+            string.IsNullOrEmpty(dir) ? Directory.GetCurrentDirectory() : dir,
+            $".{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
         var lines = entries.Select(HostsFileLineParser.ToLine).ToList();
-        await File.WriteAllLinesAsync(tmpPath, lines, DnsmasqFileEncoding.Utf8NoBom, ct);
-        File.Move(tmpPath, path, overwrite: true);
+        try
+        {
+            await File.WriteAllLinesAsync(tmpPath, lines, DnsmasqFileEncoding.Utf8NoBom, ct);
+            // Same-directory replacement avoids readers observing a partially written hosts file.
+            File.Move(tmpPath, path, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(tmpPath))
+                File.Delete(tmpPath);
+        }
+
         _hostsCache.NotifyWeWroteManagedHosts(entries);
         _logger.LogInformation("Wrote managed hosts file: {Path}", path);
     }

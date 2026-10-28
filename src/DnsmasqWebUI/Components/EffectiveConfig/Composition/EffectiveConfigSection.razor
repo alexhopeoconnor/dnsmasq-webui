@@ -244,9 +244,18 @@
         StateHasChanged();
     }
 
-    private async Task ContinueEditingAfterSavedFailureAsync()
+    private async Task ContinueEditingAfterSavedFailureAsync(bool preserveDraft)
     {
         _showSaveModal = false;
+
+        if (preserveDraft)
+        {
+            Session.Ui.EnterEditMode();
+            RefreshCrossOptionAfterEnteringEditMode();
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
         Session.Draft.DiscardAllDraft();
         Session.Ui.ExitEditMode();
         await OnSaveCompleted.InvokeAsync();

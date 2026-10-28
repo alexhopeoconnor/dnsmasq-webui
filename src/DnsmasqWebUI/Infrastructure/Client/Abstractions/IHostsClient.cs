@@ -13,7 +13,11 @@ public interface IHostsClient
     /// <summary>Gets read-only hosts files (system + addn-hosts) from GET api/hosts/readonly.</summary>
     Task<IReadOnlyList<ReadOnlyHostsFile>> GetReadOnlyHostsAsync(CancellationToken ct = default);
 
+    /// <summary>Gets source inventory (files/directories, active state, health, and load metadata) from GET api/hosts/sources.</summary>
+    Task<IReadOnlyList<HostSource>> GetSourcesAsync(CancellationToken ct = default);
+
     /// <summary>Gets unified hosts rows (managed + read-only) from GET api/hosts/unified.</summary>
+    /// <remarks>The arguments are retained for source compatibility and are ignored by the server.</remarks>
     Task<IReadOnlyList<HostsPageRow>> GetUnifiedRowsAsync(
         bool expandHosts,
         bool noHosts,

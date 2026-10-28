@@ -168,6 +168,29 @@ public class DnsmasqConfIncludeParserIncludeTests
         }
     }
 
+    [Fact]
+    public void GetIncludedPaths_ConfDirThatCannotBeEnumerated_ReturnsMainOnly()
+    {
+        var baseDir = Path.Combine(Path.GetTempPath(), "dnsmasq-confdir-not-directory-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(baseDir);
+        try
+        {
+            var nonDirectoryPath = Path.Combine(baseDir, "not-a-directory");
+            File.WriteAllText(nonDirectoryPath, "not a directory\n");
+            var main = Path.Combine(baseDir, "dnsmasq.conf");
+            File.WriteAllText(main, "conf-dir=not-a-directory\n");
+
+            var paths = DnsmasqConfIncludeParser.GetIncludedPaths(main);
+
+            Assert.Single(paths);
+            Assert.Equal(Path.GetFullPath(main), paths[0]);
+        }
+        finally
+        {
+            Directory.Delete(baseDir, recursive: true);
+        }
+    }
+
     /// <summary>Mirrors harness layout: main + conf-dir with multiple files (including lan-dns.conf) + conf-file. Asserts all appear in load order with correct sources.</summary>
     [Fact]
     public void GetIncludedPathsWithSource_ConfDirAndConfFile_ReturnsAllFilesInLoadOrderWithSources()

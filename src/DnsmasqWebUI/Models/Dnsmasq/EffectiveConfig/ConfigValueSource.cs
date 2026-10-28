@@ -11,16 +11,27 @@ namespace DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 /// <param name="ReadOnlyTooltipOverride">When set, used as the readonly tooltip instead of the default "From FileName... Edit FilePath to change." Use for special cases (e.g. managed hosts file path).</param>
 /// <remarks>
 /// When <see cref="IsManaged"/> is true: the user can change or remove the value from the UI (we read/write the managed file).
-/// When false (<see cref="IsReadOnly"/> is true): the value is from main or an included conf file; the user must edit that file to change it.
+/// When false (<see cref="IsReadOnly"/> is true): the value is from main or an included conf file.
+/// Last-wins single-value and key-only settings may still be safely shadowed through the app's
+/// managed overlay; see <c>EffectiveConfigManagedOverridePolicy</c>. Other external values must be
+/// changed in their source file.
 /// For single-value or multi-value options: show "from FileName (readonly)" and e.g. "Edit FilePath to change."
 /// For flags: if the flag is set in a non-managed file, the user cannot unset it from the UI (they must remove the line in that file).
 /// </remarks>
 public record ConfigValueSource(string FilePath, string FileName, bool IsManaged, int? LineNumber = null, string? ReadOnlyTooltipOverride = null)
 {
-    /// <summary>True when the value is from a non-managed file: user cannot change it from the UI; for flags, cannot unset without editing that file.</summary>
+    /// <summary>
+    /// True when the value is from a non-managed file. This does not by itself decide UI
+    /// editability: last-wins single-value/key-only options may be safely shadowed by the managed
+    /// overlay, while flags and multi-value occurrences remain protected.
+    /// </summary>
     public bool IsReadOnly => !IsManaged;
 
-    /// <summary>Returns a short tooltip for readonly values (which file, optional line, and how to change). Null when <see cref="IsManaged"/> (editable).</summary>
+    /// <summary>
+    /// Returns a short tooltip for source-protected values. Callers that support a safe managed
+    /// override should use <c>EffectiveConfigManagedOverridePolicy.GetSourceStateTooltip</c> so
+    /// the user is not incorrectly told to edit the external file.
+    /// </summary>
     public string? GetReadOnlyTooltip() =>
         IsReadOnly
             ? ReadOnlyTooltipOverride ?? (LineNumber.HasValue

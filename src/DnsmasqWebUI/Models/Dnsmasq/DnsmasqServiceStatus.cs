@@ -22,7 +22,7 @@ namespace DnsmasqWebUI.Models.Dnsmasq;
 /// <param name="LeasesPathConfigured">True when dhcp-leasefile is set in effective config.</param>
 /// <param name="LeasesPathExists">True if <paramref name="LeasesPath"/> is set and the file exists on disk.</param>
 /// <param name="ConfigFiles">Ordered list of config files (main + conf-file + conf-dir) for "Config files (load order)" in the UI. Null or empty when config set is unavailable.</param>
-/// <param name="ReloadCommandConfigured">True when ReloadCommand is set in app config (reload after save).</param>
+/// <param name="ReloadCommandConfigured">True when ReloadCommand is set in app config (hosts-data reload only).</param>
 /// <param name="StatusCommandConfigured">True when StatusCommand is set (used to determine dnsmasq active/inactive).</param>
 /// <param name="StatusShowConfigured">True when StatusShowCommand is set (full service status output on Dnsmasq page).</param>
 /// <param name="LogsConfigured">True when LogsCommand is set (recent logs preview on Dnsmasq page).</param>

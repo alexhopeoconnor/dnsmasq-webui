@@ -3,7 +3,7 @@
 @inherits EffectiveConfigValueDisplayBase
 
 @* Value-only display for the port option. Pending value shown until save. *@
-@if (IsActiveEditor && Descriptor.GetSource()?.IsReadOnly != true)
+@if (IsActiveEditor && CanEditFromUi)
 {
     var port = GetEffectiveDisplayValue() is int p ? p : 53;
     <input type="number" class="form-control form-control-sm" style="max-width: 6rem;" min="1" max="65535" value="@port" @oninput="OnPortInput" @onfocusout="OnCommitRequested" />

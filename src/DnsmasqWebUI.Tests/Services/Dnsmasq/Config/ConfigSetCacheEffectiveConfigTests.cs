@@ -137,6 +137,25 @@ public class ConfigSetCacheEffectiveConfigTests
     }
 
     [Fact]
+    public async Task LogQueries_KeyOnly_PreservesEnabledStateAsEmptyValue()
+    {
+        var (dir, _, managedPath, cache) = CreateCacheWithManaged("log-queries\n");
+        try
+        {
+            var snapshot = await cache.GetSnapshotAsync();
+
+            Assert.Equal("", snapshot.Config.LogQueries);
+            Assert.NotNull(snapshot.Sources.LogQueries);
+            Assert.Equal(Path.GetFullPath(managedPath), snapshot.Sources.LogQueries!.FilePath, StringComparer.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            cache.Dispose();
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task RealWorldCorpus_EdgeCommentedActiveMix_Do0x20StateAndSource()
     {
         var mainPath = TestDataHelper.GetPath("real-world/edge/dnsmasq-real-edge-commented-active-mix.conf");
@@ -213,5 +232,187 @@ public class ConfigSetCacheEffectiveConfigTests
         Assert.Equal(Path.GetFullPath(managedPath), snapshot.Set.ManagedFilePath);
         Assert.Equal(Path.GetFullPath(Path.Combine(managedDir, managedHostsFileName)), snapshot.Set.ManagedHostsFilePath);
         Assert.Contains(snapshot.Set.Files, f => f.IsManaged && string.Equals(f.Path, Path.GetFullPath(managedPath), StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task GetSnapshot_ConfFileInMiddle_PreservesInPlaceOrderingForValuesAndSources()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-cache-order-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var mainPath = Path.Combine(dir, "dnsmasq.conf");
+        var includePath = Path.Combine(dir, "extra.conf");
+        try
+        {
+            File.WriteAllText(mainPath, "port=53\nserver=main-before\nconf-file=extra.conf\nport=5353\nserver=main-after\n");
+            File.WriteAllText(includePath, "port=54\nserver=included\n");
+            using var cache = new ConfigSetCache(
+                Options.Create(new DnsmasqOptions { MainConfigPath = mainPath, ManagedFileName = "zz-managed.conf" }),
+                NullLogger<ConfigSetCache>.Instance);
+
+            var snapshot = await cache.GetSnapshotAsync();
+
+            Assert.Equal(5353, snapshot.Config.Port);
+            Assert.NotNull(snapshot.Sources.Port);
+            Assert.Equal(Path.GetFullPath(mainPath), snapshot.Sources.Port!.FilePath);
+            Assert.Equal(4, snapshot.Sources.Port.LineNumber);
+            Assert.Equal(new[] { "main-before", "included", "main-after" }, snapshot.Config.ServerValues);
+            Assert.Equal(new[]
+            {
+                Path.GetFullPath(mainPath),
+                Path.GetFullPath(includePath),
+                Path.GetFullPath(mainPath)
+            }, snapshot.Sources.ServerValues.Select(value => value.Source?.FilePath));
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task GetSnapshot_ExternalIncludedFileChanges_RefreshesBeforeStaleTimeout()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-cache-include-change-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var mainPath = Path.Combine(dir, "dnsmasq.conf");
+        var includePath = Path.Combine(dir, "extra.conf");
+        try
+        {
+            File.WriteAllText(mainPath, "conf-file=extra.conf\n");
+            File.WriteAllText(includePath, "port=54\n");
+            using var cache = new ConfigSetCache(
+                Options.Create(new DnsmasqOptions { MainConfigPath = mainPath, ManagedFileName = "zz-managed.conf" }),
+                NullLogger<ConfigSetCache>.Instance);
+
+            var first = await cache.GetSnapshotAsync();
+            File.WriteAllText(includePath, "port=5353\n");
+            var second = await cache.GetSnapshotAsync();
+
+            Assert.Equal(54, first.Config.Port);
+            Assert.Equal(5353, second.Config.Port);
+            Assert.NotSame(first, second);
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task GetSnapshot_MissingConfFileCreated_RefreshesBeforeStaleTimeout()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-cache-missing-conf-file-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var mainPath = Path.Combine(dir, "dnsmasq.conf");
+        var missingIncludePath = Path.Combine(dir, "later.conf");
+        try
+        {
+            File.WriteAllText(mainPath, "conf-file=later.conf\n");
+            using var cache = new ConfigSetCache(
+                Options.Create(new DnsmasqOptions { MainConfigPath = mainPath, ManagedFileName = "zz-managed.conf" }),
+                NullLogger<ConfigSetCache>.Instance);
+
+            var first = await cache.GetSnapshotAsync();
+            File.WriteAllText(missingIncludePath, "server=created-later\n");
+            var second = await cache.GetSnapshotAsync();
+
+            Assert.Empty(first.Config.ServerValues);
+            Assert.Equal(new[] { "created-later" }, second.Config.ServerValues);
+            Assert.NotSame(first, second);
+            Assert.Contains(second.Set.Files, file => string.Equals(file.Path, Path.GetFullPath(missingIncludePath), StringComparison.Ordinal));
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task GetSnapshot_EmptyConfDirNewMatchingFile_RefreshesWithoutUnrelatedFileChurn()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-cache-empty-conf-dir-" + Guid.NewGuid().ToString("N"));
+        var confDir = Path.Combine(dir, "dnsmasq.d");
+        Directory.CreateDirectory(confDir);
+        var mainPath = Path.Combine(dir, "dnsmasq.conf");
+        try
+        {
+            File.WriteAllText(mainPath, "conf-dir=dnsmasq.d,*.conf\n");
+            using var cache = new ConfigSetCache(
+                Options.Create(new DnsmasqOptions { MainConfigPath = mainPath, ManagedFileName = "zz-managed.conf" }),
+                NullLogger<ConfigSetCache>.Instance);
+
+            var first = await cache.GetSnapshotAsync();
+            File.WriteAllText(Path.Combine(confDir, "notes.txt"), "not dnsmasq configuration\n");
+            var afterUnrelatedFile = await cache.GetSnapshotAsync();
+            File.WriteAllText(Path.Combine(confDir, "10-server.conf"), "server=from-conf-dir\n");
+            var afterMatchingFile = await cache.GetSnapshotAsync();
+
+            Assert.Empty(first.Config.ServerValues);
+            Assert.Same(first, afterUnrelatedFile);
+            Assert.Equal(new[] { "from-conf-dir" }, afterMatchingFile.Config.ServerValues);
+            Assert.NotSame(first, afterMatchingFile);
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task GetSnapshot_MissingConfDirCreatedThenPopulated_RefreshesBeforeStaleTimeout()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "dnsmasq-cache-missing-conf-dir-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var mainPath = Path.Combine(dir, "dnsmasq.conf");
+        var confDir = Path.Combine(dir, "dnsmasq.d");
+        try
+        {
+            File.WriteAllText(mainPath, "conf-dir=dnsmasq.d,*.conf\n");
+            using var cache = new ConfigSetCache(
+                Options.Create(new DnsmasqOptions { MainConfigPath = mainPath, ManagedFileName = "zz-managed.conf" }),
+                NullLogger<ConfigSetCache>.Instance);
+
+            var first = await cache.GetSnapshotAsync();
+            Directory.CreateDirectory(confDir);
+            var afterDirectoryCreation = await cache.GetSnapshotAsync();
+            File.WriteAllText(Path.Combine(confDir, "10-server.conf"), "server=from-new-directory\n");
+            var afterMatchingFile = await cache.GetSnapshotAsync();
+
+            Assert.Empty(afterDirectoryCreation.Config.ServerValues);
+            Assert.NotSame(first, afterDirectoryCreation);
+            Assert.Equal(new[] { "from-new-directory" }, afterMatchingFile.Config.ServerValues);
+            Assert.NotSame(afterDirectoryCreation, afterMatchingFile);
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task GetSnapshot_MissingMainConfigCreated_RefreshesBeforeStaleTimeout()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "dnsmasq-cache-missing-main-" + Guid.NewGuid().ToString("N"));
+        var configDirectory = Path.Combine(root, "not-created-yet");
+        var mainPath = Path.Combine(configDirectory, "dnsmasq.conf");
+        try
+        {
+            using var cache = new ConfigSetCache(
+                Options.Create(new DnsmasqOptions { MainConfigPath = mainPath, ManagedFileName = "zz-managed.conf" }),
+                NullLogger<ConfigSetCache>.Instance);
+
+            var first = await cache.GetSnapshotAsync();
+            Directory.CreateDirectory(configDirectory);
+            File.WriteAllText(mainPath, "server=from-recreated-main\n");
+            var second = await cache.GetSnapshotAsync();
+
+            Assert.Empty(first.Config.ServerValues);
+            Assert.Equal(new[] { "from-recreated-main" }, second.Config.ServerValues);
+            Assert.NotSame(first, second);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
     }
 }

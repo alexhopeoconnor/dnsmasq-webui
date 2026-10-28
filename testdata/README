@@ -17,9 +17,13 @@ Source for the Docker test harness: `scripts/prepare-test-mount.sh` syncs this d
 | **dnsmasq.d/dhcp.conf** | `dhcp-host=`; managed by app in real use, used as-is in harness. |
 | **hosts** | First addn-hosts file; system hosts when `Dnsmasq:SystemHostsPath` points here. |
 | **hosts.extra** | Second addn-hosts file. |
+| **harness/managed-overlay.conf** | Seeded into a disposable smoke-test mount as the managed config before startup; provides a known `address=` record. |
+| **harness/managed-overlay.hosts** | Seeded with the smoke managed config; provides a known managed hosts record. |
 | **resolv.dnsmasq** | Minimal file for resolv-file= in 03-more.conf; must exist so dnsmasq does not fail/warn. |
 | **leases** | Sample DHCP leases for unit tests only; not synced to the harness. The harness uses the path from config (`dhcp-leasefile=` in dnsmasq-test.conf); the app discovers and monitors that file; dnsmasq creates it when DHCP clients obtain addresses. |
 
 Harness usage (start/stop/tidy): see **agents.md** in the repo root.
 
 **Manual check for conf-dir fix:** After starting the harness, open the app and confirm "Config files (load order)" shows: main (`/data/dnsmasq-test.conf`), then conf-dir files (`01-other.conf`, `02-servers.conf`, `03-more.conf`, `dhcp.conf`), then managed (`zz-dnsmasq-webui.conf`). Unit test `GetIncludedPathsWithSource_ConfDirAndConfFile_ReturnsAllFilesInLoadOrderWithSources` asserts the same layout (main + conf-dir + conf-file) with sources.
+
+For an automated, isolated equivalent that also proves dnsmasq is serving the managed overlay after startup, run `./scripts/smoke-test-harness.sh` from the repository root.

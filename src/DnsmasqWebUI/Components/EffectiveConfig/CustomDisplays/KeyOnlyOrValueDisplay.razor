@@ -3,7 +3,7 @@
 @inherits EffectiveConfigValueDisplayBase
 
 @* Options that can be: not set, key-only (e.g. use-stale-cache), or key=value (e.g. use-stale-cache=60). Checkbox to enable; when enabled, optional value input. *@
-@if (IsActiveEditor && Descriptor.GetSource()?.IsReadOnly != true)
+@if (IsActiveEditor && CanEditFromUi)
 {
     var isEnabled = _editorValue != null;
     var valuePart = _editorValue is { Length: > 0 } ? _editorValue : "";

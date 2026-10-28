@@ -1,9 +1,7 @@
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Config.Abstractions;
-using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Reload.Abstractions;
-using DnsmasqWebUI.Models.Config;
-using DnsmasqWebUI.Models.Contracts;
 using DnsmasqWebUI.Models.Dnsmasq;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 
@@ -14,15 +12,11 @@ namespace DnsmasqWebUI.Controllers;
 public class ConfigController : ControllerBase
 {
     private readonly IDnsmasqConfigSetService _configSetService;
-    private readonly IDnsmasqConfigService _configService;
-    private readonly IReloadService _reloadService;
     private readonly ILogger<ConfigController> _logger;
 
-    public ConfigController(IDnsmasqConfigSetService configSetService, IDnsmasqConfigService configService, IReloadService reloadService, ILogger<ConfigController> logger)
+    public ConfigController(IDnsmasqConfigSetService configSetService, ILogger<ConfigController> logger)
     {
         _configSetService = configSetService;
-        _configService = configService;
-        _reloadService = reloadService;
         _logger = logger;
     }
 
@@ -43,40 +37,31 @@ public class ConfigController : ControllerBase
         }
     }
 
-    /// <summary>Returns the full content of the managed config file (parsed lines and effective addn-hosts path in file for display).</summary>
+    /// <summary>
+    /// Retired raw managed-config endpoint. Managed configuration is intentionally available only
+    /// through the effective-config save transaction, which provides validation, backup, reload,
+    /// rollback, and draft-conflict checks.
+    /// </summary>
     [HttpGet("managed")]
-    public async Task<ActionResult<ManagedConfigContent>> GetManaged(CancellationToken ct)
-    {
-        try
-        {
-            _logger.LogDebug("Get managed config");
-            var content = await _configService.ReadManagedConfigAsync(ct);
-            return Ok(content);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Get managed config failed");
-            return StatusCode(500, new { error = ex.Message });
-        }
-    }
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status410Gone)]
+    public ActionResult GetManaged() => RetiredManagedConfigEndpoint();
 
-    /// <summary>Writes the full managed config file, then optionally triggers reload. When SystemHostsPath is configured, the managed file is updated so it contains exactly one addn-hosts line pointing to that path (so dnsmasq loads the editable hosts file); other config files may have additional addn-hosts lines.</summary>
+    /// <summary>
+    /// Retired raw managed-config endpoint. Managed configuration is intentionally available only
+    /// through the effective-config save transaction, which provides validation, backup, reload,
+    /// rollback, and draft-conflict checks.
+    /// </summary>
     [HttpPut("managed")]
-    public async Task<ActionResult<object>> PutManaged([FromBody] List<DnsmasqConfLine>? lines, CancellationToken ct)
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status410Gone)]
+    public ActionResult PutManaged() => RetiredManagedConfigEndpoint();
+
+    private ActionResult RetiredManagedConfigEndpoint()
     {
-        if (lines == null)
-            return BadRequest(new { error = "Body required" });
-        try
-        {
-            await _configService.WriteManagedConfigAsync(lines, ct);
-            var reload = await _reloadService.ReloadAsync(ct);
-            _logger.LogInformation("Config managed updated, reload success={Success}", reload.Success);
-            return Ok(new { saved = true, reload = new { reload.Success, reload.ExitCode, reload.StdErr } });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Put managed config failed");
-            return StatusCode(500, new { error = ex.Message });
-        }
+        const string detail = "Raw managed-config reads and writes are retired. Use the Effective Config and Hosts workflows, which save through the validated backup-and-rollback transaction.";
+        _logger.LogWarning("Rejected request to retired raw managed-config endpoint");
+        return Problem(
+            statusCode: StatusCodes.Status410Gone,
+            title: "Raw managed-config endpoint retired",
+            detail: detail);
     }
 }

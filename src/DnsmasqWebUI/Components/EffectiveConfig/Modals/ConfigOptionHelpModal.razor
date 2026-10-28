@@ -131,7 +131,10 @@
         try
         {
             var http = HttpFactory.CreateClient(ServiceCollectionExtensions.DnsmasqApiClientName);
-            var response = await http.GetAsync($"option-help/{HelpKey}.html");
+            // Static help assets are normalised to lower case. Dnsmasq itself has a small
+            // number of mixed-case option names (for example filter-A) and Linux static
+            // file serving is case-sensitive.
+            var response = await http.GetAsync($"option-help/{HelpKey.ToLowerInvariant()}.html");
             if (response.IsSuccessStatusCode)
                 _helpHtml = await response.Content.ReadAsStringAsync();
             else

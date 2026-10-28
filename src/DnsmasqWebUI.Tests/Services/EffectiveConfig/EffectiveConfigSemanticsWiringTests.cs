@@ -42,6 +42,13 @@ public class EffectiveConfigSemanticsWiringTests
         Assert.Null(descriptor.Validator.ValidateItem("10.0.0.0/24", Array.Empty<string>()));
     }
 
+    [Fact]
+    public void WriteSemantics_AllowEmptyMultiValue_OnlyPermitsBareKeyMultiDirectives()
+    {
+        Assert.True(EffectiveConfigWriteSemantics.AllowsEmptyMultiValue(DnsmasqConfKeys.Leasequery));
+        Assert.False(EffectiveConfigWriteSemantics.AllowsEmptyMultiValue(DnsmasqConfKeys.Server));
+    }
+
     /// <summary>Pre-save semantic blocking: invalid leasequery value produces errors; SaveService uses this and returns SemanticValidationFailed before write.</summary>
     [Fact]
     public void SemanticValidationService_InvalidLeasequery_ReturnsError()

@@ -1,8 +1,8 @@
 namespace DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 
 /// <summary>
-/// Effective dnsmasq config after reading all config files (main + conf-file + conf-dir)
-/// in the order returned by <see cref="DnsmasqConfIncludeParser.GetIncludedPathsWithSource"/>.
+/// Effective dnsmasq config after reading all config directives (main + conf-file + conf-dir)
+/// in the in-place order returned by <see cref="DnsmasqConfIncludeParser.GetConfigLineOccurrencesInDnsmasqOrder"/>.
 /// Represents the final values dnsmasq uses: single-value (last wins), flags (set if any),
 /// and multi-value (all occurrences in order). Source per value is in <see cref="EffectiveConfigSources"/>
 /// from <see cref="IDnsmasqConfigSetService.GetEffectiveConfigWithSources"/> (file path, IsManaged).

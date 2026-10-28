@@ -3,7 +3,7 @@
 @inherits EffectiveConfigValueDisplayBase
 
 @* local-service: net | host. Pending value shown until save. *@
-@if (IsActiveEditor && Descriptor.GetSource()?.IsReadOnly != true)
+@if (IsActiveEditor && CanEditFromUi)
 {
     <select class="form-select form-select-sm" style="max-width: 10rem;" value="@(GetEffectiveDisplayValue() as string ?? "")" @onchange="OnChange" @onfocusout="OnCommitRequested">
         <option value="">(not set)</option>

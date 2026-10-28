@@ -18,6 +18,7 @@
 @implements IAsyncDisposable
 @inject IStatusClient StatusClient
 @inject IEffectiveConfigPageEditor PageEditor
+@inject IEffectiveConfigEditSession Session
 @inject IFiltersPageProjectionService FiltersProjection
 @inject IOptions<ApplicationOptions> AppOptions
 @inject IJSRuntime JSRuntime
@@ -877,7 +878,19 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        Session.Changed += OnSessionChanged;
         await LoadAsync();
+    }
+
+    private void OnSessionChanged()
+    {
+        if (_status != null)
+        {
+            RebuildGroups();
+            RebuildSourceBuilder();
+        }
+
+        _ = InvokeAsync(StateHasChanged);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -897,6 +910,7 @@ else
 
     public async ValueTask DisposeAsync()
     {
+        Session.Changed -= OnSessionChanged;
         await CleanupFiltersTableScrollCueAsync();
     }
 

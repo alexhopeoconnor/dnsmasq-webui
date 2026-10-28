@@ -17,7 +17,9 @@ services:
       args:
         DNSMASQ_VERSION: ${DNSMASQ_VERSION:-latest}
     ports:
-      - "8080:8080"
+      # The app remains reachable to other containers; only the developer's
+      # browser needs a host port, so do not publish the test harness to the LAN.
+      - "127.0.0.1:8080:8080"
     healthcheck:
       test: ["CMD", "curl", "-f", "-s", "http://localhost:8080/healthz/ready"]
       interval: 30s

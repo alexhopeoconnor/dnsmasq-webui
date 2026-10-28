@@ -3,7 +3,7 @@
 @inherits EffectiveConfigValueDisplayBase
 
 @* log-queries: optional value extra|proto|auth. View: Off / On / On (extra|proto|auth). When active editor: dropdown. *@
-@if (IsActiveEditor && Descriptor.GetSource()?.IsReadOnly != true)
+@if (IsActiveEditor && CanEditFromUi)
 {
     <select class="form-select form-select-sm" style="max-width: 12rem;" value="@GetEditValue()" @onchange="OnChange" @onfocusout="OnCommitRequested">
         <option value="">Off</option>
@@ -22,7 +22,8 @@ else
     private string GetEditValue()
     {
         var v = GetEffectiveDisplayValue() as string;
-        if (string.IsNullOrEmpty(v)) return "";
+        if (v is null) return "";
+        if (string.IsNullOrWhiteSpace(v)) return "on";
         var lower = v.Trim().ToLowerInvariant();
         if (lower is "extra" or "proto" or "auth") return lower;
         return "on";
@@ -31,7 +32,8 @@ else
     private string GetViewText()
     {
         var v = GetEffectiveDisplayValue() as string;
-        if (string.IsNullOrEmpty(v)) return "Off";
+        if (v is null) return "Off";
+        if (string.IsNullOrWhiteSpace(v)) return "On";
         var lower = v.Trim().ToLowerInvariant();
         return lower switch
         {

@@ -26,7 +26,7 @@ public class ReloadController : ControllerBase
         try
         {
             var result = await _reloadService.ReloadAsync(ct);
-            _logger.LogInformation("Reload requested, success={Success}", result.Success);
+            _logger.LogInformation("Hosts-data reload requested, success={Success}", result.Success);
             if (result.Success)
                 _configSetCache.Invalidate();
             return Ok(result);

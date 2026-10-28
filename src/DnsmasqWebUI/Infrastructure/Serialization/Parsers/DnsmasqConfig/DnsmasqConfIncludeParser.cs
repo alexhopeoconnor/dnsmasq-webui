@@ -19,14 +19,35 @@ public static class DnsmasqConfIncludeParser
 {
     private static readonly StringComparison KeyComparison = StringComparison.Ordinal;
 
+    /// <summary>
+    /// A resolved <c>conf-dir=</c> directive. The cache uses these definitions to detect
+    /// matching-file membership changes even when the directory was empty or absent when the
+    /// previous snapshot was read.
+    /// </summary>
+    internal sealed record ConfDirReference(
+        string DirectoryPath,
+        IReadOnlyList<string> MatchSuffixes,
+        IReadOnlyList<string> IgnoreSuffixes);
+
+    /// <summary>
+    /// Include targets declared by the currently readable configuration graph. Unlike the loaded
+    /// file list, <see cref="ConfFilePaths"/> includes absent <c>conf-file=</c> targets so callers
+    /// can watch or stamp them before they are created.
+    /// </summary>
+    internal sealed record IncludeTopology(
+        IReadOnlyList<string> ConfFilePaths,
+        IReadOnlyList<ConfDirReference> ConfDirectories);
+
     /// <summary>Gets lines for a path from pre-read content; used by config set cache to avoid double read.</summary>
     private static string[] GetLines(string path, IReadOnlyDictionary<string, string[]> pathToLines) =>
         pathToLines.TryGetValue(path, out var L) ? L : Array.Empty<string>();
 
 
     /// <summary>
-    /// Returns the ordered list of absolute config file paths dnsmasq loads, in the exact order
-    /// dnsmasq reads them (main interleaved with conf-file and conf-dir).
+    /// Returns the unique config files dnsmasq loads in discovery order. This is suitable for
+    /// display and watching files, but not for calculating effective values: a source file can
+    /// resume after an include, so use <see cref="GetConfigLineOccurrencesInDnsmasqOrder"/>
+    /// for evaluation.
     /// </summary>
     public static IReadOnlyList<string> GetIncludedPaths(string mainConfigPath)
     {
@@ -36,8 +57,8 @@ public static class DnsmasqConfIncludeParser
     }
 
     /// <summary>
-    /// Returns the ordered list of (path, source) for config set display, in the exact order
-    /// dnsmasq reads files (main, then conf-file/conf-dir as encountered line-by-line).
+    /// Returns unique (path, source) entries for config set display in discovery order. Use
+    /// <see cref="GetConfigLineOccurrencesInDnsmasqOrder"/> when the exact directive order matters.
     /// </summary>
     public static IReadOnlyList<(string Path, DnsmasqConfFileSource Source)> GetIncludedPathsWithSource(string mainConfigPath)
     {
@@ -58,6 +79,80 @@ public static class DnsmasqConfIncludeParser
     }
 
     /// <summary>
+    /// Discovers include declarations from every currently readable config source. This is kept
+    /// separate from <see cref="GetIncludedPathsWithSource"/> because a missing conf-file target
+    /// is not a loaded config source, but it still needs to be observed by the config cache.
+    /// </summary>
+    internal static IncludeTopology GetIncludeTopology(string mainConfigPath)
+    {
+        var confFilePaths = new List<string>();
+        var seenConfFilePaths = new HashSet<string>(StringComparer.Ordinal);
+        var confDirectories = new List<ConfDirReference>();
+
+        foreach (var (filePath, _) in GetIncludedPathsWithSource(mainConfigPath))
+        {
+            if (!File.Exists(filePath))
+                continue;
+
+            string[] lines;
+            try
+            {
+                lines = DnsmasqFileEncoding.ReadConfigLines(filePath);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+            {
+                // The normal config reader treats an inaccessible source as empty. Do the same
+                // here so topology discovery cannot make a status request fail.
+                continue;
+            }
+
+            var sourceDirectory = Path.GetDirectoryName(filePath) ?? "";
+            foreach (var line in lines)
+            {
+                var directive = DnsmasqConfDirectiveParser.TryParseKeyValue(line);
+                if (directive == null)
+                    continue;
+
+                var (key, value) = directive.Value;
+                if (string.Equals(key, DnsmasqConfKeys.ConfFile, KeyComparison))
+                {
+                    var target = ResolvePath(value.Trim(), sourceDirectory);
+                    if (!string.IsNullOrEmpty(target))
+                    {
+                        var canonicalTarget = Path.GetFullPath(target);
+                        if (seenConfFilePaths.Add(canonicalTarget))
+                            confFilePaths.Add(canonicalTarget);
+                    }
+                    continue;
+                }
+
+                if (!string.Equals(key, DnsmasqConfKeys.ConfDir, KeyComparison))
+                    continue;
+
+                var (directory, matchSuffixes, ignoreSuffixes) = ParseConfDirValue(value);
+                var resolvedDirectory = ResolvePath(directory, sourceDirectory);
+                if (string.IsNullOrEmpty(resolvedDirectory))
+                    continue;
+
+                confDirectories.Add(new ConfDirReference(
+                    Path.GetFullPath(resolvedDirectory),
+                    matchSuffixes?.ToArray() ?? Array.Empty<string>(),
+                    ignoreSuffixes?.ToArray() ?? Array.Empty<string>()));
+            }
+        }
+
+        return new IncludeTopology(confFilePaths, confDirectories);
+    }
+
+    /// <summary>
+    /// Returns the files currently matched by a <c>conf-dir=</c> declaration. Missing,
+    /// inaccessible, and transiently changing directories are treated as empty so a status read
+    /// remains available while dnsmasq's configuration tree is being updated.
+    /// </summary>
+    internal static IReadOnlyList<string> GetConfDirFiles(ConfDirReference reference) =>
+        GetConfDirFilesSorted(reference.DirectoryPath, reference.MatchSuffixes, reference.IgnoreSuffixes);
+
+    /// <summary>
     /// Yields (filePath, lineNumber, line, source) in the exact order dnsmasq reads config.
     /// When conf-file=X or conf-dir=Y is encountered, that file(s) are yielded before continuing the current file.
     /// </summary>
@@ -65,16 +160,23 @@ public static class DnsmasqConfIncludeParser
         string currentFilePath,
         string currentFileDir,
         DnsmasqConfFileSource source,
-        HashSet<string>? seenPaths = null)
+        HashSet<string>? seenPaths = null,
+        IReadOnlyDictionary<string, string[]>? preReadLines = null)
     {
         seenPaths ??= new HashSet<string>(StringComparer.Ordinal);
-        if (!File.Exists(currentFilePath))
-            yield break;
         var canonicalPath = Path.GetFullPath(currentFilePath);
+        if (preReadLines == null && !File.Exists(canonicalPath))
+            yield break;
         if (!seenPaths.Add(canonicalPath))
             yield break; // dnsmasq skips re-reading same file (by inode; we use path)
 
-        var lines = DnsmasqFileEncoding.ReadConfigLines(currentFilePath);
+        var lines = preReadLines != null && preReadLines.TryGetValue(canonicalPath, out var cachedLines)
+            ? cachedLines
+            : File.Exists(canonicalPath)
+                ? DnsmasqFileEncoding.ReadConfigLines(canonicalPath)
+                : Array.Empty<string>();
+        if (lines.Length == 0 && preReadLines == null && !File.Exists(canonicalPath))
+            yield break;
         var dir = Path.GetDirectoryName(canonicalPath) ?? "";
 
         // Yield "file started" so callers (e.g. GetIncludedPathsWithSource) can add this file even if it only has conf-file/conf-dir lines.
@@ -93,7 +195,7 @@ public static class DnsmasqConfIncludeParser
                 var path = value.Trim();
                 if (string.IsNullOrEmpty(path)) continue;
                 var resolved = ResolvePath(path, dir) ?? path;
-                foreach (var t in EnumerateConfigLinesInDnsmasqOrder(resolved, Path.GetDirectoryName(resolved) ?? "", DnsmasqConfFileSource.ConfFile, seenPaths))
+                foreach (var t in EnumerateConfigLinesInDnsmasqOrder(resolved, Path.GetDirectoryName(resolved) ?? "", DnsmasqConfFileSource.ConfFile, seenPaths, preReadLines))
                     yield return t;
                 continue;
             }
@@ -108,7 +210,7 @@ public static class DnsmasqConfIncludeParser
                 var files = GetConfDirFilesSorted(resolvedDir, matchSuffix, ignoreSuffix);
                 foreach (var f in files)
                 {
-                    foreach (var t in EnumerateConfigLinesInDnsmasqOrder(f, Path.GetDirectoryName(f) ?? "", DnsmasqConfFileSource.ConfDir, seenPaths))
+                    foreach (var t in EnumerateConfigLinesInDnsmasqOrder(f, Path.GetDirectoryName(f) ?? "", DnsmasqConfFileSource.ConfDir, seenPaths, preReadLines))
                         yield return t;
                 }
                 continue;
@@ -116,6 +218,27 @@ public static class DnsmasqConfIncludeParser
 
             yield return (canonicalPath, i + 1, line, source);
         }
+    }
+
+    /// <summary>
+    /// Returns directive occurrences in the exact order dnsmasq evaluates them. Unlike the
+    /// unique file list, this preserves the part of a parent file that appears after an include.
+    /// When <paramref name="preReadLines"/> is supplied, it is used consistently for all
+    /// resolved files so a cache refresh evaluates one coherent file snapshot.
+    /// </summary>
+    public static IReadOnlyList<DnsmasqConfigLineOccurrence> GetConfigLineOccurrencesInDnsmasqOrder(
+        string mainConfigPath,
+        IReadOnlyDictionary<string, string[]>? preReadLines = null)
+    {
+        var mainFull = Path.GetFullPath(mainConfigPath);
+        return EnumerateConfigLinesInDnsmasqOrder(
+                mainFull,
+                Path.GetDirectoryName(mainFull) ?? "",
+                DnsmasqConfFileSource.Main,
+                preReadLines: preReadLines)
+            .Where(entry => entry.LineNumber > 0)
+            .Select(entry => new DnsmasqConfigLineOccurrence(entry.FilePath, entry.LineNumber, entry.Line, entry.Source))
+            .ToList();
     }
 
     // conf-dir value: comma-delimited fields (dir, optional *suffix, optional ignore suffixes). Superpower grammar.
@@ -158,26 +281,49 @@ public static class DnsmasqConfIncludeParser
         return true;
     }
 
-    private static IReadOnlyList<string> GetConfDirFilesSorted(string directory, List<string>? matchSuffix, List<string>? ignoreSuffix)
+    private static IReadOnlyList<string> GetConfDirFilesSorted(
+        string directory,
+        IReadOnlyList<string>? matchSuffix,
+        IReadOnlyList<string>? ignoreSuffix)
     {
         var files = new List<string>();
-        foreach (var name in Directory.GetFiles(directory).Select(Path.GetFileName).Where(n => n != null).Cast<string>())
+        try
         {
-            if (!ConfDirFileFilter(name)) continue;
-            var fullPath = Path.GetFullPath(Path.Combine(directory, name));
-            if ((File.GetAttributes(fullPath) & FileAttributes.Directory) != 0) continue;
+            if (!Directory.Exists(directory))
+                return files;
 
-            if (matchSuffix != null && matchSuffix.Count > 0)
+            foreach (var name in Directory.GetFiles(directory).Select(Path.GetFileName).Where(n => n != null).Cast<string>())
             {
-                var hasMatch = matchSuffix.Any(s => s.Length > 0 && name.EndsWith(s, StringComparison.Ordinal));
-                if (!hasMatch) continue;
+                if (!ConfDirFileFilter(name)) continue;
+                var fullPath = Path.GetFullPath(Path.Combine(directory, name));
+                try
+                {
+                    if ((File.GetAttributes(fullPath) & FileAttributes.Directory) != 0) continue;
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+                {
+                    // A file can disappear or become unreadable between enumeration and inspection.
+                    continue;
+                }
+
+                if (matchSuffix != null && matchSuffix.Count > 0)
+                {
+                    var hasMatch = matchSuffix.Any(s => s.Length > 0 && name.EndsWith(s, StringComparison.Ordinal));
+                    if (!hasMatch) continue;
+                }
+                if (ignoreSuffix != null && ignoreSuffix.Count > 0)
+                {
+                    var ignored = ignoreSuffix.Any(s => name.EndsWith(s, StringComparison.Ordinal));
+                    if (ignored) continue;
+                }
+                files.Add(fullPath);
             }
-            if (ignoreSuffix != null && ignoreSuffix.Count > 0)
-            {
-                var ignored = ignoreSuffix.Any(s => name.EndsWith(s, StringComparison.Ordinal));
-                if (ignored) continue;
-            }
-            files.Add(fullPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            // dnsmasq's optional conf-dir can legitimately be absent during deployment. A
+            // transient directory error should not make configuration discovery unavailable.
+            return Array.Empty<string>();
         }
         files.Sort(StringComparer.Ordinal);
         return files;
@@ -898,6 +1044,237 @@ public static class DnsmasqConfIncludeParser
                 result.Add((value.Trim(), MakeSource(configPath, managedFilePath, i + 1)));
             }
         }
+        return result;
+    }
+
+    // The occurrence overloads below are used by the config-set cache. Keeping them separate
+    // from the file-list overloads preserves the latter as useful public helpers while ensuring
+    // cache evaluation respects conf-file/conf-dir insertion points.
+
+    /// <summary>Returns true when a key-only flag occurs in the dnsmasq evaluation stream.</summary>
+    public static bool GetFlagFromConfigOccurrences(
+        IReadOnlyList<DnsmasqConfigLineOccurrence> occurrences,
+        string optionKey)
+    {
+        var key = optionKey.Trim();
+        if (string.IsNullOrEmpty(key))
+            return false;
+
+        return occurrences.Any(occurrence =>
+        {
+            var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(occurrence.Line);
+            return kv != null &&
+                   string.Equals(kv.Value.key, key, KeyComparison) &&
+                   string.IsNullOrEmpty(kv.Value.value?.Trim());
+        });
+    }
+
+    /// <summary>Returns the last value and source directory for a last-wins directive occurrence.</summary>
+    public static (string? Value, string? ConfigFileDir) GetLastValueFromConfigOccurrences(
+        IReadOnlyList<DnsmasqConfigLineOccurrence> occurrences,
+        string optionKey)
+    {
+        var key = optionKey.Trim();
+        if (string.IsNullOrEmpty(key))
+            return (null, null);
+
+        string? lastValue = null;
+        string? lastDir = null;
+        foreach (var occurrence in occurrences)
+        {
+            var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(occurrence.Line);
+            if (kv == null || !string.Equals(kv.Value.key, key, KeyComparison))
+                continue;
+
+            lastValue = kv.Value.value.Trim();
+            lastDir = Path.GetDirectoryName(occurrence.FilePath) ?? "";
+        }
+
+        return (lastValue, lastDir);
+    }
+
+    /// <summary>Returns all values for a repeatable directive in exact dnsmasq evaluation order.</summary>
+    public static IReadOnlyList<string> GetMultiValueFromConfigOccurrences(
+        IReadOnlyList<DnsmasqConfigLineOccurrence> occurrences,
+        string optionKey)
+    {
+        var key = optionKey.Trim();
+        if (string.IsNullOrEmpty(key))
+            return Array.Empty<string>();
+
+        var result = new List<string>();
+        foreach (var occurrence in occurrences)
+        {
+            var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(occurrence.Line);
+            if (kv != null && string.Equals(kv.Value.key, key, KeyComparison))
+                result.Add(kv.Value.value.Trim());
+        }
+
+        return result;
+    }
+
+    /// <summary>Returns the last configured DHCP lease path in exact dnsmasq evaluation order.</summary>
+    public static string? GetDhcpLeaseFilePathFromConfigOccurrences(
+        IReadOnlyList<DnsmasqConfigLineOccurrence> occurrences)
+    {
+        string? result = null;
+        foreach (var occurrence in occurrences)
+        {
+            var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(occurrence.Line);
+            if (kv == null ||
+                (!string.Equals(kv.Value.key, DnsmasqConfKeys.DhcpLeasefile, KeyComparison) &&
+                 !string.Equals(kv.Value.key, DnsmasqConfKeys.DhcpLease, KeyComparison)))
+                continue;
+
+            var value = kv.Value.value.Trim();
+            if (!string.IsNullOrEmpty(value))
+                result = ResolvePath(value, Path.GetDirectoryName(occurrence.FilePath)) ?? result;
+        }
+
+        return result;
+    }
+
+    /// <summary>Returns all addn-hosts paths in exact dnsmasq evaluation order.</summary>
+    public static IReadOnlyList<string> GetAddnHostsPathsFromConfigOccurrences(
+        IReadOnlyList<DnsmasqConfigLineOccurrence> occurrences)
+    {
+        var result = new List<string>();
+        foreach (var occurrence in occurrences)
+        {
+            var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(occurrence.Line);
+            if (kv == null || !string.Equals(kv.Value.key, DnsmasqConfKeys.AddnHosts, KeyComparison))
+                continue;
+
+            var value = kv.Value.value.Trim();
+            var path = ResolvePath(value, Path.GetDirectoryName(occurrence.FilePath));
+            if (!string.IsNullOrEmpty(path))
+                result.Add(path);
+        }
+
+        return result;
+    }
+
+    /// <summary>Returns a last-wins value with the exact directive source.</summary>
+    public static (string? Value, ConfigValueSource? Source) GetLastValueFromConfigOccurrencesWithSource(
+        IReadOnlyList<DnsmasqConfigLineOccurrence> occurrences,
+        string optionKey,
+        string? managedFilePath)
+    {
+        var key = optionKey.Trim();
+        if (string.IsNullOrEmpty(key))
+            return (null, null);
+
+        string? lastValue = null;
+        ConfigValueSource? lastSource = null;
+        foreach (var occurrence in occurrences)
+        {
+            var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(occurrence.Line);
+            if (kv == null || !string.Equals(kv.Value.key, key, KeyComparison))
+                continue;
+
+            lastValue = kv.Value.value.Trim();
+            lastSource = MakeSource(occurrence.FilePath, managedFilePath, occurrence.LineNumber);
+        }
+
+        return (lastValue, lastSource);
+    }
+
+    /// <summary>Returns a key-only flag with the first directive source that enables it.</summary>
+    public static (bool IsSet, ConfigValueSource? Source) GetFlagFromConfigOccurrencesWithSource(
+        IReadOnlyList<DnsmasqConfigLineOccurrence> occurrences,
+        string optionKey,
+        string? managedFilePath)
+    {
+        var key = optionKey.Trim();
+        if (string.IsNullOrEmpty(key))
+            return (false, null);
+
+        foreach (var occurrence in occurrences)
+        {
+            var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(occurrence.Line);
+            if (kv == null ||
+                !string.Equals(kv.Value.key, key, KeyComparison) ||
+                !string.IsNullOrEmpty(kv.Value.value?.Trim()))
+                continue;
+
+            return (true, MakeSource(occurrence.FilePath, managedFilePath, occurrence.LineNumber));
+        }
+
+        return (false, null);
+    }
+
+    /// <summary>Returns the last configured DHCP lease path with its directive source.</summary>
+    public static (string? Path, ConfigValueSource? Source) GetDhcpLeaseFilePathFromConfigOccurrencesWithSource(
+        IReadOnlyList<DnsmasqConfigLineOccurrence> occurrences,
+        string? managedFilePath)
+    {
+        string? result = null;
+        ConfigValueSource? lastSource = null;
+        foreach (var occurrence in occurrences)
+        {
+            var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(occurrence.Line);
+            if (kv == null ||
+                (!string.Equals(kv.Value.key, DnsmasqConfKeys.DhcpLeasefile, KeyComparison) &&
+                 !string.Equals(kv.Value.key, DnsmasqConfKeys.DhcpLease, KeyComparison)))
+                continue;
+
+            var value = kv.Value.value.Trim();
+            var path = ResolvePath(value, Path.GetDirectoryName(occurrence.FilePath));
+            if (string.IsNullOrEmpty(path))
+                continue;
+
+            result = path;
+            lastSource = MakeSource(occurrence.FilePath, managedFilePath, occurrence.LineNumber);
+        }
+
+        return (result, lastSource);
+    }
+
+    /// <summary>Returns addn-hosts paths with their exact directive sources.</summary>
+    public static IReadOnlyList<(string Path, ConfigValueSource Source)> GetAddnHostsPathsFromConfigOccurrencesWithSource(
+        IReadOnlyList<DnsmasqConfigLineOccurrence> occurrences,
+        string? managedFilePath,
+        string? managedHostsFilePath = null)
+    {
+        var result = new List<(string Path, ConfigValueSource Source)>();
+        var managedHostsFull = string.IsNullOrEmpty(managedHostsFilePath) ? null : Path.GetFullPath(managedHostsFilePath);
+        foreach (var occurrence in occurrences)
+        {
+            var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(occurrence.Line);
+            if (kv == null || !string.Equals(kv.Value.key, DnsmasqConfKeys.AddnHosts, KeyComparison))
+                continue;
+
+            var resolvedPath = ResolvePath(kv.Value.value.Trim(), Path.GetDirectoryName(occurrence.FilePath));
+            if (string.IsNullOrEmpty(resolvedPath))
+                continue;
+
+            var source = managedHostsFull != null && string.Equals(resolvedPath, managedHostsFull, StringComparison.Ordinal)
+                ? new ConfigValueSource(resolvedPath, "managed hosts", IsManaged: false, occurrence.LineNumber, ReadOnlyTooltipOverride: "Managed hosts file reference (readonly). Edit entries on the Hosts page.")
+                : MakeSource(occurrence.FilePath, managedFilePath, occurrence.LineNumber);
+            result.Add((resolvedPath, source));
+        }
+
+        return result;
+    }
+
+    /// <summary>Returns repeatable directive values with exact directive sources.</summary>
+    public static IReadOnlyList<(string Value, ConfigValueSource Source)> GetMultiValueFromConfigOccurrencesWithSource(
+        IReadOnlyList<DnsmasqConfigLineOccurrence> occurrences,
+        string optionKey,
+        string? managedFilePath)
+    {
+        var key = optionKey.Trim();
+        if (string.IsNullOrEmpty(key))
+            return Array.Empty<(string Value, ConfigValueSource Source)>();
+
+        var result = new List<(string Value, ConfigValueSource Source)>();
+        foreach (var occurrence in occurrences)
+        {
+            var kv = DnsmasqConfDirectiveParser.TryParseKeyValue(occurrence.Line);
+            if (kv != null && string.Equals(kv.Value.key, key, KeyComparison))
+                result.Add((kv.Value.value.Trim(), MakeSource(occurrence.FilePath, managedFilePath, occurrence.LineNumber)));
+        }
+
         return result;
     }
 }

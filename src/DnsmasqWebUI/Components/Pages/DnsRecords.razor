@@ -3,11 +3,13 @@
 @namespace DnsmasqWebUI.Components.Pages
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 @using DnsmasqWebUI.Components.EffectiveConfig
+@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
 @using DnsmasqWebUI.Extensions.Interop
 @using Microsoft.JSInterop
 @implements IAsyncDisposable
 @inject IStatusClient StatusClient
 @inject IEffectiveConfigPageEditor PageEditor
+@inject IEffectiveConfigEditSession Session
 @inject IDnsRecordsPageProjectionService DnsRecordsProjection
 @inject IDnsRecordDirectiveCodecProvider DnsRecordCodecs
 @inject IOptions<ApplicationOptions> AppOptions
@@ -296,7 +298,22 @@ else
 
     private bool ShowAdvancedSection => _query.UiFamily is DnsRecordsUiFamily.All or DnsRecordsUiFamily.Advanced;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        Session.Changed += OnSessionChanged;
+        await LoadAsync();
+    }
+
+    private void OnSessionChanged()
+    {
+        if (_status != null)
+        {
+            RebuildRows();
+            SyncMxDraftsFromStatus();
+        }
+
+        _ = InvokeAsync(StateHasChanged);
+    }
 
     private void OnSearchInput(ChangeEventArgs e)
     {
@@ -532,7 +549,11 @@ else
             await _dnsRecordsTableScrollCueModule.InvokeVoidAsyncSafe("updateTableScrollCue");
     }
 
-    public async ValueTask DisposeAsync() => await CleanupDnsRecordsTableScrollCueAsync();
+    public async ValueTask DisposeAsync()
+    {
+        Session.Changed -= OnSessionChanged;
+        await CleanupDnsRecordsTableScrollCueAsync();
+    }
 
     private async Task CleanupDnsRecordsTableScrollCueAsync()
     {

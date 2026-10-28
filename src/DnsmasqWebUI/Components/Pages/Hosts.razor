@@ -7,6 +7,7 @@
 @using DnsmasqWebUI.Models.Hosts
 @using DnsmasqWebUI.Models.Ui
 @using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
+@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata
 @using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Hosts.Abstractions
 @using DnsmasqWebUI.Infrastructure.Serialization.Parsers.DnsmasqConfig
 @using DnsmasqWebUI.Components.EffectiveConfig
@@ -36,8 +37,10 @@
 }
 else
 {
-    var pageState = HostsPageState.FromStatus(_status);
-    var effectiveDomainValues = GetEffectiveDomainValuesForPreview();
+    var draftProjection = GetDraftProjection();
+    var pageState = draftProjection.PageState;
+    var effectiveDomainValues = draftProjection.DomainValues;
+    var hostSources = draftProjection.ProjectSources(_hostSources);
     var showEffectiveNames = pageState.ExpandHostsEnabled && effectiveDomainValues.Count > 0;
     var hostsTableColSpan = showEffectiveNames ? 4 : 3;
 
@@ -106,7 +109,47 @@ else
                         </GroupedSelectDropdown>
                     </div>
                 </div>
+                <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="RefreshHostsAsync" disabled="@_refreshing" title="Refresh host sources and effective configuration from disk">
+                    @if (_refreshing)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>
+                    }
+                    @(_refreshing ? "Refreshing…" : "Refresh")
+                </button>
             </div>
+
+            @if (hostSources.Count > 0)
+            {
+                <details class="hosts-source-health mb-3">
+                    <summary>Host source health (@hostSources.Count source@(hostSources.Count == 1 ? "" : "s"))</summary>
+                    <div class="hosts-source-health__list mt-2">
+                        @foreach (var source in hostSources.OrderBy(s => s.LoadOrder))
+                        {
+                            <div class="hosts-source-health__row">
+                                <span class="hosts-source-health__kind">@SourceKindLabel(source)</span>
+                                <code class="hosts-source-health__path">@source.Path</code>
+                                @if (source.IsDirectory)
+                                {
+                                    <span class="badge text-bg-light border">directory</span>
+                                }
+                                <span class="badge @(source.IsActive ? "text-bg-success" : "text-bg-secondary")">@(source.IsActive ? "active" : "inactive")</span>
+                                @if (!source.IsDirectory)
+                                {
+                                    <span class="text-muted small">@source.EntryCount @(source.EntryCount == 1 ? "entry" : "entries")</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(source.InactiveReason) || !string.IsNullOrWhiteSpace(source.Diagnostic))
+                                {
+                                    <span class="text-warning small">@(source.Diagnostic ?? source.InactiveReason)</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                </details>
+            }
 
             @if (VisibleGroups.Count == 0)
             {
@@ -415,6 +458,12 @@ else
     }
 
     <div class="hosts-page-notes mt-3 d-flex flex-column gap-2">
+        @if (HasPendingHostsSourceConfiguration)
+        {
+            <div class="alert alert-warning mb-0">
+                <strong>Host source configuration is pending.</strong> Existing rows remain a preview of the saved source inventory. New or retargeted <code>addn-hosts</code>/<code>hostsdir</code> paths are scanned after save and reload.
+            </div>
+        }
         @if (!pageState.SystemHostsActive && !string.IsNullOrEmpty(pageState.SystemHostsInactiveReason))
         {
             <div class="alert alert-info mb-0">
@@ -441,8 +490,10 @@ else
     private DnsmasqServiceStatus? _status;
     private IReadOnlyList<HostsPageRow> _unifiedRows = Array.Empty<HostsPageRow>();
     private List<HostsPageRow> _restUnifiedRows = new();
+    private IReadOnlyList<HostSource> _hostSources = Array.Empty<HostSource>();
     private List<HostEntry> _baselineManagedEntries = new();
     private string? _error;
+    private bool _refreshing;
 
     private string _search = "";
     /// <summary>Empty = all hosts files; otherwise matches <see cref="HostsPageRow.SourcePath"/>.</summary>
@@ -504,15 +555,20 @@ else
 
     private int ManagedSelectionCount => _selectedManagedRowIds.Count;
 
-    private IReadOnlyList<string> GetEffectiveDomainValuesForPreview()
-    {
-        var pendingDomain = Session.Draft.PendingChanges
-            .OfType<PendingOptionChange>()
-            .FirstOrDefault(c => string.Equals(c.OptionName, "domain", StringComparison.OrdinalIgnoreCase))
-            ?.NewValue as IReadOnlyList<string>;
+    private HostsDraftProjection GetDraftProjection() =>
+        HostsDraftProjection.From(_status, Session.Draft.PendingChanges);
 
-        return pendingDomain ?? (_status?.EffectiveConfig?.DomainValues ?? Array.Empty<string>());
-    }
+    private bool HasPendingHostsSourceConfiguration =>
+        GetDraftProjection().HasPendingHostSourceConfiguration;
+
+    private static string SourceKindLabel(HostSource source) => source.SourceKind switch
+    {
+        HostsRowSourceKind.Managed => "Managed",
+        HostsRowSourceKind.SystemHosts => "System hosts",
+        HostsRowSourceKind.AddnHosts => "addn-hosts",
+        HostsRowSourceKind.Hostsdir => "hostsdir",
+        _ => source.SourceKind.ToString()
+    };
 
     private string EditButtonTitle =>
         ManagedSelectionCount == 0 ? "Select a row to edit."
@@ -1265,12 +1321,25 @@ else
 
     private async Task RefreshStatusAsync()
     {
+        await RefreshHostsAsync();
+    }
+
+    private async Task RefreshHostsAsync()
+    {
+        if (_refreshing)
+            return;
+        _refreshing = true;
         try
         {
             await Load();
             await InvokeAsync(StateHasChanged);
         }
-        catch { /* ignore */ }
+        catch { /* Load already captures user-facing errors. */ }
+        finally
+        {
+            _refreshing = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private void ReconcileManagedHostsDraftAfterLoad()
@@ -1295,6 +1364,15 @@ else
         {
             _status = await StatusClient.GetStatusAsync();
             _baselineManagedEntries = (await HostsClient.GetHostsAsync()).ToList();
+            try
+            {
+                _hostSources = await HostsClient.GetSourcesAsync();
+            }
+            catch
+            {
+                // The table remains usable when a newer server source-inventory endpoint is unavailable.
+                _hostSources = Array.Empty<HostSource>();
+            }
 
             if (_status?.EffectiveConfig != null && !string.IsNullOrEmpty(_status.ManagedHostsFilePath))
             {
@@ -1309,6 +1387,7 @@ else
             {
                 _restUnifiedRows = new List<HostsPageRow>();
                 _unifiedRows = Array.Empty<HostsPageRow>();
+                _hostSources = Array.Empty<HostSource>();
             }
 
             NormalizeSourceFileFilterIfStale();
@@ -1328,8 +1407,10 @@ else
         if (_status?.EffectiveConfig == null || string.IsNullOrEmpty(_status.ManagedHostsFilePath))
             return;
 
-        var expandHosts = _status.EffectiveConfig.ExpandHosts;
-        var domainValues = GetEffectiveDomainValuesForPreview();
+        var draftProjection = GetDraftProjection();
+        var draftState = draftProjection.PageState;
+        var expandHosts = draftState.ExpandHostsEnabled;
+        var domainValues = draftProjection.DomainValues;
         var path = _status.ManagedHostsFilePath;
         var managedRows = new List<HostsPageRow>();
 
@@ -1353,7 +1434,23 @@ else
                 InlineComment: e.InlineComment));
         }
 
-        _unifiedRows = managedRows.Concat(_restUnifiedRows).ToList();
+        var projectedReadOnlyRows = _restUnifiedRows.Select(row =>
+        {
+            var isSystemHosts = row.SourceKind == HostsRowSourceKind.SystemHosts;
+            var isActive = isSystemHosts ? draftState.SystemHostsActive : row.IsActive;
+            var inactiveReason = isSystemHosts && !isActive
+                ? draftState.SystemHostsInactiveReason
+                : row.InactiveReason;
+            var effectiveNames = HostsEffectiveNames.Expand(row.Names, expandHosts, domainValues, row.Address);
+            return row with
+            {
+                IsActive = isActive,
+                InactiveReason = inactiveReason,
+                EffectiveNames = effectiveNames
+            };
+        });
+
+        _unifiedRows = managedRows.Concat(projectedReadOnlyRows).ToList();
         NormalizeSourceFileFilterIfStale();
         ClearStaleInlineEditState();
         PruneManagedSelectionToExistingEditableRows();

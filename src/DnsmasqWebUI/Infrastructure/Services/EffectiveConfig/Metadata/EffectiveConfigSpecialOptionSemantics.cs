@@ -54,6 +54,11 @@ public static class EffectiveConfigSpecialOptionSemantics
     private static readonly IReadOnlyDictionary<string, OptionSemantics> ByOptionName =
         new Dictionary<string, OptionSemantics>(StringComparer.Ordinal)
         {
+            [DnsmasqConfKeys.LogQueries] = new OptionSemantics(
+                DnsmasqConfKeys.LogQueries,
+                EffectiveConfigParserBehavior.LastWins,
+                EffectiveConfigWriteBehavior.KeyOnlyOrValue,
+                KeyOnlyOrValue),
             [DnsmasqConfKeys.UseStaleCache] = new OptionSemantics(
                 DnsmasqConfKeys.UseStaleCache,
                 EffectiveConfigParserBehavior.LastWins,

@@ -15,7 +15,7 @@
                 {
                     <div class="ec-save-modal-loading text-center py-4">
                         <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
-                        <p class="text-muted mt-2 mb-0">@(SaveState == EffectiveConfigSaveFlow.SaveUiState.Saving ? "Saving, validating and restarting…" : "Restoring backup and restarting…")</p>
+                        <p class="text-muted mt-2 mb-0">@(SaveState == EffectiveConfigSaveFlow.SaveUiState.Saving ? "Saving, validating and applying…" : "Restoring backup and applying…")</p>
                     </div>
                 }
                 else if (SaveState == EffectiveConfigSaveFlow.SaveUiState.ValidateFailed && SaveResult != null)
@@ -24,7 +24,14 @@
                         <div class="alert alert-danger mb-3 d-flex align-items-center gap-2 ec-save-modal-alert">
                             <i class="bi bi-exclamation-triangle-fill ec-save-modal-alert-icon" aria-hidden="true"></i>
                             <div class="ec-save-modal-alert-text">
-                                <strong>Changes were saved, but validation failed.</strong> Restart was not attempted. You can restore the backups or keep editing.
+                                @if (SaveResult.RolledBack)
+                                {
+                                    <strong>Validation failed, and the changes were restored automatically.</strong><span> Your draft is still available to correct.</span>
+                                }
+                                else
+                                {
+                                    <strong>Changes were saved, but validation failed.</strong><span> dnsmasq was not reloaded or restarted. You can restore the backups or keep editing.</span>
+                                }
                             </div>
                         </div>
                         @if (SaveResult.Backups.Count > 0)
@@ -75,7 +82,28 @@
                         <div class="alert alert-danger mb-3 d-flex align-items-center gap-2 ec-save-modal-alert">
                             <i class="bi bi-exclamation-triangle-fill ec-save-modal-alert-icon" aria-hidden="true"></i>
                             <div class="ec-save-modal-alert-text">
-                                <strong>Changes were saved, but the restart command failed.</strong> You can restore the backups or keep editing.
+                                @if (SaveResult.ErrorCode == EffectiveConfigSaveResult.ErrorCodes.ReloadFailed)
+                                {
+                                    @if (SaveResult.RolledBack)
+                                    {
+                                        <strong>The reload command failed, and the changes were restored automatically.</strong><span> Your draft is still available to correct.</span>
+                                    }
+                                    else
+                                    {
+                                        <strong>Changes were saved, but the reload command failed.</strong><span> You can restore the backups or keep editing.</span>
+                                    }
+                                }
+                                else
+                                {
+                                    @if (SaveResult.RolledBack)
+                                    {
+                                        <strong>The restart command failed, and the changes were restored automatically.</strong><span> Your draft is still available to correct.</span>
+                                    }
+                                    else
+                                    {
+                                        <strong>Changes were saved, but the restart command failed.</strong><span> You can restore the backups or keep editing.</span>
+                                    }
+                                }
                             </div>
                         </div>
                         @if (SaveResult.Backups.Count > 0)
@@ -92,7 +120,7 @@
                         }
                         <div class="ec-save-modal-stderr mb-3">
                             <p class="text-muted small mb-1"><strong>Command output</strong></p>
-                            <pre class="ec-save-modal-pre border rounded p-2 bg-light small mb-0 text-body">@GetRestartFailedOutput(SaveResult)</pre>
+                            <pre class="ec-save-modal-pre border rounded p-2 bg-light small mb-0 text-body">@GetApplyFailedOutput(SaveResult)</pre>
                         </div>
                     </div>
                 }
@@ -273,7 +301,7 @@
                 }
             </div>
             <div class="modal-footer ec-save-modal-footer">
-                @if ((SaveState == EffectiveConfigSaveFlow.SaveUiState.ReloadFailed || SaveState == EffectiveConfigSaveFlow.SaveUiState.ValidateFailed || SaveState == EffectiveConfigSaveFlow.SaveUiState.WriteFailed) && SaveResult?.Backups?.Count > 0)
+                @if ((SaveState == EffectiveConfigSaveFlow.SaveUiState.ReloadFailed || SaveState == EffectiveConfigSaveFlow.SaveUiState.ValidateFailed || SaveState == EffectiveConfigSaveFlow.SaveUiState.WriteFailed) && SaveResult?.Backups?.Count > 0 && SaveResult.RolledBack == false)
                 {
                     <button type="button" class="btn btn-primary" @onclick="RestoreAll"><i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Restore backups</button>
                     <button type="button" class="btn btn-outline-warning" @onclick="ContinueEditing"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Continue editing</button>
@@ -323,9 +351,14 @@
         if (Status == null) return list;
         var hasOptions = PendingChanges.OfType<PendingOptionChange>().Any();
         if (hasOptions && !string.IsNullOrEmpty(Status.ManagedFilePath))
+        {
             list.Add(System.IO.Path.GetFileName(Status.ManagedFilePath));
+            // Writing managed config also ensures the app-owned addn-hosts file exists.
+            if (!string.IsNullOrEmpty(Status.ManagedHostsFilePath))
+                list.Add(System.IO.Path.GetFileName(Status.ManagedHostsFilePath));
+        }
         var hostsChange = PendingChanges.OfType<PendingManagedHostsChange>().FirstOrDefault();
-        if (hostsChange != null)
+        if (hostsChange != null && !list.Contains(System.IO.Path.GetFileName(hostsChange.ManagedHostsFilePath), StringComparer.Ordinal))
             list.Add(System.IO.Path.GetFileName(hostsChange.ManagedHostsFilePath));
         return list;
     }
@@ -346,7 +379,7 @@
         return string.IsNullOrEmpty(exitInfo) ? "(No output captured)" : exitInfo + " (No output captured)";
     }
 
-    private static string GetRestartFailedOutput(EffectiveConfigSaveResult result)
+    private static string GetApplyFailedOutput(EffectiveConfigSaveResult result)
     {
         var err = (result.RestartStdErr ?? "").Trim();
         var outp = (result.RestartStdOut ?? "").Trim();

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig;
 using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions;
+using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata;
 
 namespace DnsmasqWebUI.Components.EffectiveConfig;
 
@@ -27,6 +28,27 @@ public abstract class EffectiveConfigValueDisplayBase : ComponentBase
     public IEffectiveConfigEditSession? Session { get; set; }
 
     protected Task NotifyValueChanged(object? value) => ValueChanged.InvokeAsync(value);
+
+    /// <summary>
+    /// True when this single-value custom display can use the application's managed overlay.
+    /// External flags and multi-value directives deliberately remain read-only because adding a
+    /// managed line cannot safely remove their existing behaviour.
+    /// </summary>
+    protected bool CanEditFromUi =>
+        EffectiveConfigManagedOverridePolicy.CanEditFromUi(
+            Descriptor.OptionName,
+            Descriptor.IsMultiValue,
+            Descriptor.GetSource());
+
+    /// <summary>
+    /// True when activating this field will create a managed last-wins override instead of editing
+    /// the source file that currently supplies its value.
+    /// </summary>
+    protected bool CanCreateManagedOverride =>
+        EffectiveConfigManagedOverridePolicy.CanCreateManagedOverride(
+            Descriptor.OptionName,
+            Descriptor.IsMultiValue,
+            Descriptor.GetSource());
 
     /// <summary>Returns the value to display: pending change NewValue if this field has one, else descriptor value (not yet written to disk).</summary>
     protected object? GetEffectiveDisplayValue()

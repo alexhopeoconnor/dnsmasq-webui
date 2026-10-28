@@ -3,6 +3,7 @@
 @using DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig
 @using DnsmasqWebUI.Models.Config
 @using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
+@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Metadata
 @using DnsmasqWebUI.Infrastructure.Services.UI.Notifications.Abstractions
 @inject IEffectiveConfigRenderFragmentRegistry RenderFragmentRegistry
 @inject INotificationService NotificationService
@@ -11,13 +12,16 @@
 @if (_customFragment is { } fragment)
 {
     var labelTooltip = DnsmasqOptionTooltips.Get(Descriptor.OptionName);
-    var isReadonly = Descriptor.GetSource()?.IsReadOnly == true;
-    var showEditableBadge = !isReadonly && !Descriptor.IsCapabilityDisabled;
-    var isActiveEditor = IsEditMode && IsActive && !Descriptor.IsCapabilityDisabled;
+    var source = Descriptor.GetSource();
+    var canCreateManagedOverride = CanCreateManagedOverride;
+    var canEditFromUi = CanEditFromUi;
+    var sourceStateTooltip = SourceStateTooltip;
+    var showEditableBadge = canEditFromUi && !Descriptor.IsCapabilityDisabled;
+    var isActiveEditor = IsEditMode && IsActive && canEditFromUi && !Descriptor.IsCapabilityDisabled;
     var fragmentWithCallback = isActiveEditor ? _fragmentWithCallback : null;
     var effectiveValue = _effectiveValue;
-    <li class="ec-field @(isActiveEditor ? "ec-field-editing" : "")" title="@(Descriptor.GetSource()?.GetReadOnlyTooltip())">
-        <OptionHelpLabel AnchorId="@_anchorId" HelpKey="@_optionHelpKey" OptionLabel="@Descriptor.OptionName" Title="@(labelTooltip ?? Descriptor.GetSource()?.GetReadOnlyTooltip())"><strong>@Descriptor.OptionName:</strong></OptionHelpLabel>
+    <li class="ec-field @(isActiveEditor ? "ec-field-editing" : "")" title="@sourceStateTooltip">
+        <OptionHelpLabel AnchorId="@_anchorId" HelpKey="@_optionHelpKey" OptionLabel="@Descriptor.OptionName" Title="@(labelTooltip ?? sourceStateTooltip)"><strong>@Descriptor.OptionName:</strong></OptionHelpLabel>
         <span class="ec-field-value">
             @if (isActiveEditor)
             {
@@ -29,7 +33,7 @@
                             </CascadingValue>
                         </CascadingValue>
                     </div>
-                    <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@Descriptor.GetSource()" OptionName="@Descriptor.OptionName" Value="@effectiveValue" IsInteractive="@IsEditMode" ShowEditableBadge="@showEditableBadge" HasPendingChange="@_hasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@isActiveEditor" IsCapabilityDisabled="@Descriptor.IsCapabilityDisabled" CapabilityDisabledReason="@Descriptor.CapabilityDisabledReason" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
+                    <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@source" OptionName="@Descriptor.OptionName" Value="@effectiveValue" IsInteractive="@IsEditMode" ShowEditableBadge="@showEditableBadge" HasPendingChange="@_hasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@isActiveEditor" CanCreateManagedOverride="@canCreateManagedOverride" ManagedOverrideTooltip="@sourceStateTooltip" IsCapabilityDisabled="@Descriptor.IsCapabilityDisabled" CapabilityDisabledReason="@Descriptor.CapabilityDisabledReason" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
                 </div>
             }
             else
@@ -37,7 +41,7 @@
                 <CascadingValue Value="@false">
                     @fragment(Descriptor)
                 </CascadingValue>
-                <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@Descriptor.GetSource()" OptionName="@Descriptor.OptionName" Value="@effectiveValue" IsInteractive="@IsEditMode" ShowEditableBadge="@showEditableBadge" HasPendingChange="@_hasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@isActiveEditor" IsCapabilityDisabled="@Descriptor.IsCapabilityDisabled" CapabilityDisabledReason="@Descriptor.CapabilityDisabledReason" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
+                <OptionStateBadge AnchorId="@_readonlyBadgeAnchorId" Source="@source" OptionName="@Descriptor.OptionName" Value="@effectiveValue" IsInteractive="@IsEditMode" ShowEditableBadge="@showEditableBadge" HasPendingChange="@_hasPendingChange" EditableAsButton="true" FieldKey="@FieldKey" IsActiveEditor="@isActiveEditor" CanCreateManagedOverride="@canCreateManagedOverride" ManagedOverrideTooltip="@sourceStateTooltip" IsCapabilityDisabled="@Descriptor.IsCapabilityDisabled" CapabilityDisabledReason="@Descriptor.CapabilityDisabledReason" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
             }
         </span>
     </li>
@@ -79,24 +83,28 @@ else
     var value = _effectiveValue;
     var displayValue = value == null ? "(not set)" : (value is IReadOnlyList<string> list ? (list.Count == 0 ? "(none)" : string.Join(", ", list)) : value.ToString());
     var editValue = value?.ToString() ?? "";
-    var isReadonly = Descriptor.GetSource()?.IsReadOnly == true;
-    var showReadonlyHint = IsEditMode && isReadonly;
-    var isActiveEditor = IsEditMode && IsActive && !Descriptor.IsCapabilityDisabled;
-    var showEditableForDefault = !Descriptor.IsCapabilityDisabled;
+    var source = Descriptor.GetSource();
+    var canCreateManagedOverride = CanCreateManagedOverride;
+    var canEditFromUi = CanEditFromUi;
+    var sourceStateTooltip = SourceStateTooltip;
+    var showReadonlyHint = IsEditMode && !canEditFromUi;
+    var isActiveEditor = IsEditMode && IsActive && canEditFromUi && !Descriptor.IsCapabilityDisabled;
+    var showEditableForDefault = canEditFromUi && !Descriptor.IsCapabilityDisabled;
     @if (showReadonlyHint)
     {
-        <li class="ec-field" title="@(Descriptor.GetSource()?.GetReadOnlyTooltip())">
-            <EffectiveConfigOptionItem Label="@Descriptor.OptionName" DisplayValue="@(displayValue ?? "(not set)")" Source="@Descriptor.GetSource()" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId"
+        <li class="ec-field" title="@sourceStateTooltip">
+            <EffectiveConfigOptionItem Label="@Descriptor.OptionName" DisplayValue="@(displayValue ?? "(not set)")" Source="@source" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId"
                 FieldKey="@FieldKey" ReadonlyBadgeAnchorId="@_readonlyBadgeAnchorId" RawValue="@value" HasPendingChange="@_hasPendingChange" />
         </li>
     }
     else
     {
-        <li class="ec-field @(isActiveEditor ? "ec-field-editing" : "")" title="@(Descriptor.GetSource()?.GetReadOnlyTooltip())">
-            <EffectiveConfigOptionItem Label="@Descriptor.OptionName" DisplayValue="@(displayValue ?? "(not set)")" Source="@Descriptor.GetSource()" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId"
+        <li class="ec-field @(isActiveEditor ? "ec-field-editing" : "")" title="@sourceStateTooltip">
+            <EffectiveConfigOptionItem Label="@Descriptor.OptionName" DisplayValue="@(displayValue ?? "(not set)")" Source="@source" LabelTooltip="@_labelTooltip" OptionHelpKey="@_optionHelpKey" OptionHelpAnchorId="@_anchorId"
                 EditValue="@editValue"
                 ShowEditableBadge="@showEditableForDefault" FieldKey="@FieldKey" IsActive="@IsActive"
                 ReadonlyBadgeAnchorId="@_readonlyBadgeAnchorId" RawValue="@value" HasPendingChange="@_hasPendingChange"
+                CanCreateManagedOverride="@canCreateManagedOverride" ManagedOverrideTooltip="@sourceStateTooltip"
                 IsCapabilityDisabled="@Descriptor.IsCapabilityDisabled" CapabilityDisabledReason="@Descriptor.CapabilityDisabledReason"
                 DisplayValueChanged="@HandleDefaultValueChanged" OnBlur="@HandleDefaultBlur" OnConfirmRequested="@HandleConfirmEdit" OnCancelRequested="@HandleCancelEdit" OnRevertRequested="@HandleRevertEdit" />
         </li>
@@ -181,6 +189,17 @@ else
         var newValue = _hasDraftValue ? _draftValue : _effectiveValue;
         if (IsDefaultSingleValueField)
             newValue = NormalizeDefaultSingleCommitValue(newValue);
+        if (CanCreateManagedOverride && newValue is null)
+        {
+            // Removing a line from the managed overlay cannot remove a value supplied by an
+            // external source. Treat this as reverting the in-progress/pending override rather
+            // than presenting a misleading "(not set)" preview.
+            _draftValue = null;
+            _hasDraftValue = false;
+            if (_hasPendingChange && Ui?.RevertFieldAsync != null)
+                await Ui.RevertFieldAsync(Descriptor.SectionId, Descriptor.OptionName);
+            return true;
+        }
         if (ValuesEqual(_valueAtActivation, newValue))
         {
             _draftValue = null;
@@ -196,14 +215,10 @@ else
             return false;
         }
 
+        // Multi-value editors enforce each descriptor's duplicate policy. Do not erase legal repeated
+        // directives here: dnsmasq configuration order and duplicate occurrences can be significant.
         var source = Descriptor.GetSource();
-        object? valueToCommit = newValue;
-        if (newValue is IReadOnlyList<string> list)
-        {
-            var deduped = list.Distinct(StringComparer.Ordinal).ToList();
-            valueToCommit = deduped;
-        }
-        var args = new EffectiveConfigEditCommittedArgs(Descriptor.SectionId, Descriptor.OptionName, _valueAtActivation, valueToCommit, source?.FilePath);
+        var args = new EffectiveConfigEditCommittedArgs(Descriptor.SectionId, Descriptor.OptionName, _valueAtActivation, newValue, source?.FilePath);
         if (Ui != null)
             await Ui.CommitFieldAsync(args);
         _draftValue = null;
@@ -301,6 +316,24 @@ else
             return (oldList ?? Array.Empty<string>()).SequenceEqual(newList ?? Array.Empty<string>(), StringComparer.Ordinal);
         return Equals(oldValue, newValue);
     }
+
+    private bool CanCreateManagedOverride =>
+        EffectiveConfigManagedOverridePolicy.CanCreateManagedOverride(
+            Descriptor.OptionName,
+            Descriptor.IsMultiValue,
+            Descriptor.GetSource());
+
+    private bool CanEditFromUi =>
+        EffectiveConfigManagedOverridePolicy.CanEditFromUi(
+            Descriptor.OptionName,
+            Descriptor.IsMultiValue,
+            Descriptor.GetSource());
+
+    private string? SourceStateTooltip =>
+        EffectiveConfigManagedOverridePolicy.GetSourceStateTooltip(
+            Descriptor.OptionName,
+            Descriptor.IsMultiValue,
+            Descriptor.GetSource());
 
     private enum ExitAction { None, Confirm, Cancel, Revert }
 }

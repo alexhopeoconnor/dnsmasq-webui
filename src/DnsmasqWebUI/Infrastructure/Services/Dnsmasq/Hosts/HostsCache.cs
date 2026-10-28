@@ -1,17 +1,17 @@
 using System.Text;
-using DnsmasqWebUI.Models.Config;
-using DnsmasqWebUI.Models.Contracts;
-using DnsmasqWebUI.Models.Hosts;
 using DnsmasqWebUI.Infrastructure.Serialization.Parsers.DnsmasqConfig;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Config.Abstractions;
 using DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Hosts.Abstractions;
-using Microsoft.Extensions.Options;
+using DnsmasqWebUI.Models.Contracts;
+using DnsmasqWebUI.Models.Hosts;
 
 namespace DnsmasqWebUI.Infrastructure.Services.Dnsmasq.Hosts;
 
 /// <summary>
-/// Singleton cache for hosts: managed hosts file + read-only (system + addn-hosts). Invalidates on watchers (managed + system path), staleness, or Invalidate.
-/// Call NotifyWeWroteManagedHosts after the app writes the managed hosts file so the cache updates in place and ignores the next watcher event.
+/// Singleton cache for the app-managed hosts file and every hosts source resolved from the effective
+/// dnsmasq configuration. The cache follows source-file and source-directory changes, and also compares
+/// the current resolved source shape on every read so a missed file-system event cannot leave a directory
+/// member list stale indefinitely.
 /// </summary>
 public sealed class HostsCache : IHostsCache, IDisposable
 {
@@ -19,21 +19,24 @@ public sealed class HostsCache : IHostsCache, IDisposable
     private const double SelfWriteIgnoreSeconds = 1.5;
 
     private readonly IConfigSetCache _configSetCache;
-    private readonly DnsmasqOptions _options;
+    private readonly IHostSourceResolver _sourceResolver;
     private readonly ILogger<HostsCache> _logger;
     private readonly object _lock = new();
+    private readonly Dictionary<string, FileSystemWatcher> _watchers = new(StringComparer.Ordinal);
     private HostsSnapshot? _snapshot;
     private DateTime? _lastReadUtc;
     private bool _dirty = true;
+    private string? _sourceFingerprint;
     private DateTime _lastWriteManagedUtc = DateTime.MinValue;
     private string? _lastManagedHostsPath;
-    private FileSystemWatcher? _watcherManaged;
-    private FileSystemWatcher? _watcherSystem;
 
-    public HostsCache(IConfigSetCache configSetCache, IOptions<DnsmasqOptions> options, ILogger<HostsCache> logger)
+    public HostsCache(
+        IConfigSetCache configSetCache,
+        IHostSourceResolver sourceResolver,
+        ILogger<HostsCache> logger)
     {
         _configSetCache = configSetCache;
-        _options = options.Value;
+        _sourceResolver = sourceResolver;
         _logger = logger;
     }
 
@@ -45,30 +48,54 @@ public sealed class HostsCache : IHostsCache, IDisposable
 
     public void NotifyWeWroteManagedHosts(IReadOnlyList<HostEntry> entries)
     {
+        ArgumentNullException.ThrowIfNull(entries);
+
         lock (_lock)
         {
             _lastWriteManagedUtc = DateTime.UtcNow;
-            if (_snapshot != null)
-                _snapshot = _snapshot with { ManagedEntries = entries.ToList() };
+            if (_snapshot == null)
+                return;
+
+            var managedEntries = entries.ToList();
+            var sources = _snapshot.Sources
+                .Select(source => source.SourceKind == HostsRowSourceKind.Managed
+                    ? source with { EntryCount = managedEntries.Count }
+                    : source)
+                .ToList();
+            _snapshot = _snapshot with { ManagedEntries = managedEntries, Sources = sources };
         }
     }
 
-    public async Task<HostsSnapshot> GetSnapshotAsync(CancellationToken ct = default)
+    public async Task<HostsSnapshot> GetSnapshotAsync(CancellationToken ct = default) =>
+        await Task.Run(() => GetSnapshot(ct), ct);
+
+    public async Task<IReadOnlyList<HostSource>> GetSourcesAsync(CancellationToken ct = default)
     {
-        return await Task.Run(() => GetSnapshot(ct), ct);
+        var snapshot = await GetSnapshotAsync(ct);
+        return snapshot.Sources;
     }
 
     private HostsSnapshot GetSnapshot(CancellationToken ct)
     {
         var configSnapshot = _configSetCache.GetSnapshotAsync(ct).GetAwaiter().GetResult();
-        var set = configSnapshot.Set;
-        var effectiveConfig = configSnapshot.Config;
-        var managedPath = set.ManagedHostsFilePath;
-        var addnPaths = effectiveConfig.AddnHostsPaths ?? Array.Empty<string>();
-        var noHosts = effectiveConfig.NoHosts;
+        return GetSnapshot(configSnapshot, ct);
+    }
+
+    /// <summary>
+    /// Builds a hosts snapshot against one already-read config snapshot. Unified-row callers use this so
+    /// source activation and effective-name expansion cannot be calculated from two different config reads.
+    /// </summary>
+    private HostsSnapshot GetSnapshot(ConfigSetSnapshot configSnapshot, CancellationToken ct)
+    {
+        var managedPath = configSnapshot.Set.ManagedHostsFilePath;
+        var resolvedSources = _sourceResolver.Resolve(managedPath, configSnapshot.Config, ct).ToList();
+        var sourceFingerprint = BuildSourceFingerprint(resolvedSources);
 
         lock (_lock)
         {
+            if (!string.Equals(_sourceFingerprint, sourceFingerprint, StringComparison.Ordinal))
+                _dirty = true;
+
             if (!_dirty && _snapshot != null && _lastReadUtc.HasValue)
             {
                 var ageSeconds = (DateTime.UtcNow - _lastReadUtc.Value).TotalSeconds;
@@ -77,82 +104,148 @@ public sealed class HostsCache : IHostsCache, IDisposable
                 _dirty = true;
             }
 
-            TryEnsureWatchers(managedPath);
+            ReconcileWatchers(resolvedSources);
 
-            var managedEntries = ReadManagedEntries(managedPath);
-            var hostsdirPath = effectiveConfig.HostsdirPath;
-            var readOnlyFiles = ReadReadOnlyFiles(managedPath, addnPaths, noHosts, hostsdirPath, ct);
+            var (managedEntries, managedDiagnostic) = ReadManagedEntries(managedPath);
+            var readOnlyFiles = new List<ReadOnlyHostsFile>();
+            for (var i = 0; i < resolvedSources.Count; i++)
+            {
+                ct.ThrowIfCancellationRequested();
+                var source = resolvedSources[i];
+                if (source.IsDirectory)
+                    continue;
 
-            _lastManagedHostsPath = !string.IsNullOrEmpty(managedPath) ? Path.GetFullPath(managedPath) : null;
-            _snapshot = new HostsSnapshot(managedEntries, readOnlyFiles);
+                if (source.SourceKind == HostsRowSourceKind.Managed)
+                {
+                    resolvedSources[i] = source with
+                    {
+                        EntryCount = managedEntries.Count,
+                        Diagnostic = managedDiagnostic ?? source.Diagnostic
+                    };
+                    continue;
+                }
+
+                var (entries, diagnostic) = ReadEntries(source.Path, assignManagedIds: false);
+                source = source with
+                {
+                    EntryCount = entries.Count,
+                    Diagnostic = diagnostic ?? source.Diagnostic
+                };
+                resolvedSources[i] = source;
+                readOnlyFiles.Add(new ReadOnlyHostsFile(
+                    source.Path,
+                    entries,
+                    source.SourceKind,
+                    source.IsActive,
+                    source.InactiveReason,
+                    source.LoadOrder,
+                    source.ConfiguredPath,
+                    source.Diagnostic));
+            }
+
+            _lastManagedHostsPath = TryGetFullPath(managedPath);
+            _snapshot = new HostsSnapshot(managedEntries, readOnlyFiles)
+            {
+                Sources = resolvedSources
+            };
+            _sourceFingerprint = sourceFingerprint;
             _lastReadUtc = DateTime.UtcNow;
             _dirty = false;
             return _snapshot;
         }
     }
 
-    private void TryEnsureWatchers(string? managedPath)
+    private void ReconcileWatchers(IReadOnlyList<HostSource> sources)
     {
-        if (_watcherManaged != null && _watcherSystem != null)
+        var definitions = new Dictionary<string, WatchDefinition>(StringComparer.Ordinal);
+        foreach (var source in sources)
+        {
+            if (source.IsDirectory)
+            {
+                AddDirectoryWatchDefinitions(definitions, source.Path);
+            }
+            else
+            {
+                AddFileWatchDefinition(definitions, source.Path);
+            }
+        }
+
+        foreach (var stale in _watchers.Keys.Where(key => !definitions.ContainsKey(key)).ToList())
+        {
+            _watchers[stale].Dispose();
+            _watchers.Remove(stale);
+        }
+
+        foreach (var definition in definitions.Values)
+        {
+            if (_watchers.ContainsKey(definition.Key))
+                continue;
+
+            try
+            {
+                var watcher = new FileSystemWatcher(definition.Directory, definition.Filter)
+                {
+                    IncludeSubdirectories = false,
+                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName | NotifyFilters.DirectoryName
+                };
+                watcher.Changed += OnFileSystemChanged;
+                watcher.Created += OnFileSystemChanged;
+                watcher.Deleted += OnFileSystemChanged;
+                watcher.Renamed += OnFileSystemChanged;
+                watcher.Error += OnWatcherError;
+                watcher.EnableRaisingEvents = true;
+                _watchers.Add(definition.Key, watcher);
+                _logger.LogDebug("Watching hosts {WatchKind}: {Path}", definition.Kind, Path.Combine(definition.Directory, definition.Filter));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+            {
+                _logger.LogWarning(ex, "Could not create hosts watcher for {Path}", Path.Combine(definition.Directory, definition.Filter));
+            }
+        }
+    }
+
+    private static void AddFileWatchDefinition(Dictionary<string, WatchDefinition> definitions, string path)
+    {
+        var fullPath = TryGetFullPath(path);
+        if (fullPath == null)
+            return;
+        var directory = Path.GetDirectoryName(fullPath);
+        var fileName = Path.GetFileName(fullPath);
+        if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(fileName) || !Directory.Exists(directory))
             return;
 
-        var managedPathFull = !string.IsNullOrEmpty(managedPath) ? Path.GetFullPath(managedPath) : null;
-        if (!string.IsNullOrEmpty(managedPathFull))
+        var key = "file:" + fullPath;
+        definitions.TryAdd(key, new WatchDefinition(key, directory, fileName, "file"));
+    }
+
+    private static void AddDirectoryWatchDefinitions(Dictionary<string, WatchDefinition> definitions, string path)
+    {
+        var fullPath = TryGetFullPath(path);
+        if (fullPath == null)
+            return;
+
+        if (Directory.Exists(fullPath))
         {
-            var dir = Path.GetDirectoryName(managedPathFull);
-            var fileName = Path.GetFileName(managedPathFull);
-            if (!string.IsNullOrEmpty(dir) && !string.IsNullOrEmpty(fileName) && Directory.Exists(dir))
-            {
-                try
-                {
-                    _watcherManaged ??= CreateWatcher(dir, fileName, OnFileChanged);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Could not create watcher for managed hosts: {Path}", managedPathFull);
-                }
-            }
+            var contentsKey = "directory-contents:" + fullPath;
+            definitions.TryAdd(contentsKey, new WatchDefinition(contentsKey, fullPath, "*", "directory contents"));
         }
 
-        var systemPath = _options.SystemHostsPath?.Trim();
-        var systemPathFull = !string.IsNullOrEmpty(systemPath) ? Path.GetFullPath(systemPath) : null;
-        if (!string.IsNullOrEmpty(systemPathFull))
+        // Watch the parent as well so delete/rename/recreate of the configured directory itself invalidates us.
+        var parent = Path.GetDirectoryName(fullPath);
+        var name = Path.GetFileName(fullPath);
+        if (!string.IsNullOrEmpty(parent) && !string.IsNullOrEmpty(name) && Directory.Exists(parent))
         {
-            var dir = Path.GetDirectoryName(systemPathFull);
-            var fileName = Path.GetFileName(systemPathFull);
-            if (!string.IsNullOrEmpty(dir) && !string.IsNullOrEmpty(fileName) && Directory.Exists(dir))
-            {
-                try
-                {
-                    _watcherSystem ??= CreateWatcher(dir, fileName, OnFileChanged);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Could not create watcher for system hosts: {Path}", systemPathFull);
-                }
-            }
+            var parentKey = "directory-parent:" + fullPath;
+            definitions.TryAdd(parentKey, new WatchDefinition(parentKey, parent, name, "directory"));
         }
     }
 
-    private static FileSystemWatcher CreateWatcher(string dir, string fileName, FileSystemEventHandler onChanged)
+    private void OnFileSystemChanged(object sender, FileSystemEventArgs e)
     {
-        var w = new FileSystemWatcher(dir)
-        {
-            Filter = fileName,
-            NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size
-        };
-        w.Changed += onChanged;
-        w.Created += onChanged;
-        w.EnableRaisingEvents = true;
-        return w;
-    }
-
-    private void OnFileChanged(object sender, FileSystemEventArgs e)
-    {
-        var fullPath = Path.GetFullPath(e.FullPath);
+        var fullPath = TryGetFullPath(e.FullPath);
         lock (_lock)
         {
-            if (_lastManagedHostsPath != null && string.Equals(fullPath, _lastManagedHostsPath, StringComparison.Ordinal))
+            if (fullPath != null && _lastManagedHostsPath != null && PathsEqual(fullPath, _lastManagedHostsPath))
             {
                 var elapsed = (DateTime.UtcNow - _lastWriteManagedUtc).TotalSeconds;
                 if (elapsed < SelfWriteIgnoreSeconds)
@@ -162,244 +255,213 @@ public sealed class HostsCache : IHostsCache, IDisposable
         }
     }
 
-    private static List<HostEntry> ReadManagedEntries(string? managedPath)
+    private void OnWatcherError(object sender, ErrorEventArgs e)
     {
-        if (string.IsNullOrEmpty(managedPath) || !File.Exists(managedPath))
-            return new List<HostEntry>();
-
-        var lines = File.ReadAllLines(managedPath, Encoding.UTF8);
-        var entries = new List<HostEntry>();
-        var seenContentIds = new HashSet<string>(StringComparer.Ordinal);
-        for (var i = 0; i < lines.Length; i++)
-        {
-            var entry = HostsFileLineParser.ParseLine(lines[i], i + 1);
-            if (entry == null) continue;
-            if (entry.IsPassthrough || string.IsNullOrEmpty(entry.Address))
-                entry.Id = "line:" + entry.LineNumber;
-            else
-            {
-                var contentId = entry.Address + "|" + string.Join(",", entry.Names.OrderBy(x => x, StringComparer.Ordinal));
-                entry.Id = seenContentIds.Add(contentId) ? contentId : contentId + ":" + entry.LineNumber;
-            }
-            entries.Add(entry);
-        }
-        return entries;
+        _logger.LogWarning(e.GetException(), "Hosts file watcher reported an error; the next read will refresh the snapshot.");
+        Invalidate();
     }
 
-    private List<ReadOnlyHostsFile> ReadReadOnlyFiles(string? managedPath, IReadOnlyList<string> addnPaths, bool noHosts, string? hostsdirPath, CancellationToken ct)
+    private (List<HostEntry> Entries, string? Diagnostic) ReadManagedEntries(string? managedPath) =>
+        ReadEntries(managedPath, assignManagedIds: true);
+
+    private static (List<HostEntry> Entries, string? Diagnostic) ReadEntries(string? path, bool assignManagedIds)
     {
-        var result = new List<ReadOnlyHostsFile>();
-        var managedPathFull = !string.IsNullOrEmpty(managedPath) ? Path.GetFullPath(managedPath) : null;
-        var systemPath = _options.SystemHostsPath?.Trim();
-        var systemPathFull = !string.IsNullOrEmpty(systemPath) ? Path.GetFullPath(systemPath) : null;
+        if (string.IsNullOrWhiteSpace(path))
+            return (new List<HostEntry>(), "File path is not configured.");
 
-        // System hosts (only if no-hosts is not set)
-        if (!noHosts && !string.IsNullOrEmpty(systemPathFull) && File.Exists(systemPathFull))
+        var fullPath = TryGetFullPath(path);
+        if (fullPath == null)
+            return (new List<HostEntry>(), "File path is invalid.");
+        if (!File.Exists(fullPath))
+            return (new List<HostEntry>(), "File not found.");
+
+        try
         {
-            try
+            var lines = File.ReadAllLines(fullPath, Encoding.UTF8);
+            var entries = new List<HostEntry>();
+            var seenContentIds = assignManagedIds
+                ? new HashSet<string>(StringComparer.Ordinal)
+                : null;
+            for (var i = 0; i < lines.Length; i++)
             {
-                ct.ThrowIfCancellationRequested();
-                var lines = File.ReadAllLines(systemPathFull, Encoding.UTF8);
-                var entries = new List<HostEntry>();
-                for (var i = 0; i < lines.Length; i++)
-                {
-                    var entry = HostsFileLineParser.ParseLine(lines[i], i + 1);
-                    if (entry != null)
-                        entries.Add(entry);
-                }
-                result.Add(new ReadOnlyHostsFile(systemPathFull, entries));
-            }
-            catch
-            {
-                // Skip unreadable
-            }
-        }
+                var entry = HostsFileLineParser.ParseLine(lines[i], i + 1);
+                if (entry == null)
+                    continue;
 
-        // Addn-hosts files
-        foreach (var p in addnPaths)
+                if (assignManagedIds)
+                    SetManagedEntryId(entry, seenContentIds!);
+                entries.Add(entry);
+            }
+            return (entries, null);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DecoderFallbackException)
         {
-            ct.ThrowIfCancellationRequested();
-            var fullPath = Path.GetFullPath(p);
-            if (managedPathFull != null && string.Equals(fullPath, managedPathFull, StringComparison.Ordinal))
-                continue;
-            if (systemPathFull != null && string.Equals(fullPath, systemPathFull, StringComparison.Ordinal))
-                continue;
-            if (!File.Exists(fullPath))
-                continue;
-            try
-            {
-                var lines = File.ReadAllLines(fullPath, Encoding.UTF8);
-                var entries = new List<HostEntry>();
-                for (var i = 0; i < lines.Length; i++)
-                {
-                    var entry = HostsFileLineParser.ParseLine(lines[i], i + 1);
-                    if (entry != null)
-                        entries.Add(entry);
-                }
-                result.Add(new ReadOnlyHostsFile(fullPath, entries));
-            }
-            catch
-            {
-                // Skip unreadable
-            }
+            return (new List<HostEntry>(), "File could not be read.");
         }
-
-        // Hostsdir files (enumerated from directory)
-        if (!string.IsNullOrEmpty(hostsdirPath) && Directory.Exists(hostsdirPath))
-        {
-            try
-            {
-                var files = Directory.GetFiles(hostsdirPath)
-                    .OrderBy(f => f, StringComparer.Ordinal)
-                    .ToList();
-                foreach (var filePath in files)
-                {
-                    ct.ThrowIfCancellationRequested();
-                    var fullPath = Path.GetFullPath(filePath);
-                    if (managedPathFull != null && string.Equals(fullPath, managedPathFull, StringComparison.Ordinal))
-                        continue;
-                    if (systemPathFull != null && string.Equals(fullPath, systemPathFull, StringComparison.Ordinal))
-                        continue;
-                    if (addnPaths.Any(p => string.Equals(Path.GetFullPath(p), fullPath, StringComparison.Ordinal)))
-                        continue;
-                    if (!File.Exists(fullPath))
-                        continue;
-                    try
-                    {
-                        var lines = File.ReadAllLines(fullPath, Encoding.UTF8);
-                        var entries = new List<HostEntry>();
-                        for (var i = 0; i < lines.Length; i++)
-                        {
-                            var entry = HostsFileLineParser.ParseLine(lines[i], i + 1);
-                            if (entry != null)
-                                entries.Add(entry);
-                        }
-                        result.Add(new ReadOnlyHostsFile(fullPath, entries));
-                    }
-                    catch
-                    {
-                        // Skip unreadable
-                    }
-                }
-            }
-            catch
-            {
-                // Skip if directory is unreadable
-            }
-        }
-
-        return result;
     }
 
+    private static void SetManagedEntryId(HostEntry entry, HashSet<string> seenContentIds)
+    {
+        if (entry.IsPassthrough || string.IsNullOrEmpty(entry.Address))
+        {
+            entry.Id = "line:" + entry.LineNumber;
+            return;
+        }
+
+        var contentId = entry.Address + "|" + string.Join(",", entry.Names.OrderBy(x => x, StringComparer.Ordinal));
+        entry.Id = seenContentIds.Add(contentId) ? contentId : contentId + ":" + entry.LineNumber;
+    }
+
+    /// <summary>
+    /// Builds unified rows from the authoritative config snapshot. The old query arguments remain in the
+    /// interface for compatibility with older browser clients but are deliberately ignored: clients must
+    /// not decide which host sources are active or which path is managed.
+    /// </summary>
     public async Task<IReadOnlyList<HostsPageRow>> GetUnifiedRowsAsync(
         bool expandHosts,
         bool noHosts,
         string? managedHostsPath,
-        CancellationToken ct = default)
+        CancellationToken ct = default) =>
+        await GetUnifiedRowsAsync(ct);
+
+    /// <summary>Builds unified rows from the effective config and the resolved source inventory.</summary>
+    public async Task<IReadOnlyList<HostsPageRow>> GetUnifiedRowsAsync(CancellationToken ct = default)
     {
-        var snapshot = await GetSnapshotAsync(ct);
-        var rows = new List<HostsPageRow>();
-        var managedPathFull = !string.IsNullOrEmpty(managedHostsPath) ? Path.GetFullPath(managedHostsPath) : null;
-
-        // Get config to determine hostsdir path and full domain= list (scoped expansion per address).
         var configSnapshot = await _configSetCache.GetSnapshotAsync(ct);
-        var domainValues = configSnapshot.Config?.DomainValues;
-        var hostsdirPath = configSnapshot.Config?.HostsdirPath;
-        var hostsdirPathFull = !string.IsNullOrEmpty(hostsdirPath) ? Path.GetFullPath(hostsdirPath) : null;
+        var snapshot = await Task.Run(() => GetSnapshot(configSnapshot, ct), ct);
+        var config = configSnapshot.Config;
+        var rows = new List<HostsPageRow>();
+        var managedSource = snapshot.Sources
+            .Where(s => s.SourceKind == HostsRowSourceKind.Managed)
+            .OrderBy(s => s.LoadOrder)
+            .FirstOrDefault();
+        var managedPath = managedSource?.Path ?? configSnapshot.Set.ManagedHostsFilePath ?? "";
+        var managedIsActive = managedSource?.IsActive ?? false;
+        var managedInactiveReason = managedSource?.InactiveReason;
 
-        // Managed hosts (editable)
         foreach (var entry in snapshot.ManagedEntries)
         {
-            if (entry.IsPassthrough) continue;
-            var names = entry.Names ?? (IReadOnlyList<string>)Array.Empty<string>();
-            var effectiveNames = HostsEffectiveNames.Expand(names, expandHosts, domainValues, entry.Address ?? "");
-            rows.Add(new HostsPageRow(
-                Id: entry.Id ?? $"managed:{entry.LineNumber}",
-                SourceKind: HostsRowSourceKind.Managed,
-                SourcePath: managedHostsPath ?? "",
-                IsEditable: true,
-                IsActive: true,
-                InactiveReason: null,
-                Address: entry.Address ?? "",
-                Names: names,
-                EffectiveNames: effectiveNames,
-                IsComment: entry.IsComment,
-                LineNumber: entry.LineNumber,
-                InlineComment: entry.InlineComment));
+            if (entry.IsPassthrough)
+                continue;
+            rows.Add(ToRow(
+                entry,
+                id: entry.Id ?? $"managed:{entry.LineNumber}",
+                sourceKind: HostsRowSourceKind.Managed,
+                sourcePath: managedPath,
+                isEditable: true,
+                isActive: managedIsActive,
+                inactiveReason: managedInactiveReason,
+                config));
         }
 
-        // Read-only files (system, addn-hosts, hostsdir)
         foreach (var file in snapshot.ReadOnlyFiles)
         {
-            var sourceKind = DetermineSourceKind(file.Path, managedPathFull, _options.SystemHostsPath, hostsdirPathFull);
-            var isActive = sourceKind == HostsRowSourceKind.SystemHosts ? !noHosts : true;
-            var inactiveReason = sourceKind == HostsRowSourceKind.SystemHosts && noHosts
-                ? "System hosts is ignored because no-hosts is enabled in dnsmasq config."
-                : null;
-
             foreach (var entry in file.Entries)
             {
-                if (entry.IsPassthrough) continue;
-                var names = entry.Names ?? (IReadOnlyList<string>)Array.Empty<string>();
-                var effectiveNames = HostsEffectiveNames.Expand(names, expandHosts, domainValues, entry.Address ?? "");
-                rows.Add(new HostsPageRow(
-                    Id: $"{sourceKind}:{file.Path}:{entry.LineNumber}",
-                    SourceKind: sourceKind,
-                    SourcePath: file.Path,
-                    IsEditable: false,
-                    IsActive: isActive,
-                    InactiveReason: inactiveReason,
-                    Address: entry.Address ?? "",
-                    Names: names,
-                    EffectiveNames: effectiveNames,
-                    IsComment: entry.IsComment,
-                    LineNumber: entry.LineNumber,
-                    InlineComment: entry.InlineComment));
+                if (entry.IsPassthrough)
+                    continue;
+                rows.Add(ToRow(
+                    entry,
+                    id: $"{file.SourceKind}:{file.LoadOrder}:{file.Path}:{entry.LineNumber}",
+                    sourceKind: file.SourceKind,
+                    sourcePath: file.Path,
+                    isEditable: false,
+                    isActive: file.IsActive,
+                    inactiveReason: file.InactiveReason,
+                    config));
             }
         }
 
         return rows;
     }
 
-    private static HostsRowSourceKind DetermineSourceKind(
-        string filePath,
-        string? managedPathFull,
-        string? systemHostsPath,
-        string? hostsdirPathFull)
+    private static HostsPageRow ToRow(
+        HostEntry entry,
+        string id,
+        HostsRowSourceKind sourceKind,
+        string sourcePath,
+        bool isEditable,
+        bool isActive,
+        string? inactiveReason,
+        DnsmasqWebUI.Models.Dnsmasq.EffectiveConfig.EffectiveDnsmasqConfig config)
     {
-        var fullPath = Path.GetFullPath(filePath);
-        if (systemHostsPath != null && string.Equals(Path.GetFullPath(systemHostsPath), fullPath, StringComparison.Ordinal))
-            return HostsRowSourceKind.SystemHosts;
-        if (hostsdirPathFull != null && IsFileUnderDirectory(fullPath, hostsdirPathFull))
-            return HostsRowSourceKind.Hostsdir;
-        return HostsRowSourceKind.AddnHosts;
+        var names = entry.Names ?? (IReadOnlyList<string>)Array.Empty<string>();
+        return new HostsPageRow(
+            id,
+            sourceKind,
+            sourcePath,
+            isEditable,
+            isActive,
+            inactiveReason,
+            entry.Address ?? "",
+            names,
+            HostsEffectiveNames.Expand(names, config.ExpandHosts, config.DomainValues, entry.Address ?? ""),
+            entry.IsComment,
+            entry.LineNumber,
+            entry.InlineComment);
     }
 
+    private static string BuildSourceFingerprint(IReadOnlyList<HostSource> sources) =>
+        string.Join("\u001f", sources.Select(source => string.Join("\u001e",
+            (int)source.SourceKind,
+            source.Path,
+            source.ConfiguredPath,
+            source.IsDirectory,
+            source.IsActive,
+            source.InactiveReason ?? "",
+            source.LoadOrder,
+            source.Diagnostic ?? "",
+            GetSourceStamp(source))));
+
     /// <summary>
-    /// True if <paramref name="fileFullPath"/> is the directory itself or a path inside it.
-    /// Uses a directory separator after the parent prefix so a hostsdir of <c>/etc/dnsmasq/hosts</c>
-    /// does not match <c>/etc/dnsmasq/hosts-extra/file</c> (plain <see cref="string.StartsWith(string)"/> would).
+    /// Watchers are intentionally best-effort. A cheap metadata stamp makes ordinary reads self-healing
+    /// when an editor saves by rename or a watcher drops an event.
     /// </summary>
-    private static bool IsFileUnderDirectory(string fileFullPath, string directoryFullPath)
+    private static string GetSourceStamp(HostSource source)
     {
-        var dir = directoryFullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        if (dir.Length == 0)
-            return false;
-        if (string.Equals(fileFullPath, dir, StringComparison.Ordinal))
-            return true;
-        if (fileFullPath.StartsWith(dir + Path.DirectorySeparatorChar, StringComparison.Ordinal))
-            return true;
-        if (Path.DirectorySeparatorChar != Path.AltDirectorySeparatorChar
-            && fileFullPath.StartsWith(dir + Path.AltDirectorySeparatorChar, StringComparison.Ordinal))
-            return true;
-        return false;
+        try
+        {
+            if (source.IsDirectory)
+            {
+                var info = new DirectoryInfo(source.Path);
+                return info.Exists ? $"directory:{info.LastWriteTimeUtc.Ticks}" : "directory:missing";
+            }
+
+            var file = new FileInfo(source.Path);
+            return file.Exists ? $"file:{file.Length}:{file.LastWriteTimeUtc.Ticks}" : "file:missing";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return "unavailable";
+        }
     }
+
+    private static string? TryGetFullPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return null;
+        try
+        {
+            return Path.GetFullPath(path.Trim());
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return null;
+        }
+    }
+
+    private static bool PathsEqual(string left, string right) =>
+        string.Equals(left, right, StringComparison.Ordinal);
 
     public void Dispose()
     {
-        _watcherManaged?.Dispose();
-        _watcherManaged = null;
-        _watcherSystem?.Dispose();
-        _watcherSystem = null;
+        lock (_lock)
+        {
+            foreach (var watcher in _watchers.Values)
+                watcher.Dispose();
+            _watchers.Clear();
+        }
     }
+
+    private sealed record WatchDefinition(string Key, string Directory, string Filter, string Kind);
 }

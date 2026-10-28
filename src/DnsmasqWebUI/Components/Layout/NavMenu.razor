@@ -1,10 +1,12 @@
 @namespace DnsmasqWebUI.Components.Layout
 @using System.Reflection
 @using DnsmasqWebUI.Infrastructure.Services.UI.Notifications.Abstractions
+@using DnsmasqWebUI.Infrastructure.Services.EffectiveConfig.Abstractions
 @inject IOptions<ApplicationOptions> AppOptions
 @inject ISettingsModalService SettingsModalService
 @inject IUpdateCheckService UpdateCheckService
 @inject INotificationService NotificationService
+@inject IEffectiveConfigEditSession EffectiveConfigSession
 @implements IDisposable
 
 <div class="top-row ps-3 navbar navbar-dark">
@@ -49,6 +51,15 @@
                 <i class="bi bi-funnel-fill nav-icon" aria-hidden="true"></i> Filters
             </NavLink>
         </div>
+        @if (PendingChangeCount > 0)
+        {
+            <div class="nav-draft-indicator mx-3 mt-2" role="status">
+                <NavLink href="" Match="NavLinkMatch.All" class="nav-draft-link" title="Review unsaved DNS changes">
+                    <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                    <span>@PendingChangeCount unsaved DNS @(PendingChangeCount == 1 ? "change" : "changes")</span>
+                </NavLink>
+            </div>
+        }
     </nav>
     <div class="nav-footer px-3 py-2" aria-label="Links and version">
         <a class="nav-footer-link" href="https://github.com/alexhopeoconnor/dnsmasq-webui" target="_blank" rel="noopener noreferrer" title="dnsmasq-webui project on GitHub">Project</a>
@@ -89,21 +100,26 @@
         ? $"{ReleasesBaseUrl}/tag/v{BaseVersion(Version)}"
         : ReleasesBaseUrl;
     private string? AppTitle => AppOptions?.Value?.EffectiveTitle;
+    private int PendingChangeCount => EffectiveConfigSession.Draft.PendingChanges.Count;
 
     protected override void OnInitialized()
     {
         UpdateCheckService.ResultChanged += OnUpdateCheckResultChanged;
+        EffectiveConfigSession.Changed += OnEffectiveConfigSessionChanged;
     }
 
     public void Dispose()
     {
         UpdateCheckService.ResultChanged -= OnUpdateCheckResultChanged;
+        EffectiveConfigSession.Changed -= OnEffectiveConfigSessionChanged;
     }
 
     private void OnUpdateCheckResultChanged(object? sender, EventArgs e)
     {
         _ = InvokeAsync(StateHasChanged);
     }
+
+    private void OnEffectiveConfigSessionChanged() => _ = InvokeAsync(StateHasChanged);
 
     private string GetCheckButtonTooltip()
     {
